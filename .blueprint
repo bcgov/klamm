@@ -1,0 +1,74 @@
+created:
+    - database/factories/MinistryFactory.php
+    - database/factories/DivisionFactory.php
+    - database/factories/BranchFactory.php
+    - database/factories/ProgramFactory.php
+    - database/factories/ContactFactory.php
+    - database/factories/BusinessFormFactory.php
+    - database/factories/ActivityFactory.php
+    - database/factories/DataTypeFactory.php
+    - database/factories/SelectOptionsFactory.php
+    - database/factories/ValueTypeFactory.php
+    - database/factories/FormFieldFactory.php
+    - database/factories/DataSourceFactory.php
+    - database/factories/FieldGroupFactory.php
+    - database/factories/BusinessFormGroupFactory.php
+    - database/factories/PDFTemplateFactory.php
+    - database/factories/FormRepositoryFactory.php
+    - database/migrations/2024_04_12_175943_create_ministries_table.php
+    - database/migrations/2024_04_12_175944_create_divisions_table.php
+    - database/migrations/2024_04_12_175945_create_branches_table.php
+    - database/migrations/2024_04_12_175946_create_programs_table.php
+    - database/migrations/2024_04_12_175947_create_contacts_table.php
+    - database/migrations/2024_04_12_175948_create_business_forms_table.php
+    - database/migrations/2024_04_12_175949_create_activities_table.php
+    - database/migrations/2024_04_12_175950_create_data_types_table.php
+    - database/migrations/2024_04_12_175951_create_select_options_table.php
+    - database/migrations/2024_04_12_175952_create_value_types_table.php
+    - database/migrations/2024_04_12_175953_create_form_fields_table.php
+    - database/migrations/2024_04_12_175954_create_data_sources_table.php
+    - database/migrations/2024_04_12_175955_create_field_groups_table.php
+    - database/migrations/2024_04_12_175956_create_business_form_groups_table.php
+    - database/migrations/2024_04_12_175957_create_p_d_f_templates_table.php
+    - database/migrations/2024_04_12_175958_create_form_repositories_table.php
+    - database/migrations/2024_04_12_175959_create_branch_program_table.php
+    - database/migrations/2024_04_12_180000_create_business_form_program_table.php
+    - database/migrations/2024_04_12_180001_create_business_form_group_program_table.php
+    - database/migrations/2024_04_12_180002_create_activity_business_form_table.php
+    - database/migrations/2024_04_12_180003_create_business_form_form_repository_table.php
+    - database/migrations/2024_04_12_180004_create_business_form_form_group_table.php
+    - database/migrations/2024_04_12_180005_create_business_form_business_form_group_table.php
+    - app/Models/Ministry.php
+    - app/Models/Division.php
+    - app/Models/Branch.php
+    - app/Models/Program.php
+    - app/Models/Contact.php
+    - app/Models/BusinessForm.php
+    - app/Models/Activity.php
+    - app/Models/DataType.php
+    - app/Models/SelectOptions.php
+    - app/Models/ValueType.php
+    - app/Models/FormField.php
+    - app/Models/DataSource.php
+    - app/Models/FieldGroup.php
+    - app/Models/BusinessFormGroup.php
+    - app/Models/PDFTemplate.php
+    - app/Models/FormRepository.php
+models:
+    User: { name: string, email: string, email_verified_at: 'datetime nullable', password: string, remember_token: 'string nullable' }
+    Ministry: { short_name: 'string:20', name: 'string:400', relationships: { HasMany: Division } }
+    Division: { short_name: 'string:20', name: 'string:400', ministry_id: 'id foreign constrained', relationships: { HasMany: Branch } }
+    Branch: { short_name: 'string:20', name: 'string:400', division_id: 'id foreign constrained', relationships: { BelongsToMany: Program } }
+    Program: { name: 'string:400 nullable', short_name: 'string:20', description: 'text nullable', relationships: { BelongsToMany: 'Branch, BusinessForm, BusinessFormGroup' } }
+    Contact: { full_name: 'string:400', title: 'string:400 nullable', branch_id: 'id foreign constrained nullable', description: text }
+    BusinessForm: { name: 'string:400', code: 'string:400 nullable', short_description: 'text nullable', long_description: 'text nullable', internal_description: 'text nullable', ado_identifier: 'text nullable', relationships: { BelongsToMany: 'Program, Activity, FormRepository, FormGroup' } }
+    Activity: { summary: text, description: text, submitter: 'id foreign:Users constrained', ado_item: 'text nullable', relationships: { BelongsToMany: BusinessForm } }
+    DataType: { name: 'string:400', value_type_id: 'id foreign constrained', short_description: 'text nullable', long_description: 'text nullable', validation: 'text nullable' }
+    SelectOptions: { name: 'string:400', label: 'string:400 nullable', value: 'string:400 nullable', description: 'text nullable', data_type_id: 'id foreign constrained' }
+    ValueType: { name: 'string:400', description: 'text nullable' }
+    FormField: { name: 'string:400', label: 'string:400 nullable', help_text: 'text nullable', data_type_id: 'id foreign constrained', description: 'text nullable', field_group_id: 'id foreign constrained nullable', validation: 'text nullable', required: 'boolean default:true', repeater: 'boolean default:false', max_count: 'intger nullable', conditional_logic: 'text nullable', prepopulated: 'boolean default:false', datasource_id: 'id foreign constrained nullable' }
+    DataSource: { name: 'string:400', description: 'text nullable', documentation: 'text nullable' }
+    FieldGroup: { name: 'string:400', label: 'string:400 nullable', description: 'text nullable', internal_description: 'text nullable', repeater: 'boolean default:false' }
+    BusinessFormGroup: { name: 'string:400', description: 'text nullable', relationships: { belongsToMany: 'Program, BusinessForm' } }
+    PDFTemplate: { name: text, businessForm_id: 'id foreign constrained', description: 'text nullable' }
+    FormRepository: { name: 'string:400', description: 'text nullable', location: 'text nullable', custodian_id: 'id foreign:contacts constrained nullable', relationships: { BelongsToMany: BusinessForm } }
