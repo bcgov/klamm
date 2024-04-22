@@ -58,6 +58,6 @@ class FormField extends Model
 
     public function datasource(): BelongsTo
     {
-        return $this->belongsTo(Datasource::class);
+        return $this->belongsTo(DataSource::class);
     }
 }
