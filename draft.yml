@@ -72,6 +72,9 @@ models:
     conditional_logic: text nullable
     prepopulated: boolean default:false
     datasource_id: id foreign constrained nullable
+  FormBuilder:
+    name: string:400
+    description: text
   DataSource:
     name: string:400
     description: text nullable
@@ -98,5 +101,8 @@ models:
     custodian_id: id foreign:contacts constrained nullable
     relationships:
       BelongsToMany: BusinessForm
-  ICMFields:
+  DataSourceFields:
+    data_source_id: id foreign constrained
+    name: string:400
+    description: text nullable
 

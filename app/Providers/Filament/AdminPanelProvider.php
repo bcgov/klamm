@@ -26,6 +26,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->brandLogo(asset('svg/Klamm-logo.svg'))
             ->login()
             ->colors([
                 'primary' => Color::Blue,
