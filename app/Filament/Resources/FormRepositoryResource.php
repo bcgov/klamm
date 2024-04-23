@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\BusinessFormResource\RelationManagers\BusinessFormGroupRelationManager;
 use App\Filament\Resources\FormRepositoryResource\Pages;
 use App\Filament\Resources\FormRepositoryResource\RelationManagers;
 use App\Models\FormRepository;
@@ -72,7 +73,7 @@ class FormRepositoryResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BusinessFormRelationManager::class,
         ];
     }
 

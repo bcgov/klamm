@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\FieldGroupResource\RelationManagers\FormFieldRelationManager;
 use App\Filament\Resources\FormFieldResource\Pages;
 use App\Filament\Resources\FormFieldResource\RelationManagers;
 use App\Models\FormField;
@@ -104,7 +105,7 @@ class FormFieldResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            FormFieldRelationManager::class,
         ];
     }
 

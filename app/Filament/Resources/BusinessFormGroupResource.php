@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BusinessFormGroupResource\Pages;
 use App\Filament\Resources\BusinessFormGroupResource\RelationManagers;
+use App\Filament\Resources\BusinessFormResource\RelationManagers\BusinessFormGroupRelationManager;
 use App\Models\BusinessFormGroup;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -64,7 +65,7 @@ class BusinessFormGroupResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BusinessFormRelationManager::class
         ];
     }
 

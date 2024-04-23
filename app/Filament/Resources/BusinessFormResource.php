@@ -7,6 +7,7 @@ use App\Filament\Resources\BusinessFormResource\RelationManagers;
 use App\Models\BusinessForm;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -76,7 +77,11 @@ class BusinessFormResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\BusinessFormGroupRelationManager::class,
+            RelationManagers\FieldGroupRelationManager::class,
+            RelationManagers\FormFieldRelationManager::class,
+            RelationManagers\FormRepositoryRelationManager::class,
+            RelationManagers\ProgramRelationManager::class
         ];
     }
 
