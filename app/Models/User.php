@@ -34,7 +34,7 @@ class User extends Authenticatable implements FilamentUser
         'remember_token',
     ];
 
-    public function canAccessFilament(Panel $panel): bool
+    public function canAccessPanel(Panel $panel): bool
     {
         //TODO: Make good authentication
         return true;
