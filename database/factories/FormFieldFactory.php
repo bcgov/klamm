@@ -4,8 +4,8 @@ namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
+use App\Models\DataSource;
 use App\Models\DataType;
-use App\Models\Datasource;
 use App\Models\FieldGroup;
 use App\Models\FormField;
 
@@ -36,7 +36,7 @@ class FormFieldFactory extends Factory
             'max_count' => $this->faker->word(),
             'conditional_logic' => $this->faker->text(),
             'prepopulated' => $this->faker->boolean(),
-            'datasource_id' => Datasource::factory(),
+            'data_source_id' => DataSource::factory(),
         ];
     }
 }

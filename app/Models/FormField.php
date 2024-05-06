@@ -28,7 +28,7 @@ class FormField extends Model
         'max_count',
         'conditional_logic',
         'prepopulated',
-        'datasource_id',
+        'data_source_id',
     ];
 
     /**
@@ -43,7 +43,7 @@ class FormField extends Model
         'required' => 'boolean',
         'repeater' => 'boolean',
         'prepopulated' => 'boolean',
-        'datasource_id' => 'integer',
+        'data_source_id' => 'integer',
     ];
 
     public function dataType(): BelongsTo
@@ -56,8 +56,8 @@ class FormField extends Model
         return $this->belongsTo(FieldGroup::class);
     }
 
-    public function datasource(): BelongsTo
+    public function dataSource(): BelongsTo
     {
-        return $this->belongsTo(Datasource::class);
+        return $this->belongsTo(DataSource::class);
     }
 }

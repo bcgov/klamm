@@ -71,7 +71,7 @@ models:
     max_count: intger nullable
     conditional_logic: text nullable
     prepopulated: boolean default:false
-    datasource_id: id foreign constrained nullable
+    data_source_id: id foreign constrained nullable
   FormBuilder:
     name: string:400
     description: text
