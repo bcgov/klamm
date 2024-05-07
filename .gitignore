@@ -56,6 +56,4 @@ yarn-error.log
 /database/migrations/2024_05_06_232510_create_business_form_business_form_group_table.php
 /database/database.sqlite
 /.blueprint
-/.blueprint
-
-*storage/logs/laravel.log
+/storage/logs/laravel.log
