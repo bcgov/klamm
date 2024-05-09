@@ -8,9 +8,69 @@ Klamm is intended to be a data-capture tool for use by Sector Priorities, it sho
 - Allow the Business Rules Engine team to contribute their discoveries of data sources.
 - Allow the FODIG teams to track their data-repository discoveries.
 
-Klamm is built using [FilamentPHP][https://filamentphp.com] which is itself built atop [Laravel][https://laravel.com].
+Klamm is built using [FilamentPHP](https://filamentphp.com) which is itself built atop [Laravel](https://laravel.com).
 
 It also uses Blueprint to speed up the generation of model boilerplate. 
+
+## Setup Instructions
+
+Requirements:
+- [PHP](https://www.php.net/manual/en/install.php)
+- [Composer](https://getcomposer.org/doc/00-intro.md)
+- [nvm - optional but can manage node/npm versions](https://github.com/nvm-sh/nvm)
+- [Node](https://nodejs.org/en/download)
+- [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
+
+Clone the repository:
+
+`git clone https://github.com/jeremy-vernon-bcgov/Klamm.git`
+
+Navigate into the repository:
+
+`cd KLAMM`
+
+Install the dependencies:
+```
+composer install
+npm install
+```
+
+Copy the env file:
+
+`cp .env.example .env`
+
+Generate a new application key:
+
+`php artisan key:generate`
+
+Build from the blueprint:
+`php artisan blueprint:build`
+
+Create the SQLite DB:
+
+`touch database/database.sqlite`
+
+Run the migrations:
+
+`php artisan migrate`
+
+Run the seeders:
+
+`php artisan db:seed`
+
+Run and serve the application (run each command in a separate terminal instance):
+```
+npm run dev
+php artisan serve
+```
+
+The page should be accessable at:
+
+`http://localhost:8000/admin`
+
+Generate a new user by following the prompts after running this command:
+
+`php artisan create-admin-user`
 
 ## Caution regarding auto-generated content.
 
