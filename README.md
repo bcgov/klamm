@@ -17,60 +17,61 @@ It also uses Blueprint to speed up the generation of model boilerplate.
 Requirements:
 - [PHP](https://www.php.net/manual/en/install.php)
 - [Composer](https://getcomposer.org/doc/00-intro.md)
-- [nvm - optional but can manage node/npm versions](https://github.com/nvm-sh/nvm)
-- [Node](https://nodejs.org/en/download)
-- [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 
 Clone the repository:
-
-`git clone https://github.com/jeremy-vernon-bcgov/Klamm.git`
+```
+git clone https://github.com/jeremy-vernon-bcgov/Klamm.git
+```
 
 Navigate into the repository:
-
-`cd KLAMM`
+```
+cd KLAMM
+```
 
 Install the dependencies:
 ```
 composer install
-npm install
 ```
 
 Copy the env file:
-
-`cp .env.example .env`
+```
+cp .env.example .env
+```
 
 Generate a new application key:
-
-`php artisan key:generate`
-
-Build from the blueprint:
-`php artisan blueprint:build`
+```
+php artisan key:generate
+```
 
 Create the SQLite DB:
-
-`touch database/database.sqlite`
+```
+touch database/database.sqlite
+```
 
 Run the migrations:
-
-`php artisan migrate`
+```
+php artisan migrate
+```
 
 Run the seeders:
-
-`php artisan db:seed`
+```
+php artisan db:seed
+```
 
 Run and serve the application (run each command in a separate terminal instance):
 ```
-npm run dev
 php artisan serve
 ```
 
 The page should be accessable at:
-
-`http://localhost:8000/admin`
+```
+http://localhost:8000/admin
+```
 
 Generate a new user by following the prompts after running this command:
-
-`php artisan create-admin-user`
+```
+php artisan create-admin-user
+```
 
 ## Caution regarding auto-generated content.
 
