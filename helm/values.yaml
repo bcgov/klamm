@@ -1,0 +1,6 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/kiiskila-bcgov/klamm
+  pullPolicy: Always
+  tag: "dev"

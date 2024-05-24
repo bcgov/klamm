@@ -43,5 +43,11 @@ class UserSeeder extends Seeder
         $bojan->password = Hash::make('thisisunsafe');
         $bojan->save();
 
+        $will = new User();
+        $will->name = 'Will';
+        $will->email = 'will.kiiskila@gov.bc.ca';
+        $will->email_verified_at = date('Y-m-d H:i:s');
+        $will->password = Hash::make('thisisunsafe');
+        $will->save();
     }
 }

@@ -1,0 +1,12 @@
+services:
+    app:
+        build:
+            context: .
+        volumes:
+            - .:/var/www
+            - ./database/database.sqlite:/var/www/database/database.sqlite
+        ports:
+            - "8080:80"
+        environment:
+            - APACHE_DOCUMENT_ROOT=/var/www/public
+        container_name: klamm_app

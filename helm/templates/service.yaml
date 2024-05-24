@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: klamm-app
+  labels:
+    app.kubernetes.io/name: klamm-app
+spec:
+  selector:
+    app.kubernetes.io/name: klamm-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

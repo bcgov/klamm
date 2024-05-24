@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: klamm-app
+  labels:
+    app.kubernetes.io/name: klamm-app
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: klamm-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: klamm-app
+    spec:
+      containers:
+        - name: klamm-app
+          image: "{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /var/www/storage
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+      volumes:
+        - name: storage-volume
+          persistentVolumeClaim:
+            claimName: storage-pvc
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
