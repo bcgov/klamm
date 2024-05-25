@@ -57,17 +57,26 @@ COPY ports.conf /etc/apache2/ports.conf
 COPY apache2.conf /etc/apache2/apache2.conf
 COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
-# Copy environment file and generate app key
-COPY .env.prod.example /var/www/.env
-RUN php artisan key:generate 
+# Generate APP_KEY
+RUN echo "APP_KEY=" > .env
+RUN php artisan key:generate
 
-# Run migrations, seeders, and clear caches
+# Run the migrations and seeders
+# todo -- delete once postgres and IDIR auth have been deployed
 RUN php artisan migrate --force \
-    && php artisan db:seed --force \
-    && php artisan cache:clear \
+    && php artisan db:seed --force
+
+# Clear caches
+RUN php artisan cache:clear \
     && php artisan config:clear \
     && php artisan route:clear \
     && php artisan view:clear
+
+# Cache configurations
+RUN php artisan config:cache \
+    && php artisan event:cache \
+    && php artisan route:cache \
+    && php artisan view:cache 
 
 # Expose ports
 EXPOSE 8080 443
