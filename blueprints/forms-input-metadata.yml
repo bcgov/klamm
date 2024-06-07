@@ -1,0 +1,12 @@
+
+models:
+  DataType:
+    name: string:400
+    value_type_id: id foreign constrained
+    short_description: text nullable
+    long_description: text nullable
+    validation: text nullable
+  ValueType:
+    name: string:400
+    description: text nullable
+

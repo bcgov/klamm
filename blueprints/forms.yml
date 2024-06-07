@@ -1,0 +1,57 @@
+models:
+  #Table is called "businessform" to disambiguate and avoid "the form of the form form " etc.
+  # We need a better name.
+  BusinessForm:
+    name: string:400
+    code: string:400 nullable
+    short_description: text nullable
+    long_description: text nullable
+    internal_description: text nullable
+    ado_identifier: text nullable
+    relationships:
+      BelongsToMany: Program, Activity, FormRepository, FormGroup
+  BusinessFormGroup:
+    name: string:400
+    description: text nullable
+    relationships:
+      belongsToMany: Program, BusinessForm
+  FormField:
+    name: string:400
+    label: string:400 nullable
+    help_text: text nullable
+    data_type_id: id foreign constrained
+    description: text nullable
+    field_group_id: id foreign constrained nullable
+    validation: text nullable
+    required: boolean default:true
+    repeater: boolean default:false
+    max_count: intger nullable
+    conditional_logic: text nullable
+    prepopulated: boolean default:false
+    data_source_id: id foreign constrained nullable
+  FieldGroup:
+    name: string:400
+    label: string:400 nullable
+    description: text nullable
+    internal_description: text nullable
+    repeater: boolean default:false
+  SelectOptions:
+    name: string:400
+    label: string:400 nullable
+    value: string:400 nullable
+    description: text nullable
+    data_type_id: id foreign constrained
+  FormBuilder:
+    name: string:400
+    description: text
+  PDFTemplate:
+    name: text
+    businessForm_id: id foreign constrained
+    description: text nullable
+  FormRepository:
+    name: string:400
+    description: text nullable
+    location: text nullable
+    custodian_id: id foreign:contacts constrained nullable
+    relationships:
+      BelongsToMany: BusinessForm

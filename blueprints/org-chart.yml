@@ -1,0 +1,32 @@
+# ORG CHART MODELS
+# Models related to people, organizational units and other business domain organizations
+# User models are excluded but may be mapped to a Branch or Division
+models:
+  Ministry:
+    short_name: string:20
+    name: string:400
+    relationships:
+      HasMany: Division
+  Division:
+    short_name: string:20
+    name: string:400
+    ministry_id: id foreign constrained
+    relationships:
+      HasMany: Branch
+  Branch:
+    short_name: string:20
+    name: string:400
+    division_id: id foreign constrained
+    relationships:
+      BelongsToMany: Program
+  Program:
+    name: string:400 nullable
+    short_name: string:20
+    description: text nullable
+    relationships:
+      BelongsToMany: Branch, BusinessForm, BusinessFormGroup
+  Contact:
+    full_name: string:400
+    title: string:400 nullable
+    branch_id: id foreign constrained nullable
+    description: text

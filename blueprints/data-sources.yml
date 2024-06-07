@@ -1,0 +1,12 @@
+model:
+  DataSource:
+    name: string:400
+    description: text nullable
+    documentation: text nullable
+  DataSourceFields:
+  DataTable:
+  DataColumn:
+    canonical_name: text
+    friendly_name: text nullable
+    canonical_description: text
+    friendly_description: text nullable
