@@ -11,17 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::disableForeignKeyConstraints();
-
-        Schema::create('p_d_f_templates', function (Blueprint $table) {
+        Schema::create('datasources', function (Blueprint $table) {
             $table->id();
-            $table->text('name');
-            $table->foreignId('business_form_id')->constrained();
-            $table->text('description')->nullable();
+            $table->string('name');
             $table->timestamps();
         });
-
-        Schema::enableForeignKeyConstraints();
     }
 
     /**
@@ -29,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('p_d_f_templates');
+        Schema::dropIfExists('datasources');
     }
 };

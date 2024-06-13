@@ -3,6 +3,7 @@ FROM php:8.2-apache
 
 # Install system dependencies for PHP extensions and other utilities
 RUN apt-get update && apt-get install -y \
+    libpq-dev \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
@@ -12,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     git \
     curl \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd intl zip \
+    postgresql-client \
+    && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache mod_rewrite
@@ -60,11 +62,6 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 # Generate APP_KEY
 RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
-
-# Run the migrations and seeders
-# todo -- delete once postgres and IDIR auth have been deployed
-RUN php artisan migrate --force \
-    && php artisan db:seed --force
 
 # Clear caches
 RUN php artisan cache:clear \

@@ -27,7 +27,7 @@ return new class extends Migration
             $table->string('max_count')->nullable();
             $table->text('conditional_logic')->nullable();
             $table->boolean('prepopulated')->default(false);
-            $table->foreignId('datasource_id')->nullable()->constrained();
+            $table->foreignId('datasource_id')->nullable()->constrained('datasources');
             $table->timestamps();
         });
 

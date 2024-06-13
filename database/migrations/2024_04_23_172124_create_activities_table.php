@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->text('summary');
             $table->text('description');
-            $table->foreignId('submitter')->constrained('Users', 'submitter');
+            $table->foreignId('submitter')->constrained('users');
             $table->text('ado_item')->nullable();
             $table->timestamps();
         });

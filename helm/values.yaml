@@ -15,3 +15,10 @@ resources:
 
 pvc:
   storage: "100Mi"
+
+db:
+  host: "patroni-cluster"
+  port: 5432
+  name: "app"
+  username: "app"
+  password: "<app-db-password>"
