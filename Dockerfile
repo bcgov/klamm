@@ -72,8 +72,8 @@ RUN php artisan cache:clear \
 # Cache configurations
 RUN php artisan config:cache \
     && php artisan event:cache \
-    && php artisan route:cache \
-    && php artisan view:cache 
+    && php artisan route:cache
+    #&& php artisan view:cache 
 
 # Expose ports
 EXPOSE 8080 443
