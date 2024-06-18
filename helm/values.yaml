@@ -7,10 +7,10 @@ image:
 
 resources:
   limits:
-    cpu: "500m"
+    cpu: "300m"
     memory: "256Mi"
   requests:
-    cpu: "250m"
+    cpu: "150m"
     memory: "128Mi"
 
 pvc:

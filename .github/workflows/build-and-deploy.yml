@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dev
+      - test
 
 env:
   REGISTRY: ghcr.io
@@ -52,8 +53,8 @@ jobs:
         uses: redhat-actions/oc-login@v1
         with:
           openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
-          namespace: ${{ github.ref == 'refs/heads/main' && secrets.OPENSHIFT_PROD_NAMESPACE || secrets.OPENSHIFT_DEV_NAMESPACE }}
-          openshift_token: ${{ github.ref == 'refs/heads/main' && secrets.OPENSHIFT_PROD_TOKEN || secrets.OPENSHIFT_DEV_TOKEN }}
+          namespace: ${{ github.ref == 'refs/heads/main' && secrets.OPENSHIFT_PROD_NAMESPACE || (github.ref == 'refs/heads/dev' && secrets.OPENSHIFT_DEV_NAMESPACE) || secrets.OPENSHIFT_TEST_NAMESPACE }}
+          openshift_token: ${{ github.ref == 'refs/heads/main' && secrets.OPENSHIFT_PROD_TOKEN || (github.ref == 'refs/heads/dev' && secrets.OPENSHIFT_DEV_TOKEN) || secrets.OPENSHIFT_TEST_TOKEN }}
           insecure_skip_tls_verify: true
 
       - name: Run Helm upgrade
