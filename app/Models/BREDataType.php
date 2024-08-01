@@ -10,6 +10,8 @@ class BREDataType extends Model
 {
     use HasFactory;
 
+    protected $table = 'bre_data_types';
+
     /**
      * The attributes that are mass assignable.
      *

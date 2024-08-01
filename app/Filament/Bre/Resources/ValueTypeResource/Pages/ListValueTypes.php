@@ -9,11 +9,13 @@ use Filament\Resources\Pages\ListRecords;
 class ListValueTypes extends ListRecords
 {
     protected static string $resource = ValueTypeResource::class;
+    protected static ?string $title = 'Field Value Types';
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label(__('Add New Field Value Type')),
         ];
     }
 }

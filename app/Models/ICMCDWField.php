@@ -4,13 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-
-class BREFieldGroup extends Model
+class ICMCDWField extends Model
 {
     use HasFactory;
-    protected $table = 'bre_field_groups';
+    protected $table = 'icm_cdw_fields';
     /**
      * The attributes that are mass assignable.
      *
@@ -18,9 +16,18 @@ class BREFieldGroup extends Model
      */
     protected $fillable = [
         'name',
-        'label',
-        'description',
-        'internal_description',
+        'field',
+        'panel_type',
+        'entity',
+        'path',
+        'subject_area',
+        'applet',
+        'datatype',
+        'field_input_max_length',
+        'ministry',
+        'cdw_ui_caption',
+        'cdw_table_name',
+        'cdw_column_name'
     ];
 
     /**
@@ -34,6 +41,6 @@ class BREFieldGroup extends Model
 
     public function breFields()
     {
-        return $this->belongsToMany(BreField::class, 'bre_field_bre_field_group', 'bre_field_group_id', 'bre_field_id')->withTimestamps();
+        return $this->belongsToMany(BREField::class, 'bre_field_icm_cdw_field', 'icm_cdw_field_id', 'bre_field_id')->withTimestamps();
     }
 }

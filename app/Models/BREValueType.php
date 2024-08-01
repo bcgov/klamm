@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class BREValueType extends Model
 {
     use HasFactory;
+    protected $table = 'bre_value_types';
 
     /**
      * The attributes that are mass assignable.

@@ -31,11 +31,19 @@ class FieldResource extends Resource
                 Forms\Components\Select::make('data_type_id')
                     ->relationship('breDataType', 'name')
                     ->required(),
-                Forms\Components\Textarea::make('description')
-                    ->columnSpanFull(),
                 Forms\Components\Select::make('field_group_id')
                     ->multiple()
                     ->relationship('breFieldGroups', 'name'),
+                Forms\Components\Textarea::make('description')
+                    ->columnSpanFull(),
+                Forms\Components\Select::make('input_rules')
+                    ->label('Used as Inputs by Rules:')
+                    ->multiple()
+                    ->relationship('breInputs', 'name'),
+                Forms\Components\Select::make('output_fields')
+                    ->label('Returned as Outputs by Rules:')
+                    ->multiple()
+                    ->relationship('breOutputs', 'name'),
             ]);
     }
 
@@ -49,10 +57,21 @@ class FieldResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('breDataType.name')
                     ->label('Data Type')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroupNames')
                     ->label('Field Groups')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('breInputs.name')
+                    ->label('Rules: Inputs')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('breOutputs.name')
+                    ->label('Rules: Outputs')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

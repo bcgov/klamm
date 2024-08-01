@@ -60,7 +60,7 @@ class BREValueTypeSeeder extends Seeder
 
         $blob = new BREValueType();
         $blob->name = 'Blob';
-        $blob->description = 'Blob values are file ipunts or data- (e.g. attachments, formdata, etc.)';
+        $blob->description = 'Blob values are file inputs or data- (e.g. attachments, formdata, etc.)';
         $blob->save();
     }
 }

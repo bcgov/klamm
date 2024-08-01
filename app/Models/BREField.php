@@ -12,6 +12,7 @@ use App\Models\FieldGroup;
 class BREField extends Model
 {
     use HasFactory;
+    protected $table = 'bre_fields';
 
     /**
      * The attributes that are mass assignable.
@@ -43,7 +44,7 @@ class BREField extends Model
 
     public function breFieldGroups()
     {
-        return $this->belongsToMany(BreFieldGroup::class)->withTimestamps();
+        return $this->belongsToMany(BreFieldGroup::class, 'bre_field_bre_field_group', 'bre_field_id', 'bre_field_group_id')->withTimestamps();
     }
 
     // Accessor for field group names
@@ -52,4 +53,18 @@ class BREField extends Model
         return $this->breFieldGroups->pluck('name')->join(', ');
     }
 
+    public function breInputs()
+    {
+        return $this->belongsToMany(BRERule::class, 'bre_field_bre_rule_input', 'bre_field_id', 'bre_rule_id')->withTimestamps();
+    }
+    public function breOutputs()
+    {
+        return $this->belongsToMany(BRERule::class, 'bre_field_bre_rule_output', 'bre_field_id', 'bre_rule_id')->withTimestamps();
+    }
+
+
+    public function breRules()
+    {
+        return $this->belongsToMany(BRERule::class)->withTimestamps();
+    }
 }

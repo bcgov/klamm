@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class BRERule extends Model
 {
     use HasFactory;
+    protected $table = 'bre_rules';
     /**
      * The attributes that are mass assignable.
      *
@@ -32,21 +33,21 @@ class BRERule extends Model
 
     public function breInputs()
     {
-        return $this->belongsToMany(BreField::class, 'b_r_e_field_b_r_e_rule_input', 'b_r_e_rule_id', 'b_r_e_field_id')->withTimestamps();
+        return $this->belongsToMany(BreField::class, 'bre_field_bre_rule_input', 'bre_rule_id', 'bre_field_id')->withTimestamps();
     }
     public function breOutputs()
     {
-        return $this->belongsToMany(BreField::class, 'b_r_e_field_b_r_e_rule_output', 'b_r_e_rule_id', 'b_r_e_field_id')->withTimestamps();
+        return $this->belongsToMany(BreField::class, 'bre_field_bre_rule_output', 'bre_rule_id', 'bre_field_id')->withTimestamps();
     }
 
     public function parentRules()
     {
-        return $this->belongsToMany(BreRule::class, 'b_r_e_rule_b_r_e_rule', 'parent_rule_id', 'child_rule_id');
+        return $this->belongsToMany(BreRule::class, 'bre_rule_bre_rule', 'parent_rule_id', 'child_rule_id');
     }
 
     // Define the relationship for child rules
     public function childRules()
     {
-        return $this->belongsToMany(BreRule::class, 'b_r_e_rule_b_r_e_rule', 'child_rule_id', 'parent_rule_id');
+        return $this->belongsToMany(BreRule::class, 'bre_rule_bre_rule', 'child_rule_id', 'parent_rule_id');
     }
 }

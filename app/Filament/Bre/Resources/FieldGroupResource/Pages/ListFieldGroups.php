@@ -9,11 +9,13 @@ use Filament\Resources\Pages\ListRecords;
 class ListFieldGroups extends ListRecords
 {
     protected static string $resource = FieldGroupResource::class;
+    protected static ?string $title = 'BRE Rule Field Groups';
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label(__('Add New Rule Field Group')),
         ];
     }
 }

@@ -13,12 +13,9 @@ return new class extends Migration
     {
         Schema::disableForeignKeyConstraints();
 
-        Schema::create('b_r_e_fields', function (Blueprint $table) {
+        Schema::create('bre_value_types', function (Blueprint $table) {
             $table->id();
             $table->string('name', 400);
-            $table->string('label', 400)->nullable();
-            $table->text('help_text')->nullable();
-            $table->foreignId('data_type_id')->constrained();
             $table->text('description')->nullable();
             $table->timestamps();
         });
@@ -31,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('b_r_e_fields');
+        Schema::dropIfExists('bre_value_types');
     }
 };
