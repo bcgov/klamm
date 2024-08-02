@@ -4,11 +4,14 @@ namespace App\Filament\Bre\Resources;
 
 use App\Filament\Bre\Resources\FieldResource\Pages;
 use App\Models\BREField;
+use App\Models\ICMCDWField;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class FieldResource extends Resource
 {
@@ -17,7 +20,6 @@ class FieldResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationGroup = 'Rule Building';
-
 
     public static function form(Form $form): Form
     {
@@ -44,6 +46,15 @@ class FieldResource extends Resource
                     ->label('Returned as Outputs by Rules:')
                     ->multiple()
                     ->relationship('breOutputs', 'name'),
+                Forms\Components\Select::make('icmcdwFieldsTest')
+                    ->label('Related ICM CDW Fields:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'icmcdwFields',
+                        modifyQueryUsing: fn (Builder $query) => $query->orderBy('name')->orderBy('field')->orderBy('panel_type')->orderBy('entity')->orderBy('subject_area')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
+                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area'])
             ]);
     }
 
@@ -61,7 +72,15 @@ class FieldResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroupNames')
                     ->label('Field Groups')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('input_output_type')
+                    ->label('Input/Output?')
+                    ->default(function ($record) {
+                        return $record->getInputOutputType();
+                    })
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Rules: Inputs')
                     ->sortable()
@@ -72,6 +91,11 @@ class FieldResource extends Resource
                     ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('icmcdwFields.name')
+                    ->label('Related ICM CDW Fields')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

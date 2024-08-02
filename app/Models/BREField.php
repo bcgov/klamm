@@ -62,6 +62,26 @@ class BREField extends Model
         return $this->belongsToMany(BRERule::class, 'bre_field_bre_rule_output', 'bre_field_id', 'bre_rule_id')->withTimestamps();
     }
 
+    public function icmcdwFields()
+    {
+        return $this->belongsToMany(ICMCDWField::class, 'bre_field_icm_cdw_field', 'bre_field_id', 'icm_cdw_field_id')->withTimestamps();
+    }
+
+    public function getInputOutputType()
+    {
+        $hasInputs = $this->breInputs()->exists();
+        $hasOutputs = $this->breOutputs()->exists();
+
+        if ($hasInputs && $hasOutputs) {
+            return 'input/output';
+        } elseif ($hasInputs) {
+            return 'input';
+        } elseif ($hasOutputs) {
+            return 'output';
+        } else {
+            return '';
+        }
+    }
 
     public function breRules()
     {

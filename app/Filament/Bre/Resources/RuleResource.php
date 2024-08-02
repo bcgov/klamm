@@ -7,7 +7,10 @@ use App\Filament\Bre\Resources\RuleResource\RelationManagers;
 use App\Models\BRERule;
 use App\Models\Rule;
 use Filament\Forms;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Infolists\Infolist;
 use Filament\Forms\Form;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -16,6 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class RuleResource extends Resource
 {
+    use InteractsWithForms;
     protected static ?string $model = BRERule::class;
     protected static ?string $navigationLabel = 'BRE Rules';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
@@ -45,6 +49,34 @@ class RuleResource extends Resource
                 Forms\Components\Select::make('child_rules')
                     ->multiple()
                     ->relationship('childRules', 'name'),
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                TextEntry::make('name'),
+                TextEntry::make('label'),
+                TextEntry::make('description'),
+                TextEntry::make('internal_description'),
+                TextEntry::make('breInputs.name')
+                    ->badge('success'),
+                TextEntry::make('breOutputs.name')
+                    ->badge('success'),
+                TextEntry::make('parentRules.name')
+                    ->badge('success'),
+                TextEntry::make('childRules.name')
+                    ->badge('success'),
+                TextEntry::make('related_icm_cdw_fields.name')
+                    ->badge('success')
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getRelatedIcmCDWFields();
+                        }
+                        return [];
+                    })
+                    ->label('ICM CDW Fields used by the inputs and outputs of this Rule')
             ]);
     }
 
@@ -79,6 +111,18 @@ class RuleResource extends Resource
                     ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('related_icm_cdw_fields')
+                    ->label('ICM CDW Fields used')
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getRelatedIcmCDWFields();
+                        }
+                        return [];
+                    })
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: false),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

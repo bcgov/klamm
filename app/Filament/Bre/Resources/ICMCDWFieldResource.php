@@ -40,6 +40,10 @@ class ICMCDWFieldResource extends Resource
                 Forms\Components\TextInput::make('cdw_ui_caption'),
                 Forms\Components\TextInput::make('cdw_table_name'),
                 Forms\Components\TextInput::make('cdw_column_name'),
+                Forms\Components\Select::make('breFields')
+                    ->label('Related BRE Fields:')
+                    ->multiple()
+                    ->relationship('breFields', 'name'),
             ]);
     }
 
@@ -82,6 +86,11 @@ class ICMCDWFieldResource extends Resource
                 Tables\Columns\TextColumn::make('cdw_table_name')
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('cdw_column_name')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('breFields.name')
+                    ->label('Related BRE Fields')
+                    ->sortable()
+                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
