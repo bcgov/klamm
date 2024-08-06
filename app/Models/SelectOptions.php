@@ -20,7 +20,7 @@ class SelectOptions extends Model
         'label',
         'value',
         'description',
-        'data_type_id',
+        'form_field_id',
     ];
 
     /**
@@ -30,11 +30,11 @@ class SelectOptions extends Model
      */
     protected $casts = [
         'id' => 'integer',
-        'data_type_id' => 'integer',
+        'form_field_id' => 'integer',
     ];
 
-    public function dataType(): BelongsTo
+    public function formField(): BelongsTo
     {
-        return $this->belongsTo(DataType::class);
+        return $this->belongsTo(FormField::class);
     }
 }

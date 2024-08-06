@@ -43,11 +43,6 @@ class BusinessForm extends Model
         return $this->belongsToMany(Activity::class);
     }
 
-    public function formRepositories(): BelongsToMany
-    {
-        return $this->belongsToMany(FormRepository::class);
-    }
-
     public function formGroups(): BelongsToMany
     {
         return $this->belongsToMany(\App\Models\BusinessFormGroup::class);

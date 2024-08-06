@@ -17,6 +17,9 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Althinect\FilamentSpatieRolesPermissions\FilamentSpatieRolesPermissionsPlugin;
+use App\Http\Middleware\CheckRole;
+use Filament\Navigation\MenuItem;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -26,21 +29,29 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->brandLogo(asset('svg/Klamm-logo.svg'))
+            ->brandLogo(asset('svg/klamm-logo.svg'))
+            ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
+            ->homeUrl('/welcome')
             ->login()
             ->colors([
                 'primary' => Color::Blue,
             ])
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
-            ->pages([
-                Pages\Dashboard::class,
+            ->userMenuItems([
+                MenuItem::make()
+                   ->label('Edit Profile')
+                   ->url('/profile')
+                   ->icon('heroicon-o-pencil-square')
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
+            ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
+            ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
+            ->pages([
+                //
+            ])
+            ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-
             ])
+            ->plugin(FilamentSpatieRolesPermissionsPlugin::make())
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -54,6 +65,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                CheckRole::class . ':admin',
             ]);
     }
 }

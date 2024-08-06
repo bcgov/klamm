@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -22,32 +21,89 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $jeremy = new User();
-        $jeremy->name = 'Jeremy';
-        $jeremy->email = 'jeremy.vernon@gov.bc.ca';
-        $jeremy->email_verified_at = date('Y-m-d H:i:s');
-        $jeremy->password = Hash::make('thisisunsafe');
-        $jeremy->save();
+        $users = [
+            [
+                'name' => 'Jeremy',
+                'email' => 'jeremy.vernon@gov.bc.ca',
+                'password' => 'thisisunsafe',
+            ],
+            [
+                'name' => 'Robert',
+                'email' => 'robert.seib@gov.bc.ca',
+                'password' => 'thisisunsafe',
+            ],
+            [
+                'name' => 'Bojan',
+                'email' => 'bojan.zimonja@gov.bc.ca',
+                'password' => 'thisisunsafe',
+            ],
+            [
+                'name' => 'Will',
+                'email' => 'will.kiiskila@gov.bc.ca',
+                'password' => 'thisisunsafe',
+            ],
+            [
+                'name' => 'Olga',
+                'email' => 'olga.jubran@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Greg',
+                'email' => 'greg.frog@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Sara',
+                'email' => 'sara.bose@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Dana',
+                'email' => 'dana.jensen@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Jeff',
+                'email' => 'jeff.dorion@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Sofia',
+                'email' => 'sofia.blaunshteyn@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
 
-        $rob = new User();
-        $rob->name = 'Robert';
-        $rob->email = 'robert.seib@gov.bc.ca';
-        $rob->email_verified_at = date('Y-m-d H:i:s');
-        $rob->password = Hash::make('thisisunsafe');
-        $rob->save();
+                'name' => 'Tim',
+                'email' => 'tim.vanderwekken@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Tekarra',
+                'email' => 'tekarra.wilkinson@gov.bc.ca',
+                'password' => 'klamm',
+            ],
+            [
+                'name' => 'Siddharth',
+                'email' => 'siddharth.sinha@gov.bc.ca',
+                'password' => 'klamm',
 
-        $bojan = new User();
-        $bojan->name = 'Bojan';
-        $bojan->email = 'bojan.zimonja@gov.bc.ca';
-        $bojan->email_verified_at = date('Y-m-d H:i:s');
-        $bojan->password = Hash::make('thisisunsafe');
-        $bojan->save();
+            ],
+            [
+                'name' => 'Saranya',
+                'email' => 'saranya.viswam@gov.bc.ca',
+                'password' => 'thisisunsafe',
+            ]
 
-        $will = new User();
-        $will->name = 'Will';
-        $will->email = 'will.kiiskila@gov.bc.ca';
-        $will->email_verified_at = date('Y-m-d H:i:s');
-        $will->password = Hash::make('thisisunsafe');
-        $will->save();
+        ];
+
+        foreach ($users as $userData) {
+            $user = new User();
+            $user->name = $userData['name'];
+            $user->email = $userData['email'];
+            $user->email_verified_at = date('Y-m-d H:i:s');
+            $user->password = Hash::make($userData['password']);
+            $user->save();
+        }
     }
 }

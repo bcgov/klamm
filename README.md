@@ -20,7 +20,7 @@ Requirements:
 Clone the repository:
 
 ```
-git clone https://github.com/jeremy-vernon-bcgov/Klamm.git
+git clone https://github.com/kiiskila-bcgov/Klamm.git
 ```
 
 Navigate into the repository:
@@ -33,81 +33,186 @@ cd KLAMM
 
 ### For Quick setup
 
-Install with Docker:
+Install with Docker using Sail:
+
+If you are using Windows:
 
 ```
-docker-compose up -d
+# Install WSL
+wsl --install
+
+# Set the default version to WSL 2
+wsl --set-default-version 2
+
+# Download Docker Desktop https://www.docker.com/products/docker-desktop/
+# Make sure WSL 2 is enabled in Docker Desktop -> Settings -> General -> Use WSL 2 Based Engine
+# And make sure resources is enabled in Docker Desktop -> Settings -> WSL Integration -> Ubuntu (or your specific distro)
+
+# Set your default WSL version
+wsl -s Ubuntu
+
+# Optionally if you installed a different distro or maintain others, you can see your installed distros and default distro with this command
+wsl --list
+
+# Now make sure Docker Desktop is running, and open WSL
+wsl
+
+# Now navigate to your repo (in my case, it is the following)
+cd /mnt/c/Users/{username}/Documents/GitHub/Klamm
 ```
 
-To stop the application just run:
+The rest of the commands will be the same for WSL, Mac and Linux
 
 ```
-docker-compose down
+# Install composer packages (which includes sail)
+composer install
+
+# We are using sail which provides an easy to use interface with docker for running our artisan commands
+# You can read more about Sail https://laravel.com/docs/11.x/sail
+
+# Now you can run all your php commands with ./vendor/bin/sail instead
+# I recommend creating an alias so you can use sail instead of typing ./vendor/bin/sail every time
+# Depending on where your bash configs are located you will have to do one of the following:
+nano ~/.bashrc
+# Or
+nano ~/.zshrc
+
+# Then add this line, save the file, and restart your terminal
+alias sail='./vendor/bin/sail'
+
+# To start the application run
+./vendor/bin/sail up -d
+# Or if you have setup the alias
+sail up -d
+
+# To stop the application run
+./vendor/bin/sail down
+# Or if you have setup the alias
+sail down
 ```
+
+Create the APP_KEY, run the migrations and seed the data:
+
+```
+# Create the APP_KEY
+sail artisan key:generate
+
+# Run the migrations
+sail artisan migrate
+
+# Seed the users data (or create a user in the steps below)
+sail artisan db:seed --class=UserSeeder
+
+# Generate the permissions policies based on the models
+sail artisan permissions:sync
+
+# Seed the initial data
+sail artisan db:seed
+
+# Optionally seed the Momus Data
+sail artisan db:seed --class=MomusSeeder
+```
+
+If you would like to use a GUI for your Postgres database I reccomend TablePlus. In the connection details you will want to put the following in the connection details:
+
+```
+Host: localhost
+Port: 5432
+User: laravel
+Password: secret
+Database: laravel
+```
+
+You can add a user account for yourself in the user seeder or use the command:
+
+```
+sail artisan create-user
+```
+
+You will need to assign a role to your account to access the different panels.
+I suggest assigning the admin role to your user as you will get full access to all the panels.
+
+```
+sail artisan assign-user-role
+```
+
+The page should now be accessible at
+
+`http://localhost/`
 
 ---
 
-### For Longer Manual Setup
-
-Install the dependencies:
+## General Developer Workflows for Adding New Content
 
 ```
-composer install
+# Create a model and migration
+sail artisan make:model Test -m
+
+# The Model should be singular and it will create a plural table (in this case tests)
+
+# Edit the migration to include the the columns
+Schema::create('tests', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');
+    $table->timestamps();
+});
+
+# Make sure to include a rollback
+Schema::dropIfExists('tests');
+
+# Run the migration
+sail artisan migrate
+
+# Optionally create a seeder
+sail artisan make:seeder TestSeeder
+
+# Fill the seeder
+Test::create(['name' => 'Name One']);
+Test::create(['name' => 'Name Two']);
+
+# Run the specific seeder
+sail artisan db:seed --class=TestSeeder
+
+# Create a filament resource from the model
+# Make sure to specify which panel you want the resource to be in
+sail artisan make:filament-resource Test --view
+
+# In your new TestResource.php define the $form and $table
+# $form is used for editing and creating records
+return $form
+    ->schema([
+        Forms\Components\TextInput::make('name')
+            ->required(),
+    ]);
+
+# $table is used for listing and viewing the records
+return $table
+    ->columns([
+        Tables\Columns\TextColumn::make('name')
+            ->searchable()
+            ->sortable(),
+    ]);
+
+# You should see the page name on the left menu of whichever dashboard you added it to
+
+# We use policies to control who can do what to our records
+# The policies are based on the permissions attached to each role
+# Each model has view, view-any, create, update, and delete permissions
+# The filament pages will restrict content based on the model specific policy
+# Generate the policy:
+sail artisan make:policy TestPolicy --model=Test
+
+# Edit the policy for each permission like such:
+public function create(User $user): bool
+{
+    return $user->can('create Form');
+}
+
+# If you add a new table/model you will need to generate a new set of permissions
+# Please update the view-only and edit access in the PermissionsSeeder and to generate the new permissions run
+sail artisan permissions:sync
+
 ```
-
-Copy the env file:
-
-```
-cp .env.example .env
-```
-
-Generate a new application key:
-
-```
-php artisan key:generate
-```
-
-Create the SQLite DB:
-
-```
-touch database/database.sqlite
-```
-
-Run the migrations:
-
-```
-php artisan migrate
-```
-
-Run the seeders:
-
-```
-php artisan db:seed
-```
-
-Run and serve the application (run each command in a separate terminal instance):
-
-```
-php artisan serve
-```
-
-The page should be accessable at:
-
-```
-http://localhost:8000/admin
-```
-
-Generate a new user by following the prompts after running this command:
-
-```
-php artisan create-admin-user
-```
-
-## Caution regarding auto-generated content.
-
-The models, factories and migrations are all automatically generated by Blueprint using the draft.yml file as the basis. These files are liable to be clobbered when anything is rebuilt using Blueprint.
-
-Also, when generating these files - be sure to execute the blueprint:erase command immeditely preceding the blueprint:build command to ensure duplicates are not generated - this is especially annoying for migrations.
 
 ## Learning Laravel
 

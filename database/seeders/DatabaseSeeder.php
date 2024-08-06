@@ -14,13 +14,27 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
         $this->call([
-            UserSeeder::class,
             MinistrySeeder::class,
             DataSourceSeeder::class,
             ValueTypeSeeder::class,
+            RenderedFormSeeder::class,
+            DataTypeSeeder::class,
+            FormFieldSeeder::class,
+            RolesSeeder::class,
+            PermissionsSeeder::class,
+            SelectOptionsSeeder::class,
+            BusinessAreaSeeder::class,
+            FillTypeSeeder::class,
+            FormFrequencySeeder::class,
+            FormLocationSeeder::class,
+            FormReachSeeder::class,
+            FormRepositorySeeder::class,
+            FormSoftwareSourceSeeder::class,
+            UserTypeSeeder::class,
+            FormTagSeeder::class,
+            FormsTableSeeder::class,
+            FormBusinessAreaTableSeeder::class,
         ]);
     }
 }

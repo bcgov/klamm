@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FormField extends Model
 {
@@ -20,15 +21,7 @@ class FormField extends Model
         'label',
         'help_text',
         'data_type_id',
-        'description',
-        'field_group_id',
-        'validation',
-        'required',
-        'repeater',
-        'max_count',
-        'conditional_logic',
-        'prepopulated',
-        'data_source_id',
+        'description', 
     ];
 
     /**
@@ -38,12 +31,7 @@ class FormField extends Model
      */
     protected $casts = [
         'id' => 'integer',
-        'data_type_id' => 'integer',
-        'field_group_id' => 'integer',
-        'required' => 'boolean',
-        'repeater' => 'boolean',
-        'prepopulated' => 'boolean',
-        'data_source_id' => 'integer',
+        'data_type_id' => 'integer',     
     ];
 
     public function dataType(): BelongsTo
@@ -51,13 +39,8 @@ class FormField extends Model
         return $this->belongsTo(DataType::class);
     }
 
-    public function fieldGroup(): BelongsTo
+    public function fieldGroups(): BelongsToMany
     {
-        return $this->belongsTo(FieldGroup::class);
-    }
-
-    public function dataSource(): BelongsTo
-    {
-        return $this->belongsTo(DataSource::class);
+        return $this->belongsToMany(FieldGroup::class)->withTimestamps();
     }
 }

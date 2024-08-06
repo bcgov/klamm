@@ -33,4 +33,14 @@ class Ministry extends Model
     {
         return $this->hasMany(Division::class);
     }
+
+    public function businessAreas()
+    {
+        return $this->belongsToMany(BusinessArea::class);
+    }
+
+    public function forms(): HasMany
+    {
+        return $this->hasMany(Form::class);
+    }
 }

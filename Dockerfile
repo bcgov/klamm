@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     postgresql-client \
+    nodejs \
+    npm \
     && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -44,15 +46,13 @@ COPY . /var/www
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Create SQLite database file and set permissions
-RUN touch /var/www/database/database.sqlite \
-    && chown -R $(whoami):$(whoami) /var/www/database \
-    && chmod 775 /var/www/database/database.sqlite /var/www/database
+# Install Node.js dependencies and build assets
+RUN npm install \
+    && npm run build
 
-# Set correct permissions for storage, and logs
-RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache \
-    && chmod -R 775 /var/www/storage/logs
+# Set correct permissions for storage, database and logs
+RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
@@ -62,18 +62,6 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 # Generate APP_KEY
 RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
-
-# Clear caches
-RUN php artisan cache:clear \
-    && php artisan config:clear \
-    && php artisan route:clear \
-    && php artisan view:clear
-
-# Cache configurations
-RUN php artisan config:cache \
-    && php artisan event:cache \
-    && php artisan route:cache
-    #&& php artisan view:cache 
 
 # Expose ports
 EXPOSE 8080 443

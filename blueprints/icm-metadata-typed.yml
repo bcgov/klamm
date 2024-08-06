@@ -1,0 +1,484 @@
+# NOTE:
+# - All the fields from sql files are captured here. 
+# - Couldn't find any values for the commented out fields and hence they are skipped out from the blueprint command.
+
+models:
+  SiebelProject:
+    # owner_branch: text nullable
+    name: string:400
+    changed: boolean
+    parent_repository: string:400
+    inactive: boolean
+    locked: boolean
+    locked_by_name: string:50 nullable
+    locked_date: timestamp nullable
+    language_locked: string:10 nullable
+    ui_freeze: boolean nullable
+    # ui_freeze_by_name: text nullable
+    # ui_freeze_date: text nullable
+    comments: string:500 nullable
+    allow_object_locking: boolean nullable
+
+  SiebelClass:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    dll: string:100 nullable
+    object_type: string:30 nullable
+    thin_client: boolean
+    java_thin_client: boolean
+    handheld_client: boolean
+    unix_support: string:10 nullable
+    high_interactivity_enabled: string:10 nullable 
+    inactive: boolean 
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    super_class_id: id foreign:siebel_classes.id constrained nullable
+
+  SiebelTable:
+    # module: text nullable
+    object_language_locked: string:10 nullable
+    object_locked: boolean nullable
+    object_locked_by_name: string:50 nullable
+    object_locked_date: timestamp nullable
+    name: string:400 
+    changed: boolean
+    repository_name: string:400
+    user_name: string:200 nullable
+    alias: string:200 nullable
+    type: string:50 nullable
+    # parent_table_column_1_name: text nullable
+    # parent_table_column_2_name: text nullable
+    file: boolean nullable
+    abbreviation_1: string:50 nullable
+    abbreviation_2: string:50 nullable
+    abbreviation_3: string:50 nullable
+    # abbreviation_4: text nullable
+    # abbreviation_5: text nullable
+    # abbreviation_6: text nullable
+    append_data: boolean nullable
+    dflt_mapping_col_name_prefix: string:25 nullable
+    seed_filter: string:400 nullable
+    seed_locale_filter: string:400 nullable
+    seed_usage: string:30 nullable
+    group: string:25 nullable
+    owner_organization_specifier: string:30 nullable
+    status: string:25 nullable
+    volatile: boolean nullable
+    inactive: boolean nullable
+    node_type: string:10 nullable
+    partition_indicator: boolean nullable
+    comments: string:500 nullable
+    # key_generation_business_service: text nullable
+    # key_generation_service_method: text nullable
+    external_api_write: boolean nullable # -> found id in this field
+    project_id: id foreign:siebel_projects.id constrained nullable
+    base_table_id: id foreign:siebel_tables.id constrained nullable
+
+  SiebelBusinessComponent:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    cache_data: boolean nullable
+    # browser_class: text nullable
+    data_source: string:50 nullable
+    dirty_reads: boolean nullable
+    distinct: boolean nullable
+    enclosure_id_field: string:50 nullable
+    # extension_type: text nullable
+    force_active: boolean nullable
+    gen_reassign_act: boolean nullable
+    hierarchy_parent_field: string:30 nullable
+    type: enum:Transient,Non-Transient
+    inactive: boolean nullable
+    insert_update_all_columns: boolean nullable
+    log_changes: boolean nullable
+    maximum_cursor_size: integer nullable
+    multirecipient_select: boolean nullable
+    no_delete: boolean nullable
+    no_insert: boolean nullable
+    no_update: boolean nullable
+    no_merge: boolean nullable
+    owner_delete: boolean nullable
+    placeholder: boolean nullable
+    popup_visibility_auto_all: boolean nullable
+    popup_visibility_type: string:30 nullable
+    prefetch_size: integer nullable
+    recipient_id_field: string:30 nullable
+    reverse_fill_threshold: integer nullable
+    scripted: boolean nullable
+    search_specification: string:400 nullable
+    sort_specification: string:400 nullable
+    status_field: string:100 nullable
+    synonym_field: string:100 nullable
+    upgrade_ancestor: string:200 nullable
+    xa_attribute_value_bus_comp: string:100 nullable
+    xa_class_id_field: string:100 nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    class_id: id foreign:siebel_classes.id constrained nullable
+    table_id: id foreign:siebel_tables.id constrained nullable
+
+  SiebelBusinessObject:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    inactive: boolean nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    primary_business_component_id: id foreign:siebel_business_components.id constrained nullable
+    query_list_business_component_id: id foreign:siebel_business_components.id constrained nullable
+
+  SiebelView:
+    name: string:400 
+    changed: boolean
+    repository_name: string:400
+    visibility_applet: string:250 nullable
+    visibility_applet_type: string:50 nullable
+    admin_mode_flag: boolean nullable
+    thread_applet: string:400 nullable
+    thread_field: string:250 nullable
+    thread_title: string:250 nullable
+    thread_title_string_reference: string:400 nullable
+    thread_title_string_override: string:250 nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    # background_bitmap: text nullable
+    bitmap_category: string:250 nullable
+    # container_web_page: text nullable
+    drop_sectors: string:30 nullable
+    explicit_login: boolean nullable
+    # html_bitmap: text nullable
+    # html_popup_dimension: text nullable
+    help_identifier: string:50 nullable
+    no_borders: boolean nullable
+    screen_menu: boolean nullable
+    sector0_applet: string:200 nullable
+    sector1_applet: string:200 nullable
+    sector2_applet: string:200 nullable
+    sector3_applet: string:200 nullable
+    sector4_applet: string:200 nullable
+    sector5_applet: string:200 nullable
+    sector6_applet: string:200 nullable
+    sector7_applet: string:200 nullable
+    secure: boolean nullable
+    status_text: string:200 nullable
+    status_text_string_reference: string:200 nullable
+    status_text_string_override: string:200 nullable
+    # text_style: text nullable
+    title: string:200 nullable
+    title_string_reference: string:200 nullable
+    title_string_override: string:200 nullable
+    vertical_line_position: integer nullable
+    upgrade_behavior: string:30 nullable
+    icl_upgrade_path: string:200 nullable
+    add_to_history: boolean nullable
+    task: string:200 nullable
+    type: string:30 nullable
+    default_applet_focus: string:200 nullable
+    disable_pdq: boolean nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:20 nullable
+    # module: text nullable
+    business_object_id: id foreign:siebel_business_objects.id constrained nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+
+  SiebelScreen:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    bitmap_category: string:50 nullable
+    viewbar_text: string:400 nullable
+    viewbar_text_string_reference: string:400 nullable
+    viewbar_text_string_override: string:100 nullable
+    unrestricted_viewbar: boolean nullable
+    help_identifier: string:100 nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    upgrade_behavior: string:30 nullable
+    # icl_upgrade_path: text nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    default_view_id: id foreign:siebel_views.id constrained nullable
+
+  SiebelApplication:
+    name: string:100
+    changed: boolean
+    repository_name: string:400
+    # company_logo_bitmap: text nullable
+    # home_url: text nullable
+    menu: string:50 nullable
+    scripted: boolean
+    # text_style: text nullable
+    acknowledgment_web_page: string:100 nullable
+    container_web_page: string:250 nullable
+    error_web_page: string:50 nullable
+    login_web_page: string:100 nullable
+    logoff_acknowledgment_web_page: string:250 nullable
+    # sort_web_page: text nullable
+    acknowledgment_web_view: string:250 nullable
+    # display_name: text nullable
+    # display_name_string_reference: text nullable
+    # display_name_string_override: text nullable
+    default_find: string:30 nullable
+    inactive: boolean
+    comments: string:400 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    task_screen_id: id foreign:siebel_screens.id constrained nullable
+
+  SiebelApplet:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    title: string:100 nullable
+    title_string_reference: string:100 nullable
+    title_string_override: string:100 nullable
+    search_specification: string:400 nullable
+    associate_applet: string:100 nullable
+    type: string:25 nullable
+    no_delete: boolean nullable
+    no_insert: boolean nullable
+    no_merge: boolean nullable
+    no_update: boolean nullable
+    html_number_of_rows: integer nullable
+    scripted: boolean nullable
+    inactive: boolean nullable
+    comments: string:600 nullable
+    auto_query_mode: string:100 nullable
+    # background_bitmap: text nullable
+    background_bitmap_style: string:50 nullable
+    # browser_class: text nullable
+    html_popup_dimension: string:10 nullable
+    height: integer nullable
+    help_identifier: string:150 nullable
+    # insert_applet: text nullable
+    insert_position: string:10 nullable
+    mail_address_field: string:50 nullable
+    mail_template: string:50 nullable
+    popup_dimension: string:10 nullable
+    # text_style: text nullable
+    upgrade_ancestor: string:50 nullable
+    width: integer nullable
+    upgrade_behavior: string:25 nullable
+    icl_upgrade_path: integer nullable
+    # container_module: text nullable
+    task: string:50 nullable
+    default_applet_method: string:50 nullable
+    default_double_click_method: string:50 nullable
+    disable_dataloss_warning: boolean nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    # object_language_locked: text nullable
+    # module: text nullable
+    # changed_bool: boolean nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    business_component_id: id foreign:siebel_business_components.id constrained nullable
+    class_id: id foreign:siebel_classes.id constrained nullable
+
+  SiebelIntegrationObject:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    adapter_info: string:50 nullable
+    base_object_type: string:100 nullable
+    external_major_version: integer nullable
+    external_minor_version: integer nullable
+    external_name: string:100 nullable
+    # upgrade_ancestor: text nullable
+    xml_tag: string:100 nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    business_object_id: id foreign:siebel_business_objects.id constrained nullable
+
+  SiebelWebTemplate:
+    definition: longtext nullable
+    name: string:400 nullable
+    changed: boolean nullable
+    type: string:400 nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+
+  SiebelWebPage:
+    name: string:400 
+    changed: boolean
+    repository_name: string:400 
+    do_not_use_container: boolean nullable
+    title: string:400 nullable
+    title_string_reference: string:400  nullable
+    # title_string_override: text nullable
+    web_template: string:200 nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_by_date: text nullable
+    # object_language_locked: text nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+
+  SiebelLink:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    source_field: string:100 nullable
+    destination_field: string:100 nullable
+    inter_parent_column: string:100 nullable
+    inter_child_column: string:100 nullable
+    inter_child_delete: boolean nullable
+    primary_id_field: string:100 nullable
+    cascade_delete: string:10
+    search_specification: string:200 nullable
+    association_list_sort_specification: string:100 nullable
+    no_associate: boolean nullable
+    no_delete: boolean nullable
+    no_insert: boolean nullable
+    no_inter_delete: boolean nullable
+    no_update: boolean nullable
+    visibility_auto_all: boolean nullable
+    visibility_rule_applied: string:10 nullable
+    visibility_type: string:10 nullable
+    inactive: boolean nullable
+    comments: string:400 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    parent_business_component_id: id foreign:siebel_business_components.id constrained nullable
+    child_business_component_id: id foreign:siebel_business_components.id constrained nullable
+    inter_table_id: id foreign:siebel_tables.id constrained nullable
+
+  SiebelBusinessService:
+    name: string:400
+    changed: boolean
+    repository_name: string:400
+    cache: boolean nullable
+    # browser_class: text nullable
+    display_name: string:150 nullable
+    display_name_string_reference: string:150 nullable
+    display_name_string_override: string:150 nullable
+    external_use: boolean nullable
+    hidden: boolean nullable
+    server_enabled: boolean
+    state_management_type: string:25 nullable
+    web_service_enabled: boolean nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    class_id: id foreign:siebel_classes.id constrained nullable
+
+  SiebelEimInterfaceTable:
+    name: string:400
+    changed: boolean
+    user_name: string:400
+    # alias: text nullable
+    type: string:30 
+    # base_table: text nullable
+    # parent_table_column_1_name: text nullable
+    # parent_table_column_2_name: text nullable
+    file: boolean 5
+    # parent_interface_table: text nullable
+    eim_delete_proc_column: string:30 nullable
+    eim_export_proc_column: string:30 nullable
+    eim_merge_proc_column: string:30 nullable
+    inactive: boolean
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    target_table_id: id foreign:siebel_tables.id constrained nullable
+
+  SiebelValue:
+    inactive: boolean
+    type: string:50 nullable
+    display_value: string:100 nullable
+    changed: boolean nullable
+    translate: boolean nullable
+    multilingual: boolean nullable
+    language_independent_code: string:50 nullable
+    parent_lic: string:50 nullable
+    high: string:300 nullable
+    low: string:300 nullable
+    order: integer nullable
+    active: boolean nullable
+    language_name: string:100 nullable
+    replication_level: string:25 nullable
+    target_low: integer nullable
+    target_high: integer nullable
+    weighting_factor: integer nullable
+    # bitmap: text nullable
+    description: string:500 nullable
+
+
+  SiebelWorkflowProcess:
+    auto_persist: boolean
+    process_name: string:400
+    simulate_workflow_process: string:400
+    status: string:40 nullable
+    workflow_mode: string:40 nullable
+    changed: boolean
+    group: string:40 nullable
+    version: integer nullable
+    description: string:500 nullable
+    error_process_name: string:400 nullable
+    state_management_type: string:40 nullable
+    web_service_enabled: boolean nullable
+    pass_by_ref_hierarchy_argument: boolean nullable
+    repository_name: string:100 nullable
+    inactive: boolean nullable
+    comments: string:500 nullable
+    object_locked: boolean nullable
+    # object_locked_by_name: text nullable
+    # object_locked_date: text nullable
+    object_language_locked: string:10 nullable
+    # module: text nullable
+    project_id: id foreign:siebel_projects.id constrained nullable
+    business_object_id: id foreign:siebel_business_objects.id constrained nullable

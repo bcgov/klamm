@@ -1,0 +1,32 @@
+models:
+  MomusR:
+    field_name: string:30
+    description: string:300 nullable
+    field_type: string:30
+    field_type_length: integer
+    source: string:30
+    screen: string:30 nullable
+    table: string:30 nullable
+    condition: string:100 nullable
+    table_code: string:10 nullable
+    lookup_field: string:30 nullable
+    database_name: string:30 nullable
+    integration_id: id foreign:integration nullable
+    xml_id: id foreign:xml nullable
+    lookup_id: id foreign:lookup nullable
+    have_duplicate: boolean default:false
+
+  Integration:
+    name: string:25
+    description: string:300
+
+  Lookup:
+    lookup_field: string:30
+    lookup_table: string:30
+    lookup_table_code: string:10
+    lookup_database: string:30
+    description: string:300
+
+  Xml:
+    name: string:30
+    description: string:300

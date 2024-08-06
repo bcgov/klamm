@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FormRepository extends Model
@@ -19,8 +18,6 @@ class FormRepository extends Model
     protected $fillable = [
         'name',
         'description',
-        'location',
-        'custodian_id',
     ];
 
     /**
@@ -30,16 +27,10 @@ class FormRepository extends Model
      */
     protected $casts = [
         'id' => 'integer',
-        'custodian_id' => 'integer',
     ];
 
-    public function businessForms(): BelongsToMany
+    public function forms(): BelongsToMany
     {
-        return $this->belongsToMany(BusinessForm::class);
-    }
-
-    public function custodian(): BelongsTo
-    {
-        return $this->belongsTo(Contact::class);
+        return $this->belongsToMany(Form::class, 'form_repository_form');
     }
 }

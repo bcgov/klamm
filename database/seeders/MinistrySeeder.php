@@ -19,12 +19,12 @@ class MinistrySeeder extends Seeder
     {
         $mcfd = new Ministry();
         $mcfd->short_name = 'MCFD';
-        $mcfd->name = 'Ministry for Children and Family Development';
+        $mcfd->name = 'Ministry of Children and Family Development';
         $mcfd->save();
 
         $sdpr = new Ministry();
         $sdpr->short_name = 'SDPR';
-        $sdpr->name = 'Ministry for Social Development and Poverty Reduction';
+        $sdpr->name = 'Ministry of Social Development and Poverty Reduction';
         $sdpr->save();
 
         $ecc = new Ministry();

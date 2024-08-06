@@ -55,6 +55,11 @@ class ValueTypeSeeder extends Seeder
         $longtext->description = 'Text values are longer-form text inputs - (e.g. descriptions, requests, etc.)';
         $longtext->save();
 
+        $blob = new ValueType();
+        $blob->name = 'Blob';
+        $blob->description = 'Blob values are file ipunts or data- (e.g. attachments, formdata, etc.)';
+        $blob->save();
+
 
 
     }

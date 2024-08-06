@@ -24,8 +24,6 @@ class FormRepositoryFactory extends Factory
         return [
             'name' => $this->faker->name(),
             'description' => $this->faker->text(),
-            'location' => $this->faker->text(),
-            'custodian_id' => Contact::factory(),
         ];
     }
 }

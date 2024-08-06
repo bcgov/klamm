@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FieldGroup extends Model
 {
@@ -31,4 +32,8 @@ class FieldGroup extends Model
         'id' => 'integer',
         'repeater' => 'boolean',
     ];
+
+    public function formFields(): BelongsToMany {
+        return $this->belongsToMany(FormField::class)->withTimestamps();
+    }
 }

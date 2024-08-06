@@ -1,12 +1,45 @@
 services:
-    app:
+    laravel.test:
         build:
             context: .
+            dockerfile: Dockerfile.local
+        container_name: laravel_app
+        ports:
+            - "80:80"
         volumes:
             - .:/var/www
-            - ./database/database.sqlite:/var/www/database/database.sqlite
-        ports:
-            - "8080:80"
         environment:
-            - APACHE_DOCUMENT_ROOT=/var/www/public
-        container_name: klamm_app
+            - APP_ENV=local
+            - APP_DEBUG=true
+            - DB_CONNECTION=pgsql
+            - DB_HOST=pgsql
+            - DB_PORT=5432
+            - DB_DATABASE=laravel
+            - DB_USERNAME=laravel
+            - DB_PASSWORD=secret
+        networks:
+            - sail
+        depends_on:
+            - pgsql
+
+    pgsql:
+        image: postgres:13
+        container_name: postgres_db
+        ports:
+            - "5432:5432"
+        environment:
+            - POSTGRES_DB=laravel
+            - POSTGRES_USER=laravel
+            - POSTGRES_PASSWORD=secret
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        networks:
+            - sail
+
+networks:
+    sail:
+        driver: bridge
+
+volumes:
+    pgdata:
+        driver: local

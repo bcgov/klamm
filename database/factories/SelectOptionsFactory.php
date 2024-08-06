@@ -26,7 +26,7 @@ class SelectOptionsFactory extends Factory
             'label' => $this->faker->regexify('[A-Za-z0-9]{400}'),
             'value' => $this->faker->regexify('[A-Za-z0-9]{400}'),
             'description' => $this->faker->text(),
-            'data_type_id' => DataType::factory(),
+            'form_field_id' => FormField::factory(),
         ];
     }
 }

@@ -1,65 +1,67 @@
 created:
-    - database/factories/MinistryFactory.php
-    - database/factories/DivisionFactory.php
-    - database/factories/BranchFactory.php
-    - database/factories/ProgramFactory.php
-    - database/factories/ContactFactory.php
-    - database/factories/BusinessFormFactory.php
-    - database/factories/ActivityFactory.php
-    - database/factories/DataTypeFactory.php
-    - database/factories/SelectOptionsFactory.php
-    - database/factories/ValueTypeFactory.php
-    - database/factories/FormFieldFactory.php
-    - database/factories/FormBuilderFactory.php
-    - database/factories/DataSourceFactory.php
-    - database/factories/FieldGroupFactory.php
-    - database/factories/BusinessFormGroupFactory.php
-    - database/factories/PDFTemplateFactory.php
-    - database/factories/FormRepositoryFactory.php
-    - database/factories/DataSourceFieldsFactory.php
-    - database/migrations/2024_04_23_172118_create_ministries_table.php
-    - database/migrations/2024_04_23_172119_create_divisions_table.php
-    - database/migrations/2024_04_23_172120_create_branches_table.php
-    - database/migrations/2024_04_23_172121_create_programs_table.php
-    - database/migrations/2024_04_23_172122_create_contacts_table.php
-    - database/migrations/2024_04_23_172123_create_business_forms_table.php
-    - database/migrations/2024_04_23_172124_create_activities_table.php
-    - database/migrations/2024_04_23_172125_create_data_types_table.php
-    - database/migrations/2024_04_23_172126_create_select_options_table.php
-    - database/migrations/2024_04_23_172127_create_value_types_table.php
-    - database/migrations/2024_04_23_172128_create_form_fields_table.php
-    - database/migrations/2024_04_23_172129_create_form_builders_table.php
-    - database/migrations/2024_04_23_172130_create_data_sources_table.php
-    - database/migrations/2024_04_23_172131_create_field_groups_table.php
-    - database/migrations/2024_04_23_172132_create_business_form_groups_table.php
-    - database/migrations/2024_04_23_172133_create_p_d_f_templates_table.php
-    - database/migrations/2024_04_23_172134_create_form_repositories_table.php
-    - database/migrations/2024_04_23_172135_create_data_source_fields_table.php
-    - database/migrations/2024_04_23_172136_create_branch_program_table.php
-    - database/migrations/2024_04_23_172137_create_business_form_program_table.php
-    - database/migrations/2024_04_23_172138_create_business_form_group_program_table.php
-    - database/migrations/2024_04_23_172139_create_activity_business_form_table.php
-    - database/migrations/2024_04_23_172140_create_business_form_form_repository_table.php
-    - database/migrations/2024_04_23_172141_create_business_form_form_group_table.php
-    - database/migrations/2024_04_23_172142_create_business_form_business_form_group_table.php
-    - app/Models/Ministry.php
-    - app/Models/Division.php
-    - app/Models/Branch.php
-    - app/Models/Program.php
-    - app/Models/Contact.php
-    - app/Models/BusinessForm.php
-    - app/Models/Activity.php
-    - app/Models/DataType.php
-    - app/Models/SelectOptions.php
-    - app/Models/ValueType.php
-    - app/Models/FormField.php
-    - app/Models/FormBuilder.php
-    - app/Models/DataSource.php
-    - app/Models/FieldGroup.php
-    - app/Models/BusinessFormGroup.php
-    - app/Models/PDFTemplate.php
-    - app/Models/FormRepository.php
-    - app/Models/DataSourceFields.php
+    - database/factories/MomusRFactory.php
+    - database/factories/IntegrationFactory.php
+    - database/factories/LookupFactory.php
+    - database/factories/XmlFactory.php
+    - database/factories/SiebelProjectFactory.php
+    - database/factories/SiebelClassFactory.php
+    - database/factories/SiebelTableFactory.php
+    - database/factories/SiebelBusinessComponentFactory.php
+    - database/factories/SiebelBusinessObjectFactory.php
+    - database/factories/SiebelViewFactory.php
+    - database/factories/SiebelScreenFactory.php
+    - database/factories/SiebelApplicationFactory.php
+    - database/factories/SiebelAppletFactory.php
+    - database/factories/SiebelIntegrationObjectFactory.php
+    - database/factories/SiebelWebTemplateFactory.php
+    - database/factories/SiebelWebPageFactory.php
+    - database/factories/SiebelLinkFactory.php
+    - database/factories/SiebelBusinessServiceFactory.php
+    - database/factories/SiebelEimInterfaceTableFactory.php
+    - database/factories/SiebelValueFactory.php
+    - database/factories/SiebelWorkflowProcessFactory.php
+    - database/migrations/2024_06_12_151719_create_momus_r_s_table.php
+    - database/migrations/2024_06_12_151720_create_integrations_table.php
+    - database/migrations/2024_06_12_151721_create_lookups_table.php
+    - database/migrations/2024_06_12_151722_create_xmls_table.php
+    - database/migrations/2024_07_10_163755_create_siebel_projects_table.php
+    - database/migrations/2024_07_10_163756_create_siebel_classes_table.php
+    - database/migrations/2024_07_10_163757_create_siebel_tables_table.php
+    - database/migrations/2024_07_10_163758_create_siebel_business_components_table.php
+    - database/migrations/2024_07_10_163759_create_siebel_business_objects_table.php
+    - database/migrations/2024_07_10_163800_create_siebel_views_table.php
+    - database/migrations/2024_07_10_163801_create_siebel_screens_table.php
+    - database/migrations/2024_07_10_163802_create_siebel_applications_table.php
+    - database/migrations/2024_07_10_163803_create_siebel_applets_table.php
+    - database/migrations/2024_07_10_163804_create_siebel_integration_objects_table.php
+    - database/migrations/2024_07_10_163805_create_siebel_web_templates_table.php
+    - database/migrations/2024_07_10_163806_create_siebel_web_pages_table.php
+    - database/migrations/2024_07_10_163807_create_siebel_links_table.php
+    - database/migrations/2024_07_10_163808_create_siebel_business_services_table.php
+    - database/migrations/2024_07_10_163809_create_siebel_eim_interface_tables_table.php
+    - database/migrations/2024_07_10_163810_create_siebel_values_table.php
+    - database/migrations/2024_07_10_163811_create_siebel_workflow_processes_table.php
+    - app/Models/SiebelProject.php
+    - app/Models/SiebelClass.php
+    - app/Models/SiebelTable.php
+    - app/Models/SiebelBusinessComponent.php
+    - app/Models/SiebelBusinessObject.php
+    - app/Models/SiebelView.php
+    - app/Models/SiebelScreen.php
+    - app/Models/SiebelApplication.php
+    - app/Models/SiebelApplet.php
+    - app/Models/SiebelIntegrationObject.php
+    - app/Models/SiebelWebTemplate.php
+    - app/Models/SiebelWebPage.php
+    - app/Models/SiebelLink.php
+    - app/Models/SiebelBusinessService.php
+    - app/Models/SiebelEimInterfaceTable.php
+    - app/Models/SiebelValue.php
+    - app/Models/SiebelWorkflowProcess.php
+    - app/Models/MomusR.php
+    - app/Models/Integration.php
+    - app/Models/Lookup.php
+    - app/Models/Xml.php
 models:
     User: { name: string, email: string, email_verified_at: 'datetime nullable', password: string, remember_token: 'string nullable' }
     Ministry: { short_name: 'string:20', name: 'string:400', relationships: { HasMany: Division } }
@@ -80,3 +82,24 @@ models:
     PDFTemplate: { name: text, businessForm_id: 'id foreign constrained', description: 'text nullable' }
     FormRepository: { name: 'string:400', description: 'text nullable', location: 'text nullable', custodian_id: 'id foreign:contacts constrained nullable', relationships: { BelongsToMany: BusinessForm } }
     DataSourceFields: { data_source_id: 'id foreign constrained', name: 'string:400', description: 'text nullable' }
+    SiebelProject: { name: 'string:400', changed: boolean, parent_repository: 'string:400', inactive: boolean, locked: boolean, locked_by_name: 'string:50 nullable', locked_date: 'timestamp nullable', language_locked: 'string:10 nullable', ui_freeze: 'boolean nullable', comments: 'string:500 nullable', allow_object_locking: 'boolean nullable' }
+    SiebelApplication: { name: 'string:100', changed: boolean, repository_name: 'string:400', menu: 'string:50 nullable', scripted: boolean, acknowledgment_web_page: 'string:100 nullable', container_web_page: 'string:250 nullable', error_web_page: 'string:50 nullable', login_web_page: 'string:100 nullable', logoff_acknowledgment_web_page: 'string:250 nullable', acknowledgment_web_view: 'string:250 nullable', default_find: 'string:30 nullable', inactive: boolean, comments: 'string:400 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', task_screen_id: 'id foreign:siebel_screens.id constrained nullable' }
+    SiebelWebTemplate: { definition: 'longtext nullable', name: 'string:400 nullable', changed: 'boolean nullable', type: 'string:400 nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable' }
+    SiebelWebPage: { name: 'string:400', changed: boolean, repository_name: 'string:400', do_not_use_container: 'boolean nullable', title: 'string:400 nullable', title_string_reference: 'string:400  nullable', web_template: 'string:200 nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', project_id: 'id foreign:siebel_projects.id constrained nullable' }
+    SiebelClass: { name: 'string:400', changed: boolean, repository_name: 'string:400', dll: 'string:100 nullable', object_type: 'string:30 nullable', thin_client: boolean, java_thin_client: boolean, handheld_client: boolean, unix_support: 'string:10 nullable', high_interactivity_enabled: 'string:10 nullable', inactive: boolean, comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', super_class_id: 'id foreign:siebel_classes.id constrained nullable' }
+    SiebelTable: { object_language_locked: 'string:10 nullable', object_locked: 'boolean nullable', object_locked_by_name: 'string:50 nullable', object_locked_date: 'timestamp nullable', name: 'string:400', changed: boolean, repository_name: 'string:400', user_name: 'string:200 nullable', alias: 'string:200 nullable', type: 'string:50 nullable', file: 'boolean nullable', abbreviation_1: 'string:50 nullable', abbreviation_2: 'string:50 nullable', abbreviation_3: 'string:50 nullable', append_data: 'boolean nullable', dflt_mapping_col_name_prefix: 'string:25 nullable', seed_filter: 'string:400 nullable', seed_locale_filter: 'string:400 nullable', seed_usage: 'string:30 nullable', group: 'string:25 nullable', owner_organization_specifier: 'string:30 nullable', status: 'string:25 nullable', volatile: 'boolean nullable', inactive: 'boolean nullable', node_type: 'string:10 nullable', partition_indicator: 'boolean nullable', comments: 'string:500 nullable', external_api_write: 'boolean nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', base_table_id: 'id foreign:siebel_tables.id constrained nullable' }
+    SiebelBusinessComponent: { name: 'string:400', changed: boolean, repository_name: 'string:400', cache_data: 'boolean nullable', data_source: 'string:50 nullable', dirty_reads: 'boolean nullable', distinct: 'boolean nullable', enclosure_id_field: 'string:50 nullable', force_active: 'boolean nullable', gen_reassign_act: 'boolean nullable', hierarchy_parent_field: 'string:30 nullable', type: 'enum:Transient,Non-Transient', inactive: 'boolean nullable', insert_update_all_columns: 'boolean nullable', log_changes: 'boolean nullable', maximum_cursor_size: 'integer nullable', multirecipient_select: 'boolean nullable', no_delete: 'boolean nullable', no_insert: 'boolean nullable', no_update: 'boolean nullable', no_merge: 'boolean nullable', owner_delete: 'boolean nullable', placeholder: 'boolean nullable', popup_visibility_auto_all: 'boolean nullable', popup_visibility_type: 'string:30 nullable', prefetch_size: 'integer nullable', recipient_id_field: 'string:30 nullable', reverse_fill_threshold: 'integer nullable', scripted: 'boolean nullable', search_specification: 'string:400 nullable', sort_specification: 'string:400 nullable', status_field: 'string:100 nullable', synonym_field: 'string:100 nullable', upgrade_ancestor: 'string:200 nullable', xa_attribute_value_bus_comp: 'string:100 nullable', xa_class_id_field: 'string:100 nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', class_id: 'id foreign:siebel_classes.id constrained nullable', table_id: 'id foreign:siebel_tables.id constrained nullable' }
+    SiebelBusinessObject: { name: 'string:400', changed: boolean, repository_name: 'string:400', inactive: 'boolean nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', primary_business_component_id: 'id foreign:siebel_business_components.id constrained nullable', query_list_business_component_id: 'id foreign:siebel_business_components.id constrained nullable' }
+    SiebelApplet: { name: 'string:400', changed: boolean, repository_name: 'string:400', title: 'string:100 nullable', title_string_reference: 'string:100 nullable', title_string_override: 'string:100 nullable', search_specification: 'string:400 nullable', associate_applet: 'string:100 nullable', type: 'string:25 nullable', no_delete: 'boolean nullable', no_insert: 'boolean nullable', no_merge: 'boolean nullable', no_update: 'boolean nullable', html_number_of_rows: 'integer nullable', scripted: 'boolean nullable', inactive: 'boolean nullable', comments: 'string:600 nullable', auto_query_mode: 'string:100 nullable', background_bitmap_style: 'string:50 nullable', html_popup_dimension: 'string:10 nullable', height: 'integer nullable', help_identifier: 'string:150 nullable', insert_position: 'string:10 nullable', mail_address_field: 'string:50 nullable', mail_template: 'string:50 nullable', popup_dimension: 'string:10 nullable', upgrade_ancestor: 'string:50 nullable', width: 'integer nullable', upgrade_behavior: 'string:25 nullable', icl_upgrade_path: 'integer nullable', task: 'string:50 nullable', default_applet_method: 'string:50 nullable', default_double_click_method: 'string:50 nullable', disable_dataloss_warning: 'boolean nullable', object_locked: 'boolean nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', business_component_id: 'id foreign:siebel_business_components.id constrained nullable', class_id: 'id foreign:siebel_classes.id constrained nullable' }
+    SiebelLink: { name: 'string:400', changed: boolean, repository_name: 'string:400', source_field: 'string:100 nullable', destination_field: 'string:100 nullable', inter_parent_column: 'string:100 nullable', inter_child_column: 'string:100 nullable', inter_child_delete: 'boolean nullable', primary_id_field: 'string:100 nullable', cascade_delete: 'string:10', search_specification: 'string:200 nullable', association_list_sort_specification: 'string:100 nullable', no_associate: 'boolean nullable', no_delete: 'boolean nullable', no_insert: 'boolean nullable', no_inter_delete: 'boolean nullable', no_update: 'boolean nullable', visibility_auto_all: 'boolean nullable', visibility_rule_applied: 'string:10 nullable', visibility_type: 'string:10 nullable', inactive: 'boolean nullable', comments: 'string:400 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', parent_business_component_id: 'id foreign:siebel_business_components.id constrained nullable', child_business_component_id: 'id foreign:siebel_business_components.id constrained nullable', inter_table_id: 'id foreign:siebel_tables.id constrained nullable' }
+    SiebelBusinessService: { name: 'string:400', changed: boolean, repository_name: 'string:400', cache: 'boolean nullable', display_name: 'string:150 nullable', display_name_string_reference: 'string:150 nullable', display_name_string_override: 'string:150 nullable', external_use: 'boolean nullable', hidden: 'boolean nullable', server_enabled: boolean, state_management_type: 'string:25 nullable', web_service_enabled: 'boolean nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', class_id: 'id foreign:siebel_classes.id constrained nullable' }
+    SiebelEimInterfaceTable: { name: 'string:400', changed: boolean, user_name: 'string:400', type: 'string:30', file: 'boolean 5', eim_delete_proc_column: 'string:30 nullable', eim_export_proc_column: 'string:30 nullable', eim_merge_proc_column: 'string:30 nullable', inactive: boolean, comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', target_table_id: 'id foreign:siebel_tables.id constrained nullable' }
+    SiebelIntegrationObject: { name: 'string:400', changed: boolean, repository_name: 'string:400', adapter_info: 'string:50 nullable', base_object_type: 'string:100 nullable', external_major_version: 'integer nullable', external_minor_version: 'integer nullable', external_name: 'string:100 nullable', xml_tag: 'string:100 nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', business_object_id: 'id foreign:siebel_business_objects.id constrained nullable' }
+    SiebelView: { name: 'string:400', changed: boolean, repository_name: 'string:400', visibility_applet: 'string:250 nullable', visibility_applet_type: 'string:50 nullable', admin_mode_flag: 'boolean nullable', thread_applet: 'string:400 nullable', thread_field: 'string:250 nullable', thread_title: 'string:250 nullable', thread_title_string_reference: 'string:400 nullable', thread_title_string_override: 'string:250 nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', bitmap_category: 'string:250 nullable', drop_sectors: 'string:30 nullable', explicit_login: 'boolean nullable', help_identifier: 'string:50 nullable', no_borders: 'boolean nullable', screen_menu: 'boolean nullable', sector0_applet: 'string:200 nullable', sector1_applet: 'string:200 nullable', sector2_applet: 'string:200 nullable', sector3_applet: 'string:200 nullable', sector4_applet: 'string:200 nullable', sector5_applet: 'string:200 nullable', sector6_applet: 'string:200 nullable', sector7_applet: 'string:200 nullable', secure: 'boolean nullable', status_text: 'string:200 nullable', status_text_string_reference: 'string:200 nullable', status_text_string_override: 'string:200 nullable', title: 'string:200 nullable', title_string_reference: 'string:200 nullable', title_string_override: 'string:200 nullable', vertical_line_position: 'integer nullable', upgrade_behavior: 'string:30 nullable', icl_upgrade_path: 'string:200 nullable', add_to_history: 'boolean nullable', task: 'string:200 nullable', type: 'string:30 nullable', default_applet_focus: 'string:200 nullable', disable_pdq: 'boolean nullable', object_locked: 'boolean nullable', object_language_locked: 'string:20 nullable', business_object_id: 'id foreign:siebel_business_objects.id constrained nullable', project_id: 'id foreign:siebel_projects.id constrained nullable' }
+    SiebelWorkflowProcess: { auto_persist: boolean, process_name: 'string:400', simulate_workflow_process: 'string:400', status: 'string:40 nullable', workflow_mode: 'string:40 nullable', changed: boolean, group: 'string:40 nullable', version: 'integer nullable', description: 'string:500 nullable', error_process_name: 'string:400 nullable', state_management_type: 'string:40 nullable', web_service_enabled: 'boolean nullable', pass_by_ref_hierarchy_argument: 'boolean nullable', repository_name: 'string:100 nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', business_object_id: 'id foreign:siebel_business_objects.id constrained nullable' }
+    SiebelValue: { inactive: boolean, type: 'string:50 nullable', display_value: 'string:100 nullable', changed: 'boolean nullable', translate: 'boolean nullable', multilingual: 'boolean nullable', language_independent_code: 'string:50 nullable', parent_lic: 'string:50 nullable', high: 'string:300 nullable', low: 'string:300 nullable', order: 'integer nullable', active: 'boolean nullable', language_name: 'string:100 nullable', replication_level: 'string:25 nullable', target_low: 'integer nullable', target_high: 'integer nullable', weighting_factor: 'integer nullable', description: 'string:500 nullable' }
+    SiebelScreen: { name: 'string:400', changed: boolean, repository_name: 'string:400', bitmap_category: 'string:50 nullable', viewbar_text: 'string:400 nullable', viewbar_text_string_reference: 'string:400 nullable', viewbar_text_string_override: 'string:100 nullable', unrestricted_viewbar: 'boolean nullable', help_identifier: 'string:100 nullable', inactive: 'boolean nullable', comments: 'string:500 nullable', upgrade_behavior: 'string:30 nullable', object_locked: 'boolean nullable', object_language_locked: 'string:10 nullable', project_id: 'id foreign:siebel_projects.id constrained nullable', default_view_id: 'id foreign:siebel_views.id constrained nullable' }
+    MomusR: { field_name: 'string:30', description: 'string:300 nullable', field_type: 'string:30', field_type_length: integer, source: 'string:30', screen: 'string:30 nullable', table: 'string:30 nullable', condition: 'string:100 nullable', table_code: 'string:10 nullable', lookup_field: 'string:30 nullable', database_name: 'string:30 nullable', integration_id: 'id foreign:integration nullable', xml_id: 'id foreign:xml nullable', lookup_id: 'id foreign:lookup nullable', have_duplicate: 'boolean default:false' }
+    Integration: { name: 'string:25', description: 'string:300' }
+    Lookup: { lookup_field: 'string:30', lookup_table: 'string:30', lookup_table_code: 'string:10', lookup_database: 'string:30', description: 'string:300' }
+    Xml: { name: 'string:30', description: 'string:300' }

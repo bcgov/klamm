@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Test, Build and Deploy
 
 on:
   push:
@@ -12,8 +12,64 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build_image:
+  test:
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, pdo_mysql, pdo_pgsql, pcntl, exif, bcmath, gd, intl, zip
+          ini-values: |
+            memory_limit=-1
+          coverage: none
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+          libpq-dev \
+          libpng-dev \
+          libonig-dev \
+          libxml2-dev \
+          libzip-dev \
+          libicu-dev \
+          zip \
+          unzip \
+          git \
+          curl \
+          postgresql-client \
+          nodejs \
+          npm
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
+
+      - name: Install Node.js dependencies and build assets
+        run: |
+          npm install
+          npm run build
+
+      - name: Set up Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        run: vendor/bin/pest
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
 
     steps:
       - uses: actions/checkout@v4
@@ -43,8 +99,8 @@ jobs:
       image_tag: ${{ steps.meta.outputs.tags }}
 
   deploy:
-    needs: build_image
     runs-on: ubuntu-latest
+    needs: build
 
     steps:
       - uses: actions/checkout@v4
@@ -59,4 +115,4 @@ jobs:
 
       - name: Run Helm upgrade
         run: |
-          helm upgrade --install klamm-app ./helm --set image.tag=${{ needs.build_image.outputs.image_tag }}
+          helm upgrade --install klamm-app ./helm --set image.tag=${{ needs.build.outputs.image_tag }}

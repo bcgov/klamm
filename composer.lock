@@ -4,8 +4,71 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "76d0b300b55d292f412dc5482e0fcf68",
+    "content-hash": "9789f4059c0a2f64782e2bb949688b49",
     "packages": [
+        {
+            "name": "althinect/filament-spatie-roles-permissions",
+            "version": "v2.2.28",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Althinect/filament-spatie-roles-permissions.git",
+                "reference": "6101b2c731255b7cef66b3336c1ad5eabf16f982"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Althinect/filament-spatie-roles-permissions/zipball/6101b2c731255b7cef66b3336c1ad5eabf16f982",
+                "reference": "6101b2c731255b7cef66b3336c1ad5eabf16f982",
+                "shasum": ""
+            },
+            "require": {
+                "filament/filament": "^3.0",
+                "illuminate/support": "^9|^10|^11",
+                "php": "^8.1|^8.2",
+                "spatie/laravel-permission": "^5.4|^6.0"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.10",
+                "orchestra/testbench": "^7.0|^9.0",
+                "phpunit/phpunit": "^9.0|^10.5"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Althinect\\FilamentSpatieRolesPermissions\\FilamentSpatieRolesPermissionsServiceProvider"
+                    ],
+                    "aliases": {
+                        "FilamentSpatieRolesPermissions": "Althinect\\FilamentSpatieRolesPermissions\\FilamentSpatieRolesPermissionsFacade"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Althinect\\FilamentSpatieRolesPermissions\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Tharinda Rodrigo",
+                    "email": "tharindarodrigo@gmail.com",
+                    "role": "Developer"
+                }
+            ],
+            "homepage": "https://github.com/althinect/filament-spatie-roles-permissions",
+            "keywords": [
+                "althinect",
+                "filament-spatie-roles-permissions"
+            ],
+            "support": {
+                "issues": "https://github.com/Althinect/filament-spatie-roles-permissions/issues",
+                "source": "https://github.com/Althinect/filament-spatie-roles-permissions/tree/v2.2.28"
+            },
+            "time": "2024-06-20T17:37:43+00:00"
+        },
         {
             "name": "anourvalar/eloquent-serialize",
             "version": "1.2.22",
@@ -3986,6 +4049,69 @@
             "time": "2024-01-09T09:30:37+00:00"
         },
         {
+            "name": "orangehill/iseed",
+            "version": "v3.0.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/orangehill/iseed.git",
+                "reference": "403ea734f16da238bda7fcc10b8dc549751fa035"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/orangehill/iseed/zipball/403ea734f16da238bda7fcc10b8dc549751fa035",
+                "reference": "403ea734f16da238bda7fcc10b8dc549751fa035",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "~5.5.0|~5.6.0|~5.7.0|~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0",
+                "php": "^7.2|^8.0.2"
+            },
+            "require-dev": {
+                "illuminate/filesystem": "~5.5.0|~5.6.0|~5.7.0|~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0",
+                "laravel/framework": "~5.5.0|~5.6.0|~5.7.0|~5.8.0|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0",
+                "mockery/mockery": "^1.0.0",
+                "phpunit/phpunit": "^8.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Orangehill\\Iseed\\IseedServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-0": {
+                    "Orangehill\\Iseed": "src/"
+                },
+                "classmap": [
+                    "src/Orangehill/Iseed/Exceptions.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "BSD-2-Clause"
+            ],
+            "authors": [
+                {
+                    "name": "Tihomir Opacic",
+                    "email": "tihomir.opacic@orangehilldev.com"
+                }
+            ],
+            "description": "Generate a new Laravel database seed file based on data from the existing database table.",
+            "keywords": [
+                "artisan",
+                "generators",
+                "laravel",
+                "seed"
+            ],
+            "support": {
+                "issues": "https://github.com/orangehill/iseed/issues",
+                "source": "https://github.com/orangehill/iseed/tree/v3.0.4"
+            },
+            "time": "2024-03-27T08:01:21+00:00"
+        },
+        {
             "name": "phpoption/phpoption",
             "version": "1.9.2",
             "source": {
@@ -5080,6 +5206,88 @@
                 }
             ],
             "time": "2024-03-20T07:29:11+00:00"
+        },
+        {
+            "name": "spatie/laravel-permission",
+            "version": "6.9.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/spatie/laravel-permission.git",
+                "reference": "fe973a58b44380d0e8620107259b7bda22f70408"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/spatie/laravel-permission/zipball/fe973a58b44380d0e8620107259b7bda22f70408",
+                "reference": "fe973a58b44380d0e8620107259b7bda22f70408",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/auth": "^8.12|^9.0|^10.0|^11.0",
+                "illuminate/container": "^8.12|^9.0|^10.0|^11.0",
+                "illuminate/contracts": "^8.12|^9.0|^10.0|^11.0",
+                "illuminate/database": "^8.12|^9.0|^10.0|^11.0",
+                "php": "^8.0"
+            },
+            "require-dev": {
+                "laravel/passport": "^11.0|^12.0",
+                "orchestra/testbench": "^6.23|^7.0|^8.0|^9.0",
+                "phpunit/phpunit": "^9.4|^10.1"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "6.x-dev",
+                    "dev-master": "6.x-dev"
+                },
+                "laravel": {
+                    "providers": [
+                        "Spatie\\Permission\\PermissionServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Spatie\\Permission\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Freek Van der Herten",
+                    "email": "freek@spatie.be",
+                    "homepage": "https://spatie.be",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Permission handling for Laravel 8.0 and up",
+            "homepage": "https://github.com/spatie/laravel-permission",
+            "keywords": [
+                "acl",
+                "laravel",
+                "permission",
+                "permissions",
+                "rbac",
+                "roles",
+                "security",
+                "spatie"
+            ],
+            "support": {
+                "issues": "https://github.com/spatie/laravel-permission/issues",
+                "source": "https://github.com/spatie/laravel-permission/tree/6.9.0"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/spatie",
+                    "type": "github"
+                }
+            ],
+            "time": "2024-06-22T23:04:52+00:00"
         },
         {
             "name": "symfony/clock",
