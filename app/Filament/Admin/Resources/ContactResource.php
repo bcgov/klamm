@@ -30,8 +30,6 @@ class ContactResource extends Resource
                 Forms\Components\TextInput::make('full_name')
                     ->required(),
                 Forms\Components\TextInput::make('title'),
-                Forms\Components\Select::make('branch_id')
-                    ->relationship('branch', 'name'),
                 Forms\Components\Textarea::make('description')
                     ->required()
                     ->columnSpanFull(),
@@ -46,9 +44,6 @@ class ContactResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('title')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('branch.name')
-                    ->numeric()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

@@ -18,7 +18,6 @@ class Contact extends Model
     protected $fillable = [
         'full_name',
         'title',
-        'branch_id',
         'description',
     ];
 
@@ -29,7 +28,6 @@ class Contact extends Model
      */
     protected $casts = [
         'id' => 'integer',
-        'branch_id' => 'integer',
     ];
 
     public function branch(): BelongsTo
