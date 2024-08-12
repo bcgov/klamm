@@ -24,7 +24,6 @@ class ContactFactory extends Factory
         return [
             'full_name' => $this->faker->regexify('[A-Za-z0-9]{400}'),
             'title' => $this->faker->sentence(4),
-            'branch_id' => Branch::factory(),
             'description' => $this->faker->text(),
         ];
     }

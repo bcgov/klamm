@@ -16,7 +16,6 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             MinistrySeeder::class,
-            DataSourceSeeder::class,
             ValueTypeSeeder::class,
             RenderedFormSeeder::class,
             DataTypeSeeder::class,
