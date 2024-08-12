@@ -18,6 +18,8 @@ import {
     FileUploader,
     RadioButton, 
     RadioButtonGroup,
+    Select,
+    SelectItem,
 } from "carbon-components-react";
 import { parseISO, format, isValid } from "date-fns";
 
@@ -36,9 +38,10 @@ const componentMapping = {
     "table":DynamicTable,
     "group":FlexGrid,
     "radio":RadioButtonGroup,
+    "select":Select
 };
 
-const generateUniqueId = (groupId, gpIndex,name) => `grp${groupId}-${gpIndex}-${name}`;
+const generateUniqueId = (groupId, gpIndex,fieldId) => `${groupId}-${gpIndex}-${fieldId}`;
 
 const ComplexRenderedForm = () => {
     const [formData, setFormData] = useState(
@@ -59,15 +62,16 @@ const ComplexRenderedForm = () => {
             const initialGroupStates = {};
             formData.data.items.forEach((item, index) => {
                 if (item.type === "group") {
-                    initialGroupStates[item.id] = initialGroupStates[item.id] || {};
-                    item.groupItems.forEach((groupItem, groupIndex) => {
-                        groupItem.fields.forEach((field) => {                            
-                            field.id = generateUniqueId(item.id,groupIndex,field.codeContext.name || field.id) || field.id;
-                            initialGroupStates[item.id][field.id] = "";
+                    initialGroupStates[item.id] = item.groupItems.map((groupItem, groupIndex) => {
+                        const groupState = {};
+                        groupItem.fields.forEach((field) => {
+                            field.id = generateUniqueId(item.id, groupIndex, field.id);
+                            groupState[field.id] = "";
                         });
+                        return groupState;
                     });
                 } else {
-                    item.id = `${item.codeContext.name || item.id}-${item.id}`;
+                    //item.id = `${item.codeContext.name || item.id}-${item.id}`;
                     initialFormStates[item.id] = "";
                 }
             });
@@ -77,16 +81,13 @@ const ComplexRenderedForm = () => {
         }
     }, [formData]);
 
-    
-    const handleInputChange = (fieldId, value, groupId = null) => {
-        
-        if (groupId) {
+    const handleInputChange = (fieldId, value, groupId = null, groupIndex = null) => {
+        if (groupId !== null && groupIndex !== null) {
             setGroupStates((prevState) => ({
                 ...prevState,
-                [groupId]: {
-                    ...prevState[groupId],
-                    [fieldId]: value,
-                },
+                [groupId]: prevState[groupId].map((item, index) =>
+                    index === groupIndex ? { ...item, [fieldId]: value } : item
+                ),
             }));
         } else {
             setFormStates((prevState) => ({
@@ -103,17 +104,34 @@ const ComplexRenderedForm = () => {
     };
         
 
-    const handleAddGroupItem = (groupId) => {
+    const handleDropdownChange = (groupId, groupIndex, fieldId) => (event) => {
+        if (groupId !== null && groupIndex !== null) {
+            setGroupStates((prevState) => ({
+                ...prevState,
+                [groupId]: prevState[groupId].map((item, index) =>
+                    index === groupIndex ? { ...item, [fieldId]: event.target.value } : item
+                ),
+            }));
+        } else {
+            setFormStates((prevState) => ({
+                ...prevState,
+                [fieldId]: value,
+            }));
+        }
+      };
         
+
+    const handleAddGroupItem = (groupId) => {
+                
         setFormData((prevState) => {
             const newFormData = { ...prevState };
             const group = newFormData.data.items.find(item => item.id === groupId);
-            const newGroupItem = JSON.parse(JSON.stringify(group.groupItems[0])); // Clone the first group item
-            
-            // Assign unique ids to the new group item fields
-            newGroupItem.fields.forEach(field => {                
-                const groupIndex =  group.groupItems.length;                
-                field.id = generateUniqueId(groupId,groupIndex,field.codeContext.name || field.id);
+            const newGroupItem = JSON.parse(JSON.stringify(group.groupItems[0]));
+           
+            newGroupItem.fields.forEach(field => {
+                const groupIndex = group.groupItems.length;                
+                field.id = generateUniqueId(groupId, groupIndex,field.id.split('-').slice(2));
+                
             });
 
             group.groupItems.push(newGroupItem);
@@ -122,22 +140,19 @@ const ComplexRenderedForm = () => {
 
         setGroupStates((prevState) => {
             const newState = { ...prevState };
-            const groupState = newState[groupId] || {};
             const newGroupItemState = {};
             const group = formData.data.items.find(item => item.id === groupId);
 
-            // Initialize state for each field in the new group item
-            formData.data.items.find(item => item.id === groupId).groupItems[0].fields.forEach(field => {
-                const newFieldId = generateUniqueId(groupId,group.groupItems.length-1,field.codeContext.name || field.id);
+            group.groupItems[0].fields.forEach(field => {
+                
+                const newFieldId = generateUniqueId(groupId, group.groupItems.length - 1, field.id.split('-').slice(2));
+                
                 newGroupItemState[newFieldId] = "";
             });
 
             return {
                 ...newState,
-                [groupId]: {
-                    ...groupState,
-                    ...newGroupItemState,
-                },
+                [groupId]: [...(prevState[groupId] || []), newGroupItemState],
             };
         });
     };
@@ -147,51 +162,39 @@ const ComplexRenderedForm = () => {
             const newFormData = { ...prevState };
             const group = newFormData.data.items.find(item => item.id === groupId);
             group.groupItems.splice(groupItemIndex, 1);
-
+    
             // Update IDs for remaining group items
             group.groupItems.forEach((groupItem, newIndex) => {
                 groupItem.fields.forEach((field) => {
-                    const oldId = field.id;                    
-                    field.id =generateUniqueId(groupId,newIndex,field.id.split('-').slice(2))
-                    
-                    if (newFormData.groupStates && newFormData.groupStates[groupId] && newFormData.groupStates[groupId][oldId]) {
-                        newFormData.groupStates[groupId][field.id] = newFormData.groupStates[groupId][oldId];
-                        delete newFormData.groupStates[groupId][oldId];
-                    }
+                    const oldId = field.id;
+                    field.id = generateUniqueId(groupId, newIndex, field.id.split('-').slice(2));
                 });
             });
-
+    
             return newFormData;
         });
-
+    
         setGroupStates((prevState) => {
             const newState = { ...prevState };
-            const groupState = newState[groupId] || {};
-
-            // Create a new group state excluding the removed item and updating the remaining ones
-            const newGroupState = Object.keys(groupState)
-                .filter((key) => !key.startsWith(`${groupId}-${groupItemIndex}-`))
-                .reduce((acc, key) => {
-                    acc[key] = groupState[key];
-                    return acc;
-                }, {});
-
-            Object.keys(newGroupState).forEach((key) => {
-                const [id, idx, ...rest] = key.split('-');
-                const index = parseInt(idx, 10);
-                if (index > groupItemIndex) {
-                    const newKey = [id, index - 1, ...rest].join('-');
-                    newGroupState[newKey] = newGroupState[key];
-                    delete newGroupState[key];
-                }
+            const updatedGroup = newState[groupId].filter((_, index) => index !== groupItemIndex);
+    
+            // Reindex the remaining items correctly
+            const reindexedGroup = updatedGroup.map((groupItem, newIndex) => {
+                const newGroupItem = {};
+                Object.keys(groupItem).forEach(key => {
+                    const newKey = generateUniqueId(groupId, newIndex, key.split('-').slice(2).join('-'));
+                    newGroupItem[newKey] = groupItem[key];
+                });
+                return newGroupItem;
             });
-
+    
             return {
                 ...newState,
-                [groupId]: newGroupState,
+                [groupId]: reindexedGroup,
             };
         });
-    };
+    };   
+    
 
     const renderComponent = (item, groupId = null, groupIndex = null) => {
         const Component = componentMapping[item.type];
@@ -212,8 +215,8 @@ const ComplexRenderedForm = () => {
                         labelText={item.label}
                         placeholder={item.placeholder}
                         name={fieldId}
-                        value={groupId ? (groupStates[groupId]?.[fieldId] || "") : (formStates[fieldId] || "")}
-                        onChange={(e) => handleInputChange(fieldId, e.target.value, groupId)}
+                        value={groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] || "") : (formStates[fieldId] || "")}
+                        onChange={(e) => handleInputChange(fieldId, e.target.value, groupId, groupIndex)}
                         style={{ marginBottom: "15px" }}
                     />
                 );
@@ -224,14 +227,14 @@ const ComplexRenderedForm = () => {
                     <Component
                         key={fieldId}
                         id={fieldId}
-                        titleText={item.label}
-                        label={item.placeholder}
+                        titleText={item.label} 
+                        label= {item.label}                      
                         items={items}
                         itemToString={itemToString}
-                        selectedItem={groupId ? groupStates[groupId]?.[fieldId] : formStates[fieldId]}
-                        onChange={({ selectedItem }) => handleInputChange(fieldId, selectedItem, groupId)}
+                        selectedItem={groupId ? groupStates[groupId]?.[groupIndex]?.[fieldId] : formStates[fieldId]}
+                        onChange={({ selectedItem }) => handleInputChange(fieldId, selectedItem, groupId, groupIndex)}
                         style={{ marginBottom: "15px" }}
-                    />
+                    />                    
                 );
             case "checkbox":
                 return (
@@ -241,8 +244,8 @@ const ComplexRenderedForm = () => {
                             id={fieldId}
                             labelText={item.label}
                             name={fieldId}
-                            checked={groupId ? (groupStates[groupId]?.[fieldId] || false) : (formStates[fieldId] || false)}
-                            onChange={(_, { checked }) => handleInputChange(fieldId, checked, groupId)}
+                            checked={groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] || false) : (formStates[fieldId] || false)}
+                            onChange={(_, { checked }) => handleInputChange(fieldId, checked, groupId, groupIndex)}
                         />
                     </div>
                 );
@@ -256,19 +259,19 @@ const ComplexRenderedForm = () => {
                             labelA={item.offText}
                             labelB={item.onText}
                             size={item.size}
-                            toggled={groupId ? (groupStates[groupId]?.[fieldId] || false) : (formStates[fieldId] || false)}
-                            onToggle={(checked) => handleInputChange(fieldId, checked, groupId)}
+                            toggled={groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] || false) : (formStates[fieldId] || false)}
+                            onToggle={(checked) => handleInputChange(fieldId, checked, groupId, groupIndex)}
                         />
                     </div>
                 );
             case "date-picker":
-                const selectedDate = groupId ? (groupStates[groupId]?.[fieldId] ? parseISO(groupStates[groupId][fieldId]) : undefined) : (formStates[fieldId] ? parseISO(formStates[fieldId]) : undefined);
+                const selectedDate = groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] ? parseISO(groupStates[groupId][groupIndex][fieldId]) : undefined) : (formStates[fieldId] ? parseISO(formStates[fieldId]) : undefined);
                 return (
                     <Component
                         key={fieldId}
                         datePickerType="single"
                         value={selectedDate ? [selectedDate] : []}
-                        onChange={(dates) => handleInputChange(fieldId, format(dates[0], "yyyy-MM-dd"), groupId)}
+                        onChange={(dates) => handleInputChange(fieldId, format(dates[0], "yyyy-MM-dd"), groupId, groupIndex)}
                         style={{ marginBottom: "15px" }}
                     >
                         <DatePickerInput
@@ -288,8 +291,8 @@ const ComplexRenderedForm = () => {
                         placeholder={item.placeholder}
                         helperText={item.helperText}
                         name={fieldId}
-                        value={groupId ? (groupStates[groupId]?.[fieldId] || "") : (formStates[fieldId] || "")}
-                        onChange={(e) => handleInputChange(fieldId, e.target.value, groupId)}
+                        value={groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] || "") : (formStates[fieldId] || "")}
+                        onChange={(e) => handleInputChange(fieldId, e.target.value, groupId, groupIndex)}
                         rows={4}
                         style={{ marginBottom: "15px" }}
                     />
@@ -301,9 +304,8 @@ const ComplexRenderedForm = () => {
                         id={fieldId}
                         name={fieldId}
                         size="md"
-                        onClick={(e) => handleInputChange(fieldId, e.target.value, groupId)}
-                        style={{ marginBottom: "15px" }}
-                    >
+                        onClick={(e) => handleInputChange(fieldId, e.target.value, groupId, groupIndex)}
+                        style={{ marginBottom: "15px" }}                    >
                         {item.label}
                     </Component>
                 );
@@ -318,8 +320,8 @@ const ComplexRenderedForm = () => {
                         name={fieldId}
                         min={0}
                         max={250}
-                        value={groupId ? (groupStates[groupId]?.[fieldId] || 0) : (formStates[fieldId] || 0)}
-                        onChange={(e) => handleInputChange(fieldId, e.target.value, groupId)}
+                        value={groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] || 0) : (formStates[fieldId] || 0)}
+                        onChange={(e) => handleInputChange(fieldId, e.target.value, groupId, groupIndex)}
                         style={{ marginBottom: "15px" }}
                     />
                 );
@@ -378,10 +380,10 @@ const ComplexRenderedForm = () => {
                     <Component                
                         legendText= {item.label}
                         id={fieldId}
-                        name={fieldId}                        
-                        onChange={( value ) => handleInputChange(fieldId, value, groupId)}
-                        valueSelected={groupId ? groupStates[groupId]?.[fieldId] : formStates[fieldId]}
-                        >
+                        name={fieldId}
+                        onChange={(value) => handleInputChange(fieldId, value, groupId, groupIndex)}
+                        valueSelected={groupId ? groupStates[groupId]?.[groupIndex]?.[fieldId] : formStates[fieldId]}
+                    >
                         {radioOptions.map((option, index) => (
                             <RadioButton
                             key={index}
@@ -391,7 +393,22 @@ const ComplexRenderedForm = () => {
                             />
                         ))}
                     </Component>  
-                );     
+                );
+            case "select":
+                const itemsForSelect =  item.listItems;          
+                return (
+                    <Select
+                        id={fieldId}
+                        name={fieldId}
+                        labelText={item.label}
+                        value={groupId ? groupStates[groupId]?.[groupIndex]?.[fieldId] : formStates[fieldId]}
+                        onChange={handleDropdownChange(groupId, groupIndex, fieldId)}
+                    >
+                        {itemsForSelect.map(itemForSelect => (
+                            <SelectItem key={itemForSelect.value} value={itemForSelect.value} text={itemForSelect.text} />
+                        ))}
+                    </Select>
+                );
             case "group":
                 return (
                     <div key={item.id} className="group-container">
@@ -448,7 +465,7 @@ const ComplexRenderedForm = () => {
                         <Column>{renderComponent(item, item.type === "group" ? item.id : null, index)}</Column>
                     </Row>
                 ))}                
-            </FlexGrid>
+            </FlexGrid>            
         </div>
     );
 };
