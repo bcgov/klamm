@@ -29,11 +29,6 @@ class Ministry extends Model
         'id' => 'integer',
     ];
 
-    public function divisions(): HasMany
-    {
-        return $this->hasMany(Division::class);
-    }
-
     public function businessAreas()
     {
         return $this->belongsToMany(BusinessArea::class);

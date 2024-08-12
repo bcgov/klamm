@@ -29,9 +29,4 @@ class Contact extends Model
     protected $casts = [
         'id' => 'integer',
     ];
-
-    public function branch(): BelongsTo
-    {
-        return $this->belongsTo(Branch::class);
-    }
 }

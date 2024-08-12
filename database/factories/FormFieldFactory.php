@@ -36,7 +36,6 @@ class FormFieldFactory extends Factory
             'max_count' => $this->faker->word(),
             'conditional_logic' => $this->faker->text(),
             'prepopulated' => $this->faker->boolean(),
-            'data_source_id' => DataSource::factory(),
         ];
     }
 }
