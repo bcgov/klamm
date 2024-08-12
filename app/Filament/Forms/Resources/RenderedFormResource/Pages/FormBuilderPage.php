@@ -13,6 +13,8 @@ use Illuminate\Support\HtmlString;
 use App\Helpers\StringHelper;
 use Illuminate\Support\Facades\Blade;
 use App\Models\SelectOptions;
+use App\Models\FieldGroup;
+use Illuminate\Support\Str;
 
 class FormBuilderPage extends Page
 {
@@ -49,18 +51,17 @@ class FormBuilderPage extends Page
                 ]),
                 Forms\Components\Wizard\Step::make("Step 2")->schema([
                     Forms\Components\Repeater::make("selectedFields")
-                        ->label("Form Fields")
+                        ->label("Form Fields / Field Groups")
                         ->schema([
                             Forms\Components\Select::make("field")
-                                ->label("Form Field")
+                                ->label("Form Field / Group")
                                 ->options($this->availableFields)
                                 ->required()
                                 ->live()
-                                ->reactive()
-                                ->distinct()
+                                ->reactive()                                
                                 ->searchable(),
                         ])
-                        ->addActionLabel("Add Another Form Field")
+                        ->addActionLabel("Add Another Form Field / Group")
                         ->collapsible(false)
                         ->minItems(1)
                         ->reorderable(true)
@@ -78,30 +79,25 @@ class FormBuilderPage extends Page
                                 $selectedFields = collect(
                                     $get("selectedFields")
                                 );
+                                //
+                                
+                                //
                                 $fieldsContent = $selectedFields
-                                    ->map(function ($field) {
-                                        $formField = FormField::find(
-                                            $field["field"]
-                                        );
-                                        if ($formField) {
-                                            $fieldContent =
-                                                $formField->label .
-                                                " - " .
-                                                StringHelper::removeHyphensAndCapitalize(
-                                                    $formField->dataType->name
-                                                );
-                                            if (
-                                                $formField->dataType->name ===
-                                                "dropdown" &&
-                                                is_array($formField->options)
-                                            ) {
-                                                $selectOptionForDD = SelectOptions::where('form_field_id',$formField->id)->get();
-                                               
-                                                $options = $selectOptionForDD->implode('label', ', ');
-                                                $fieldContent .= " (Options: $options)";
+                                    ->map(function ($field) {                                        
+                                        $selectedfieldId = $field['field'];
+                                        if (Str::startsWith($selectedfieldId, 'fld_')) {
+                                            $fieldId = Str::after($selectedfieldId, 'fld_');   
+                                            $formField = FormField::find($fieldId);
+                                            if($formField){                                                                                       
+                                                return $this->getFieldContents($formField);
                                             }
-                                            return $fieldContent;
-                                        }
+                                        } elseif (Str::startsWith($selectedfieldId, 'grp_')) {
+                                            $groupId = Str::after($selectedfieldId, 'grp_');             
+                                            $fieldGroup = FieldGroup::find($groupId); 
+                                            if($fieldGroup){                                                          
+                                                return $this->getFieldGroupContents($fieldGroup);  
+                                            }              
+                                        }                                        
                                         return "Unknown Field";
                                     })
                                     ->implode("<br>");
@@ -145,12 +141,13 @@ BLADE
         ];
     }
 
-    protected function formatField($field)
+    protected function formatField($field,$index)
     {
         $base = [
             "type" => $field->dataType->name,
             "label" => $field->label,
-            "id" => (string)$field->id,
+            "id" => $index + 1,
+            "fieldId" => (string)$field->id,
             "codeContext" => [
                 "name" => $field->name,
             ],
@@ -201,12 +198,11 @@ BLADE
                     "size" => "md",
                 ]);
             case "date":
-                return [
-                    "type" => "date-picker",
-                    "id" => (string)$field->name,
+                return array_merge($base, [
+                    "type" => "date-picker",                    
                     "labelText" => $field->label,
                     "placeholder" => "mm/dd/yyyy",
-                ];
+                ]);
 
             case "button":
                 return array_merge($base, [
@@ -252,11 +248,89 @@ BLADE
                     "initialColumns" => "3",
                     "initialHeaderNames" => "Hedaer1,Header2,Header3",                                                 
                     
-                ]);              
+                ]);  
+            case "radio":
+                return array_merge($base, [
+                    "placeholder" => "Select your {$field->label}",
+                    "helperText" => "Choose one from the list",
+                    "fieldId" => $field->id,
+                    "listItems" => collect(SelectOptions::where('form_field_id',$field->id)->get())            
+                        ->map(function ($selectOption) {
+                            return ["value" => $selectOption->value,
+                                    "text" => $selectOption->label];
+                        })
+                        ->toArray(),
+                ]);                  
             default:
                 return $base;
         }
     }
+
+    protected function formatGroup($group,$index)
+    {
+        $fieldsInGroup = $group->formFields;
+        $fields = collect($fieldsInGroup)->map(function ($field,$index) {
+            return $this->formatField($field,$index);
+        } )->values()->all();  
+        
+        $base = [
+            "type" => "group",
+            "label" => $group->label,
+            "id" => $index +1,
+            "groupId" => (string)$group->id,
+            "repeater" => $group->repeater,
+            "codeContext" => [
+                "name" => $group->name,
+            ],     
+            
+        ];
+       
+        return array_merge($base,  [
+            "groupItems" => [
+                [
+                "fields" => $fields, 
+                ]
+        ]]);  
+            
+    }
+
+    protected function getFieldContents($formField)
+    {
+        $fieldContent =
+                $formField->label .
+                " - " .
+                StringHelper::removeHyphensAndCapitalize(
+                    $formField->dataType->name
+                );
+            if (
+                $formField->dataType->name ===
+                "dropdown" &&
+                is_array($formField->options)
+            ) {
+                $selectOptionForDD = SelectOptions::where('form_field_id',$formField->id)->get();
+                
+                $options = $selectOptionForDD->implode('label', ', ');
+                $fieldContent .= " (Options: $options)";
+            }
+            return $fieldContent;
+    }    
+
+    protected function getFieldGroupContents($fieldGroup)
+    {
+        $labelWithIds = collect($fieldGroup->formFields)->map(function ($field) {
+            return $field['label'] . '(' . StringHelper::removeHyphensAndCapitalize(
+                $field->dataType->name
+            ) . ')';
+        })->implode(',');
+        //    
+
+        $fieldContent =
+                $fieldGroup->label .
+                " - " .
+                $labelWithIds;
+            
+            return $fieldContent;
+    } 
 
     public function submit()
     {
@@ -264,14 +338,25 @@ BLADE
             "name" => "required|string|max:255",
             "description" => "required|string|max:65535",
             "selectedFields" => "required|array",
-            "selectedFields.*.field" => "required|exists:form_fields,id",
+            //"selectedFields.*.field" => "required|exists:form_fields,id",
+            "selectedFields.*.field" => "required",
             "ministry_id" => "required|exists:ministries,id",
         ]);
 
-        $items = collect($this->selectedFields)->map(function ($field) {
-            $formField = FormField::find($field['field']);
-            return $this->formatField($formField);
-        })->values()->all();
+        $items = collect($this->selectedFields)->values()->map(function ($field,$index) {
+           $selectedfieldId = $field['field'];
+            if (Str::startsWith($selectedfieldId, 'fld_')) {
+                $fieldId = Str::after($selectedfieldId, 'fld_');   
+                $formField = FormField::find($fieldId);
+                return $this->formatField($formField,$index);
+            } elseif (Str::startsWith($selectedfieldId, 'grp_')) {
+                $groupId = Str::after($selectedfieldId, 'grp_');             
+                $fieldGroup = FieldGroup::find($groupId);                
+                return $this->formatGroup($fieldGroup,$index);                
+            }
+           
+        })->all();
+        
 
         RenderedForm::create([
             "name" => $this->name,
@@ -280,7 +365,7 @@ BLADE
             "structure" => json_encode([
                 "version" => "0.0.1",
                 "ministry_id" => $this->ministry_id,
-                "id" => (string) \Str::uuid(),
+                "id" => (string) Str::uuid(),
                 "lastModified" => now()->toIso8601String(),
                 "title" => $this->name,
                 "data" => [
@@ -300,9 +385,12 @@ BLADE
 
     public function mount()
     {
-        $this->availableFields = FormField::select('id', 'label')->get()->mapWithKeys(function ($item) {
-            return [$item['id'] => $item['label']];
-        });
+        $this->availableFields = ['Fields' => FormField::all()->mapWithKeys(function ($item) {
+                                        return ['fld_' .$item->id => $item->label];
+                                    })->toArray(),
+                                    'Groups' => FieldGroup::all()->mapWithKeys(function ($group) {
+                                        return ['grp_' .$group->id => $group->label];
+                                    })->toArray(),];
         $this->ministries = Ministry::select('id', 'name')->get()->mapWithKeys(function ($item) {
             return [$item['id'] => $item['name']];
         });
