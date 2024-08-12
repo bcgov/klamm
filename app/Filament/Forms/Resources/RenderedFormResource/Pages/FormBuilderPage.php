@@ -146,7 +146,7 @@ BLADE
         $base = [
             "type" => $field->dataType->name,
             "label" => $field->label,
-            "id" => $index + 1,
+            "id" => $field->name.'_'.(string)$index + 1,
             "fieldId" => (string)$field->id,
             "codeContext" => [
                 "name" => $field->name,
@@ -276,7 +276,7 @@ BLADE
         $base = [
             "type" => "group",
             "label" => $group->label,
-            "id" => $index +1,
+            "id" => $group->name.'_'.(string)$index +1,
             "groupId" => (string)$group->id,
             "repeater" => $group->repeater,
             "codeContext" => [
