@@ -270,10 +270,48 @@ class PermissionsSeeder extends Seeder
 
         // Assign bre with access to bre resources
         $breRole = Role::firstOrCreate(['name' => 'bre']);
-        $breRole->syncPermissions(Permission::whereIn('name', [])->where('guard_name', 'web')->get());
+        $breRole->syncPermissions(Permission::whereIn('name', [
+            'view-any BREField',
+            'view BREField',
+            'create BREField',
+            'update BREField',
+            'delete BREField',
+            'view-any BREFieldGroup',
+            'view BREFieldGroup',
+            'create BREFieldGroup',
+            'update BREFieldGroup',
+            'delete BREFieldGroup',
+            'view-any BRERule',
+            'view BRERule',
+            'create BRERule',
+            'update BRERule',
+            'delete BRERule',
+            'view-any BREValueType',
+            'view BREValueType',
+            'create BREValueType',
+            'update BREValueType',
+            'delete BREValueType',
+            'view-any BREICMCDWField',
+            'view BREICMCDWField',
+            'create BREICMCDWField',
+            'update BREICMCDWField',
+            'delete BREICMCDWField',
+
+        ])->where('guard_name', 'web')->get());
 
         // Assign bre-read-only with ready only access to bre resources
         $breReadOnlyRole = Role::firstOrCreate(['name' => 'bre-view-only']);
-        $breReadOnlyRole->syncPermissions(Permission::whereIn('name', [])->where('guard_name', 'web')->get());
+        $breReadOnlyRole->syncPermissions(Permission::whereIn('name', [
+            'view-any BREField',
+            'view BREField',
+            'view-any BREFieldGroup',
+            'view BREFieldGroup',
+            'view-any BRERule',
+            'view BRERule',
+            'view-any BREValueType',
+            'view BREValueType',
+            'view-any BREICMCDWField',
+            'view BREICMCDWField',
+        ])->where('guard_name', 'web')->get());
     }
 }
