@@ -51,9 +51,9 @@ class FieldResource extends Resource
                     ->multiple()
                     ->relationship(
                         name: 'icmcdwFields',
-                        modifyQueryUsing: fn (Builder $query) => $query->orderBy('name')->orderBy('field')->orderBy('panel_type')->orderBy('entity')->orderBy('subject_area')
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')->orderBy('field')->orderBy('panel_type')->orderBy('entity')->orderBy('subject_area')
                     )
-                    ->getOptionLabelFromRecordUsing(fn (Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
                     ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area'])
             ]);
     }
@@ -63,8 +63,10 @@ class FieldResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('breDataType.name')
                     ->label('Data Type')
@@ -72,7 +74,6 @@ class FieldResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroupNames')
                     ->label('Field Groups')
-                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('input_output_type')
                     ->label('Input/Output?')
