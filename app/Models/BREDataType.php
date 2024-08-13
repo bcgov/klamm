@@ -37,6 +37,11 @@ class BREDataType extends Model
 
     public function breValueType(): BelongsTo
     {
-        return $this->belongsTo(BREValueType::class);
+        return $this->belongsTo(BREValueType::class, 'value_type_id');
+    }
+
+    public function getBREValueTypeNameAttribute()
+    {
+        return $this->breValueType ? $this->breValueType->name : null;
     }
 }

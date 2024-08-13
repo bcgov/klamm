@@ -3,21 +3,21 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\BREField;
-use App\Http\Resources\BREFieldResource;
+use App\Models\BREFieldGroup;
+use App\Http\Resources\BREFieldGroupResource;
 use Illuminate\Support\Facades\Validator;
 
-class BREFieldController extends Controller
+class BREFieldGroupController extends Controller
 {
     public function index()
     {
-        return BREFieldResource::collection(BREField::all());
+        return BREFieldGroupResource::collection(BREFieldGroup::all());
     }
 
     public function show($id)
     {
-        $breField = BREField::findOrFail($id);
-        return new BREFieldResource($breField);
+        $breFieldGroup = BREFieldGroup::findOrFail($id);
+        return new BREFieldGroupResource($breFieldGroup);
     }
 
     public function store(Request $request)
@@ -26,15 +26,13 @@ class BREFieldController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
-            'help_text' => 'nullable|string|max:1000',
-            'data_type_id' => 'required|integer|exists:bre_data_types,id',
-            'description' => 'nullable|string',
+            'internal_description' => 'nullable|string|max:1000',
         ]);
 
         // Create a new BREField
-        $breField = BREField::create($validated);
+        $breFieldGroup = BREFieldGroup::create($validated);
 
-        return new BREFieldResource($breField);
+        return new BREFieldGroupResource($breFieldGroup);
     }
 
     public function update(Request $request, $id)
@@ -43,23 +41,21 @@ class BREFieldController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
-            'help_text' => 'nullable|string|max:1000',
-            'data_type_id' => 'required|integer|exists:bre_data_types,id',
-            'description' => 'nullable|string',
+            'internal_description' => 'nullable|string|max:1000',
         ]);
 
         // Find the BREField by ID
-        $breField = BREField::findOrFail($id);
+        $breFieldGroup = BREFieldGroup::findOrFail($id);
 
         // Update the BREField
-        $breField->update($validated);
+        $breFieldGroup->update($validated);
 
-        return new BREFieldResource($breField);
+        return new BREFieldGroupResource($breFieldGroup);
     }
 
     public function destroy($id)
     {
-        $breField = BREField::findOrFail($id);
+        $breField = BREFieldGroup::findOrFail($id);
         $breField->delete();
 
         return response()->json(null, 204);
