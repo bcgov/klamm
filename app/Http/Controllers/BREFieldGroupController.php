@@ -26,8 +26,15 @@ class BREFieldGroupController extends Controller
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
             'internal_description' => 'nullable|string|max:1000',
+            'bre_fields' => 'array',
+            'bre_fields.*.id' => 'integer|exists:bre_fields,id',
         ]);
+
         $breFieldGroup = BREFieldGroup::create($validated);
+
+        if (isset($validated['bre_fields'])) {
+            $breFieldGroup->syncbreFields($validated['bre_fields']);
+        }
 
         return new BREFieldGroupResource($breFieldGroup);
     }
@@ -38,11 +45,18 @@ class BREFieldGroupController extends Controller
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
             'internal_description' => 'nullable|string|max:1000',
+            'bre_fields' => 'array',
+            'bre_fields.*.id' => 'integer|exists:bre_fields,id',
         ]);
 
         $breFieldGroup = BREFieldGroup::findOrFail($id);
 
         $breFieldGroup->update($validated);
+
+        if (isset($validated['bre_fields'])) {
+            $breFieldGroup->syncbreFields($validated['bre_fields']);
+        }
+
 
         return new BREFieldGroupResource($breFieldGroup);
     }

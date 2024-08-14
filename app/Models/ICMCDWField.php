@@ -43,4 +43,10 @@ class ICMCDWField extends Model
     {
         return $this->belongsToMany(BREField::class, 'bre_field_icm_cdw_field', 'icm_cdw_field_id', 'bre_field_id')->withTimestamps();
     }
+
+    public function syncBreFields(array $breFields)
+    {
+        $breFieldIds = collect($breFields)->pluck('id')->all();
+        $this->breFields()->sync($breFieldIds);
+    }
 }

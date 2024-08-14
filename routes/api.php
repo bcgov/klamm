@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BREFieldController;
 use App\Http\Controllers\BREDataTypeController;
+use App\Http\Controllers\BREValueTypeController;
 use App\Http\Controllers\BREFieldGroupController;
 use App\Http\Controllers\BRERuleController;
 use App\Http\Controllers\ICMCDWFieldController;
@@ -36,6 +37,13 @@ Route::post('/bredatatypes', [BREDataTypeController::class, 'store']);
 Route::put('/bredatatypes/{id}', [BREDataTypeController::class, 'update']);
 Route::delete('/bredatatypes/{id}', [BREDataTypeController::class, 'destroy']);
 
+// Bre Value Types
+
+Route::get('/brevaluetypes', [BREValueTypeController::class, 'index']);
+Route::get('/brevaluetypes/{id}', [BREValueTypeController::class, 'show']);
+Route::post('/brevaluetypes', [BREValueTypeController::class, 'store']);
+Route::put('/brevaluetypes/{id}', [BREValueTypeController::class, 'update']);
+Route::delete('/brevaluetypes/{id}', [BREValueTypeController::class, 'destroy']);
 
 // Bre Rules
 

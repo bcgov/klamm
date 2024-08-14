@@ -28,9 +28,29 @@ class BREFieldController extends Controller
             'help_text' => 'nullable|string|max:1000',
             'data_type_id' => 'required|integer|exists:bre_data_types,id',
             'description' => 'nullable|string',
+            'field_groups' => 'nullable|array',
+            'rule_inputs' => 'nullable|array',
+            'rule_outputs' => 'nullable|array',
+            'icmcdw_fields' => 'nullable|array',
         ]);
 
         $breField = BREField::create($validated);
+
+        if (isset($validated['field_groups'])) {
+            $breField->syncFieldGroups($validated['field_groups']);
+        }
+
+        if (isset($validated['rule_inputs'])) {
+            $breField->syncRuleInputs($validated['rule_inputs']);
+        }
+
+        if (isset($validated['rule_outputs'])) {
+            $breField->syncRuleOutputs($validated['rule_outputs']);
+        }
+
+        if (isset($validated['icmcdw_fields'])) {
+            $breField->syncIcmCDWFields($validated['icmcdw_fields']);
+        }
 
         return new BREFieldResource($breField);
     }
@@ -43,11 +63,31 @@ class BREFieldController extends Controller
             'help_text' => 'nullable|string|max:1000',
             'data_type_id' => 'required|integer|exists:bre_data_types,id',
             'description' => 'nullable|string',
+            'field_groups' => 'nullable|array',
+            'rule_inputs' => 'nullable|array',
+            'rule_outputs' => 'nullable|array',
+            'icmcdw_fields' => 'nullable|array',
         ]);
 
         $breField = BREField::findOrFail($id);
 
         $breField->update($validated);
+
+        if (isset($validated['field_groups'])) {
+            $breField->syncFieldGroups($validated['field_groups']);
+        }
+
+        if (isset($validated['rule_inputs'])) {
+            $breField->syncRuleInputs($validated['rule_inputs']);
+        }
+
+        if (isset($validated['rule_outputs'])) {
+            $breField->syncRuleOutputs($validated['rule_outputs']);
+        }
+
+        if (isset($validated['icmcdw_fields'])) {
+            $breField->syncIcmCDWFields($validated['icmcdw_fields']);
+        }
 
         return new BREFieldResource($breField);
     }

@@ -19,6 +19,7 @@ class BRERule extends Model
         'name',
         'label',
         'description',
+        'internal_description',
     ];
 
     /**
@@ -29,6 +30,11 @@ class BRERule extends Model
     protected $casts = [
         'id' => 'integer',
         'related_icm_cdw_fields' => 'array',
+        'rule_inputs' => 'array',
+        'rule_outputs' => 'array',
+        'parent_rules' => 'array',
+        'child_rules' => 'array',
+        'icmcdw_fields' => 'array',
     ];
 
     public function breInputs()
@@ -69,5 +75,35 @@ class BRERule extends Model
             ->get()
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    public function syncRuleInputs(array $ruleInputs)
+    {
+        $inputIds = collect($ruleInputs)->pluck('id')->all();
+        $this->breInputs()->sync($inputIds);
+    }
+
+    public function syncRuleOutputs(array $ruleOutputs)
+    {
+        $outputIds = collect($ruleOutputs)->pluck('id')->all();
+        $this->breOutputs()->sync($outputIds);
+    }
+
+    public function syncParentRules(array $parentRules)
+    {
+        $parentRuleIds = collect($parentRules)->pluck('id')->all();
+        $this->parentRules()->sync($parentRuleIds);
+    }
+
+    public function syncChildRules(array $childRules)
+    {
+        $childRuleIds = collect($childRules)->pluck('id')->all();
+        $this->childRules()->sync($childRuleIds);
+    }
+
+    public function syncIcmCDWFields(array $icmCDWFields)
+    {
+        $icmCDWFieldIds = collect($icmCDWFields)->pluck('id')->all();
+        $this->icmCDWFields()->sync($icmCDWFieldIds);
     }
 }

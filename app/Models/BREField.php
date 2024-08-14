@@ -35,6 +35,10 @@ class BREField extends Model
     protected $casts = [
         'id' => 'integer',
         'data_type_id' => 'integer',
+        'icmcdw_fields' => 'array',
+        'rule_inputs' => 'array',
+        'rule_outputs' => 'array',
+        'field_groups' => 'array',
     ];
 
     public function breDataType(): BelongsTo
@@ -86,5 +90,29 @@ class BREField extends Model
     public function breRules()
     {
         return $this->belongsToMany(BRERule::class)->withTimestamps();
+    }
+
+    public function syncFieldGroups(array $fieldGroups)
+    {
+        $fieldGroupIds = collect($fieldGroups)->pluck('id')->all();
+        $this->breFieldGroups()->sync($fieldGroupIds);
+    }
+
+    public function syncRuleInputs(array $ruleInputs)
+    {
+        $inputIds = collect($ruleInputs)->pluck('id')->all();
+        $this->breInputs()->sync($inputIds);
+    }
+
+    public function syncRuleOutputs(array $ruleOutputs)
+    {
+        $outputIds = collect($ruleOutputs)->pluck('id')->all();
+        $this->breOutputs()->sync($outputIds);
+    }
+
+    public function syncIcmCDWFields(array $icmCDWFields)
+    {
+        $icmCDWFieldIds = collect($icmCDWFields)->pluck('id')->all();
+        $this->icmCDWFields()->sync($icmCDWFieldIds);
     }
 }

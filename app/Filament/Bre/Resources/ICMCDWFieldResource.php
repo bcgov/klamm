@@ -52,8 +52,10 @@ class ICMCDWFieldResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('field')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('panel_type')
                     ->label('Panel Type')
