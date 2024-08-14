@@ -37,6 +37,7 @@ class ICMCDWField extends Model
      */
     protected $casts = [
         'id' => 'integer',
+        'bre_fields' => 'array',
     ];
 
     public function breFields()
