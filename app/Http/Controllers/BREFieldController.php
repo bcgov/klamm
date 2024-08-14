@@ -22,7 +22,6 @@ class BREFieldController extends Controller
 
     public function store(Request $request)
     {
-        // Validation code
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
@@ -31,7 +30,6 @@ class BREFieldController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        // Create a new BREField
         $breField = BREField::create($validated);
 
         return new BREFieldResource($breField);
@@ -39,7 +37,6 @@ class BREFieldController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Validation code
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
@@ -48,10 +45,8 @@ class BREFieldController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        // Find the BREField by ID
         $breField = BREField::findOrFail($id);
 
-        // Update the BREField
         $breField->update($validated);
 
         return new BREFieldResource($breField);

@@ -22,7 +22,7 @@ class BREDataTypeController extends Controller
 
     public function store(Request $request)
     {
-        // Validation code
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'short_description' => 'nullable|string|max:255',
@@ -30,7 +30,6 @@ class BREDataTypeController extends Controller
             'value_type_id' => 'nullable|integer|exists:bre_value_types,id',
         ]);
 
-        // Create a new BREField
         $breDataType = BREDataType::create($validated);
 
         return new BREDataTypeResource($breDataType);
@@ -38,7 +37,6 @@ class BREDataTypeController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Validation code
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
@@ -46,10 +44,8 @@ class BREDataTypeController extends Controller
             'value_type_id' => 'nullable|integer|exists:bre_value_types,id',
         ]);
 
-        // Find the BREField by ID
         $breDataType = BREDataType::findOrFail($id);
 
-        // Update the BREField
         $breDataType->update($validated);
 
         return new BREDataTypeResource($breDataType);

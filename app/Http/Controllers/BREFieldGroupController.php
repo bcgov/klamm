@@ -22,14 +22,11 @@ class BREFieldGroupController extends Controller
 
     public function store(Request $request)
     {
-        // Validation code
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
             'internal_description' => 'nullable|string|max:1000',
         ]);
-
-        // Create a new BREField
         $breFieldGroup = BREFieldGroup::create($validated);
 
         return new BREFieldGroupResource($breFieldGroup);
@@ -37,17 +34,14 @@ class BREFieldGroupController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Validation code
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'label' => 'nullable|string|max:255',
             'internal_description' => 'nullable|string|max:1000',
         ]);
 
-        // Find the BREField by ID
         $breFieldGroup = BREFieldGroup::findOrFail($id);
 
-        // Update the BREField
         $breFieldGroup->update($validated);
 
         return new BREFieldGroupResource($breFieldGroup);
