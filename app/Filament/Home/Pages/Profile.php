@@ -159,10 +159,11 @@ class Profile extends Page
 
         $tokenId = $user->email;
         $user->tokens()->where('name', $tokenId)->delete();
-        
-        $token = $user->createToken($tokenId);
+
+        $abilities = $user->getRoleNames()->toArray();
+        $token = $user->createToken($tokenId, $abilities);
         $tokenPlainText = $token->plainTextToken;
-        
+
         $this->api_token = $tokenPlainText;
 
         Notification::make()
