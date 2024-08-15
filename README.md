@@ -111,6 +111,9 @@ sail artisan db:seed
 
 # Optionally seed the Momus Data
 sail artisan db:seed --class=MomusSeeder
+
+# Optionally seed the BRE Data
+sail artisan db:seed --class=BRESeeder
 ```
 
 If you would like to use a GUI for your Postgres database I reccomend TablePlus. In the connection details you will want to put the following in the connection details:
