@@ -8,9 +8,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Section;
-use Filament\Notifications\Notification; 
+use Filament\Notifications\Notification;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
+use Illuminate\Support\Str;
 
 class Profile extends Page
 {
@@ -25,8 +26,7 @@ class Profile extends Page
     public $current_password;
     public $new_password;
     public $new_password_confirmation;
-
-    
+    public $api_token; 
 
     public function mount()
     {
@@ -77,6 +77,19 @@ class Profile extends Page
                         Action::make('updatePassword')
                             ->label('Update Password')
                             ->action('updatePassword')
+                    ])
+                ]),
+            Section::make('API Token Management')
+                ->schema([
+                    TextInput::make('api_token')
+                        ->label('API Token')
+                        ->disabled()  // Disable editing of this field directly
+                        ->default(fn() => session('api_token_plaintext')), // Show the plaintext token from the session
+                    Actions::make([
+                        Action::make('updateApiToken')
+                            ->label('Regenerate API Token')
+                            ->action('updateApiToken')
+                            ->color('danger')
                     ])
                 ]),
         ];
@@ -136,5 +149,26 @@ class Profile extends Page
     public static function shouldRegisterNavigation():bool
     {
         return Auth::check();
+    }
+
+    public function updateApiToken()
+    {
+        $user = Auth::user();
+
+        /** @var \App\Models\User $user **/
+
+        $tokenId = $user->email;
+        $user->tokens()->where('name', $tokenId)->delete();
+
+        $abilities = $user->getRoleNames()->toArray();
+        $token = $user->createToken($tokenId, $abilities);
+        $tokenPlainText = $token->plainTextToken;
+
+        $this->api_token = $tokenPlainText;
+
+        Notification::make()
+            ->title("API Token updated successfully!")
+            ->success()
+            ->send();
     }
 }

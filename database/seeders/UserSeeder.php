@@ -93,7 +93,12 @@ class UserSeeder extends Seeder
                 'name' => 'Saranya',
                 'email' => 'saranya.viswam@gov.bc.ca',
                 'password' => 'thisisunsafe',
-            ]
+            ],
+            [
+                'name' => 'Bryson',
+                'email' => 'bryson.best@gov.bc.ca',
+                'password' => 'klamm',
+            ],
 
         ];
 
