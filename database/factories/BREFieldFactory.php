@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use App\Models\BREField;
 use App\Models\ICMCDWField;
 use App\Models\BRERule;
-use App\Models\BreFieldGroup;
+use App\Models\BREFieldGroup;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\BREField>
@@ -31,7 +31,7 @@ class BREFieldFactory extends Factory
             'icmcdw_fields' => ICMCDWField::factory()->count(3)->make()->toArray(),
             'rule_inputs' => BRERule::factory()->count(3)->make()->toArray(),
             'rule_outputs' => BRERule::factory()->count(3)->make()->toArray(),
-            'field_groups' => BreFieldGroup::factory()->count(3)->make()->toArray(),
+            'field_groups' => BREFieldGroup::factory()->count(3)->make()->toArray(),
         ];
     }
 }

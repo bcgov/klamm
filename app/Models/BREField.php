@@ -48,7 +48,7 @@ class BREField extends Model
 
     public function breFieldGroups()
     {
-        return $this->belongsToMany(BreFieldGroup::class, 'bre_field_bre_field_group', 'bre_field_id', 'bre_field_group_id')->withTimestamps();
+        return $this->belongsToMany(BREFieldGroup::class, 'bre_field_bre_field_group', 'bre_field_id', 'bre_field_group_id')->withTimestamps();
     }
 
     // Accessor for field group names

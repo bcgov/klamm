@@ -35,7 +35,7 @@ class BREFieldGroup extends Model
 
     public function breFields()
     {
-        return $this->belongsToMany(BreField::class, 'bre_field_bre_field_group', 'bre_field_group_id', 'bre_field_id')->withTimestamps();
+        return $this->belongsToMany(BREField::class, 'bre_field_bre_field_group', 'bre_field_group_id', 'bre_field_id')->withTimestamps();
     }
 
     public function syncbreFields(array $breFields)
