@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Form extends Model
 {
@@ -58,6 +59,11 @@ class Form extends Model
         return $this->belongsToMany(FormSoftwareSource::class, 'form_software_source_form');
     }
 
+    public function links(): HasMany
+    {
+        return $this->hasMany(FormLink::class);
+    }
+
     public function userTypes(): BelongsToMany
     {
         return $this->belongsToMany(UserType::class, 'form_user_type');
@@ -73,7 +79,8 @@ class Form extends Model
         return $this->belongsToMany(Form::class, 'form_related_forms', 'related_form_id', 'form_id');
     }
 
-    protected static function boot() {
+    protected static function boot()
+    {
         parent::boot();
 
         static::saved(function ($form) {

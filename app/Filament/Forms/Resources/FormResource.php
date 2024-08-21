@@ -64,10 +64,13 @@ class FormResource extends Resource
                     ->relationship('relatedForms', 'form_title')
                     ->preload(),
                 Forms\Components\Repeater::make('links')
+                    ->relationship('links')
                     ->schema([
-                        Forms\Components\TextInput::make('link'),
+                        Forms\Components\TextInput::make('link')
+                            ->required(),
                     ])
-                    ->columns(1),
+                    ->columns(1)
+                    ->createItemButtonLabel('Add Link'),
             ]);
     }
 
@@ -112,7 +115,10 @@ class FormResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
