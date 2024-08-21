@@ -82,29 +82,32 @@ class FormResource extends Resource
                 Tables\Columns\TextColumn::make('form_title')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('ministry.name'),
                 Tables\Columns\TagsColumn::make('businessAreas.name'),
-                Tables\Columns\TagsColumn::make('formTags.name'),
-                Tables\Columns\TextColumn::make('fillType.name'),
-                Tables\Columns\BooleanColumn::make('decommissioned'),
-                Tables\Columns\TextColumn::make('formFrequency.name'),
-                Tables\Columns\TextColumn::make('formReach.name'),
-                Tables\Columns\TagsColumn::make('formLocations.name'),
-                Tables\Columns\TagsColumn::make('formRepositories.name'),
-                Tables\Columns\TagsColumn::make('formSoftwareSources.name'),
-                Tables\Columns\TagsColumn::make('userTypes.name'),
-                Tables\Columns\TagsColumn::make('relatedForms.form_id'),
                 Tables\Columns\TextColumn::make('form_purpose')->searchable(),
-                Tables\Columns\TextColumn::make('notes')->searchable(),
+                Tables\Columns\TagsColumn::make('formLocations.name'),
+                Tables\Columns\TagsColumn::make('formSoftwareSources.name'),
+                Tables\Columns\BooleanColumn::make('decommissioned'),
             ])
             ->filters([
+                Tables\Filters\Filter::make('decommissioned')
+                    ->form([
+                        Forms\Components\Checkbox::make('decommissioned')
+                            ->label('Decommissioned')
+                            ->default(false),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (isset($data['decommissioned'])) {
+                            return $query->where('decommissioned', $data['decommissioned']);
+                        }
+                        return $query;
+                    }),
                 Tables\Filters\SelectFilter::make('ministry_id')
+                    ->multiple(true)
                     ->relationship('ministry', 'name')
                     ->label('Ministry'),
                 Tables\Filters\SelectFilter::make('business_areas')
+                    ->multiple(true)
                     ->relationship('businessAreas', 'name')
                     ->label('Business Area'),
-                Tables\Filters\SelectFilter::make('fill_type_id')
-                    ->relationship('fillType', 'name')
-                    ->label('Fill Type'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
