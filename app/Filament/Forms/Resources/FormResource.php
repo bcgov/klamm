@@ -32,8 +32,8 @@ class FormResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('ministry_id')
                     ->relationship('ministry', 'name'),
-                Forms\Components\Textarea::make('short_description'),
-                Forms\Components\Textarea::make('long_description'),
+                Forms\Components\Textarea::make('form_purpose'),
+                Forms\Components\Textarea::make('notes'),
                 Forms\Components\Select::make('fill_type_id')
                     ->relationship('fillType', 'name'),
                 Forms\Components\Toggle::make('decommissioned'),
@@ -92,8 +92,8 @@ class FormResource extends Resource
                 Tables\Columns\TagsColumn::make('formSoftwareSources.name'),
                 Tables\Columns\TagsColumn::make('userTypes.name'),
                 Tables\Columns\TagsColumn::make('relatedForms.form_id'),
-                Tables\Columns\TextColumn::make('short_description')->searchable(),
-                Tables\Columns\TextColumn::make('long_description')->searchable(),
+                Tables\Columns\TextColumn::make('form_purpose')->searchable(),
+                Tables\Columns\TextColumn::make('notes')->searchable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('ministry_id')
