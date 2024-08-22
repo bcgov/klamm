@@ -28,6 +28,7 @@ class Form extends Model
         'footer_fragment_path',
         'dcv_material_number',
         'orbeon_functions',
+        'icm_generated'
     ];
 
     public function ministry(): BelongsTo
