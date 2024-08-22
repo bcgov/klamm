@@ -3,7 +3,6 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormResource\Pages;
-use App\Filament\Forms\Resources\FormResource\RelationManagers;
 use App\Models\Form;
 use Filament\Forms;
 use Filament\Forms\Form as FilamentForm;
@@ -11,8 +10,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Enums\ActionsPosition;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 
 class FormResource extends Resource
 {
@@ -41,6 +42,29 @@ class FormResource extends Resource
                     ->relationship('formFrequency', 'name'),
                 Forms\Components\Select::make('form_reach_id')
                     ->relationship('formReach', 'name'),
+                Forms\Components\TextInput::make('print_reason')
+                    ->label('Print Reason')
+                    ->nullable()
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('retention_needs')
+                    ->label('Retention Needs (years)')
+                    ->numeric()
+                    ->nullable(),
+                Forms\Components\Toggle::make('icm_non_interactive')
+                    ->label('ICM Non-Interactive')
+                    ->nullable(),
+                Forms\Components\TextInput::make('footer_fragment_path')
+                    ->label('Footer Fragment Path')
+                    ->nullable()
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('dcv_material_number')
+                    ->label('DCV Material Number')
+                    ->nullable()
+                    ->minLength(10)
+                    ->maxLength(10),
+                Forms\Components\Textarea::make('orbeon_functions')
+                    ->label('Orbeon Functions')
+                    ->nullable(),
                 Forms\Components\Select::make('business_areas')
                     ->multiple()
                     ->relationship('businessAreas', 'name'),
@@ -110,9 +134,9 @@ class FormResource extends Resource
                     ->label('Business Area'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
+                DeleteAction::make(),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
                 //
