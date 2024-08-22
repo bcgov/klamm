@@ -55,7 +55,7 @@ class FormResource extends Resource
                     ->label('ICM Non-Interactive')
                     ->nullable(),
                 Forms\Components\Toggle::make('icm_generated')
-                    ->label('ICM Non-Interactive')
+                    ->label('ICM Generated')
                     ->nullable(),
                 Forms\Components\TextInput::make('footer_fragment_path')
                     ->label('Footer Fragment Path')
