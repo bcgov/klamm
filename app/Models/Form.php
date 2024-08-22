@@ -22,6 +22,12 @@ class Form extends Model
         'decommissioned',
         'form_frequency_id',
         'form_reach_id',
+        'print_reason',
+        'retention_needs',
+        'icm_non_interactive',
+        'footer_fragment_path',
+        'dcv_material_number',
+        'orbeon_functions',
     ];
 
     public function ministry(): BelongsTo
