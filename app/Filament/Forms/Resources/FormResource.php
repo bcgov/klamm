@@ -95,6 +95,14 @@ class FormResource extends Resource
                     ])
                     ->columns(1)
                     ->createItemButtonLabel('Add Link'),
+                Forms\Components\Repeater::make('workbench_paths')
+                    ->relationship('workbenchPaths')
+                    ->schema([
+                        Forms\Components\TextInput::make('workbench_path')
+                            ->required(),
+                    ])
+                    ->columns(1)
+                    ->createItemButtonLabel('Add Workbench Path'),
             ]);
     }
 

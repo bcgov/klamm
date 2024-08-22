@@ -70,6 +70,11 @@ class Form extends Model
         return $this->hasMany(FormLink::class);
     }
 
+    public function workbenchPaths(): HasMany
+    {
+        return $this->hasMany(FormWorkbenchPath::class);
+    }
+
     public function userTypes(): BelongsToMany
     {
         return $this->belongsToMany(UserType::class, 'form_user_type');
