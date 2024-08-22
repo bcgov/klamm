@@ -14,6 +14,7 @@ use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Actions\ActionGroup;
 
 class FormResource extends Resource
 {
@@ -145,9 +146,11 @@ class FormResource extends Resource
                     ->label('Business Area'),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
-                DeleteAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ])->icon('heroicon-m-ellipsis-vertical')
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
                 //
