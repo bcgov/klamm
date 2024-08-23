@@ -32,8 +32,7 @@ class DatabaseSeeder extends Seeder
             FormSoftwareSourceSeeder::class,
             UserTypeSeeder::class,
             FormTagSeeder::class,
-            FormsTableSeeder::class,
-            FormBusinessAreaTableSeeder::class,
+            FormSeeder::class,
         ]);
     }
 }

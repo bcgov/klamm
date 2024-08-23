@@ -13,11 +13,21 @@ class FormTagSeeder extends Seeder
      */
     public function run(): void
     {
-        FormTag::create(['name' => 'King\'s Printer']);
-        FormTag::create(['name' => 'BCMailPlus']);
-        FormTag::create(['name' => 'Government of Canada']);
-        FormTag::create(['name' => 'Specialized Governance: Specified']);
-        FormTag::create(['name' => 'Specialized Governance: Prescribed']);
-        FormTag::create(['name' => 'Distribution Centre Victoria']);
+        FormTag::truncate();
+
+        $tags = [
+            'BCMailPlus',
+            'MySS',
+            'CourtForm',
+            'ICFS',
+            'DCV',
+            'JAWS',
+            'MIS',
+            'ServiceCanada',
+        ];
+
+        foreach ($tags as $tag) {
+            FormTag::create(['name' => $tag]);
+        }
     }
 }

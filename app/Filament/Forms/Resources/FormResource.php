@@ -3,7 +3,6 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormResource\Pages;
-use App\Filament\Forms\Resources\FormResource\RelationManagers;
 use App\Models\Form;
 use Filament\Forms;
 use Filament\Forms\Form as FilamentForm;
@@ -11,8 +10,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Tables\Enums\ActionsPosition;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Actions\ActionGroup;
 
 class FormResource extends Resource
 {
@@ -32,8 +34,8 @@ class FormResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('ministry_id')
                     ->relationship('ministry', 'name'),
-                Forms\Components\Textarea::make('short_description'),
-                Forms\Components\Textarea::make('long_description'),
+                Forms\Components\Textarea::make('form_purpose'),
+                Forms\Components\Textarea::make('notes'),
                 Forms\Components\Select::make('fill_type_id')
                     ->relationship('fillType', 'name'),
                 Forms\Components\Toggle::make('decommissioned'),
@@ -41,6 +43,32 @@ class FormResource extends Resource
                     ->relationship('formFrequency', 'name'),
                 Forms\Components\Select::make('form_reach_id')
                     ->relationship('formReach', 'name'),
+                Forms\Components\TextInput::make('print_reason')
+                    ->label('Print Reason')
+                    ->nullable()
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('retention_needs')
+                    ->label('Retention Needs (years)')
+                    ->numeric()
+                    ->nullable(),
+                Forms\Components\Toggle::make('icm_non_interactive')
+                    ->label('ICM Non-Interactive')
+                    ->nullable(),
+                Forms\Components\Toggle::make('icm_generated')
+                    ->label('ICM Generated')
+                    ->nullable(),
+                Forms\Components\TextInput::make('footer_fragment_path')
+                    ->label('Footer Fragment Path')
+                    ->nullable()
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('dcv_material_number')
+                    ->label('DCV Material Number')
+                    ->nullable()
+                    ->minLength(10)
+                    ->maxLength(10),
+                Forms\Components\Textarea::make('orbeon_functions')
+                    ->label('Orbeon Functions')
+                    ->nullable(),
                 Forms\Components\Select::make('business_areas')
                     ->multiple()
                     ->relationship('businessAreas', 'name'),
@@ -64,10 +92,21 @@ class FormResource extends Resource
                     ->relationship('relatedForms', 'form_title')
                     ->preload(),
                 Forms\Components\Repeater::make('links')
+                    ->relationship('links')
                     ->schema([
-                        Forms\Components\TextInput::make('link'),
+                        Forms\Components\TextInput::make('link')
+                            ->required(),
                     ])
-                    ->columns(1),
+                    ->columns(1)
+                    ->createItemButtonLabel('Add Link'),
+                Forms\Components\Repeater::make('workbench_paths')
+                    ->relationship('workbenchPaths')
+                    ->schema([
+                        Forms\Components\TextInput::make('workbench_path')
+                            ->required(),
+                    ])
+                    ->columns(1)
+                    ->createItemButtonLabel('Add Workbench Path'),
             ]);
     }
 
@@ -79,40 +118,48 @@ class FormResource extends Resource
                 Tables\Columns\TextColumn::make('form_title')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('ministry.name'),
                 Tables\Columns\TagsColumn::make('businessAreas.name'),
-                Tables\Columns\TagsColumn::make('formTags.name'),
-                Tables\Columns\TextColumn::make('fillType.name'),
-                Tables\Columns\BooleanColumn::make('decommissioned'),
-                Tables\Columns\TextColumn::make('formFrequency.name'),
-                Tables\Columns\TextColumn::make('formReach.name'),
+                Tables\Columns\TextColumn::make('form_purpose')->searchable(['notes', 'form_purpose']),
                 Tables\Columns\TagsColumn::make('formLocations.name'),
-                Tables\Columns\TagsColumn::make('formRepositories.name'),
                 Tables\Columns\TagsColumn::make('formSoftwareSources.name'),
-                Tables\Columns\TagsColumn::make('userTypes.name'),
-                Tables\Columns\TagsColumn::make('relatedForms.form_id'),
-                Tables\Columns\TextColumn::make('short_description')->searchable(),
-                Tables\Columns\TextColumn::make('long_description')->searchable(),
+                Tables\Columns\BooleanColumn::make('decommissioned'),
             ])
             ->filters([
+                Tables\Filters\Filter::make('decommissioned')
+                    ->form([
+                        Forms\Components\Checkbox::make('decommissioned')
+                            ->label('Decommissioned')
+                            ->default(false),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (isset($data['decommissioned'])) {
+                            return $query->where('decommissioned', $data['decommissioned']);
+                        }
+                        return $query;
+                    }),
                 Tables\Filters\SelectFilter::make('ministry_id')
+                    ->multiple(true)
                     ->relationship('ministry', 'name')
                     ->label('Ministry'),
                 Tables\Filters\SelectFilter::make('business_areas')
+                    ->multiple(true)
                     ->relationship('businessAreas', 'name')
                     ->label('Business Area'),
-                Tables\Filters\SelectFilter::make('fill_type_id')
-                    ->relationship('fillType', 'name')
-                    ->label('Fill Type'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                ActionGroup::make([
+                    ViewAction::make(),
+                    EditAction::make(),
+                    DeleteAction::make(),
+                ])->icon('heroicon-m-ellipsis-vertical')
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
