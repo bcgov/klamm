@@ -98,6 +98,7 @@ class FormResource extends Resource
                             ->required(),
                     ])
                     ->columns(1)
+                    ->defaultItems(0)
                     ->createItemButtonLabel('Add Link'),
                 Forms\Components\Repeater::make('workbench_paths')
                     ->relationship('workbenchPaths')
@@ -106,6 +107,7 @@ class FormResource extends Resource
                             ->required(),
                     ])
                     ->columns(1)
+                    ->defaultItems(0)
                     ->createItemButtonLabel('Add Workbench Path'),
             ]);
     }

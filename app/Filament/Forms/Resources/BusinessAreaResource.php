@@ -30,8 +30,7 @@ class BusinessAreaResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required(),
-                Forms\Components\TextInput::make('short_name')
-                    ->required(),
+                Forms\Components\TextInput::make('short_name'),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('ministry_id')
