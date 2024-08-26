@@ -35,6 +35,7 @@ class BusinessAreaResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\Select::make('ministry_id')
                     ->multiple()
+                    ->preload()
                     ->relationship('ministries', 'name'),
             ]);
     }

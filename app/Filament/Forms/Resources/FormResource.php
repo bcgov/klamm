@@ -71,26 +71,32 @@ class FormResource extends Resource
                     ->nullable(),
                 Forms\Components\Select::make('business_areas')
                     ->multiple()
+                    ->preload()
                     ->relationship('businessAreas', 'name'),
                 Forms\Components\Select::make('form_tags')
                     ->multiple()
+                    ->preload()
                     ->relationship('formTags', 'name'),
                 Forms\Components\Select::make('form_locations')
                     ->multiple()
+                    ->preload()
                     ->relationship('formLocations', 'name'),
                 Forms\Components\Select::make('form_repositories')
                     ->multiple()
+                    ->preload()
                     ->relationship('formRepositories', 'name'),
                 Forms\Components\Select::make('form_software_sources')
                     ->multiple()
+                    ->preload()
                     ->relationship('formSoftwareSources', 'name'),
                 Forms\Components\Select::make('user_types')
                     ->multiple()
+                    ->preload()
                     ->relationship('userTypes', 'name'),
                 Forms\Components\Select::make('related_forms')
                     ->multiple()
-                    ->relationship('relatedForms', 'form_title')
-                    ->preload(),
+                    ->preload()
+                    ->relationship('relatedForms', 'form_title'),
                 Forms\Components\Repeater::make('links')
                     ->relationship('links')
                     ->schema([
@@ -139,12 +145,14 @@ class FormResource extends Resource
                         return $query;
                     }),
                 Tables\Filters\SelectFilter::make('ministry_id')
-                    ->multiple(true)
+                    ->multiple()
                     ->relationship('ministry', 'name')
+                    ->preload()
                     ->label('Ministry'),
                 Tables\Filters\SelectFilter::make('business_areas')
-                    ->multiple(true)
+                    ->multiple()
                     ->relationship('businessAreas', 'name')
+                    ->preload()
                     ->label('Business Area'),
             ])
             ->actions([

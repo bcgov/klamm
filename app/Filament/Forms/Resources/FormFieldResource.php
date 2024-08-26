@@ -35,6 +35,7 @@ class FormFieldResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\Select::make('field_group_id')
                     ->multiple()
+                    ->preload()
                     ->relationship('fieldGroups', 'name'),
             ]);
     }
