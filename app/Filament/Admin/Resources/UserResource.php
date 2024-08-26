@@ -35,6 +35,7 @@ class UserResource extends Resource
                     ->hidden(fn ($record) => $record !== null),
                 Forms\Components\Select::make('roles')
                     ->multiple()
+                    ->preload()
                     ->relationship('roles', 'name')
             ]);
     }
