@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class FormVersion extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'form_id', 
+        'version_number', 
+        'status', 
+        'form_requester_name', 
+        'form_requester_email', 
+        'form_developer_name', 
+        'form_developer_email', 
+        'form_approver_name', 
+        'form_approver_email',
+    ];
+
+    public function form()
+    {
+        return $this->belongsTo(Form::class);
+    }
+}

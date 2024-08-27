@@ -31,6 +31,11 @@ class Form extends Model
         'icm_generated'
     ];
 
+    public function versions(): HasMany
+    {
+        return $this->hasMany(FormVersion::class);
+    }
+
     public function ministry(): BelongsTo
     {
         return $this->belongsTo(Ministry::class);
