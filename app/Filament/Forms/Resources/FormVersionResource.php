@@ -19,6 +19,8 @@ class FormVersionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-inbox-stack';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Form $form): Form
     {
         return $form
@@ -52,6 +54,38 @@ class FormVersionResource extends Resource
                 Forms\Components\TextInput::make('form_approver_email')
                     ->email()
                     ->maxLength(255),
+                Forms\Components\Repeater::make('form_instance_fields')
+                    ->label('Form Fields')
+                    ->relationship('formInstanceFields')
+                    ->columnSpan(2)
+                    ->itemLabel(
+                        fn($state) => $state['label'] ?? null
+                    )
+                    ->schema([
+                        Forms\Components\Select::make('form_field_id')
+                            ->label('Form Field')
+                            ->relationship('formField', 'label')
+                            ->required(),
+                        Forms\Components\TextInput::make('label'),
+                        Forms\Components\TextInput::make('order')
+                            ->numeric(),
+                        Forms\Components\TextInput::make('data_binding'),
+                        Forms\Components\TextArea::make('validation'),
+                        Forms\Components\TextArea::make('conditional_logic'),
+                        Forms\Components\TextArea::make('styles'),
+                    ])->collapsed(),
+                Forms\Components\Actions::make([
+                    Forms\Components\Actions\Action::make('Generate Form Template')
+                        ->action(function (Forms\Get $get, Forms\Set $set) {
+                            $formId = $get('id');
+                            $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
+                            $set('generated_text', $jsonTemplate);
+                        })
+                ]),
+                Forms\Components\TextArea::make('generated_text')
+                    ->label('Generated Form Template')
+                    ->columnSpan(2)
+                    ->rows(15),
             ]);
     }
 
