@@ -19,6 +19,8 @@ class BRESeeder extends Seeder
             BREFieldGroupSeeder::class,
             BRERuleSeeder::class,
             ICMCDWFieldSeeder::class,
+            BREValidationTypeSeeder::class,
+            BREDataValidationSeeder::class,
         ]);
     }
 }

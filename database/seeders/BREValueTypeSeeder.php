@@ -33,6 +33,16 @@ class BREValueTypeSeeder extends Seeder
         $identifier->description = 'An identifier is an alphanumeric value with no internal semantics - it serves only to index a data collection';
         $identifier->save();
 
+        $date = new BREValueType();
+        $date->name = 'Date';
+        $date->description = 'A date is a calendar date (year, month, day).';
+        $date->save();
+
+        $enumDate = new BREValueType();
+        $enumDate->name = 'Enum - Date';
+        $enumDate->description = 'An enumerated date value is a set of possible dates (e.g. 1/1/2020, 1/1/2021, 1/1/2022)';
+        $enumDate->save();
+
         $enumNumeric = new BREValueType();
         $enumNumeric->name = 'Enum - Numeric';
         $enumNumeric->description = 'An enumerated numeric value is a non-contiguous set of possible values (e.g. 3, 6, 9)';

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\BREFieldGroup;
-use App\Models\FieldGroup;
+use App\Models\BREDataValidation;
 
 class BREField extends Model
 {
@@ -24,6 +24,7 @@ class BREField extends Model
         'label',
         'help_text',
         'data_type_id',
+        'data_validation_id',
         'description',
     ];
 
@@ -35,6 +36,7 @@ class BREField extends Model
     protected $casts = [
         'id' => 'integer',
         'data_type_id' => 'integer',
+        'data_validation_id' => 'integer',
         'icmcdw_fields' => 'array',
         'rule_inputs' => 'array',
         'rule_outputs' => 'array',
@@ -44,6 +46,11 @@ class BREField extends Model
     public function breDataType(): BelongsTo
     {
         return $this->belongsTo(BREDataType::class, 'data_type_id');
+    }
+
+    public function breDataValidation(): BelongsTo
+    {
+        return $this->belongsTo(BREDataValidation::class, 'data_validation_id');
     }
 
     public function breFieldGroups()
