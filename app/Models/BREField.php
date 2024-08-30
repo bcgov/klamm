@@ -48,9 +48,31 @@ class BREField extends Model
         return $this->belongsTo(BREDataType::class, 'data_type_id');
     }
 
+    public function getBreDataTypeWithValueTypeAttribute()
+    {
+        $breDataType = $this->breDataType;
+
+        if ($breDataType) {
+            $breDataType->load('breValueType');
+        }
+
+        return $breDataType;
+    }
+
     public function breDataValidation(): BelongsTo
     {
         return $this->belongsTo(BREDataValidation::class, 'data_validation_id');
+    }
+
+    public function getBreDataValidationWithValidationTypeAttribute()
+    {
+        $breDataValidation = $this->breDataValidation;
+
+        if ($breDataValidation) {
+            $breDataValidation->load('breValidationType');
+        }
+
+        return $breDataValidation;
     }
 
     public function breFieldGroups()
