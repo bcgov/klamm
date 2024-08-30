@@ -33,6 +33,21 @@ class BREValueTypeSeeder extends Seeder
         $identifier->description = 'An identifier is an alphanumeric value with no internal semantics - it serves only to index a data collection';
         $identifier->save();
 
+        $string = new BREValueType();
+        $string->name = 'String';
+        $string->description = 'String values are for short text inputs - (e.g. First Name, City)';
+        $string->save();
+
+        $longtext = new BREValueType();
+        $longtext->name = 'Text';
+        $longtext->description = 'Text values are longer-form text inputs - (e.g. descriptions, requests, etc.)';
+        $longtext->save();
+
+        $boolean = new BREValueType();
+        $boolean->name = 'Boolean';
+        $boolean->description = 'Boolean values are for true/false inputs - (e.g. Active, Inactive)';
+        $boolean->save();
+
         $date = new BREValueType();
         $date->name = 'Date';
         $date->description = 'A date is a calendar date (year, month, day).';
@@ -52,21 +67,6 @@ class BREValueTypeSeeder extends Seeder
         $enumString->name = 'Enum - String';
         $enumString->description = 'An enumerated string value is one of a set of pre-defined possible values (e.g. Minor, Adult, Senior)';
         $enumString->save();
-
-        $string = new BREValueType();
-        $string->name = 'String';
-        $string->description = 'String values are for short text inputs - (e.g. First Name, City)';
-        $string->save();
-
-        $longtext = new BREValueType();
-        $longtext->name = 'Text';
-        $longtext->description = 'Text values are longer-form text inputs - (e.g. descriptions, requests, etc.)';
-        $longtext->save();
-
-        $boolean = new BREValueType();
-        $boolean->name = 'Boolean';
-        $boolean->description = 'Boolean values are for true/false inputs - (e.g. Active, Inactive)';
-        $boolean->save();
 
         $blob = new BREValueType();
         $blob->name = 'Blob';
