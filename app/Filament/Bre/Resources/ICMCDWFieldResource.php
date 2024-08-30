@@ -18,9 +18,10 @@ class ICMCDWFieldResource extends Resource
     protected static ?string $model = ICMCDWField::class;
 
     protected static ?string $navigationLabel = 'ICM CDW Fields';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-server-stack';
 
     protected static ?string $navigationGroup = 'ICM Data';
+
 
     public static function form(Form $form): Form
     {

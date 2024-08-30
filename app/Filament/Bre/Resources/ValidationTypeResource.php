@@ -2,8 +2,8 @@
 
 namespace App\Filament\Bre\Resources;
 
-use App\Filament\Bre\Resources\BREValidationTypeResource\Pages;
-use App\Filament\Bre\Resources\BREValidationTypeResource\RelationManagers;
+use App\Filament\Bre\Resources\ValidationTypeResource\Pages;
+use App\Filament\Bre\Resources\ValidationTypeResource\RelationManagers;
 use App\Models\BREValidationType;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -13,12 +13,11 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class BREValidationTypeResource extends Resource
+class ValidationTypeResource extends Resource
 {
     protected static ?string $model = BREValidationType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static bool $shouldRegisterNavigation = true;
+    protected static ?string $navigationIcon = 'heroicon-o-square-2-stack';
 
     protected static ?string $navigationGroup = 'Rule Building';
 
@@ -82,10 +81,10 @@ class BREValidationTypeResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListBREValidationTypes::route('/'),
-            'create' => Pages\CreateBREValidationType::route('/create'),
-            'view' => Pages\ViewBREValidationType::route('/{record}'),
-            'edit' => Pages\EditBREValidationType::route('/{record}/edit'),
+            'index' => Pages\ListValidationTypes::route('/'),
+            'create' => Pages\CreateValidationType::route('/create'),
+            'view' => Pages\ViewValidationType::route('/{record}'),
+            'edit' => Pages\EditValidationType::route('/{record}/edit'),
         ];
     }
 }
