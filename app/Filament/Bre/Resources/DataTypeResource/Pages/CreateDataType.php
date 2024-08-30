@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateDataType extends CreateRecord
 {
     protected static string $resource = DataTypeResource::class;
+    protected static ?string $title = 'Create BRE Rule Field Data Value Type';
 }

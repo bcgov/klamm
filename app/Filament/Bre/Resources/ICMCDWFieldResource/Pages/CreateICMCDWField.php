@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateICMCDWField extends CreateRecord
 {
     protected static string $resource = ICMCDWFieldResource::class;
+    protected static ?string $title = 'Create ICM CDW Field';
 }

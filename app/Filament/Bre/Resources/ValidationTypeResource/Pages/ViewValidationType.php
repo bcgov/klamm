@@ -9,7 +9,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewValidationType extends ViewRecord
 {
     protected static string $resource = ValidationTypeResource::class;
-
+    protected static ?string $title = 'View BRE Validation Type';
     protected function getHeaderActions(): array
     {
         return [

@@ -9,7 +9,7 @@ use Filament\Resources\Pages\ListRecords;
 class ListValueTypes extends ListRecords
 {
     protected static string $resource = ValueTypeResource::class;
-    protected static ?string $title = 'Field Value Types';
+    protected static ?string $title = 'BRE Field Value Types';
 
     protected function getHeaderActions(): array
     {

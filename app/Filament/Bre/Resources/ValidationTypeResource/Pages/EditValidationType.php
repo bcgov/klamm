@@ -9,7 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditValidationType extends EditRecord
 {
     protected static string $resource = ValidationTypeResource::class;
-
+    protected static ?string $title = 'Edit BRE Validation Type';
     protected function getHeaderActions(): array
     {
         return [

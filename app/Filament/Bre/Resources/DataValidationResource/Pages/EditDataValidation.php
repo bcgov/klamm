@@ -9,6 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditDataValidation extends EditRecord
 {
     protected static string $resource = DataValidationResource::class;
+    protected static ?string $title = 'Edit Field Data Validation';
 
     protected function getHeaderActions(): array
     {

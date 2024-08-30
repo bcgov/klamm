@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateDataValidation extends CreateRecord
 {
     protected static string $resource = DataValidationResource::class;
+    protected static ?string $title = 'Create Field Data Validation';
 }

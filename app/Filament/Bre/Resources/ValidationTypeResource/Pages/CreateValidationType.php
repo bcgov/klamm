@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateValidationType extends CreateRecord
 {
     protected static string $resource = ValidationTypeResource::class;
+    protected static ?string $title = 'Create BRE Validation Type';
 }

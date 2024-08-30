@@ -9,7 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditValueType extends EditRecord
 {
     protected static string $resource = ValueTypeResource::class;
-
+    protected static ?string $title = 'Edit Field Value Type';
     protected function getHeaderActions(): array
     {
         return [

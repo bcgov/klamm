@@ -9,6 +9,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewDataValidation extends ViewRecord
 {
     protected static string $resource = DataValidationResource::class;
+    protected static ?string $title = 'View Field Data Validation';
 
     protected function getHeaderActions(): array
     {
