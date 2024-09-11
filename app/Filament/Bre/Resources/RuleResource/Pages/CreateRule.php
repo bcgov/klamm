@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateRule extends CreateRecord
 {
     protected static string $resource = RuleResource::class;
+    protected static ?string $title = 'Create BRE Rule';
 }

@@ -19,7 +19,7 @@ class FieldGroupResource extends Resource
 {
     protected static ?string $model = BREFieldGroup::class;
     protected static ?string $navigationLabel = 'BRE Rule Field Groups';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-folder';
 
     protected static ?string $navigationGroup = 'Rule Building';
 

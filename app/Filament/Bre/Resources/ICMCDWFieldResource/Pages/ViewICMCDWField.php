@@ -9,7 +9,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewICMCDWField extends ViewRecord
 {
     protected static string $resource = ICMCDWFieldResource::class;
-
+    protected static ?string $title = 'View ICM CDW Field';
     protected function getHeaderActions(): array
     {
         return [

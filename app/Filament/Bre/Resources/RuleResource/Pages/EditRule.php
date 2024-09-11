@@ -9,7 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditRule extends EditRecord
 {
     protected static string $resource = RuleResource::class;
-
+    protected static ?string $title = 'Edit BRE Rule';
     protected function getHeaderActions(): array
     {
         return [

@@ -18,7 +18,7 @@ class ValueTypeResource extends Resource
 {
     protected static ?string $model = BREValueType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-square-2-stack';
     protected static bool $shouldRegisterNavigation = true;
 
     protected static ?string $navigationGroup = 'Rule Building';

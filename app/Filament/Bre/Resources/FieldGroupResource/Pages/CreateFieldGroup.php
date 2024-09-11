@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateFieldGroup extends CreateRecord
 {
     protected static string $resource = FieldGroupResource::class;
+    protected static ?string $title = 'Create BRE Rule Field Group';
 }

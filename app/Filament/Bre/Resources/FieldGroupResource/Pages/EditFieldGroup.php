@@ -9,7 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditFieldGroup extends EditRecord
 {
     protected static string $resource = FieldGroupResource::class;
-
+    protected static ?string $title = 'Edit BRE Rule Field Group';
     protected function getHeaderActions(): array
     {
         return [

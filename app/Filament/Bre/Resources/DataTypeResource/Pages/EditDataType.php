@@ -9,6 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditDataType extends EditRecord
 {
     protected static string $resource = DataTypeResource::class;
+    protected static ?string $title = 'Edit BRE Rule Field Data Value Type';
 
     protected function getHeaderActions(): array
     {

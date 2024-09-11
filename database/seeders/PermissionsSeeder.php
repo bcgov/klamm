@@ -296,6 +296,21 @@ class PermissionsSeeder extends Seeder
             'create BREICMCDWField',
             'update BREICMCDWField',
             'delete BREICMCDWField',
+            'view-any BREValidationType',
+            'view BREValidationType',
+            'create BREValidationType',
+            'update BREValidationType',
+            'delete BREValidationType',
+            'view-any BREDataValidation',
+            'view BREDataValidation',
+            'create BREDataValidation',
+            'update BREDataValidation',
+            'delete BREDataValidation',
+            'view-any BREDataType',
+            'view BREDataType',
+            'create BREDataType',
+            'update BREDataType',
+            'delete BREDataType',
 
         ])->where('guard_name', 'web')->get());
 
@@ -312,6 +327,12 @@ class PermissionsSeeder extends Seeder
             'view BREValueType',
             'view-any BREICMCDWField',
             'view BREICMCDWField',
+            'view-any BREValidationType',
+            'view BREValidationType',
+            'view-any BREDataValidation',
+            'view BREDataValidation',
+            'view-any BREDataType',
+            'view BREDataType',
         ])->where('guard_name', 'web')->get());
     }
 }

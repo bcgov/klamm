@@ -19,7 +19,7 @@ class FieldResource extends Resource
     protected static ?string $navigationLabel = 'BRE Rule Fields';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationGroup = 'Rule Building';
+    // protected static ?string $navigationGroup = 'Rule Building';
 
     public static function form(Form $form): Form
     {
@@ -36,6 +36,8 @@ class FieldResource extends Resource
                 Forms\Components\Select::make('field_group_id')
                     ->multiple()
                     ->relationship('breFieldGroups', 'name'),
+                Forms\Components\Select::make('data_validation_id')
+                    ->relationship('breDataValidation', 'name'),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('input_rules')
@@ -72,6 +74,10 @@ class FieldResource extends Resource
                     ->label('Data Type')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('breDataValidation.name')
+                    ->label('Data Validations')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroupNames')
                     ->label('Field Groups')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -81,22 +87,22 @@ class FieldResource extends Resource
                         return $record->getInputOutputType();
                     })
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Rules: Inputs')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Rules: Outputs')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('icmcdwFields.name')
                     ->label('Related ICM CDW Fields')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
