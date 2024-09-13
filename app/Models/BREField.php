@@ -122,15 +122,11 @@ class BREField extends Model
         return $this->belongsToMany(BRERule::class)->withTimestamps();
     }
 
-    // public function childFields()
-    // {
-    //     return $this->belongsToMany(BREField::class, 'bre_field_bre_field', 'parent_field_id', 'child_field_id');
-    // }
 
     public function childFields()
     {
         return $this->belongsToMany(BREField::class, 'bre_field_bre_field', 'parent_field_id', 'child_field_id')
-            ->with('breDataType', 'breDataValidation'); // Adjust as needed based on the relationships
+            ->with('breDataType', 'breDataValidation', 'breDataValidation.breValidationType');
     }
 
     public function syncFieldGroups(array $fieldGroups)
