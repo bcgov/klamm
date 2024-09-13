@@ -26,7 +26,8 @@ class FieldResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('label'),
                 Forms\Components\Textarea::make('help_text')
                     ->columnSpanFull(),
