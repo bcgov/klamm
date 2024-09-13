@@ -154,6 +154,7 @@ class BREFieldController extends Controller
             'rule_inputs' => 'nullable|array',
             'rule_outputs' => 'nullable|array',
             'icmcdw_fields' => 'nullable|array',
+            'child_fields' => 'nullable|array',
         ]);
 
         $breField = BREField::create($validated);
@@ -174,6 +175,10 @@ class BREFieldController extends Controller
             $breField->syncIcmCDWFields($validated['icmcdw_fields']);
         }
 
+        if (isset($validated['child_fields'])) {
+            $breField->syncChildFields($validated['child_fields']);
+        }
+
         return new BREFieldResource($breField);
     }
 
@@ -189,6 +194,7 @@ class BREFieldController extends Controller
             'rule_inputs' => 'nullable|array',
             'rule_outputs' => 'nullable|array',
             'icmcdw_fields' => 'nullable|array',
+            'child_fields' => 'nullable|array',
         ]);
 
         $breField = BREField::findOrFail($id);
@@ -209,6 +215,10 @@ class BREFieldController extends Controller
 
         if (isset($validated['icmcdw_fields'])) {
             $breField->syncIcmCDWFields($validated['icmcdw_fields']);
+        }
+
+        if (isset($validated['child_fields'])) {
+            $breField->syncChildFields($validated['child_fields']);
         }
 
         return new BREFieldResource($breField);
