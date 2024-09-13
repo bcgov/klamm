@@ -45,7 +45,7 @@ jobs:
           npm
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@4
         with:
           path: vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
