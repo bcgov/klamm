@@ -57,6 +57,7 @@ class ValidationTypeResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 //
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])

@@ -104,6 +104,7 @@ class ICMCDWFieldResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
