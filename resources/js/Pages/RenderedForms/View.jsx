@@ -206,13 +206,15 @@ const ComplexRenderedForm = () => {
         
         const fieldId = item.id;
 
+        console.log(item)
+
         switch (item.type) {
             case "text-input":
                 return (
                     <Component
                         key={fieldId}
                         id={fieldId}
-                        labelText={item.label}
+                        labelText={item.customLabel || item.label}
                         placeholder={item.placeholder}
                         name={fieldId}
                         value={groupId ? (groupStates[groupId]?.[groupIndex]?.[fieldId] || "") : (formStates[fieldId] || "")}

@@ -66,9 +66,11 @@ class FormVersionResource extends Resource
                             ->label('Form Field')
                             ->relationship('formField', 'label')
                             ->required(),
-                        Forms\Components\TextInput::make('label'),
                         Forms\Components\TextInput::make('order')
+                            ->required()
                             ->numeric(),
+                        Forms\Components\TextInput::make('label')
+                            ->label("Custom Label"),
                         Forms\Components\TextInput::make('data_binding'),
                         Forms\Components\TextArea::make('validation'),
                         Forms\Components\TextArea::make('conditional_logic'),
@@ -80,7 +82,15 @@ class FormVersionResource extends Resource
                             $formId = $get('id');
                             $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
                             $set('generated_text', $jsonTemplate);
+                        }),
+                    Forms\Components\Actions\Action::make('Preview Form Template')
+                        ->url(function (Forms\Get $get) {
+                            $jsonTemplate = $get('generated_text');
+                            $encodedJson = base64_encode($jsonTemplate);
+                            return route('forms.rendered_forms.preview', ['json' => $encodedJson]);
                         })
+                        ->openUrlInNewTab()
+                        ->disabled(fn(Forms\Get $get) => empty($get('generated_text'))),
                 ]),
                 Forms\Components\TextArea::make('generated_text')
                     ->label('Generated Form Template')
@@ -93,9 +103,6 @@ class FormVersionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('form_id')
-                    ->numeric()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('version_number')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
