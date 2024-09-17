@@ -28,36 +28,58 @@ class FormVersionResource extends Resource
                 Forms\Components\Select::make('form_id')
                     ->relationship('form', 'form_title')
                     ->required(),
-                Forms\Components\TextInput::make('version_number')
-                    ->required(),
                 Forms\Components\Select::make('status')
                     ->options([
-                        'Requested' => 'Requested',
-                        'Active' => 'Active',
-                        'Archived' => 'Archived',
-                        'In Review' => 'In Review',
-                        'Ready to Release' => 'Ready to Release',
+                        'draft' => 'Draft',
+                        'testing' => 'Testing',
+                        'archived' => 'Archived',
+                        'published' => 'Published',
                     ])
                     ->required(),
-                Forms\Components\TextInput::make('form_requester_name')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('form_requester_email')
-                    ->email()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('form_developer_name')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('form_developer_email')
-                    ->email()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('form_approver_name')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('form_approver_email')
-                    ->email()
-                    ->maxLength(255),
+                Forms\Components\Fieldset::make('Requester Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('form_requester_name')
+                            ->label('Name'),
+                        Forms\Components\TextInput::make('form_requester_email')
+                            ->label('Email'),
+                    ])
+                    ->label('Requester Information'),
+                Forms\Components\Fieldset::make('Approver Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('form_approver_name')
+                            ->label('Name'),
+                        Forms\Components\TextInput::make('form_approver_email')
+                            ->label('Email'),
+                    ])
+                    ->label('Approver Information'),
+                Forms\Components\Fieldset::make('Updater Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('form_updater_name')
+                            ->label('Name'),
+                        Forms\Components\TextInput::make('form_updater_email')
+                            ->label('Email'),
+                    ])
+                    ->label('Updater Information'),
+                Forms\Components\TextArea::make('comments')
+                    ->label('Comments')
+                    ->maxLength(500),
+                Forms\Components\Select::make('deployed_to')
+                    ->label('Deployed To')
+                    ->options([
+                        'dev' => 'Development',
+                        'test' => 'Testing',
+                        'prod' => 'Production',
+                    ])
+                    ->nullable()
+                    ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
+                Forms\Components\DateTimePicker::make('deployed_at')
+                    ->label('Deployment Date'),
+
                 Forms\Components\Repeater::make('form_instance_fields')
                     ->label('Form Fields')
                     ->relationship('formInstanceFields')
                     ->columnSpan(2)
+                    ->reorderable(true)
                     ->itemLabel(
                         fn($state) => $state['label'] ?? null
                     )
@@ -66,9 +88,6 @@ class FormVersionResource extends Resource
                             ->label('Form Field')
                             ->relationship('formField', 'label')
                             ->required(),
-                        Forms\Components\TextInput::make('order')
-                            ->required()
-                            ->numeric(),
                         Forms\Components\TextInput::make('label')
                             ->label("Custom Label"),
                         Forms\Components\TextInput::make('data_binding'),
@@ -103,10 +122,18 @@ class FormVersionResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('form.form_title')
+                    ->label('Form')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('version_number')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('deployed_to')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('deployed_at')
+                    ->date('M j, Y')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('form_requester_name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('form_requester_email')
