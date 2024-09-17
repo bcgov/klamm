@@ -81,7 +81,7 @@ class FormVersionResource extends Resource
                     ->columnSpan(2)
                     ->reorderable(true)
                     ->itemLabel(
-                        fn($state) => $state['label'] ?? null
+                        fn($state) => $state['label'] ?? \App\Models\FormField::find($state['form_field_id'])->label ?? 'Unknown Field'
                     )
                     ->schema([
                         Forms\Components\Select::make('form_field_id')
