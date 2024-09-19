@@ -98,9 +98,33 @@ class FormVersionResource extends Resource
                         Forms\Components\TextInput::make('data_binding')
                             ->label("Custom Data Binding")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->data_binding ?? null),
-                        Forms\Components\TextInput::make('validation')
-                            ->label("Custom Validation")
-                            ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->validation ?? null),
+                        Forms\Components\Fieldset::make('Validation')
+                            ->schema([
+                                Forms\Components\Select::make('validation_type')
+                                    ->label('Validation Type')
+                                    ->options([
+                                        'email' => 'Email',
+                                        'phone' => 'Phone Number',
+                                        'custom' => 'Custom',
+                                    ])
+                                    ->reactive()
+                                    ->afterStateUpdated(function (callable $set, callable $get, $state) {
+                                        $presetValidations = [
+                                            'email' => '/^[\w\.-]+@[\w\.-]+\.\w{2,4}$/',
+                                            'phone' => '/^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/',
+                                            'custom' => '',
+                                        ];
+
+                                        if (isset($presetValidations[$state])) {
+                                            $set('validation', $presetValidations[$state]);
+                                        }
+                                    }),
+                                Forms\Components\TextInput::make('validation')
+                                    ->label('Custom Validation')
+                                    ->placeholder('Enter custom validation or select a preset')
+                                    ->reactive(),
+                            ])
+                            ->columns(2),
                         Forms\Components\TextArea::make('conditional_logic')
                             ->label("Custom Conditional Logic")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->conditional_logic ?? null),
@@ -182,7 +206,10 @@ class FormVersionResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);;
     }
 
