@@ -23,7 +23,11 @@ class FormField extends Model
         'label',
         'help_text',
         'data_type_id',
-        'description', 
+        'description',
+        'data_binding',
+        'validation',
+        'conditional_logic',
+        'styles'
     ];
 
     /**
@@ -33,7 +37,7 @@ class FormField extends Model
      */
     protected $casts = [
         'id' => 'integer',
-        'data_type_id' => 'integer',     
+        'data_type_id' => 'integer',
     ];
 
     public function dataType(): BelongsTo

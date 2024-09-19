@@ -41,7 +41,8 @@ class FormVersionResource extends Resource
                         Forms\Components\TextInput::make('form_requester_name')
                             ->label('Name'),
                         Forms\Components\TextInput::make('form_requester_email')
-                            ->label('Email'),
+                            ->label('Email')
+                            ->email(),
                     ])
                     ->label('Requester Information'),
                 Forms\Components\Fieldset::make('Approver Information')
@@ -49,7 +50,8 @@ class FormVersionResource extends Resource
                         Forms\Components\TextInput::make('form_approver_name')
                             ->label('Name'),
                         Forms\Components\TextInput::make('form_approver_email')
-                            ->label('Email'),
+                            ->label('Email')
+                            ->email(),
                     ])
                     ->label('Approver Information'),
                 Forms\Components\Fieldset::make('Updater Information')
@@ -57,7 +59,8 @@ class FormVersionResource extends Resource
                         Forms\Components\TextInput::make('form_updater_name')
                             ->label('Name'),
                         Forms\Components\TextInput::make('form_updater_email')
-                            ->label('Email'),
+                            ->label('Email')
+                            ->email(),
                     ])
                     ->label('Updater Information'),
                 Forms\Components\TextArea::make('comments')
@@ -89,12 +92,23 @@ class FormVersionResource extends Resource
                             ->relationship('formField', 'label')
                             ->required(),
                         Forms\Components\TextInput::make('label')
-                            ->label("Custom Label"),
-                        Forms\Components\TextInput::make('data_binding'),
-                        Forms\Components\TextArea::make('validation'),
-                        Forms\Components\TextArea::make('conditional_logic'),
-                        Forms\Components\TextArea::make('styles'),
-                    ])->collapsed(),
+                            ->label("Custom Label")
+                            ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->label ?? null),
+                        Forms\Components\TextInput::make('data_binding')
+                            ->label("Custom Data Binding")
+                            ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->data_binding ?? null),
+                        Forms\Components\TextInput::make('validation')
+                            ->label("Custom Validation")
+                            ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->validation ?? null),
+                        Forms\Components\TextArea::make('conditional_logic')
+                            ->label("Custom Conditional Logic")
+                            ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->conditional_logic ?? null),
+                        Forms\Components\TextArea::make('styles')
+                            ->label("Custom Styles")
+                            ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->styles ?? null),
+                    ])
+                    ->collapsed(),
+
                 Forms\Components\Actions::make([
                     Forms\Components\Actions\Action::make('Generate Form Template')
                         ->action(function (Forms\Get $get, Forms\Set $set) {
