@@ -41,6 +41,7 @@ class BREField extends Model
         'rule_inputs' => 'array',
         'rule_outputs' => 'array',
         'field_groups' => 'array',
+        'child_fields' => 'array',
     ];
 
     public function breDataType(): BelongsTo
@@ -121,6 +122,13 @@ class BREField extends Model
         return $this->belongsToMany(BRERule::class)->withTimestamps();
     }
 
+
+    public function childFields()
+    {
+        return $this->belongsToMany(BREField::class, 'bre_field_bre_field', 'parent_field_id', 'child_field_id')
+            ->with('breDataType', 'breDataValidation', 'breDataValidation.breValidationType');
+    }
+
     public function syncFieldGroups(array $fieldGroups)
     {
         $fieldGroupIds = collect($fieldGroups)->pluck('id')->all();
@@ -143,5 +151,11 @@ class BREField extends Model
     {
         $icmCDWFieldIds = collect($icmCDWFields)->pluck('id')->all();
         $this->icmCDWFields()->sync($icmCDWFieldIds);
+    }
+
+    public function syncChildFields(array $childFields)
+    {
+        $childFieldIds = collect($childFields)->pluck('id')->all();
+        $this->childFields()->sync($childFieldIds);
     }
 }

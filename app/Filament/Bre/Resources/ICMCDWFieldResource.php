@@ -104,6 +104,7 @@ class ICMCDWFieldResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
@@ -115,6 +116,12 @@ class ICMCDWFieldResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

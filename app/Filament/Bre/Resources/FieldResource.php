@@ -2,7 +2,9 @@
 
 namespace App\Filament\Bre\Resources;
 
+use Closure;
 use App\Filament\Bre\Resources\FieldResource\Pages;
+use App\Models\BREDataType;
 use App\Models\BREField;
 use App\Models\ICMCDWField;
 use Filament\Forms;
@@ -23,21 +25,35 @@ class FieldResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $dataTypeIdsForChildFields = BREDataType::where('name', 'LIKE', '%array%')
+            ->pluck('id')
+            ->toArray();
+
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('label'),
                 Forms\Components\Textarea::make('help_text')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('data_type_id')
                     ->relationship('breDataType', 'name')
-                    ->required(),
+                    ->required()
+                    ->reactive() // This makes the field listen for changes
+                    ->afterStateUpdated(function (callable $set) {
+                        $set('child_fields', null);
+                    }),
                 Forms\Components\Select::make('field_group_id')
                     ->multiple()
                     ->relationship('breFieldGroups', 'name'),
                 Forms\Components\Select::make('data_validation_id')
                     ->relationship('breDataValidation', 'name'),
+                Forms\Components\Select::make('child_fields')
+                    ->multiple()
+                    ->relationship('childFields', 'name')
+                    ->visible(fn(callable $get) => in_array($get('data_type_id'), $dataTypeIdsForChildFields)) // Check if data_type_id is in the array of matching IDs
+                    ->required(),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('input_rules')
@@ -78,6 +94,15 @@ class FieldResource extends Resource
                     ->label('Data Validations')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('childFields')
+                    ->label('Child Fields')
+                    ->formatStateUsing(function ($record) {
+                        if ($record->childFields && $record->childFields->isNotEmpty()) {
+                            return $record->childFields->pluck('name')->join(', ');
+                        }
+                        return '';
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroupNames')
                     ->label('Field Groups')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -112,6 +137,7 @@ class FieldResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
@@ -123,6 +149,12 @@ class FieldResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

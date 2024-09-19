@@ -23,6 +23,7 @@ class BREFieldResource extends JsonResource
             'field_group_names' => $this->fieldGroupNames,
             'field_groups' => $this->breFieldGroups,
             'icmcdw_fields' => $this->icmcdwFields,
+            'child_fields' => $this->childFields,
         ];
     }
 }
