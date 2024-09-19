@@ -27,7 +27,8 @@ class FormVersionResource extends Resource
             ->schema([
                 Forms\Components\Select::make('form_id')
                     ->relationship('form', 'form_title')
-                    ->required(),
+                    ->required()
+                    ->disabled(fn($get) => $get('form_id') !== null),
                 Forms\Components\Select::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -175,12 +176,14 @@ class FormVersionResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+                //
+            ])
+            ->paginated([
+                10, 25, 50, 100,
+            ]);;
     }
 
     public static function getRelations(): array
@@ -194,7 +197,6 @@ class FormVersionResource extends Resource
     {
         return [
             'index' => Pages\ListFormVersions::route('/'),
-            'create' => Pages\CreateFormVersion::route('/create'),
             'view' => Pages\ViewFormVersion::route('/{record}'),
             'edit' => Pages\EditFormVersion::route('/{record}/edit'),
         ];
