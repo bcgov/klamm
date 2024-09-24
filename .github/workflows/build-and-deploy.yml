@@ -45,7 +45,7 @@ jobs:
           npm
 
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -101,6 +101,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || (github.ref == 'refs/heads/dev' && 'dev') || github.ref == 'refs/heads/test' && 'test' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -108,9 +109,9 @@ jobs:
       - name: Authenticate and set context for OpenShift
         uses: redhat-actions/oc-login@v1
         with:
-          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
-          namespace: ${{ github.ref == 'refs/heads/main' && secrets.OPENSHIFT_PROD_NAMESPACE || (github.ref == 'refs/heads/dev' && secrets.OPENSHIFT_DEV_NAMESPACE) || secrets.OPENSHIFT_TEST_NAMESPACE }}
-          openshift_token: ${{ github.ref == 'refs/heads/main' && secrets.OPENSHIFT_PROD_TOKEN || (github.ref == 'refs/heads/dev' && secrets.OPENSHIFT_DEV_TOKEN) || secrets.OPENSHIFT_TEST_TOKEN }}
+          openshift_server_url: ${{ vars.OPENSHIFT_SERVER }}
+          namespace: ${{ vars.OPENSHIFT_NAMESPACE }}
+          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           insecure_skip_tls_verify: true
 
       - name: Run Helm upgrade

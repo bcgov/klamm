@@ -32,6 +32,7 @@ models:
     label: string:400 nullable
     help_text: text nullable
     data_type_id: id foreign constrained
+    data_validation_id: id foreign constrained
     description: text nullable
   BREDataType:
     name: string:400
@@ -45,4 +46,13 @@ models:
     description: text nullable
   BREValueType:
     name: string:400
-    description: text
+    description: text nullable
+  BREValidationType:
+    name: string:400
+    description: text nullable
+    value: string:400 nullable
+  BREDataValidation:
+    name: string:400
+    description: text nullable
+    validation_type_id: id foreign constrained
+    validation_criteria: text nullable

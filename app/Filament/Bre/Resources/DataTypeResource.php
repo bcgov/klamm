@@ -17,7 +17,7 @@ class DataTypeResource extends Resource
 {
     protected static ?string $model = BREDataType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-square-2-stack';
     protected static bool $shouldRegisterNavigation = true;
 
     protected static ?string $navigationGroup = 'Rule Building';
@@ -63,6 +63,7 @@ class DataTypeResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
@@ -74,6 +75,12 @@ class DataTypeResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

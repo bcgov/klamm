@@ -9,7 +9,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewValueType extends ViewRecord
 {
     protected static string $resource = ValueTypeResource::class;
-
+    protected static ?string $title = 'View Field Value Type';
     protected function getHeaderActions(): array
     {
         return [

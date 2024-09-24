@@ -9,4 +9,5 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateValueType extends CreateRecord
 {
     protected static string $resource = ValueTypeResource::class;
+    protected static ?string $title = 'Create Field Value Type';
 }

@@ -9,7 +9,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewRule extends ViewRecord
 {
     protected static string $resource = RuleResource::class;
-
+    protected static ?string $title = 'View BRE Rule';
     protected function getHeaderActions(): array
     {
         return [

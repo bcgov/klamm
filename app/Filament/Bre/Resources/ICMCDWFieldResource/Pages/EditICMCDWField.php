@@ -9,7 +9,7 @@ use Filament\Resources\Pages\EditRecord;
 class EditICMCDWField extends EditRecord
 {
     protected static string $resource = ICMCDWFieldResource::class;
-
+    protected static ?string $title = 'Edit ICM CDW Field';
     protected function getHeaderActions(): array
     {
         return [

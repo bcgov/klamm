@@ -19,7 +19,7 @@ class FieldGroupResource extends Resource
 {
     protected static ?string $model = BREFieldGroup::class;
     protected static ?string $navigationLabel = 'BRE Rule Field Groups';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-folder';
 
     protected static ?string $navigationGroup = 'Rule Building';
 
@@ -59,6 +59,7 @@ class FieldGroupResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
@@ -70,6 +71,12 @@ class FieldGroupResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

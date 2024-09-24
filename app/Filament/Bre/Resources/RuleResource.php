@@ -22,9 +22,9 @@ class RuleResource extends Resource
     use InteractsWithForms;
     protected static ?string $model = BRERule::class;
     protected static ?string $navigationLabel = 'BRE Rules';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-scale';
 
-    protected static ?string $navigationGroup = 'Rules';
+    // protected static ?string $navigationGroup = 'Rules';
 
     public static function form(Form $form): Form
     {
@@ -92,12 +92,12 @@ class RuleResource extends Resource
                     ->label('Inputs')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Outputs')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('parentRules.name')
                     ->label('Parent Rules')
                     ->sortable()
@@ -121,7 +121,7 @@ class RuleResource extends Resource
                     })
                     ->sortable()
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: false),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -132,6 +132,7 @@ class RuleResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
@@ -143,6 +144,12 @@ class RuleResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

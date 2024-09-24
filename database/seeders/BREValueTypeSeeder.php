@@ -33,16 +33,6 @@ class BREValueTypeSeeder extends Seeder
         $identifier->description = 'An identifier is an alphanumeric value with no internal semantics - it serves only to index a data collection';
         $identifier->save();
 
-        $enumNumeric = new BREValueType();
-        $enumNumeric->name = 'Enum - Numeric';
-        $enumNumeric->description = 'An enumerated numeric value is a non-contiguous set of possible values (e.g. 3, 6, 9)';
-        $enumNumeric->save();
-
-        $enumString = new BREValueType();
-        $enumString->name = 'Enum - String';
-        $enumString->description = 'An enumerated string value is one of a set of pre-defined possible values (e.g. Minor, Adult, Senior)';
-        $enumString->save();
-
         $string = new BREValueType();
         $string->name = 'String';
         $string->description = 'String values are for short text inputs - (e.g. First Name, City)';
@@ -57,6 +47,26 @@ class BREValueTypeSeeder extends Seeder
         $boolean->name = 'Boolean';
         $boolean->description = 'Boolean values are for true/false inputs - (e.g. Active, Inactive)';
         $boolean->save();
+
+        $date = new BREValueType();
+        $date->name = 'Date';
+        $date->description = 'A date is a calendar date (year, month, day).';
+        $date->save();
+
+        $enumDate = new BREValueType();
+        $enumDate->name = 'Enum - Date';
+        $enumDate->description = 'An enumerated date value is a set of possible dates (e.g. 1/1/2020, 1/1/2021, 1/1/2022)';
+        $enumDate->save();
+
+        $enumNumeric = new BREValueType();
+        $enumNumeric->name = 'Enum - Numeric';
+        $enumNumeric->description = 'An enumerated numeric value is a non-contiguous set of possible values (e.g. 3, 6, 9)';
+        $enumNumeric->save();
+
+        $enumString = new BREValueType();
+        $enumString->name = 'Enum - String';
+        $enumString->description = 'An enumerated string value is one of a set of pre-defined possible values (e.g. Minor, Adult, Senior)';
+        $enumString->save();
 
         $blob = new BREValueType();
         $blob->name = 'Blob';

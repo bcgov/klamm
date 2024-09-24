@@ -18,7 +18,7 @@ class ValueTypeResource extends Resource
 {
     protected static ?string $model = BREValueType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-square-2-stack';
     protected static bool $shouldRegisterNavigation = true;
 
     protected static ?string $navigationGroup = 'Rule Building';
@@ -53,6 +53,7 @@ class ValueTypeResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('name')
             ->filters([
                 //
             ])
@@ -64,6 +65,12 @@ class ValueTypeResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

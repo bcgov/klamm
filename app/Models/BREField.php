@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\BREFieldGroup;
-use App\Models\FieldGroup;
+use App\Models\BREDataValidation;
 
 class BREField extends Model
 {
@@ -24,6 +24,7 @@ class BREField extends Model
         'label',
         'help_text',
         'data_type_id',
+        'data_validation_id',
         'description',
     ];
 
@@ -35,15 +36,44 @@ class BREField extends Model
     protected $casts = [
         'id' => 'integer',
         'data_type_id' => 'integer',
+        'data_validation_id' => 'integer',
         'icmcdw_fields' => 'array',
         'rule_inputs' => 'array',
         'rule_outputs' => 'array',
         'field_groups' => 'array',
+        'child_fields' => 'array',
     ];
 
     public function breDataType(): BelongsTo
     {
         return $this->belongsTo(BREDataType::class, 'data_type_id');
+    }
+
+    public function getBreDataTypeWithValueTypeAttribute()
+    {
+        $breDataType = $this->breDataType;
+
+        if ($breDataType) {
+            $breDataType->load('breValueType');
+        }
+
+        return $breDataType;
+    }
+
+    public function breDataValidation(): BelongsTo
+    {
+        return $this->belongsTo(BREDataValidation::class, 'data_validation_id');
+    }
+
+    public function getBreDataValidationWithValidationTypeAttribute()
+    {
+        $breDataValidation = $this->breDataValidation;
+
+        if ($breDataValidation) {
+            $breDataValidation->load('breValidationType');
+        }
+
+        return $breDataValidation;
     }
 
     public function breFieldGroups()
@@ -92,6 +122,13 @@ class BREField extends Model
         return $this->belongsToMany(BRERule::class)->withTimestamps();
     }
 
+
+    public function childFields()
+    {
+        return $this->belongsToMany(BREField::class, 'bre_field_bre_field', 'parent_field_id', 'child_field_id')
+            ->with('breDataType', 'breDataValidation', 'breDataValidation.breValidationType');
+    }
+
     public function syncFieldGroups(array $fieldGroups)
     {
         $fieldGroupIds = collect($fieldGroups)->pluck('id')->all();
@@ -114,5 +151,11 @@ class BREField extends Model
     {
         $icmCDWFieldIds = collect($icmCDWFields)->pluck('id')->all();
         $this->icmCDWFields()->sync($icmCDWFieldIds);
+    }
+
+    public function syncChildFields(array $childFields)
+    {
+        $childFieldIds = collect($childFields)->pluck('id')->all();
+        $this->childFields()->sync($childFieldIds);
     }
 }
