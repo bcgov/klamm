@@ -75,6 +75,7 @@ class FormVersionResource extends Resource
                     ->relationship('formInstanceFields')
                     ->columnSpan(2)
                     ->reorderable(true)
+                    ->defaultItems(0)
                     ->itemLabel(
                         fn($state) => $state['label'] ?? \App\Models\FormField::find($state['form_field_id'])->label ?? 'Unknown Field'
                     )
