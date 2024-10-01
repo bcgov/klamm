@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Gate;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\TextArea;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\DateTimePicker;
 
@@ -62,7 +62,7 @@ class FormVersionResource extends Resource
                             ->email(),
                     ])
                     ->label('Approver Information'),
-                TextArea::make('comments')
+                Textarea::make('comments')
                     ->label('Comments')
                     ->maxLength(500),
                 Select::make('deployed_to')
@@ -121,10 +121,10 @@ class FormVersionResource extends Resource
                                 TextInput::make('error_message')
                                     ->label('Error Message'),
                             ]),
-                        TextArea::make('conditional_logic')
+                        Textarea::make('conditional_logic')
                             ->label("Custom Conditional Logic")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->conditional_logic ?? null),
-                        TextArea::make('styles')
+                        Textarea::make('styles')
                             ->label("Custom Styles")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->styles ?? null),
                     ])
@@ -145,7 +145,7 @@ class FormVersionResource extends Resource
                         ->openUrlInNewTab()
                         ->disabled(fn(Forms\Get $get) => empty($get('generated_text'))),
                 ]),
-                TextArea::make('generated_text')
+                Textarea::make('generated_text')
                     ->label('Generated Form Template')
                     ->columnSpan(2)
                     ->rows(15),
