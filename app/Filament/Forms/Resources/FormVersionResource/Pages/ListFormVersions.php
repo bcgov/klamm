@@ -5,6 +5,7 @@ namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Facades\Gate;
 
 class ListFormVersions extends ListRecords
 {
@@ -14,8 +15,9 @@ class ListFormVersions extends ListRecords
     {
         return [
             Actions\Action::make('New Form Version')
-                ->label('New form version')
-                ->url(fn() => route('filament.forms.resources.form-versions.create', ['form_id' => request()->query('form_id')])),
+                ->label('New Form Version')
+                ->url(fn() => route('filament.forms.resources.form-versions.create', ['form_id' => request()->query('form_id')]))
+                ->visible(fn() => Gate::allows('form-developer')),
         ];
     }
 }

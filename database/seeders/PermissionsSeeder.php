@@ -17,6 +17,9 @@ class PermissionsSeeder extends Seeder
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $adminRole->syncPermissions(Permission::where('guard_name', 'web')->get());
 
+        // Revoke form-developer permissions from admin
+        $adminRole->revokePermissionTo(['create FormVersion', 'update FormVersion', 'delete FormVersion']);
+
         // Assign fodig with access to fodig resources
         $fodigRole = Role::firstOrCreate(['name' => 'fodig']);
         $fodigRole->syncPermissions(Permission::whereIn('name', [
@@ -149,6 +152,8 @@ class PermissionsSeeder extends Seeder
         // Assign forms with full access to forms resources
         $formsRole = Role::firstOrCreate(['name' => 'forms']);
         $formsRole->syncPermissions(Permission::whereIn('name', [
+            'view-any FormVersion',
+            'view FormVersion',
             'view-any Form',
             'view Form',
             'create Form',
@@ -234,6 +239,8 @@ class PermissionsSeeder extends Seeder
         // Assign forms-read-only with ready only access to forms resources
         $formsReadOnlyRole = Role::firstOrCreate(['name' => 'forms-view-only']);
         $formsReadOnlyRole->syncPermissions(Permission::whereIn('name', [
+            'view-any FormVersion',
+            'view FormVersion',
             'view-any Form',
             'view Form',
             'view-any ValueType',
@@ -312,6 +319,16 @@ class PermissionsSeeder extends Seeder
             'view BREValueType',
             'view-any BREICMCDWField',
             'view BREICMCDWField',
+        ])->where('guard_name', 'web')->get());
+
+        // Role for Form Developers to edit forms
+        $formDeveloperRole = Role::firstOrCreate(['name' => 'form-developer']);
+        $formDeveloperRole->syncPermissions(Permission::whereIn('name', [
+            'view-any FormVersion',
+            'view FormVersion',
+            'create FormVersion',
+            'update FormVersion',
+            'delete FormVersion',
         ])->where('guard_name', 'web')->get());
     }
 }

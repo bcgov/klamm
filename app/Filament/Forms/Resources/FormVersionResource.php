@@ -3,15 +3,15 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
-use App\Filament\Forms\Resources\FormVersionResource\RelationManagers;
 use App\Models\FormVersion;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Http\Middleware\CheckRole;
+use Illuminate\Support\Facades\Gate;
+
 
 class FormVersionResource extends Resource
 {
@@ -30,7 +30,7 @@ class FormVersionResource extends Resource
                     ->required()
                     ->reactive()
                     ->preload()
-                    ->default(request()->query('form_id')), 
+                    ->default(request()->query('form_id')),
                 Forms\Components\Select::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -194,11 +194,11 @@ class FormVersionResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
-                    ->visible(fn($record) => in_array($record->status, ['draft', 'testing'])),
+                    ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
                 Tables\Actions\Action::make('Create New Version')
                     ->label('Create New Version')
                     ->icon('heroicon-o-document-plus')
-                    ->visible(fn($record) => in_array($record->status, ['published', 'archived']))
+                    ->visible(fn($record) => (Gate::allows('form-developer') && in_array($record->status, ['published', 'archived'])))
                     ->action(function ($record, $livewire) {
                         $newVersion = $record->replicate();
                         $newVersion->status = 'draft';
@@ -211,7 +211,7 @@ class FormVersionResource extends Resource
                             $newField->form_version_id = $newVersion->id;
                             $newField->save();
                         }
-    
+
                         $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
                     }),
             ])
@@ -235,10 +235,15 @@ class FormVersionResource extends Resource
 
     public static function getPages(): array
     {
-        return [
+        $pages = [
             'index' => Pages\ListFormVersions::route('/'),
             'view' => Pages\ViewFormVersion::route('/{record}'),
-            'edit' => Pages\EditFormVersion::route('/{record}/edit'),
         ];
+
+        if (Gate::allows('form-developer')) {
+            $pages['edit'] = Pages\EditFormVersion::route('/{record}/edit');
+        }
+
+        return $pages;
     }
 }
