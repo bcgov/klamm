@@ -26,10 +26,11 @@ class ListFormVersions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('New Form Version')
-                ->label('New Form Version')
-                ->url(fn() => route('filament.forms.resources.form-versions.create', ['form_id' => request()->query('form_id')]))
-                ->visible(fn() => Gate::allows('form-developer')),
+            // Actions\Action::make('New Form Version')
+            //     ->label('New Form Version')
+            //     ->url(fn() => route('filament.forms.resources.form-versions.create', ['form_id' => request()->query('form_id')]))
+            //     ->visible(fn() => Gate::allows('form-developer')),
+            Actions\CreateAction::make(),
         ];
     }
 }
