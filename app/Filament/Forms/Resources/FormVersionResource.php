@@ -28,7 +28,9 @@ class FormVersionResource extends Resource
                 Forms\Components\Select::make('form_id')
                     ->relationship('form', 'form_title')
                     ->required()
-                    ->disabled(fn($get) => $get('form_id') !== null),
+                    ->reactive()
+                    ->preload()
+                    ->default(request()->query('form_id')), 
                 Forms\Components\Select::make('status')
                     ->options([
                         'draft' => 'Draft',
