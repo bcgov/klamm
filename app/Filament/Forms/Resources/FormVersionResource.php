@@ -240,6 +240,7 @@ class FormVersionResource extends Resource
 
         if (Gate::allows('form-developer')) {
             $pages['edit'] = Pages\EditFormVersion::route('/{record}/edit');
+            $pages['create'] = Pages\CreateFormVersion::route('/{record}/create');
         }
 
         return $pages;
