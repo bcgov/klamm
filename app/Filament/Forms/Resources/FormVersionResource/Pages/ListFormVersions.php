@@ -6,10 +6,22 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListFormVersions extends ListRecords
 {
     protected static string $resource = FormVersionResource::class;
+
+    protected function getTableQuery(): Builder|null
+    {
+        $query = parent::getTableQuery();
+    
+        if ($formId = request()->query('form_id')) {
+            $query->where('form_id', $formId);
+        }
+    
+        return $query;
+    }
 
     protected function getHeaderActions(): array
     {
