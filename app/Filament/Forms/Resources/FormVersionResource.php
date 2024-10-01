@@ -55,15 +55,6 @@ class FormVersionResource extends Resource
                             ->email(),
                     ])
                     ->label('Approver Information'),
-                Forms\Components\Fieldset::make('Updater Information')
-                    ->schema([
-                        Forms\Components\TextInput::make('form_updater_name')
-                            ->label('Name'),
-                        Forms\Components\TextInput::make('form_updater_email')
-                            ->label('Email')
-                            ->email(),
-                    ])
-                    ->label('Updater Information'),
                 Forms\Components\TextArea::make('comments')
                     ->label('Comments')
                     ->maxLength(500),
