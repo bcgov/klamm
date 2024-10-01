@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Gate;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TextArea;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\DateTimePicker;
 
 
 class FormVersionResource extends Resource
@@ -27,13 +30,13 @@ class FormVersionResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Select::make('form_id')
+                Select::make('form_id')
                     ->relationship('form', 'form_title')
                     ->required()
                     ->reactive()
                     ->preload()
                     ->default(request()->query('form_id')),
-                Forms\Components\Select::make('status')
+                Select::make('status')
                     ->options([
                         'draft' => 'Draft',
                         'testing' => 'Testing',
@@ -41,28 +44,28 @@ class FormVersionResource extends Resource
                         'published' => 'Published',
                     ])
                     ->required(),
-                Forms\Components\Fieldset::make('Requester Information')
+                Fieldset::make('Requester Information')
                     ->schema([
-                        Forms\Components\TextInput::make('form_requester_name')
+                        TextInput::make('form_requester_name')
                             ->label('Name'),
-                        Forms\Components\TextInput::make('form_requester_email')
+                        TextInput::make('form_requester_email')
                             ->label('Email')
                             ->email(),
                     ])
                     ->label('Requester Information'),
-                Forms\Components\Fieldset::make('Approver Information')
+                Fieldset::make('Approver Information')
                     ->schema([
-                        Forms\Components\TextInput::make('form_approver_name')
+                        TextInput::make('form_approver_name')
                             ->label('Name'),
-                        Forms\Components\TextInput::make('form_approver_email')
+                        TextInput::make('form_approver_email')
                             ->label('Email')
                             ->email(),
                     ])
                     ->label('Approver Information'),
-                Forms\Components\TextArea::make('comments')
+                TextArea::make('comments')
                     ->label('Comments')
                     ->maxLength(500),
-                Forms\Components\Select::make('deployed_to')
+                Select::make('deployed_to')
                     ->label('Deployed To')
                     ->options([
                         'dev' => 'Development',
@@ -71,10 +74,10 @@ class FormVersionResource extends Resource
                     ])
                     ->nullable()
                     ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
-                Forms\Components\DateTimePicker::make('deployed_at')
+                DateTimePicker::make('deployed_at')
                     ->label('Deployment Date'),
 
-                Forms\Components\Repeater::make('form_instance_fields')
+                Repeater::make('form_instance_fields')
                     ->label('Form Fields')
                     ->relationship('formInstanceFields')
                     ->columnSpan(2)
@@ -84,14 +87,14 @@ class FormVersionResource extends Resource
                         fn($state) => $state['label'] ?? \App\Models\FormField::find($state['form_field_id'])->label ?? 'Unknown Field'
                     )
                     ->schema([
-                        Forms\Components\Select::make('form_field_id')
+                        Select::make('form_field_id')
                             ->label('Form Field')
                             ->relationship('formField', 'label')
                             ->required(),
-                        Forms\Components\TextInput::make('label')
+                        TextInput::make('label')
                             ->label("Custom Label")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->label ?? null),
-                        Forms\Components\TextInput::make('data_binding')
+                        TextInput::make('data_binding')
                             ->label("Custom Data Binding")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->data_binding ?? null),
                         Repeater::make('validations')
@@ -118,10 +121,10 @@ class FormVersionResource extends Resource
                                 TextInput::make('error_message')
                                     ->label('Error Message'),
                             ]),
-                        Forms\Components\TextArea::make('conditional_logic')
+                        TextArea::make('conditional_logic')
                             ->label("Custom Conditional Logic")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->conditional_logic ?? null),
-                        Forms\Components\TextArea::make('styles')
+                        TextArea::make('styles')
                             ->label("Custom Styles")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->styles ?? null),
                     ])
@@ -142,7 +145,7 @@ class FormVersionResource extends Resource
                         ->openUrlInNewTab()
                         ->disabled(fn(Forms\Get $get) => empty($get('generated_text'))),
                 ]),
-                Forms\Components\TextArea::make('generated_text')
+                TextArea::make('generated_text')
                     ->label('Generated Form Template')
                     ->columnSpan(2)
                     ->rows(15),
