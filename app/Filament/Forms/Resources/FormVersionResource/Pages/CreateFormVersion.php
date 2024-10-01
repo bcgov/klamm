@@ -5,10 +5,16 @@ namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class CreateFormVersion extends CreateRecord
 {
     protected static string $resource = FormVersionResource::class;
+
+    protected function canCreate(): bool
+    {
+        return Gate::allows('form-developer');
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

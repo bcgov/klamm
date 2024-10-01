@@ -233,16 +233,11 @@ class FormVersionResource extends Resource
 
     public static function getPages(): array
     {
-        $pages = [
+        return [
             'index' => Pages\ListFormVersions::route('/'),
+            'create' => Pages\CreateFormVersion::route('/create'),
+            'edit' => Pages\EditFormVersion::route('/{record}/edit'),
             'view' => Pages\ViewFormVersion::route('/{record}'),
         ];
-
-        if (Gate::allows('form-developer')) {
-            $pages['edit'] = Pages\EditFormVersion::route('/{record}/edit');
-            $pages['create'] = Pages\CreateFormVersion::route('/{record}/create');
-        }
-
-        return $pages;
     }
 }
