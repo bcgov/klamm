@@ -16,6 +16,7 @@ class RenderedFormResource extends Resource
     protected static ?string $model = RenderedForm::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-document';
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $navigationGroup = 'Form Rendering';
 
     public static function form(Form $form): Form

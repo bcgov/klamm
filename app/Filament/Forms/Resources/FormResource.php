@@ -159,6 +159,9 @@ class FormResource extends Resource
                 ActionGroup::make([
                     ViewAction::make(),
                     EditAction::make(),
+                    Tables\Actions\Action::make('Version Control')
+                        ->icon('heroicon-o-inbox-stack')
+                        ->url(fn(Form $record) => route('filament.forms.resources.form-versions.index', ['form_id' => $record->id])),
                     DeleteAction::make(),
                 ])->icon('heroicon-m-ellipsis-vertical')
             ], position: ActionsPosition::BeforeColumns)
