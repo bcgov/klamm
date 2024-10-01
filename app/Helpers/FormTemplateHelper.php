@@ -40,7 +40,13 @@ class FormTemplateHelper
             "dataBinding" => $field->formField->data_binding,
             "customDataBinding" => $field->data_binding,
             "validation" => $field->formField->validation,
-            "customValidation" => $field->validation,
+            "customValidation" => $field->validations->map(function ($validation) {
+                return [
+                    'type' => $validation->type,
+                    'value' => $validation->value,
+                    'errorMessage' => $validation->error_message,
+                ];
+            })->toArray(),
             "conditionalLogic" => $field->formField->conditional_logic,
             "customConditionalLogic" => $field->conditional_logic,
             "styles" => $field->formField->styles,

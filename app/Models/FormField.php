@@ -25,7 +25,6 @@ class FormField extends Model
         'data_type_id',
         'description',
         'data_binding',
-        'validation',
         'conditional_logic',
         'styles'
     ];
@@ -53,5 +52,10 @@ class FormField extends Model
     public function formInstanceFields(): HasMany
     {
         return $this->hasMany(FormInstanceField::class);
+    }
+
+    public function validations()
+    {
+        return $this->hasMany(FormFieldValidation::class);
     }
 }

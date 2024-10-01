@@ -9,8 +9,10 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Http\Middleware\CheckRole;
 use Illuminate\Support\Facades\Gate;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 
 
 class FormVersionResource extends Resource
@@ -92,33 +94,30 @@ class FormVersionResource extends Resource
                         Forms\Components\TextInput::make('data_binding')
                             ->label("Custom Data Binding")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->data_binding ?? null),
-                        Forms\Components\Fieldset::make('Validation')
+                        Repeater::make('validations')
+                            ->label('Validations')
+                            ->relationship('validations')
+                            ->collapsible()
                             ->schema([
-                                Forms\Components\Select::make('validation_type')
+                                Select::make('type')
                                     ->label('Validation Type')
                                     ->options([
+                                        'minValue' => 'Minimum Value',
+                                        'maxValue' => 'Maximum Value',
+                                        'minLength' => 'Minimum Length',
+                                        'maxLength' => 'Maximum Length',
+                                        'required' => 'Required',
                                         'email' => 'Email',
                                         'phone' => 'Phone Number',
-                                        'custom' => 'Custom',
+                                        'javascript' => 'JavaScript',
                                     ])
                                     ->reactive()
-                                    ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                        $presetValidations = [
-                                            'email' => '/^[\w\.-]+@[\w\.-]+\.\w{2,4}$/',
-                                            'phone' => '/^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/',
-                                            'custom' => '',
-                                        ];
-
-                                        if (isset($presetValidations[$state])) {
-                                            $set('validation', $presetValidations[$state]);
-                                        }
-                                    }),
-                                Forms\Components\TextInput::make('validation')
-                                    ->label('Custom Validation')
-                                    ->placeholder('Enter custom validation or select a preset')
-                                    ->reactive(),
-                            ])
-                            ->columns(2),
+                                    ->required(),
+                                TextInput::make('value')
+                                    ->label('Value'),
+                                TextInput::make('error_message')
+                                    ->label('Error Message'),
+                            ]),
                         Forms\Components\TextArea::make('conditional_logic')
                             ->label("Custom Conditional Logic")
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->conditional_logic ?? null),
@@ -127,7 +126,6 @@ class FormVersionResource extends Resource
                             ->placeholder(fn($get) => \App\Models\FormField::find($get('form_field_id'))->styles ?? null),
                     ])
                     ->collapsed(),
-
                 Forms\Components\Actions::make([
                     Forms\Components\Actions\Action::make('Generate Form Template')
                         ->action(function (Forms\Get $get, Forms\Set $set) {

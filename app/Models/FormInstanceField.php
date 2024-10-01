@@ -17,7 +17,6 @@ class FormInstanceField extends Model
         'field_group_id',
         'label',
         'data_binding',
-        'validation',
         'styles',
         'conditional_logic',
     ];
@@ -35,5 +34,10 @@ class FormInstanceField extends Model
     public function fieldGroup(): BelongsTo
     {
         return $this->belongsTo(FieldGroup::class);
+    }
+
+    public function validations()
+    {
+        return $this->hasMany(FormInstanceFieldValidation::class);
     }
 }
