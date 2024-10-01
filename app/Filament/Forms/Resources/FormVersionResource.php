@@ -205,6 +205,12 @@ class FormVersionResource extends Resource
                         $newVersion->deployed_to = null;
                         $newVersion->deployed_at = null;
                         $newVersion->save();
+
+                        foreach ($record->formInstanceFields as $field) {
+                            $newField = $field->replicate();
+                            $newField->form_version_id = $newVersion->id;
+                            $newField->save();
+                        }
     
                         $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
                     }),
