@@ -193,8 +193,21 @@ class FormVersionResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-
+                Tables\Actions\EditAction::make()
+                    ->visible(fn($record) => in_array($record->status, ['draft', 'testing'])),
+                Tables\Actions\Action::make('Create New Version')
+                    ->label('Create New Version')
+                    ->icon('heroicon-o-document-plus')
+                    ->visible(fn($record) => in_array($record->status, ['published', 'archived']))
+                    ->action(function ($record, $livewire) {
+                        $newVersion = $record->replicate();
+                        $newVersion->status = 'draft';
+                        $newVersion->deployed_to = null;
+                        $newVersion->deployed_at = null;
+                        $newVersion->save();
+    
+                        $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
+                    }),
             ])
             ->bulkActions([
                 //
