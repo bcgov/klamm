@@ -6,6 +6,7 @@ use App\Models\FormInstanceField;
 use Illuminate\Support\Str;
 use App\Models\SelectOptions;
 use App\Models\FormVersion;
+use App\Models\Form;
 
 class FormTemplateHelper
 {
@@ -17,18 +18,18 @@ class FormTemplateHelper
             return self::formatField($field, $index + 1);
         })->all();
 
-        $form = FormVersion::find($formVersionId);
+        $formVersion = FormVersion::find($formVersionId);
+        $form = Form::find($formVersion->form_id);
 
         return json_encode([
-            "version" => $form->version_number,
+            "version" => $formVersion->version_number,
+            "ministry_id" => $form->ministry_id,
             "id" => (string) Str::uuid(),
-            "lastModified" => $form->updated_at,
+            "lastModified" => $formVersion->updated_at,
             "title" => $form->form_title,
             "data" => [
                 "items" => $items,
-                "id" => $formVersionId,
             ],
-            "allCssClasses" => [],
         ], JSON_PRETTY_PRINT);
     }
 
