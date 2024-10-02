@@ -17,11 +17,13 @@ class FormTemplateHelper
             return self::formatField($field, $index + 1);
         })->all();
 
+        $form = FormVersion::find($formVersionId);
+
         return json_encode([
-            "version" => "0.0.1",
+            "version" => $form->version_number,
             "id" => (string) Str::uuid(),
-            "lastModified" => now()->toIso8601String(),
-            "title" => FormVersion::find($formVersionId)->form->form_title,
+            "lastModified" => $form->updated_at,
+            "title" => $form->form_title,
             "data" => [
                 "items" => $items,
                 "id" => $formVersionId,
