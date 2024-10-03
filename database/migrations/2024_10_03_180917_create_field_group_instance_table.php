@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('field_group_instance', function (Blueprint $table) {
+        Schema::create('field_group_instances', function (Blueprint $table) {
             $table->foreignId('form_version_id')->constrained()->onDelete('cascade');
             $table->foreignId('field_group_id')->nullable()->constrained()->onDelete('cascade');
             $table->string('label')->nullable();
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('field_group_instance');
+        Schema::dropIfExists('field_group_instances');
     }
 };
