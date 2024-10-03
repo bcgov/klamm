@@ -14,7 +14,6 @@ class FormInstanceField extends Model
         'form_version_id',
         'order',
         'form_field_id',
-        'field_group_id',
         'label',
         'data_binding',
         'styles',
@@ -29,11 +28,6 @@ class FormInstanceField extends Model
     public function formField(): BelongsTo
     {
         return $this->belongsTo(FormField::class);
-    }
-
-    public function fieldGroup(): BelongsTo
-    {
-        return $this->belongsTo(FieldGroup::class);
     }
 
     public function validations()
