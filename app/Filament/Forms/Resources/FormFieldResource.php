@@ -9,6 +9,9 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 
 class FormFieldResource extends Resource
 {
@@ -26,6 +29,33 @@ class FormFieldResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required(),
                 Forms\Components\TextInput::make('label'),
+                Forms\Components\TextInput::make('data_binding'),
+                Forms\Components\TextArea::make('conditional_logic'),
+                Forms\Components\TextArea::make('styles'),
+                Repeater::make('validations')
+                    ->label('Validations')
+                    ->relationship('validations')
+                    ->schema([
+                        Select::make('type')
+                            ->label('Validation Type')
+                            ->options([
+                                'minValue' => 'Minimum Value',
+                                'maxValue' => 'Maximum Value',
+                                'minLength' => 'Minimum Length',
+                                'maxLength' => 'Maximum Length',
+                                'required' => 'Required',
+                                'email' => 'Email',
+                                'phone' => 'Phone Number',
+                                'javascript' => 'JavaScript',
+                            ])
+                            ->reactive()
+                            ->required(),
+                        TextInput::make('value')
+                            ->label('Value'),
+                        TextInput::make('error_message')
+                            ->label('Error Message'),
+                    ])
+                    ->collapsed(),
                 Forms\Components\Textarea::make('help_text')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('data_type_id')
@@ -72,7 +102,10 @@ class FormFieldResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

@@ -117,3 +117,7 @@ jobs:
       - name: Run Helm upgrade
         run: |
           helm upgrade --install klamm-app ./helm --set image.tag=${{ needs.build.outputs.image_tag }}
+
+      - name: Trigger OpenShift Rollout
+        run: |
+          oc rollout restart deployment/klamm-app
