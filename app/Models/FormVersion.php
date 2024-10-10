@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class FormVersion extends Model
 {
@@ -48,5 +49,10 @@ class FormVersion extends Model
     public function formInstanceFields(): HasMany
     {
         return $this->hasMany(FormInstanceField::class);
+    }
+
+    public function formDataSources(): BelongsToMany
+    {
+        return $this->belongsToMany(formDataSource::class, 'form_versions_form_data_sources');
     }
 }

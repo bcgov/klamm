@@ -6,22 +6,30 @@ use App\Models\FormInstanceField;
 use Illuminate\Support\Str;
 use App\Models\SelectOptions;
 use App\Models\FormVersion;
+use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
     public static function generateJsonTemplate($formVersionId)
     {
         $fields = FormInstanceField::where('form_version_id', $formVersionId)->orderBy('order')->get();
+        $formVersion = FormVersion::with('formDataSources')->find($formVersionId);
 
         $items = $fields->map(function ($field, $index) {
             return self::formatField($field, $index + 1);
         })->all();
-
+        
         return json_encode([
             "version" => "0.0.1",
             "id" => (string) Str::uuid(),
             "lastModified" => now()->toIso8601String(),
-            "title" => FormVersion::find($formVersionId)->form->form_title,
+            "title" => $formVersion->form->form_title,
+            "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
+                return [
+                    'name' => $dataSource->name,
+                    'source' => $dataSource->source,
+                ];
+            })->toArray(),           
             "data" => [
                 "items" => $items,
                 "id" => $formVersionId,
