@@ -53,6 +53,6 @@ class FormVersion extends Model
 
     public function formDataSources(): BelongsToMany
     {
-        return $this->belongsToMany(formDataSource::class, 'form_versions_form_data_sources');
+        return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');
     }
 }
