@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     nodejs \
     npm \
-    supervisor \
     && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -36,8 +35,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 # Create necessary directories
 RUN mkdir -p /var/www/storage/logs \
     /var/www/storage/framework/{cache,sessions,views,testing} \
-    /var/www/bootstrap/cache \
-    /var/log/supervisor
+    /var/www/bootstrap/cache
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -53,11 +51,8 @@ RUN npm install \
     && npm run build
 
 # Set correct permissions for storage, database and logs
-RUN chown -R $(whoami):$(whoami) /var/log/supervisor /var/www/storage /var/www/bootstrap/cache /var/www/database \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs /var/log/supervisor
-
-# Copy Supervisor configuration
-COPY ./supervisor-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
+RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
@@ -71,5 +66,5 @@ RUN php artisan key:generate
 # Expose ports
 EXPOSE 8080 443
 
-# Start Supervisor, which manages Apache and the queue worker
-CMD ["/usr/bin/supervisord", "-n"]
+# Start Apache server
+CMD ["apache2-foreground"]
