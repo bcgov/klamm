@@ -38,7 +38,7 @@ class FormResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('businessAreas', 'name'),
-                // todo: program area
+                Forms\Components\TextInput::make(name: 'program'),
                 Forms\Components\Textarea::make('form_purpose'),
                 Forms\Components\Textarea::make('notes'),
                 Forms\Components\Toggle::make('decommissioned'),

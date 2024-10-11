@@ -18,6 +18,7 @@ class Form extends Model
         'ministry_id',
         'form_purpose',
         'notes',
+        'program',
         'fill_type_id',
         'decommissioned',
         'form_frequency_id',
