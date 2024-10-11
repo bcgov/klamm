@@ -125,12 +125,11 @@ class FormResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('form_id')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('form_title')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('ministry.name'),
+                Tables\Columns\TextColumn::make('ministry.short_name'),
                 Tables\Columns\TagsColumn::make('businessAreas.name'),
                 Tables\Columns\TextColumn::make('form_purpose')->searchable(['notes', 'form_purpose']),
                 Tables\Columns\TagsColumn::make('formLocations.name'),
                 Tables\Columns\TagsColumn::make('formSoftwareSources.name'),
-                Tables\Columns\BooleanColumn::make('decommissioned'),
             ])
             ->filters([
                 Tables\Filters\Filter::make('decommissioned')
