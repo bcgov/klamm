@@ -32,6 +32,7 @@ class FormsPanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->databaseNotifications()
             ->colors([
                 'primary' => Color::Blue,
             ])
