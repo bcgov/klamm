@@ -87,10 +87,19 @@ class FormResource extends Resource
                     ->label('Retention Needs (years)')
                     ->numeric()
                     ->nullable(),
-                Forms\Components\Select::make('related_forms')
-                    ->multiple()
-                    ->preload()
-                    ->relationship('relatedForms', 'form_title'),
+                Forms\Components\MultiSelect::make('related_forms')
+                    ->relationship('relatedForms', 'id')
+                    ->searchable()
+                    ->getSearchResultsUsing(function (string $searchQuery) {
+                        return Form::query()
+                            ->where('form_id', 'like', "%{$searchQuery}%")
+                            ->orWhere('form_title', 'like', "%{$searchQuery}%")
+                            ->limit(50)
+                            ->pluck('form_id', 'id');
+                    })
+                    ->getOptionLabelsUsing(function ($values) {
+                        return Form::whereIn('id', $values)->pluck('form_id', 'id');
+                    }),
                 Forms\Components\Repeater::make('links')
                     ->relationship('links')
                     ->schema([
