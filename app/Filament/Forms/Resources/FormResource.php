@@ -34,49 +34,24 @@ class FormResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('ministry_id')
                     ->relationship('ministry', 'name'),
-                Forms\Components\Textarea::make('form_purpose'),
-                Forms\Components\Textarea::make('notes'),
-                Forms\Components\Select::make('fill_type_id')
-                    ->relationship('fillType', 'name'),
-                Forms\Components\Toggle::make('decommissioned'),
-                Forms\Components\Select::make('form_frequency_id')
-                    ->relationship('formFrequency', 'name'),
-                Forms\Components\Select::make('form_reach_id')
-                    ->relationship('formReach', 'name'),
-                Forms\Components\TextInput::make('print_reason')
-                    ->label('Print Reason')
-                    ->nullable()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('retention_needs')
-                    ->label('Retention Needs (years)')
-                    ->numeric()
-                    ->nullable(),
-                Forms\Components\Toggle::make('icm_non_interactive')
-                    ->label('ICM Non-Interactive')
-                    ->nullable(),
-                Forms\Components\Toggle::make('icm_generated')
-                    ->label('ICM Generated')
-                    ->nullable(),
-                Forms\Components\TextInput::make('footer_fragment_path')
-                    ->label('Footer Fragment Path')
-                    ->nullable()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('dcv_material_number')
-                    ->label('DCV Material Number')
-                    ->nullable()
-                    ->minLength(10)
-                    ->maxLength(10),
-                Forms\Components\Textarea::make('orbeon_functions')
-                    ->label('Orbeon Functions')
-                    ->nullable(),
                 Forms\Components\Select::make('business_areas')
                     ->multiple()
                     ->preload()
                     ->relationship('businessAreas', 'name'),
-                Forms\Components\Select::make('form_tags')
+                // todo: program area
+                Forms\Components\Textarea::make('form_purpose'),
+                Forms\Components\Textarea::make('notes'),
+                Forms\Components\Toggle::make('decommissioned'),
+                Forms\Components\Toggle::make('icm_generated')
+                    ->label('ICM Generated')
+                    ->nullable(),
+                Forms\Components\Toggle::make('icm_non_interactive')
+                    ->label('ICM Non-Interactive')
+                    ->nullable(),
+                Forms\Components\Select::make('form_software_sources')
                     ->multiple()
                     ->preload()
-                    ->relationship('formTags', 'name'),
+                    ->relationship('formSoftwareSources', 'name'),
                 Forms\Components\Select::make('form_locations')
                     ->multiple()
                     ->preload()
@@ -85,14 +60,31 @@ class FormResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('formRepositories', 'name'),
-                Forms\Components\Select::make('form_software_sources')
+                Forms\Components\Select::make('form_tags')
                     ->multiple()
                     ->preload()
-                    ->relationship('formSoftwareSources', 'name'),
+                    ->relationship('formTags', 'name'),
+                Forms\Components\Select::make('fill_type_id')
+                    ->relationship('fillType', 'name'),
+                Forms\Components\Select::make('form_frequency_id')
+                    ->relationship('formFrequency', 'name'),
+                Forms\Components\Select::make('form_reach_id')
+                    ->relationship('formReach', 'name'),
                 Forms\Components\Select::make('user_types')
                     ->multiple()
                     ->preload()
                     ->relationship('userTypes', 'name'),
+                Forms\Components\TextInput::make('print_reason')
+                    ->label('Print Reason')
+                    ->nullable()
+                    ->maxLength(255),
+                Forms\Components\Textarea::make('orbeon_functions')
+                    ->label('Orbeon Functions')
+                    ->nullable(),
+                Forms\Components\TextInput::make('retention_needs')
+                    ->label('Retention Needs (years)')
+                    ->numeric()
+                    ->nullable(),
                 Forms\Components\Select::make('related_forms')
                     ->multiple()
                     ->preload()
@@ -106,6 +98,10 @@ class FormResource extends Resource
                     ->columns(1)
                     ->defaultItems(0)
                     ->createItemButtonLabel('Add Link'),
+                Forms\Components\TextInput::make('footer_fragment_path')
+                    ->label('Footer Fragment Path')
+                    ->nullable()
+                    ->maxLength(255),
                 Forms\Components\Repeater::make('workbench_paths')
                     ->relationship('workbenchPaths')
                     ->schema([
@@ -115,6 +111,11 @@ class FormResource extends Resource
                     ->columns(1)
                     ->defaultItems(0)
                     ->createItemButtonLabel('Add Workbench Path'),
+                Forms\Components\TextInput::make('dcv_material_number')
+                    ->label('DCV Material Number')
+                    ->nullable()
+                    ->minLength(10)
+                    ->maxLength(10),
             ]);
     }
 
