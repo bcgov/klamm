@@ -33,6 +33,7 @@ class FormsPanelProvider extends PanelProvider
             ->homeUrl('/welcome')
             ->login()
             ->databaseNotifications()
+            ->databaseNotificationsPolling('10s')
             ->colors([
                 'primary' => Color::Blue,
             ])
