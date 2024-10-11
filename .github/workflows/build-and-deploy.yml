@@ -44,24 +44,15 @@ jobs:
           nodejs \
           npm
 
-      - name: Cache Composer dependencies
+      - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: vendor
-          key: ${{ runner.os }}-php-8.2-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-php-8.2-composer-
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
-
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
 
       - name: Install Node.js dependencies and build assets
         run: |
@@ -103,8 +94,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
