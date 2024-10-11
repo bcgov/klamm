@@ -15,6 +15,8 @@ use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\ActionGroup;
+use App\Filament\Exports\FormExporter;
+use Filament\Tables\Actions\ExportAction;
 
 class FormResource extends Resource
 {
@@ -154,6 +156,10 @@ class FormResource extends Resource
                     ->relationship('businessAreas', 'name')
                     ->preload()
                     ->label('Business Area'),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(FormExporter::class)
             ])
             ->actions([
                 ActionGroup::make([
