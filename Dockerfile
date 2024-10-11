@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     nodejs \
     npm \
+    supervisor \
     && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -54,6 +55,9 @@ RUN npm install \
 RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs
 
+# Copy Supervisor configuration
+COPY ./supervisor-worker.conf /etc/supervisor/conf.d/laravel-worker.conf
+
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
 COPY apache2.conf /etc/apache2/apache2.conf
@@ -66,5 +70,5 @@ RUN php artisan key:generate
 # Expose ports
 EXPOSE 8080 443
 
-# Start Apache server
-CMD ["apache2-foreground"]
+# Start Supervisor, which manages Apache and the queue worker
+CMD ["/usr/bin/supervisord", "-n"]
