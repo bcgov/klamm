@@ -30,10 +30,13 @@ class FormResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('form_id')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->unique(ignoreRecord: true)
+                    ->label('Form ID'),
                 Forms\Components\TextInput::make('form_title')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->label('Form Title'),
                 Forms\Components\Select::make('ministry_id')
                     ->relationship('ministry', 'name'),
                 Forms\Components\Select::make('business_areas')
