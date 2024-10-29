@@ -44,6 +44,11 @@ class BREField extends Model
         'child_fields' => 'array',
     ];
 
+    public function getRouteKeyName()
+    {
+        return 'name';
+    }
+
     public function breDataType(): BelongsTo
     {
         return $this->belongsTo(BREDataType::class, 'data_type_id');

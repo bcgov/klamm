@@ -31,7 +31,8 @@ class RuleResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('label'),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
@@ -88,19 +89,19 @@ class RuleResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Inputs')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Outputs')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('parentRules.name')
                     ->label('Parent Rules')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('childRules')
@@ -108,8 +109,6 @@ class RuleResource extends Resource
                     ->formatStateUsing(function ($record) {
                         return $record->childRules->pluck('name')->join(', ');
                     })
-                    ->sortable()
-                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('related_icm_cdw_fields')
                     ->label('ICM CDW Fields used')
@@ -119,10 +118,7 @@ class RuleResource extends Resource
                         }
                         return [];
                     })
-                    ->sortable()
-                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
-
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -165,8 +161,8 @@ class RuleResource extends Resource
         return [
             'index' => Pages\ListRules::route('/'),
             'create' => Pages\CreateRule::route('/create'),
-            'view' => Pages\ViewRule::route('/{record}'),
-            'edit' => Pages\EditRule::route('/{record}/edit'),
+            'view' => Pages\ViewRule::route('/{record:name}'),
+            'edit' => Pages\EditRule::route('/{record:name}/edit'),
         ];
     }
 }

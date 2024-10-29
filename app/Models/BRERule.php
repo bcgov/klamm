@@ -37,6 +37,11 @@ class BRERule extends Model
         'icmcdw_fields' => 'array',
     ];
 
+    public function getRouteKeyName()
+    {
+        return 'name';
+    }
+
     public function breInputs()
     {
         return $this->belongsToMany(BREField::class, 'bre_field_bre_rule_input', 'bre_rule_id', 'bre_field_id')->withTimestamps();

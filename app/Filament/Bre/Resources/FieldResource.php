@@ -86,6 +86,9 @@ class FieldResource extends Resource
                 Tables\Columns\TextColumn::make('label')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('breDataType.name')
                     ->label('Data Type')
                     ->sortable()
@@ -111,16 +114,13 @@ class FieldResource extends Resource
                     ->default(function ($record) {
                         return $record->getInputOutputType();
                     })
-                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Rules: Inputs')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Rules: Outputs')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('icmcdwFields.name')
@@ -170,8 +170,8 @@ class FieldResource extends Resource
         return [
             'index' => Pages\ListFields::route('/'),
             'create' => Pages\CreateField::route('/create'),
-            'view' => Pages\ViewField::route('/{record}'),
-            'edit' => Pages\EditField::route('/{record}/edit'),
+            'view' => Pages\ViewField::route('/{record:name}'),
+            'edit' => Pages\EditField::route('/{record:name}/edit'),
         ];
     }
 }
