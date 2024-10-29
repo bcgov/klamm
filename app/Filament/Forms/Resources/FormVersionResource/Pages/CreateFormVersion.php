@@ -25,6 +25,11 @@ class CreateFormVersion extends CreateRecord
         return $data;
     }
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
+    }
+
     public function mount(): void
     {
         parent::mount();

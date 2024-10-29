@@ -117,7 +117,8 @@ class FormVersionResource extends Resource
                             $formId = $get('id');
                             $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
                             $set('generated_text', $jsonTemplate);
-                        }),
+                        })
+                        ->hidden(fn() => request()->routeIs('filament.forms.resources.form-versions.create') || request()->routeIs('filament.forms.resources.form-versions.edit')),
                     Action::make('Preview Form Template')
                         ->url(function (Get $get) {
                             $jsonTemplate = $get('generated_text');
@@ -125,12 +126,14 @@ class FormVersionResource extends Resource
                             return route('forms.rendered_forms.preview', ['json' => $encodedJson]);
                         })
                         ->openUrlInNewTab()
-                        ->disabled(fn(Get $get) => empty($get('generated_text'))),
+                        ->disabled(fn(Get $get) => empty($get('generated_text')))
+                        ->hidden(fn() => request()->routeIs('filament.forms.resources.form-versions.create') || request()->routeIs('filament.forms.resources.form-versions.edit')),
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')
                     ->columnSpan(2)
-                    ->rows(15),
+                    ->rows(15)
+                    ->hidden(fn() => request()->routeIs('filament.forms.resources.form-versions.create') || request()->routeIs('filament.forms.resources.form-versions.edit')),
             ]);
     }
 

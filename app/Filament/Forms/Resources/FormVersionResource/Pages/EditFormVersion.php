@@ -20,6 +20,11 @@ class EditFormVersion extends EditRecord
         return $data;
     }
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
