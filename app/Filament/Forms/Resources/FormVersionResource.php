@@ -304,12 +304,35 @@ class FormVersionResource extends Resource
                         $newVersion->deployed_at = null;
                         $newVersion->save();
 
-                        foreach ($record->formInstanceFields as $field) {
+                        foreach ($record->formInstanceFields()->whereNull('field_group_instance_id')->get() as $field) {
                             $newField = $field->replicate();
                             $newField->form_version_id = $newVersion->id;
                             $newField->save();
-                        }
 
+                            foreach ($field->validations as $validation) {
+                                $newValidation = $validation->replicate();
+                                $newValidation->form_instance_field_id = $newField->id;
+                                $newValidation->save();
+                            }
+                        }
+                        foreach ($record->fieldGroupInstances as $groupInstance) {
+                            $newGroupInstance = $groupInstance->replicate();
+                            $newGroupInstance->form_version_id = $newVersion->id;
+                            $newGroupInstance->save();
+
+                            foreach ($groupInstance->formInstanceFields as $field) {
+                                $newField = $field->replicate();
+                                $newField->form_version_id = $newVersion->id;
+                                $newField->field_group_instance_id = $newGroupInstance->id;
+                                $newField->save();
+
+                                foreach ($field->validations as $validation) {
+                                    $newValidation = $validation->replicate();
+                                    $newValidation->form_instance_field_id = $newField->id;
+                                    $newValidation->save();
+                                }
+                            }
+                        }
                         $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
                     }),
             ])
