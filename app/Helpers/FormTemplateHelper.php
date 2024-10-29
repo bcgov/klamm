@@ -8,6 +8,7 @@ use App\Models\FormVersion;
 use App\Models\Form;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceField;
+use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
@@ -66,6 +67,14 @@ class FormTemplateHelper
             "id" => (string) Str::uuid(),
             "lastModified" => $formVersion->updated_at->toIso8601String(),
             "title" => $form->form_title,
+            "lastModified" => now()->toIso8601String(),
+            "title" => $formVersion->form->form_title,
+            "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
+                return [
+                    'name' => $dataSource->name,
+                    'source' => $dataSource->source,
+                ];
+            })->toArray(),
             "data" => [
                 "items" => $items,
             ],

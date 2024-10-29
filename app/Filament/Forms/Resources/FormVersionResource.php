@@ -83,6 +83,10 @@ class FormVersionResource extends Resource
                     ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
                 DateTimePicker::make('deployed_at')
                     ->label('Deployment Date'),
+                Select::make('form_data_sources')
+                    ->multiple()
+                    ->preload()
+                    ->relationship('formDataSources', 'name'),
                 Repeater::make('components')
                     ->label('Form Components')
                     ->reorderable()
