@@ -30,8 +30,8 @@ class FormFieldResource extends Resource
                     ->required(),
                 Forms\Components\TextInput::make('label'),
                 Forms\Components\TextInput::make('data_binding'),
-                Forms\Components\TextArea::make('conditional_logic'),
-                Forms\Components\TextArea::make('styles'),
+                Forms\Components\Textarea::make('conditional_logic'),
+                Forms\Components\Textarea::make('styles'),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->relationship('validations')
