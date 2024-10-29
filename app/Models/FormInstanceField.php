@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FormInstanceField extends Model
 {
@@ -12,12 +13,13 @@ class FormInstanceField extends Model
 
     protected $fillable = [
         'form_version_id',
-        'order',
         'form_field_id',
+        'order',
         'label',
         'data_binding',
-        'styles',
         'conditional_logic',
+        'styles',
+        'field_group_instance_id',
     ];
 
     public function formVersion(): BelongsTo
@@ -35,8 +37,7 @@ class FormInstanceField extends Model
         return $this->belongsTo(FieldGroupInstance::class);
     }
 
-
-    public function validations()
+    public function validations(): HasMany
     {
         return $this->hasMany(FormInstanceFieldValidation::class);
     }
