@@ -78,24 +78,32 @@ class EditFormVersion extends EditRecord
                     'repeater' => $component['repeater'] ?? false,
                 ]);
 
-                $fieldGroup = $fieldGroupInstance->fieldGroup;
-
-                foreach ($fieldGroup->formFields as $fieldOrder => $formField) {
-                    FormInstanceField::create([
+                $formFields = $component['form_fields'] ?? [];
+                foreach ($formFields as $fieldOrder => $fieldData) {
+                    $formInstanceField = FormInstanceField::create([
                         'form_version_id' => $formVersion->id,
-                        'form_field_id' => $formField->id,
+                        'form_field_id' => $fieldData['form_field_id'],
                         'field_group_instance_id' => $fieldGroupInstance->id,
                         'order' => $fieldOrder,
-                        'label' => $formField->label,
-                        'data_binding' => $formField->data_binding,
-                        'conditional_logic' => $formField->conditional_logic,
-                        'styles' => $formField->styles,
+                        'label' => $fieldData['label'] ?? null,
+                        'data_binding' => $fieldData['data_binding'] ?? null,
+                        'conditional_logic' => $fieldData['conditional_logic'] ?? null,
+                        'styles' => $fieldData['styles'] ?? null,
                     ]);
+
+                    $validations = $fieldData['validations'] ?? [];
+                    foreach ($validations as $validationData) {
+                        FormInstanceFieldValidation::create([
+                            'form_instance_field_id' => $formInstanceField->id,
+                            'type' => $validationData['type'],
+                            'value' => $validationData['value'] ?? null,
+                            'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
                 }
             }
         }
     }
-
 
 
     protected function mutateFormDataBeforeFill(array $data): array
@@ -133,11 +141,35 @@ class EditFormVersion extends EditRecord
         $fieldGroups = $this->record->fieldGroupInstances()->get();
 
         foreach ($fieldGroups as $group) {
+            $groupFields = $group->formInstanceFields()->orderBy('order')->get();
+
+            $formFieldsData = [];
+            foreach ($groupFields as $field) {
+                $validations = [];
+                foreach ($field->validations as $validation) {
+                    $validations[] = [
+                        'type' => $validation->type,
+                        'value' => $validation->value,
+                        'error_message' => $validation->error_message,
+                    ];
+                }
+
+                $formFieldsData[] = [
+                    'form_field_id' => $field->form_field_id,
+                    'label' => $field->label,
+                    'data_binding' => $field->data_binding,
+                    'conditional_logic' => $field->conditional_logic,
+                    'styles' => $field->styles,
+                    'validations' => $validations,
+                ];
+            }
+
             $components[] = [
                 'component_type' => 'field_group',
                 'field_group_id' => $group->field_group_id,
                 'group_label' => $group->label,
                 'repeater' => $group->repeater,
+                'form_fields' => $formFieldsData,
                 'order' => $group->order,
             ];
         }

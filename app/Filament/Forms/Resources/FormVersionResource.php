@@ -18,6 +18,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Get;
@@ -85,6 +86,7 @@ class FormVersionResource extends Resource
                 Repeater::make('components')
                     ->label('Form Components')
                     ->reorderable()
+                    ->collapsible()
                     ->schema([
                         Select::make('component_type')
                             ->options([
@@ -93,65 +95,128 @@ class FormVersionResource extends Resource
                             ])
                             ->reactive()
                             ->required(),
-                        Select::make('form_field_id')
-                            ->label('Form Field')
-                            ->options(FormField::pluck('label', 'id'))
-                            ->searchable()
-                            ->visible(fn($get) => $get('component_type') === 'form_field')
-                            ->required(fn($get) => $get('component_type') === 'form_field'),
-                        Select::make('field_group_id')
-                            ->label('Field Group')
-                            ->options(FieldGroup::pluck('label', 'id'))
-                            ->searchable()
-                            ->visible(fn($get) => $get('component_type') === 'field_group')
-                            ->required(fn($get) => $get('component_type') === 'field_group'),
-
-                        TextInput::make('label')
-                            ->label("Custom Label")
-                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null)
-                            ->visible(fn($get) => $get('component_type') === 'form_field'),
-                        TextInput::make('data_binding')
-                            ->label("Custom Data Binding")
-                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null)
-                            ->visible(fn($get) => $get('component_type') === 'form_field'),
-                        Textarea::make('conditional_logic')
-                            ->label("Custom Conditional Logic")
-                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null)
-                            ->visible(fn($get) => $get('component_type') === 'form_field'),
-                        Textarea::make('styles')
-                            ->label("Custom Styles")
-                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->styles ?? null)
-                            ->visible(fn($get) => $get('component_type') === 'form_field'),
-                        Repeater::make('validations')
-                            ->label('Validations')
+                        Section::make('Form Field Settings')
                             ->schema([
-                                Select::make('type')
-                                    ->label('Validation Type')
-                                    ->options([
-                                        'minValue' => 'Minimum Value',
-                                        'maxValue' => 'Maximum Value',
-                                        'minLength' => 'Minimum Length',
-                                        'maxLength' => 'Maximum Length',
-                                        'required' => 'Required',
-                                        'email' => 'Email',
-                                        'phone' => 'Phone Number',
-                                        'javascript' => 'JavaScript',
-                                    ])
-                                    ->reactive()
+                                Select::make('form_field_id')
+                                    ->label('Form Field')
+                                    ->options(FormField::pluck('label', 'id'))
+                                    ->searchable()
                                     ->required(),
-                                TextInput::make('value')
-                                    ->label('Value'),
-                                TextInput::make('error_message')
-                                    ->label('Error Message'),
+                                TextInput::make('label')
+                                    ->label("Custom Label")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
+                                TextInput::make('data_binding')
+                                    ->label("Custom Data Binding")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
+                                Textarea::make('conditional_logic')
+                                    ->label("Custom Conditional Logic")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
+                                Textarea::make('styles')
+                                    ->label("Custom Styles")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->styles ?? null),
+                                Repeater::make('validations')
+                                    ->label('Validations')
+                                    ->collapsible()
+                                    ->schema([
+                                        Select::make('type')
+                                            ->label('Validation Type')
+                                            ->options([
+                                                'minValue' => 'Minimum Value',
+                                                'maxValue' => 'Maximum Value',
+                                                'minLength' => 'Minimum Length',
+                                                'maxLength' => 'Maximum Length',
+                                                'required' => 'Required',
+                                                'email' => 'Email',
+                                                'phone' => 'Phone Number',
+                                                'javascript' => 'JavaScript',
+                                            ])
+                                            ->reactive()
+                                            ->required(),
+                                        TextInput::make('value')
+                                            ->label('Value'),
+                                        TextInput::make('error_message')
+                                            ->label('Error Message'),
+                                    ]),
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
-
-                        TextInput::make('group_label')
-                            ->label("Group Label")
-                            ->placeholder(fn($get) => FieldGroup::find($get('field_group_id'))->label ?? null)
-                            ->visible(fn($get) => $get('component_type') === 'field_group'),
-                        Toggle::make('repeater')
-                            ->label('Repeater')
+                        Section::make('Field Group Settings')
+                            ->schema([
+                                Select::make('field_group_id')
+                                    ->label('Field Group')
+                                    ->options(FieldGroup::pluck('label', 'id'))
+                                    ->searchable()
+                                    ->required()
+                                    ->reactive()
+                                    ->afterStateUpdated(function ($state, callable $set) {
+                                        $fieldGroup = FieldGroup::find($state);
+                                        if ($fieldGroup) {
+                                            $formFields = $fieldGroup->formFields()->get()->map(function ($field) {
+                                                return [
+                                                    'form_field_id' => $field->id,
+                                                    'label' => $field->label,
+                                                    'data_binding' => $field->data_binding,
+                                                    'conditional_logic' => $field->conditional_logic,
+                                                    'styles' => $field->styles,
+                                                    'validations' => [],
+                                                ];
+                                            })->toArray();
+                                            $set('form_fields', $formFields);
+                                        }
+                                    }),
+                                TextInput::make('group_label')
+                                    ->label("Group Label")
+                                    ->placeholder(fn($get) => FieldGroup::find($get('field_group_id'))->label ?? null),
+                                Toggle::make('repeater')
+                                    ->label('Repeater'),
+                                Repeater::make('form_fields')
+                                    ->label('Form Fields in Group')
+                                    ->reorderable()
+                                    ->collapsible()
+                                    ->defaultItems(0)
+                                    ->schema([
+                                        Select::make('form_field_id')
+                                            ->label('Form Field')
+                                            ->options(FormField::pluck('label', 'id'))
+                                            ->searchable()
+                                            ->required(),
+                                        TextInput::make('label')
+                                            ->label("Custom Label")
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
+                                        TextInput::make('data_binding')
+                                            ->label("Custom Data Binding")
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
+                                        Textarea::make('conditional_logic')
+                                            ->label("Custom Conditional Logic")
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
+                                        Textarea::make('styles')
+                                            ->label("Custom Styles")
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->styles ?? null),
+                                        Repeater::make('validations')
+                                            ->label('Validations')
+                                            ->collapsible()
+                                            ->schema([
+                                                Select::make('type')
+                                                    ->label('Validation Type')
+                                                    ->options([
+                                                        'minValue' => 'Minimum Value',
+                                                        'maxValue' => 'Maximum Value',
+                                                        'minLength' => 'Minimum Length',
+                                                        'maxLength' => 'Maximum Length',
+                                                        'required' => 'Required',
+                                                        'email' => 'Email',
+                                                        'phone' => 'Phone Number',
+                                                        'javascript' => 'JavaScript',
+                                                    ])
+                                                    ->reactive()
+                                                    ->required(),
+                                                TextInput::make('value')
+                                                    ->label('Value'),
+                                                TextInput::make('error_message')
+                                                    ->label('Error Message'),
+                                            ]),
+                                    ])
+                                    ->columns(1),
+                            ])
                             ->visible(fn($get) => $get('component_type') === 'field_group'),
                     ])
                     ->addActionLabel('Add Form Field or Field Group')
