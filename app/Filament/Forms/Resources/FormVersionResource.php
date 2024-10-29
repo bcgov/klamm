@@ -117,6 +117,7 @@ class FormVersionResource extends Resource
                                 Repeater::make('validations')
                                     ->label('Validations')
                                     ->collapsible()
+                                    ->defaultItems(0)
                                     ->schema([
                                         Select::make('type')
                                             ->label('Validation Type')
@@ -194,6 +195,7 @@ class FormVersionResource extends Resource
                                         Repeater::make('validations')
                                             ->label('Validations')
                                             ->collapsible()
+                                            ->defaultItems(0)
                                             ->schema([
                                                 Select::make('type')
                                                     ->label('Validation Type')
@@ -228,7 +230,7 @@ class FormVersionResource extends Resource
                             $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
                             $set('generated_text', $jsonTemplate);
                         })
-                        ->hidden(fn() => request()->routeIs('filament.forms.resources.form-versions.create') || request()->routeIs('filament.forms.resources.form-versions.edit')),
+                        ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                     Action::make('Preview Form Template')
                         ->url(function (Get $get) {
                             $jsonTemplate = $get('generated_text');
@@ -237,13 +239,13 @@ class FormVersionResource extends Resource
                         })
                         ->openUrlInNewTab()
                         ->disabled(fn(Get $get) => empty($get('generated_text')))
-                        ->hidden(fn() => request()->routeIs('filament.forms.resources.form-versions.create') || request()->routeIs('filament.forms.resources.form-versions.edit')),
+                        ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')
                     ->columnSpan(2)
                     ->rows(15)
-                    ->hidden(fn() => request()->routeIs('filament.forms.resources.form-versions.create') || request()->routeIs('filament.forms.resources.form-versions.edit')),
+                    ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
             ]);
     }
 
