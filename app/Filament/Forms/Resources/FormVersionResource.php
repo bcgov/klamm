@@ -31,20 +31,8 @@ class FormVersionResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    public $availableFields = [];
-
     public static function form(Form $form): Form
     {
-        $availableFields = [
-            'Fields' => FormField::all()->mapWithKeys(function ($item) {
-                return ['fld_' . $item->id => $item->label];
-            })->toArray(),
-            'Groups' => FieldGroup::all()->mapWithKeys(function ($group) {
-                return ['grp_' . $group->id => $group->label];
-            })->toArray(),
-        ];
-        $selectedFields = [];
-
         return $form
             ->schema([
                 Select::make('form_id')
@@ -93,24 +81,30 @@ class FormVersionResource extends Resource
                     ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
                 DateTimePicker::make('deployed_at')
                     ->label('Deployment Date'),
-
-                Repeater::make('selectedFields')
-                    ->label('Form Fields/Groups')
-                    ->columnSpan(2)
-                    ->reorderable(true)
-                    ->defaultItems(0)
-                    ->addActionLabel("Add Another Form Field / Group")
-                    ->collapsed()
+                Repeater::make('components')
+                    ->label('Form Components')
                     ->schema([
-                        Select::make("field")
-                            ->label("Form Field / Group")
-                            ->options($availableFields)
-                            ->required()
-                            ->live()
+                        Select::make('component_type')
+                            ->options([
+                                'form_field' => 'Form Field',
+                                'field_group' => 'Field Group',
+                            ])
                             ->reactive()
-                            ->searchable(),
+                            ->required(),
+                        Select::make('form_field_id')
+                            ->label('Form Field')
+                            ->options(FormField::all()->pluck('name', 'id'))
+                            ->visible(fn($get) => $get('component_type') === 'form_field')
+                            ->required(fn($get) => $get('component_type') === 'form_field'),
+                        Select::make('field_group_id')
+                            ->label('Field Group')
+                            ->options(FieldGroup::all()->pluck('name', 'id'))
+                            ->visible(fn($get) => $get('component_type') === 'field_group')
+                            ->required(fn($get) => $get('component_type') === 'field_group'),
                     ])
-                    ->collapsed(),
+                    ->createItemButtonLabel('Add Form Field or Field Group')
+                    ->columnSpan(2)
+                    ->reorderable(),
                 Actions::make([
                     Action::make('Generate Form Template')
                         ->action(function (Get $get, Set $set) {

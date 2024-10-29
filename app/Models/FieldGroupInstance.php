@@ -16,6 +16,7 @@ class FieldGroupInstance extends Model
         'field_group_id',
         'label',
         'repeater',
+        'order'
     ];
 
     public function formVersion(): BelongsTo

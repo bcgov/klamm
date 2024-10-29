@@ -30,6 +30,12 @@ class FormInstanceField extends Model
         return $this->belongsTo(FormField::class);
     }
 
+    public function fieldGroupInstance(): BelongsTo
+    {
+        return $this->belongsTo(FieldGroupInstance::class);
+    }
+
+
     public function validations()
     {
         return $this->hasMany(FormInstanceFieldValidation::class);
