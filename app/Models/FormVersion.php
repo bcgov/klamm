@@ -26,6 +26,7 @@ class FormVersion extends Model
         'comments',
         'deployed_to',
         'deployed_at',
+        'components'
     ];
 
     public static function boot()
@@ -49,6 +50,11 @@ class FormVersion extends Model
     public function formInstanceFields(): HasMany
     {
         return $this->hasMany(FormInstanceField::class);
+    }
+
+    public function fieldGroupInstances(): HasMany
+    {
+        return $this->hasMany(FieldGroupInstance::class);
     }
 
     public function formDataSources(): BelongsToMany
