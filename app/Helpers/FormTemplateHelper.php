@@ -66,8 +66,6 @@ class FormTemplateHelper
             "ministry_id" => $form->ministry_id,
             "id" => (string) Str::uuid(),
             "lastModified" => $formVersion->updated_at->toIso8601String(),
-            "title" => $form->form_title,
-            "lastModified" => now()->toIso8601String(),
             "title" => $formVersion->form->form_title,
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
