@@ -132,15 +132,21 @@ class FormResource extends Resource
                 Tables\Columns\BooleanColumn::make('decommissioned'),
             ])
             ->filters([
-                Tables\Filters\Filter::make('decommissioned')
+                Tables\Filters\Filter::make('status')
                     ->form([
+                        Forms\Components\Checkbox::make('active')
+                            ->label('Active')
+                            ->default(false),
                         Forms\Components\Checkbox::make('decommissioned')
                             ->label('Decommissioned')
                             ->default(false),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
-                        if (isset($data['decommissioned'])) {
-                            return $query->where('decommissioned', $data['decommissioned']);
+                        if (!empty($data['decommissioned'])) {
+                            return $query->where('decommissioned', true);
+                        }
+                        if (!empty($data['active'])) {
+                            return $query->where('decommissioned', false);
                         }
                         return $query;
                     }),
