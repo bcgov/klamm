@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\UserResource\Pages;
-use App\Filament\Admin\Resources\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -31,8 +30,8 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->maxLength(255)
-                    ->required(fn ($record) => $record === null)
-                    ->hidden(fn ($record) => $record !== null),
+                    ->required(fn($record) => $record === null)
+                    ->hidden(fn($record) => $record !== null),
                 Forms\Components\Select::make('roles')
                     ->multiple()
                     ->preload()
@@ -47,18 +46,10 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('name'),
                 Tables\Columns\TextColumn::make('email'),
             ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                //
-            ])
-            ->paginated([
-                10, 25, 50, 100,
-            ]);
+            ->filters([])
+            ->actions([])
+            ->bulkActions([])
+            ->paginated([10, 25, 50, 100]);
     }
 
     public static function getPages(): array
@@ -66,8 +57,8 @@ class UserResource extends Resource
         return [
             'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
+            'view' => Pages\ViewUser::route('/{record}'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
     }
 }
-

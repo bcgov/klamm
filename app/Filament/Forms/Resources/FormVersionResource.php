@@ -91,6 +91,15 @@ class FormVersionResource extends Resource
                     ->label('Form Components')
                     ->reorderable()
                     ->collapsible()
+                    ->collapsed(true)
+                    ->itemLabel(function ($state) {
+                        if ($state['component_type'] === 'form_field') {
+                            return 'Form Field - ' . ($state['label'] ?: (FormField::find($state['form_field_id'])->label ?? 'Unnamed Field'));
+                        } elseif ($state['component_type'] === 'field_group') {
+                            return 'Field Group - ' . ($state['group_label'] ?: (FieldGroup::find($state['field_group_id'])->label ?? 'Unnamed Group'));
+                        }
+                        return 'Component';
+                    })
                     ->schema([
                         Select::make('component_type')
                             ->options([
@@ -121,6 +130,7 @@ class FormVersionResource extends Resource
                                 Repeater::make('validations')
                                     ->label('Validations')
                                     ->collapsible()
+                                    ->collapsed()
                                     ->defaultItems(0)
                                     ->schema([
                                         Select::make('type')
@@ -177,6 +187,10 @@ class FormVersionResource extends Resource
                                     ->label('Form Fields in Group')
                                     ->reorderable()
                                     ->collapsible()
+                                    ->collapsed()
+                                    ->itemLabel(function ($state) {
+                                        return 'Form Field - ' . ($state['label'] ?: (FormField::find($state['form_field_id'])->label ?? 'Unnamed Field'));
+                                    })
                                     ->defaultItems(0)
                                     ->schema([
                                         Select::make('form_field_id')
@@ -199,6 +213,7 @@ class FormVersionResource extends Resource
                                         Repeater::make('validations')
                                             ->label('Validations')
                                             ->collapsible()
+                                            ->collapsed()
                                             ->defaultItems(0)
                                             ->schema([
                                                 Select::make('type')
