@@ -82,9 +82,11 @@ class FieldResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
+                    ->tooltip(fn(Model $record): string => "{$record->description}")
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
                     ->sortable()
+                    ->tooltip(fn(Model $record): string => "{$record->description}")
                     ->searchable(),
                 Tables\Columns\TextColumn::make('description')
                     ->searchable()
@@ -139,7 +141,78 @@ class FieldResource extends Resource
             ])
             ->defaultSort('name')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('data_type_id')
+                    ->label('Data Type')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('breDataType.name'))
+                    ->relationship('breDataType', 'name'),
+                Tables\Filters\SelectFilter::make('data_validation_id')
+                    ->label('Related BRE Fields:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('breDataValidation.name'))
+                    ->relationship('breDataValidation', 'name'),
+                Tables\Filters\SelectFilter::make('child_fields')
+                    ->label('Child Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('childFields.name'))
+                    ->relationship('childFields', 'name'),
+                Tables\Filters\SelectFilter::make('field_group_id')
+                    ->label('Field Groups')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('fieldGroupNames'))
+                    ->relationship('breFieldGroups', 'name'),
+                Tables\Filters\SelectFilter::make('input_output_type')
+                    ->label('Used as rule Input or Output?')
+                    ->options([
+                        'input' => 'Input Only',
+                        'output' => 'Output Only',
+                        'input/output' => 'Input/Output',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+
+                        return match ($data['value']) {
+                            'input' => $query->whereHas('breInputs')
+                                ->whereDoesntHave('breOutputs'),
+                            'output' => $query->whereHas('breOutputs')
+                                ->whereDoesntHave('breInputs'),
+                            'input/output' => $query->whereHas('breInputs')
+                                ->whereHas('breOutputs'),
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('input_rules')
+                    ->label('Used as Inputs by Rules:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('input_output_type'))
+                    ->relationship('breInputs', 'name'),
+                Tables\Filters\SelectFilter::make('output_fields')
+                    ->label('Returned as Outputs by Rules:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('input_output_type'))
+                    ->relationship('breOutputs', 'name'),
+                Tables\Filters\SelectFilter::make('icmcdw_fields')
+                    ->label('Related ICM CDW Fields:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('icmcdwFields.name'))
+                    ->relationship('icmcdwFields', 'name'),
+                //                
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

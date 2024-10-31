@@ -9,6 +9,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -61,7 +62,7 @@ class ICMCDWFieldResource extends Resource
                 Tables\Columns\TextColumn::make('panel_type')
                     ->label('Panel Type')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('entity')
                     ->searchable()
                     ->sortable()
@@ -73,7 +74,7 @@ class ICMCDWFieldResource extends Resource
                 Tables\Columns\TextColumn::make('subject_area')
                     ->searchable()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('applet')
                     ->searchable()
                     ->sortable()
@@ -106,6 +107,28 @@ class ICMCDWFieldResource extends Resource
             ])
             ->defaultSort('name')
             ->filters([
+                SelectFilter::make('panel_type')
+                    ->label('Panel Type')
+                    ->multiple()
+                    ->options(ICMCDWField::all()->pluck('panel_type', 'panel_type')->unique())
+                    ->attribute(('panel_type')),
+                SelectFilter::make('entity')
+                    ->label('Entity')
+                    ->multiple()
+                    ->options(ICMCDWField::all()->pluck('entity', 'entity')->unique())
+                    ->attribute(('entity')),
+                SelectFilter::make('subject_area')
+                    ->label('Subject Area')
+                    ->multiple()
+                    ->options(ICMCDWField::all()->pluck('subject_area', 'subject_area')->unique())
+                    ->attribute(('subject_area')),
+                SelectFilter::make('breFields')
+                    ->label('Related BRE Fields:')
+                    ->relationship('breFields', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->multiple()
+                    ->attribute(('breFields.name')),
                 //
             ])
             ->actions([
