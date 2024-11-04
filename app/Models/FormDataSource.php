@@ -12,8 +12,13 @@ class FormDataSource extends Model
 
     protected $fillable = [
         'name',
-        'source',
-        'description'
+        'type',
+        'endpoint',
+        'description',
+        'params',
+        'body',
+        'headers',
+        'host',
     ];
 
     public function formVersions(): BelongsToMany
