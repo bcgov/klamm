@@ -66,7 +66,7 @@ class BRERule extends Model
         return $this->belongsToMany(ICMCDWField::class, 'bre_field_icm_cdw_field', 'bre_field_id', 'icm_cdw_field_id')->withTimestamps();
     }
 
-    public function getRelatedIcmCDWFields()
+    public function getICMCDWFieldObjects()
     {
         $fieldIds = $this->breInputs()
             ->pluck('bre_field_id')
@@ -77,7 +77,12 @@ class BRERule extends Model
             ->join('bre_field_icm_cdw_field', 'icm_cdw_fields.id', '=', 'bre_field_icm_cdw_field.icm_cdw_field_id')
             ->join('bre_fields', 'bre_field_icm_cdw_field.bre_field_id', '=', 'bre_fields.id')
             ->whereIn('bre_fields.id', $fieldIds)
-            ->get()
+            ->get();
+    }
+
+    public function getRelatedIcmCDWFields(): array
+    {
+        return $this->getICMCDWFieldObjects()
             ->pluck('name', 'id')
             ->toArray();
     }

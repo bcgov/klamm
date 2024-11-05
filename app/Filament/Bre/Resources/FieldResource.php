@@ -4,16 +4,21 @@ namespace App\Filament\Bre\Resources;
 
 use Closure;
 use App\Filament\Bre\Resources\FieldResource\Pages;
+use App\Filament\Bre\Resources\DataValidationResource;
 use App\Models\BREDataType;
+use App\Models\BREDataValidation;
 use App\Models\BREField;
 use App\Models\ICMCDWField;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 class FieldResource extends Resource
 {
@@ -73,6 +78,105 @@ class FieldResource extends Resource
                     )
                     ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
                     ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area'])
+            ]);
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                TextEntry::make('name'),
+                TextEntry::make('label'),
+                TextEntry::make('help_text'),
+                TextEntry::make('breDataType.name')
+                    ->label('Data Type'),
+                TextEntry::make('breDataValidation.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$record->breDataValidation) {
+                            return '';
+                        }
+
+                        return new HtmlString(
+                            sprintf(
+                                '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                <span class="grid">
+                                <span class="truncate">%s</span>
+                                </span>
+                                </span>
+                                </a>',
+                                DataValidationResource::getUrl('view', ['record' => $record->breDataValidation->id]),
+                                e($record->breDataValidation->name)
+                            )
+                        );
+                    })
+                    ->html()
+                    ->label('Data Validation'),
+                TextEntry::make('breFieldGroups.name')
+                    ->label('Field Groups'),
+                TextEntry::make('description')
+                    ->columnSpanFull(),
+                TextEntry::make('breInputs.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->breInputs->map(function ($rule) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                    <span class="grid">
+                                    <span class="truncate">%s</span>
+                                    </span>
+                                    </span>
+                                    </a>',
+                                    RuleResource::getUrl('view', ['record' => $rule->name]),
+                                    e($rule->name)
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Used as Inputs by Rules'),
+                TextEntry::make('breOutputs.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->breOutputs->map(function ($rule) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                    <span class="grid">
+                                    <span class="truncate">%s</span>
+                                    </span>
+                                    </span>
+                                    </a>',
+                                    RuleResource::getUrl('view', ['record' => $rule->name]),
+                                    e($rule->name)
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Returned as Outputs by Rules'),
+                TextEntry::make('icmcdwFields.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->icmcdwFields->map(function ($field) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                    <span class="grid">
+                                    <span class="truncate">%s</span>
+                                    </span>
+                                    </span>
+                                    </a>',
+                                    ICMCDWFieldResource::getUrl('view', ['record' => $field->id]),
+                                    e($field->name)
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related ICM CDW Fields')
+                    ->columnSpanFull(),
             ]);
     }
 

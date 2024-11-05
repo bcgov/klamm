@@ -5,6 +5,7 @@ namespace App\Filament\Bre\Resources;
 use App\Filament\Bre\Resources\RuleResource\Pages;
 use App\Filament\Bre\Resources\RuleResource\RelationManagers;
 use App\Models\BRERule;
+use App\Models\ICMCDWField;
 use App\Models\Rule;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -15,7 +16,9 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\HtmlString;
 
 class RuleResource extends Resource
 {
@@ -62,22 +65,105 @@ class RuleResource extends Resource
                 TextEntry::make('description'),
                 TextEntry::make('internal_description'),
                 TextEntry::make('breInputs.name')
-                    ->badge('success'),
-                TextEntry::make('breOutputs.name')
-                    ->badge('success'),
-                TextEntry::make('parentRules.name')
-                    ->badge('success'),
-                TextEntry::make('childRules.name')
-                    ->badge('success'),
-                TextEntry::make('related_icm_cdw_fields.name')
-                    ->badge('success')
-                    ->default(function ($record) {
-                        if ($record instanceof BRERule) {
-                            return $record->getRelatedIcmCDWFields();
-                        }
-                        return [];
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->breInputs->map(function ($input) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                    <span class="grid">
+                                    <span class="truncate">%s</span>
+                                    </span>
+                                    </span>
+                                    </a>',
+                                    FieldResource::getUrl('view', ['record' => $input->name]),
+                                    e($input->name),
+                                );
+                            })->join('')
+                        );
                     })
+                    ->html(),
+                TextEntry::make('breOutputs.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->breOutputs->map(function ($output) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                    <span class="grid">
+                                    <span class="truncate">%s</span>
+                                    </span>
+                                    </span>
+                                    </a>',
+                                    FieldResource::getUrl('view', ['record' => $output->name]),
+                                    e($output->name),
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html(),
+                TextEntry::make('parentRules.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->parentRules->map(function ($parent) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                <span class="grid">
+                                <span class="truncate">%s</span>
+                                </span>
+                                </span>
+                                </a>',
+                                    RuleResource::getUrl('view', ['record' => $parent->name]),
+                                    e($parent->name),
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html(),
+                TextEntry::make('childRules.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->childRules->map(function ($child) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                            <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                            <span class="grid">
+                            <span class="truncate">%s</span>
+                            </span>
+                            </span>
+                            </a>',
+                                    RuleResource::getUrl('view', ['record' => $child->name]),
+                                    e($child->name),
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html(),
+                TextEntry::make('related_icm_cdw_fields')
+                    ->state(function (BRERule $record) {
+                        return $record->getICMCDWFieldObjects();
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getICMCDWFieldObjects()->map(function ($field) {
+                                return sprintf(
+                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                                    <span class="grid">
+                                    <span class="truncate">%s</span>
+                                    </span>
+                                    </span>
+                                    </a>',
+                                    ICMCDWFieldResource::getUrl('view', ['record' => $field->id]),
+                                    e($field->name)
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
                     ->label('ICM CDW Fields used by the inputs and outputs of this Rule')
+                    ->columnSpanFull()
             ]);
     }
 
