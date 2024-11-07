@@ -29,7 +29,11 @@ class FormFieldResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required(),
                 Forms\Components\TextInput::make('label'),
-                Forms\Components\TextInput::make('data_binding'),
+                Forms\Components\Select::make('data_binding_path')
+                    ->label('Field data source')
+                    ->preload()
+                    ->relationship('formDataSources', 'name'),
+                Forms\Components\Textarea::make('data_binding'),
                 Forms\Components\Textarea::make('conditional_logic'),
                 Forms\Components\Textarea::make('styles'),
                 Repeater::make('validations')

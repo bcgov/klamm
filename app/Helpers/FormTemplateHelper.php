@@ -88,12 +88,14 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
-
+        
         $base = [
             "type" => $field->dataType->name,
             "id" => $field->name . '_' . $index,
             "label" => $field->label,
             "customLabel" => $fieldInstance->label,
+            "dataBindingPath" => $field->data_binding_path,
+            "customDataBindingPath" => $fieldInstance->data_binding_path,
             "dataBinding" => $field->data_binding,
             "customDataBinding" => $fieldInstance->data_binding,
             "validation" => [],

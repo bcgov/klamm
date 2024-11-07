@@ -118,7 +118,11 @@ class FormVersionResource extends Resource
                                 TextInput::make('label')
                                     ->label("Custom Label")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
-                                TextInput::make('data_binding')
+                                Select::make('data_binding_path')
+                                    ->label("Custom Data Binding Path")
+                                    ->relationship('formDataSources', 'name')
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
+                                Textarea::make('data_binding')
                                     ->label("Custom Data Binding")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
                                 Textarea::make('conditional_logic')
@@ -169,6 +173,7 @@ class FormVersionResource extends Resource
                                                 return [
                                                     'form_field_id' => $field->id,
                                                     'label' => $field->label,
+                                                    'data_binding_path'=> $field->data_binding_path,
                                                     'data_binding' => $field->data_binding,
                                                     'conditional_logic' => $field->conditional_logic,
                                                     'styles' => $field->styles,
@@ -201,7 +206,11 @@ class FormVersionResource extends Resource
                                         TextInput::make('label')
                                             ->label("Custom Label")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
-                                        TextInput::make('data_binding')
+                                        Select::make('data_binding_path')
+                                            ->label("Custom Data Binding Path")
+                                            ->relationship('formDataSources', 'name')
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
+                                        Textarea::make('data_binding')
                                             ->label("Custom Data Binding")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
                                         Textarea::make('conditional_logic')

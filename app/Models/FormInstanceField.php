@@ -16,6 +16,7 @@ class FormInstanceField extends Model
         'form_field_id',
         'order',
         'label',
+        'data_binding_path',
         'data_binding',
         'conditional_logic',
         'styles',
@@ -41,4 +42,11 @@ class FormInstanceField extends Model
     {
         return $this->hasMany(FormInstanceFieldValidation::class);
     }
+
+    public function formDataSources(): BelongsToMany
+    {
+        return $this->belongsToMany(FormDataSource::class, 'form_fields_form_data_sources');
+    }
+
+    
 }

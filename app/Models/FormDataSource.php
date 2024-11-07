@@ -25,4 +25,9 @@ class FormDataSource extends Model
     {
         return $this->belongsToMany(FormVersion::class, 'form_versions_form_data_sources');
     }
+
+    public function formFields(): BelongsToMany
+    {
+        return $this->belongsToMany(FormField::class, 'form_fields_form_data_sources');
+    }
 }

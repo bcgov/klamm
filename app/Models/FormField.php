@@ -24,6 +24,7 @@ class FormField extends Model
         'help_text',
         'data_type_id',
         'description',
+        'data_binding_path',
         'data_binding',
         'conditional_logic',
         'styles'
@@ -57,5 +58,10 @@ class FormField extends Model
     public function validations()
     {
         return $this->hasMany(FormFieldValidation::class);
+    }
+
+    public function formDataSources(): BelongsToMany
+    {
+        return $this->belongsToMany(FormDataSource::class, 'form_fields_form_data_sources');
     }
 }
