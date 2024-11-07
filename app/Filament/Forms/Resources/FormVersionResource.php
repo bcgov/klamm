@@ -6,6 +6,7 @@ use App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Models\FormVersion;
 use App\Models\FormField;
 use App\Models\FieldGroup;
+use App\Models\FormDataSource;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -120,7 +121,7 @@ class FormVersionResource extends Resource
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
                                 Select::make('data_binding_path')
                                     ->label("Custom Data Binding Path")
-                                    ->relationship('formDataSources', 'name')
+                                    ->options(FormDataSource::pluck('name', 'name'))
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
                                 Textarea::make('data_binding')
                                     ->label("Custom Data Binding")
@@ -208,7 +209,7 @@ class FormVersionResource extends Resource
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
                                         Select::make('data_binding_path')
                                             ->label("Custom Data Binding Path")
-                                            ->relationship('formDataSources', 'name')
+                                            ->options(FormDataSource::pluck('name', 'name'))
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
                                         Textarea::make('data_binding')
                                             ->label("Custom Data Binding")
