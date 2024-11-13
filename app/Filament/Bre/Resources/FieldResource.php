@@ -26,6 +26,20 @@ class FieldResource extends Resource
     protected static ?string $navigationLabel = 'BRE Rule Fields';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    private static string $badgeTemplate = '
+        <a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+            <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                <span class="grid">
+                    <span class="truncate">%s</span>
+                </span>
+            </span>
+        </a>';
+
+    private static function formatBadge(string $url, string $text): string
+    {
+        return sprintf(static::$badgeTemplate, $url, e($text));
+    }
+
     // protected static ?string $navigationGroup = 'Rule Building';
 
     public static function form(Form $form): Form
@@ -97,16 +111,9 @@ class FieldResource extends Resource
                         }
 
                         return new HtmlString(
-                            sprintf(
-                                '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                <span class="grid">
-                                <span class="truncate">%s</span>
-                                </span>
-                                </span>
-                                </a>',
+                            static::formatBadge(
                                 DataValidationResource::getUrl('view', ['record' => $record->breDataValidation->id]),
-                                e($record->breDataValidation->name)
+                                $record->breDataValidation->name
                             )
                         );
                     })
@@ -120,16 +127,9 @@ class FieldResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->breInputs->map(function ($rule) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                    <span class="grid">
-                                    <span class="truncate">%s</span>
-                                    </span>
-                                    </span>
-                                    </a>',
+                                return static::formatBadge(
                                     RuleResource::getUrl('view', ['record' => $rule->name]),
-                                    e($rule->name)
+                                    $rule->name
                                 );
                             })->join('')
                         );
@@ -140,16 +140,9 @@ class FieldResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->breOutputs->map(function ($rule) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                    <span class="grid">
-                                    <span class="truncate">%s</span>
-                                    </span>
-                                    </span>
-                                    </a>',
+                                return static::formatBadge(
                                     RuleResource::getUrl('view', ['record' => $rule->name]),
-                                    e($rule->name)
+                                    $rule->name
                                 );
                             })->join('')
                         );
@@ -160,16 +153,9 @@ class FieldResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->icmcdwFields->map(function ($field) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                    <span class="grid">
-                                    <span class="truncate">%s</span>
-                                    </span>
-                                    </span>
-                                    </a>',
+                                return static::formatBadge(
                                     ICMCDWFieldResource::getUrl('view', ['record' => $field->id]),
-                                    e($field->name)
+                                    $field->name
                                 );
                             })->join('')
                         );

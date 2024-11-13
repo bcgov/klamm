@@ -27,7 +27,19 @@ class RuleResource extends Resource
     protected static ?string $navigationLabel = 'BRE Rules';
     protected static ?string $navigationIcon = 'heroicon-o-scale';
 
-    // protected static ?string $navigationGroup = 'Rules';
+    private static string $badgeTemplate = '
+        <a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+            <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                <span class="grid">
+                    <span class="truncate">%s</span>
+                </span>
+            </span>
+        </a>';
+
+    private static function formatBadge(string $url, string $text): string
+    {
+        return sprintf(static::$badgeTemplate, $url, e($text));
+    }
 
     public static function form(Form $form): Form
     {
@@ -68,16 +80,9 @@ class RuleResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->breInputs->map(function ($input) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                    <span class="grid">
-                                    <span class="truncate">%s</span>
-                                    </span>
-                                    </span>
-                                    </a>',
+                                return static::formatBadge(
                                     FieldResource::getUrl('view', ['record' => $input->name]),
-                                    e($input->name),
+                                    $input->name
                                 );
                             })->join('')
                         );
@@ -87,16 +92,9 @@ class RuleResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->breOutputs->map(function ($output) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                    <span class="grid">
-                                    <span class="truncate">%s</span>
-                                    </span>
-                                    </span>
-                                    </a>',
+                                return static::formatBadge(
                                     FieldResource::getUrl('view', ['record' => $output->name]),
-                                    e($output->name),
+                                    $output->name
                                 );
                             })->join('')
                         );
@@ -106,16 +104,9 @@ class RuleResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->parentRules->map(function ($parent) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                <span class="grid">
-                                <span class="truncate">%s</span>
-                                </span>
-                                </span>
-                                </a>',
+                                return static::formatBadge(
                                     RuleResource::getUrl('view', ['record' => $parent->name]),
-                                    e($parent->name),
+                                    $parent->name
                                 );
                             })->join('')
                         );
@@ -125,16 +116,9 @@ class RuleResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->childRules->map(function ($child) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                            <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                            <span class="grid">
-                            <span class="truncate">%s</span>
-                            </span>
-                            </span>
-                            </a>',
+                                return static::formatBadge(
                                     RuleResource::getUrl('view', ['record' => $child->name]),
-                                    e($child->name),
+                                    $child->name
                                 );
                             })->join('')
                         );
@@ -147,16 +131,9 @@ class RuleResource extends Resource
                     ->formatStateUsing(function ($state, $record) {
                         return new HtmlString(
                             $record->getICMCDWFieldObjects()->map(function ($field) {
-                                return sprintf(
-                                    '<a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
-                                    <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
-                                    <span class="grid">
-                                    <span class="truncate">%s</span>
-                                    </span>
-                                    </span>
-                                    </a>',
+                                return static::formatBadge(
                                     ICMCDWFieldResource::getUrl('view', ['record' => $field->id]),
-                                    e($field->name)
+                                    $field->name
                                 );
                             })->join('')
                         );
