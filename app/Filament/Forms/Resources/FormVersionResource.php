@@ -39,11 +39,12 @@ class FormVersionResource extends Resource
         return $form
             ->schema([
                 Select::make('form_id')
-                    ->relationship('form', 'form_title')
+                    ->relationship('form', 'form_id_title')
                     ->required()
                     ->reactive()
                     ->preload()
-                    ->default(request()->query('form_id')),
+                    ->searchable()
+                    ->default(request()->query('form_id_title')),
                 Select::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -282,7 +283,7 @@ class FormVersionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('form.form_title')
+                Tables\Columns\TextColumn::make('form.form_id_title')
                     ->label('Form')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('version_number')
