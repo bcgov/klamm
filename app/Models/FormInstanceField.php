@@ -42,11 +42,5 @@ class FormInstanceField extends Model
     {
         return $this->hasMany(FormInstanceFieldValidation::class);
     }
-
-    public function formDataSources(): BelongsToMany
-    {
-        return $this->belongsToMany(FormDataSource::class, 'form_fields_form_data_sources');
-    }
-
     
 }
