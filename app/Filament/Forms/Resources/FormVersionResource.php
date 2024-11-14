@@ -6,6 +6,7 @@ use App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Models\FormVersion;
 use App\Models\FormField;
 use App\Models\FieldGroup;
+use App\Models\FormDataSource;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -38,11 +39,12 @@ class FormVersionResource extends Resource
         return $form
             ->schema([
                 Select::make('form_id')
-                    ->relationship('form', 'form_title')
+                    ->relationship('form', 'form_id_title')
                     ->required()
                     ->reactive()
                     ->preload()
-                    ->default(request()->query('form_id')),
+                    ->searchable()
+                    ->default(request()->query('form_id_title')),
                 Select::make('status')
                     ->options([
                         'draft' => 'Draft',
@@ -118,7 +120,11 @@ class FormVersionResource extends Resource
                                 TextInput::make('label')
                                     ->label("Custom Label")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
-                                TextInput::make('data_binding')
+                                Select::make('data_binding_path')
+                                    ->label("Custom Data Binding Path")
+                                    ->options(FormDataSource::pluck('name', 'name'))
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
+                                Textarea::make('data_binding')
                                     ->label("Custom Data Binding")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
                                 Textarea::make('conditional_logic')
@@ -169,6 +175,7 @@ class FormVersionResource extends Resource
                                                 return [
                                                     'form_field_id' => $field->id,
                                                     'label' => $field->label,
+                                                    'data_binding_path'=> $field->data_binding_path,
                                                     'data_binding' => $field->data_binding,
                                                     'conditional_logic' => $field->conditional_logic,
                                                     'styles' => $field->styles,
@@ -201,7 +208,11 @@ class FormVersionResource extends Resource
                                         TextInput::make('label')
                                             ->label("Custom Label")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
-                                        TextInput::make('data_binding')
+                                        Select::make('data_binding_path')
+                                            ->label("Custom Data Binding Path")
+                                            ->options(FormDataSource::pluck('name', 'name'))
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
+                                        Textarea::make('data_binding')
                                             ->label("Custom Data Binding")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
                                         Textarea::make('conditional_logic')
@@ -272,7 +283,7 @@ class FormVersionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('form.form_title')
+                Tables\Columns\TextColumn::make('form.form_id_title')
                     ->label('Form')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('version_number')

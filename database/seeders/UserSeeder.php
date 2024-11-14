@@ -50,6 +50,10 @@ class UserSeeder extends Seeder
                 'name' => 'Bryson',
                 'email' => 'bryson.best@gov.bc.ca',
             ],
+            [
+                'name' => 'David',
+                'email' => 'david.okulski@gov.bc.ca',
+            ],
 
         ];
 
