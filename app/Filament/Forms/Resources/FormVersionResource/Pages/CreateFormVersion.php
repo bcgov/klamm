@@ -50,7 +50,7 @@ class CreateFormVersion extends CreateRecord
         //
     }
 
-    protected function afterSave(): void
+    protected function afterCreate(): void
     {
         $formVersion = $this->record;
         $components = $this->form->getState()['components'] ?? [];
