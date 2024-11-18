@@ -33,7 +33,8 @@ class SystemMessageResource extends Resource
                     ->required(),
                 Forms\Components\Select::make('data_group_id')
                     ->relationship('dataGroup', 'name')
-                    ->nullable(),
+                    ->nullable()
+                    ->preload(),
                 Forms\Components\TextInput::make('icm_error_code')
                     ->maxLength(255)
                     ->label('ICM Errror Code'),
@@ -44,6 +45,10 @@ class SystemMessageResource extends Resource
                 Forms\Components\Textarea::make('business_rule'),
                 Forms\Components\TextInput::make('rule_number')
                     ->numeric(),
+                Forms\Components\Select::make('ministry_ids')
+                    ->relationship('ministries', 'name')
+                    ->multiple()
+                    ->preload(),
                 Forms\Components\Textarea::make('reference')
             ]);
     }
@@ -52,28 +57,23 @@ class SystemMessageResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('message_type_id')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('data_group_id')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('messageType.name'),
+                Tables\Columns\TextColumn::make('dataGroup.name'),
                 Tables\Columns\TextColumn::make('icm_error_code')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('rule_number')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('ICM Error Code'),
+                Tables\Columns\TextColumn::make('rule_number'),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('message_type_id')
+                    ->label('Message Type')
+                    ->options(
+                        \App\Models\MessageType::all()->pluck('name', 'id')->toArray()
+                    ),
+                Tables\Filters\SelectFilter::make('data_group_id')
+                    ->label('Data Group')
+                    ->options(
+                        \App\Models\DataGroup::all()->pluck('name', 'id')->toArray()
+                    ),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -82,14 +82,17 @@ class SystemMessageResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
+            ])->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
