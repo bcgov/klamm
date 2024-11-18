@@ -3,37 +3,42 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FieldGroupResource\Pages;
-use App\Filament\Forms\Resources\FieldGroupResource\RelationManagers;
 use App\Models\FieldGroup;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
 
 class FieldGroupResource extends Resource
 {
     protected static ?string $model = FieldGroup::class;
 
     protected static ?string $navigationGroup = 'Form Building';
-
-
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->required(),
-                Forms\Components\TextInput::make('label'),
-                Forms\Components\Textarea::make('description')
+                TextInput::make('label'),
+                Textarea::make('description')
                     ->columnSpanFull(),
-                Forms\Components\Textarea::make('internal_description')
+                Textarea::make('internal_description')
                     ->columnSpanFull(),
-                Forms\Components\Toggle::make('repeater')
+                Select::make('form_field_ids')
+                    ->label('Form Fields')
+                    ->multiple()
+                    ->relationship('formFields', 'name')
+                    ->searchable()
+                    ->preload(),
+                Toggle::make('repeater')
                     ->required(),
             ]);
     }
@@ -42,20 +47,11 @@ class FieldGroupResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('label')
-                    ->searchable(),
-                Tables\Columns\IconColumn::make('repeater')
-                    ->boolean(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('name')->searchable(),
+                Tables\Columns\TextColumn::make('label')->searchable(),
+                Tables\Columns\IconColumn::make('repeater')->boolean(),
+                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //
@@ -68,7 +64,10 @@ class FieldGroupResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

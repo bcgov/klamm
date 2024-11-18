@@ -27,24 +27,26 @@ class CreateUser extends Command
         if ($user) {
             $this->info('User created successfully!');
 
-            // Fetch all available roles
-            $availableRoles = Role::pluck('name')->toArray();
-            if (empty($availableRoles)) {
-                $this->info('No roles available to assign.');
-                return;
-            }
+            if ($this->confirm('Do you want to assign a role(s) to this user?', true)) {
+                // Fetch all available roles
+                $availableRoles = Role::pluck('name')->toArray();
+                if (empty($availableRoles)) {
+                    $this->info('No roles available to assign.');
+                    return;
+                }
 
-            $roles = $this->choice(
-                'Select roles for the user (comma-separated for multiple roles)',
-                $availableRoles,
-                null,
-                null,
-                true // Allow multiple selections
-            );
+                $roles = $this->choice(
+                    'Select roles for the user (comma-separated for multiple roles)',
+                    $availableRoles,
+                    null,
+                    null,
+                    true // Allow multiple selections
+                );
 
-            // Assign roles to the user
-            $user->syncRoles($roles);
-            $this->info('Roles assigned successfully!');
+                // Assign roles to the user
+                $user->syncRoles($roles);
+                $this->info('Roles assigned successfully!');
+        }
         } else {
             $this->error('Failed to create user.');
         }

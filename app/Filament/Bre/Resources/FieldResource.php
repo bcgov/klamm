@@ -4,22 +4,41 @@ namespace App\Filament\Bre\Resources;
 
 use Closure;
 use App\Filament\Bre\Resources\FieldResource\Pages;
+use App\Filament\Bre\Resources\DataValidationResource;
 use App\Models\BREDataType;
+use App\Models\BREDataValidation;
 use App\Models\BREField;
 use App\Models\ICMCDWField;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists\Infolist;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 
 class FieldResource extends Resource
 {
     protected static ?string $model = BREField::class;
     protected static ?string $navigationLabel = 'BRE Rule Fields';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    private static string $badgeTemplate = '
+        <a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+            <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                <span class="grid">
+                    <span class="truncate">%s</span>
+                </span>
+            </span>
+        </a>';
+
+    private static function formatBadge(string $url, string $text): string
+    {
+        return sprintf(static::$badgeTemplate, $url, e($text));
+    }
 
     // protected static ?string $navigationGroup = 'Rule Building';
 
@@ -76,16 +95,92 @@ class FieldResource extends Resource
             ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                TextEntry::make('name'),
+                TextEntry::make('label'),
+                TextEntry::make('help_text'),
+                TextEntry::make('breDataType.name')
+                    ->label('Data Type'),
+                TextEntry::make('breDataValidation.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        if (!$record->breDataValidation) {
+                            return '';
+                        }
+
+                        return new HtmlString(
+                            static::formatBadge(
+                                DataValidationResource::getUrl('view', ['record' => $record->breDataValidation->id]),
+                                $record->breDataValidation->name
+                            )
+                        );
+                    })
+                    ->html()
+                    ->label('Data Validation'),
+                TextEntry::make('breFieldGroups.name')
+                    ->label('Field Groups'),
+                TextEntry::make('description')
+                    ->columnSpanFull(),
+                TextEntry::make('breInputs.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->breInputs->map(function ($rule) {
+                                return static::formatBadge(
+                                    RuleResource::getUrl('view', ['record' => $rule->name]),
+                                    $rule->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Used as Inputs by Rules'),
+                TextEntry::make('breOutputs.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->breOutputs->map(function ($rule) {
+                                return static::formatBadge(
+                                    RuleResource::getUrl('view', ['record' => $rule->name]),
+                                    $rule->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Returned as Outputs by Rules'),
+                TextEntry::make('icmcdwFields.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->icmcdwFields->map(function ($field) {
+                                return static::formatBadge(
+                                    ICMCDWFieldResource::getUrl('view', ['record' => $field->id]),
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related ICM CDW Fields')
+                    ->columnSpanFull(),
+            ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
+                    ->tooltip(fn(Model $record): string => "{$record->description}")
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
                     ->sortable()
+                    ->tooltip(fn(Model $record): string => "{$record->description}")
                     ->searchable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('breDataType.name')
                     ->label('Data Type')
                     ->sortable()
@@ -111,16 +206,13 @@ class FieldResource extends Resource
                     ->default(function ($record) {
                         return $record->getInputOutputType();
                     })
-                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Rules: Inputs')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Rules: Outputs')
-                    ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('icmcdwFields.name')
@@ -139,7 +231,78 @@ class FieldResource extends Resource
             ])
             ->defaultSort('name')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('data_type_id')
+                    ->label('Data Type')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('breDataType.name'))
+                    ->relationship('breDataType', 'name'),
+                Tables\Filters\SelectFilter::make('data_validation_id')
+                    ->label('Related BRE Fields:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('breDataValidation.name'))
+                    ->relationship('breDataValidation', 'name'),
+                Tables\Filters\SelectFilter::make('child_fields')
+                    ->label('Child Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('childFields.name'))
+                    ->relationship('childFields', 'name'),
+                Tables\Filters\SelectFilter::make('field_group_id')
+                    ->label('Field Groups')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('fieldGroupNames'))
+                    ->relationship('breFieldGroups', 'name'),
+                Tables\Filters\SelectFilter::make('input_output_type')
+                    ->label('Used as rule Input or Output?')
+                    ->options([
+                        'input' => 'Input Only',
+                        'output' => 'Output Only',
+                        'input/output' => 'Input/Output',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+
+                        return match ($data['value']) {
+                            'input' => $query->whereHas('breInputs')
+                                ->whereDoesntHave('breOutputs'),
+                            'output' => $query->whereHas('breOutputs')
+                                ->whereDoesntHave('breInputs'),
+                            'input/output' => $query->whereHas('breInputs')
+                                ->whereHas('breOutputs'),
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('input_rules')
+                    ->label('Used as Inputs by Rules:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('input_output_type'))
+                    ->relationship('breInputs', 'name'),
+                Tables\Filters\SelectFilter::make('output_fields')
+                    ->label('Returned as Outputs by Rules:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('input_output_type'))
+                    ->relationship('breOutputs', 'name'),
+                Tables\Filters\SelectFilter::make('icmcdw_fields')
+                    ->label('Related ICM CDW Fields:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('icmcdwFields.name'))
+                    ->relationship('icmcdwFields', 'name'),
+                //                
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -170,8 +333,8 @@ class FieldResource extends Resource
         return [
             'index' => Pages\ListFields::route('/'),
             'create' => Pages\CreateField::route('/create'),
-            'view' => Pages\ViewField::route('/{record}'),
-            'edit' => Pages\EditField::route('/{record}/edit'),
+            'view' => Pages\ViewField::route('/{record:name}'),
+            'edit' => Pages\EditField::route('/{record:name}/edit'),
         ];
     }
 }

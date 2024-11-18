@@ -17,7 +17,6 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MinistrySeeder::class,
             ValueTypeSeeder::class,
-            RenderedFormSeeder::class,
             DataTypeSeeder::class,
             FormFieldSeeder::class,
             RolesSeeder::class,
@@ -33,6 +32,7 @@ class DatabaseSeeder extends Seeder
             UserTypeSeeder::class,
             FormTagSeeder::class,
             FormSeeder::class,
+            FormDataSourceSeeder::class,
         ]);
     }
 }

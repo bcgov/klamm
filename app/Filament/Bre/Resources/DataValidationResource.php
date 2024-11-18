@@ -64,6 +64,13 @@ class DataValidationResource extends Resource
             ])
             ->defaultSort('name')
             ->filters([
+                Tables\Filters\SelectFilter::make('bre_validation_type')
+                    ->label('Value Type')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('bre_validation_type'))
+                    ->relationship('breValidationType', 'name'),
                 //
             ])
             ->actions([
