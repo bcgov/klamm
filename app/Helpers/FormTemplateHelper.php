@@ -12,6 +12,7 @@ use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
+   
     public static function generateJsonTemplate($formVersionId)
     {
         $formVersion = FormVersion::find($formVersionId);
@@ -85,7 +86,7 @@ class FormTemplateHelper
 
         $base = [
             "type" => $field->dataType->name,
-            "id" => $field->name . '_' . $index,
+            "id" => $fieldInstance->custom_id,
             "label" => $field->label,
             "customLabel" => $fieldInstance->label,
             "dataBinding" => $field->data_binding,
@@ -149,7 +150,7 @@ class FormTemplateHelper
             "type" => "group",
             "label" => $group->label,
             "customLabel" => $groupInstance->label,
-            "id" => $group->name . '_' . $index,
+            "id" => $groupInstance->custom_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [
@@ -164,5 +165,18 @@ class FormTemplateHelper
                 ],
             ],
         ]);
+    }
+
+    public static function calculateFieldID($state)
+    {
+       $numOfComponents = count($state['components']);        
+       return $prefix.$numOfComponents;
+    }
+    
+    public static function calculateFieldInGroupID($state)
+    {
+       
+        $numOfFormFields = count($state['form_fields']);       
+       return 'nestedField'.$numOfFormFields;
     }
 }

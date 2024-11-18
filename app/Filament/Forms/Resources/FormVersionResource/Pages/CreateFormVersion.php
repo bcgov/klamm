@@ -70,6 +70,7 @@ class CreateFormVersion extends CreateRecord
                     'data_binding' => $component['data_binding'] ?? null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
                     'styles' => $component['styles'] ?? null,
+                    'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
                 $validations = $component['validations'] ?? [];
@@ -88,6 +89,7 @@ class CreateFormVersion extends CreateRecord
                     'order' => $order,
                     'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
+                    'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -101,6 +103,7 @@ class CreateFormVersion extends CreateRecord
                         'data_binding' => $fieldData['data_binding'] ?? null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,
+                        'custom_id' => $fieldData['custom_id'] ?? null,
                     ]);
 
                     $validations = $fieldData['validations'] ?? [];

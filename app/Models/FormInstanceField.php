@@ -20,6 +20,7 @@ class FormInstanceField extends Model
         'conditional_logic',
         'styles',
         'field_group_instance_id',
+        'custom_id'
     ];
 
     public function formVersion(): BelongsTo

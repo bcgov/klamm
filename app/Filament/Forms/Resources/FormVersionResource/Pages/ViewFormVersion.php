@@ -46,6 +46,7 @@ class ViewFormVersion extends ViewRecord
                 'styles' => $field->styles,
                 'validations' => $validations,
                 'order' => $field->order,
+                'custom_id' => $field->custom_id, 
             ];
         }
 
@@ -72,6 +73,7 @@ class ViewFormVersion extends ViewRecord
                     'conditional_logic' => $field->conditional_logic,
                     'styles' => $field->styles,
                     'validations' => $validations,
+                    'custom_id' => $field->custom_id, 
                 ];
             }
 
@@ -82,6 +84,7 @@ class ViewFormVersion extends ViewRecord
                 'repeater' => $group->repeater,
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
+                'custom_id' => $group->custom_id, 
             ];
         }
 
