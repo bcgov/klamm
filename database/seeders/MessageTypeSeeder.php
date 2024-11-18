@@ -12,6 +12,8 @@ class MessageTypeSeeder extends Seeder
      */
     public function run(): void
     {
+        \DB::table(table: 'message_types')->delete();
+
         $messageTypes = [
             'MIS Integration error',
             'ICM Data edit error',

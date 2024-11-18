@@ -12,6 +12,8 @@ class DataGroupSeeder extends Seeder
      */
     public function run(): void
     {
+        \DB::table(table: 'data_groups')->delete();
+
         $dataGroups = [
             'Case Address',
             'Case Benefit Plan',
