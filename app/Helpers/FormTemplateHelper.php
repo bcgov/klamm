@@ -178,7 +178,7 @@ class FormTemplateHelper
     public static function calculateFieldID($state)
     {
        $numOfComponents = count($state['components']);        
-       return $prefix.$numOfComponents;
+       return 'field'.$numOfComponents;
     }
     
     public static function calculateFieldInGroupID($state)
