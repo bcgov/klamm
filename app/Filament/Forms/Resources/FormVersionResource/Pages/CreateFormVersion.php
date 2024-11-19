@@ -50,7 +50,7 @@ class CreateFormVersion extends CreateRecord
         //
     }
 
-    protected function afterSave(): void
+    protected function afterCreate(): void
     {
         $formVersion = $this->record;
         $components = $this->form->getState()['components'] ?? [];
@@ -67,6 +67,7 @@ class CreateFormVersion extends CreateRecord
                     'form_field_id' => $component['form_field_id'],
                     'order' => $order,
                     'label' => $component['label'] ?? null,
+                    'data_binding_path' => $component['data_binding_path'] ?? null,
                     'data_binding' => $component['data_binding'] ?? null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
                     'styles' => $component['styles'] ?? null,
@@ -100,6 +101,7 @@ class CreateFormVersion extends CreateRecord
                         'field_group_instance_id' => $fieldGroupInstance->id,
                         'order' => $fieldOrder,
                         'label' => $fieldData['label'] ?? null,
+                        'data_binding_path' => $fieldData['data_binding_path'] ?? null,
                         'data_binding' => $fieldData['data_binding'] ?? null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,

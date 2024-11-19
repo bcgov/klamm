@@ -68,10 +68,16 @@ class FormTemplateHelper
             "id" => (string) Str::uuid(),
             "lastModified" => $formVersion->updated_at->toIso8601String(),
             "title" => $formVersion->form->form_title,
+            "form_id" => $form->form_id,
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
                     'name' => $dataSource->name,
-                    'source' => $dataSource->source,
+                    'type' => $dataSource->type,
+                    'endpoint' => $dataSource->endpoint, 
+                    'params' => json_decode($dataSource->params, true), 
+                    'body' => json_decode($dataSource->body, true), 
+                    'headers' => json_decode($dataSource->headers, true), 
+                    'host' => $dataSource->host, 
                 ];
             })->toArray(),
             "data" => [
@@ -83,12 +89,14 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
-
+        
         $base = [
             "type" => $field->dataType->name,
             "id" => $fieldInstance->custom_id,
             "label" => $field->label,
             "customLabel" => $fieldInstance->label,
+            "dataBindingPath" => $field->data_binding_path,
+            "customDataBindingPath" => $fieldInstance->data_binding_path,
             "dataBinding" => $field->data_binding,
             "customDataBinding" => $fieldInstance->data_binding,
             "validation" => [],

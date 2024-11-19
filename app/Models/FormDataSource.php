@@ -12,12 +12,18 @@ class FormDataSource extends Model
 
     protected $fillable = [
         'name',
-        'source',
-        'description'
+        'type',
+        'endpoint',
+        'description',
+        'params',
+        'body',
+        'headers',
+        'host',
     ];
 
     public function formVersions(): BelongsToMany
     {
         return $this->belongsToMany(FormVersion::class, 'form_versions_form_data_sources');
     }
+
 }

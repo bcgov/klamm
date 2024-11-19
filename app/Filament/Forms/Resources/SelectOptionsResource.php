@@ -31,7 +31,7 @@ class SelectOptionsResource extends Resource
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('form_field_id')
-                    ->relationship('formField', 'id')
+                    ->relationship('formField', 'label')
                     ->required(),
             ]);
     }

@@ -41,6 +41,7 @@ class ViewFormVersion extends ViewRecord
                 'component_type' => 'form_field',
                 'form_field_id' => $field->form_field_id,
                 'label' => $field->label,
+                'data_binding_path' => $field->data_binding_path,
                 'data_binding' => $field->data_binding,
                 'conditional_logic' => $field->conditional_logic,
                 'styles' => $field->styles,
@@ -69,6 +70,7 @@ class ViewFormVersion extends ViewRecord
                 $formFieldsData[] = [
                     'form_field_id' => $field->form_field_id,
                     'label' => $field->label,
+                    'data_binding_path' => $field->data_binding_path,
                     'data_binding' => $field->data_binding,
                     'conditional_logic' => $field->conditional_logic,
                     'styles' => $field->styles,
