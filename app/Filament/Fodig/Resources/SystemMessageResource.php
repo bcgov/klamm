@@ -17,7 +17,7 @@ class SystemMessageResource extends Resource
 {
     protected static ?string $model = SystemMessage::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-bottom-center-text';
+    protected static ?string $navigationIcon = 'heroicon-o-cog';
 
     protected static ?string $navigationGroup = 'Successor System';
 
@@ -25,31 +25,7 @@ class SystemMessageResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Radio::make('message_type_id')
-                    ->label('Message Type')
-                    ->options(
-                        \App\Models\MessageType::all()->pluck('name', 'id')->toArray()
-                    )
-                    ->required(),
-                Forms\Components\Select::make('data_group_id')
-                    ->relationship('dataGroup', 'name')
-                    ->nullable()
-                    ->preload(),
-                Forms\Components\TextInput::make('icm_error_code')
-                    ->maxLength(255)
-                    ->label('ICM Errror Code'),
-                Forms\Components\Textarea::make('message_copy'),
-                Forms\Components\Textarea::make('view'),
-                Forms\Components\Textarea::make('fix'),
-                Forms\Components\Textarea::make('explanation'),
-                Forms\Components\Textarea::make('business_rule'),
-                Forms\Components\TextInput::make('rule_number')
-                    ->numeric(),
-                Forms\Components\Select::make('ministry_ids')
-                    ->relationship('ministries', 'name')
-                    ->multiple()
-                    ->preload(),
-                Forms\Components\Textarea::make('reference')
+                //
             ]);
     }
 
@@ -57,32 +33,46 @@ class SystemMessageResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('messageType.name'),
-                Tables\Columns\TextColumn::make('dataGroup.name'),
-                Tables\Columns\TextColumn::make('icm_error_code')
-                    ->label('ICM Error Code'),
-                Tables\Columns\TextColumn::make('rule_number'),
-            ])
-            ->filters([
-                Tables\Filters\SelectFilter::make('message_type_id')
-                    ->label('Message Type')
-                    ->options(
-                        \App\Models\MessageType::all()->pluck('name', 'id')->toArray()
-                    ),
-                Tables\Filters\SelectFilter::make('data_group_id')
-                    ->label('Data Group')
-                    ->options(
-                        \App\Models\DataGroup::all()->pluck('name', 'id')->toArray()
-                    ),
+                Tables\Columns\TextColumn::make('type')->label('Message Type'),
+                Tables\Columns\TextColumn::make('message_copy')->limit(50),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('edit')
+                    ->label('Edit')
+                    ->url(function ($record) {
+                        $id = $record->id;
+
+                        if (strpos($id, 'MIS-') === 0) {
+                            $originalId = substr($id, 4);
+                            return route('filament.fodig.resources.m-i-s-integration-errors.edit', $originalId);
+                        } elseif (strpos($id, 'ICMErr-') === 0) {
+                            $originalId = substr($id, 7);
+                            return route('filament.fodig.resources.i-c-m-error-messages.edit', $originalId);
+                        } elseif (strpos($id, 'ICMSys-') === 0) {
+                            $originalId = substr($id, 7);
+                            return route('filament.fodig.resources.i-c-m-system-messages.edit', $originalId);
+                        }
+
+                        return '#';
+                    }),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ])->paginated([
+                //
+            ])->filters([
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('Message Type')
+                    ->options([
+                        'MISIntegrationError' => 'MIS Integration Error',
+                        'ICMErrorMessage' => 'ICM Error Message',
+                        'ICMSystemMessage' => 'ICM System Message',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (isset($data['value'])) {
+                            $query->where('type', $data['value']);
+                        }
+                    }),
+            ])
+            ->paginated([
                 10,
                 25,
                 50,
@@ -99,8 +89,6 @@ class SystemMessageResource extends Resource
     {
         return [
             'index' => Pages\ListSystemMessages::route('/'),
-            'create' => Pages\CreateSystemMessage::route('/create'),
-            'edit' => Pages\EditSystemMessage::route('/{record}/edit'),
         ];
     }
 }
