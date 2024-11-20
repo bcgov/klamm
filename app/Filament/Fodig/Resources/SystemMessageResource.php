@@ -21,6 +21,8 @@ class SystemMessageResource extends Resource
 
     protected static ?string $navigationGroup = 'Successor System';
 
+    protected static ?string $label = 'All Messages';
+
     public static function form(Form $form): Form
     {
         return $form
