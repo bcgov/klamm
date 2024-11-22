@@ -60,4 +60,8 @@ class FormField extends Model
         return $this->hasMany(FormFieldValidation::class);
     }
 
+    public function selectOptions(): HasMany
+    {
+        return $this->hasMany(SelectOptions::class);
+    }
 }

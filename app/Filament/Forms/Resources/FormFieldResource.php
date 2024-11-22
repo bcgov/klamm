@@ -65,13 +65,29 @@ class FormFieldResource extends Resource
                     ->columnSpanFull(),
                 Forms\Components\Select::make('data_type_id')
                     ->relationship('dataType', 'name')
-                    ->required(),
+                    ->required()
+                    ->reactive(),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('field_group_id')
                     ->multiple()
                     ->preload()
                     ->relationship('fieldGroups', 'name'),
+                Forms\Components\Repeater::make('selectOptions')
+                    ->label('Select Options')
+                    ->relationship('selectOptions')
+                    ->columnSpanFull()
+                    ->visible(function ($get) {
+                        $dataTypeId = $get('data_type_id');
+                        $dataType = \App\Models\DataType::find($dataTypeId);
+                        return $dataType && in_array($dataType->name, ['radio', 'dropdown']);
+                    })
+                    ->schema([
+                        Forms\Components\TextInput::make('name')->required(),
+                        Forms\Components\TextInput::make('label'),
+                        Forms\Components\TextInput::make('value'),
+                        Forms\Components\Textarea::make('description'),
+                    ]),
             ]);
     }
 
