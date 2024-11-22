@@ -32,7 +32,8 @@ class FormFieldResource extends Resource
                 Forms\Components\TextInput::make('label'),
                 Forms\Components\Select::make('data_binding_path')
                     ->label('Field data source')
-                    ->options(FormDataSource::pluck('name', 'name')),
+                    ->options(FormDataSource::pluck('name', 'name'))
+                    ->required(),
                 Forms\Components\Textarea::make('data_binding'),
                 Forms\Components\Textarea::make('conditional_logic'),
                 Forms\Components\Textarea::make('styles'),
