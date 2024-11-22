@@ -72,11 +72,11 @@ class FormTemplateHelper
                 return [
                     'name' => $dataSource->name,
                     'type' => $dataSource->type,
-                    'endpoint' => $dataSource->endpoint, 
-                    'params' => json_decode($dataSource->params, true), 
-                    'body' => json_decode($dataSource->body, true), 
-                    'headers' => json_decode($dataSource->headers, true), 
-                    'host' => $dataSource->host, 
+                    'endpoint' => $dataSource->endpoint,
+                    'params' => json_decode($dataSource->params, true),
+                    'body' => json_decode($dataSource->body, true),
+                    'headers' => json_decode($dataSource->headers, true),
+                    'host' => $dataSource->host,
                 ];
             })->toArray(),
             "data" => [
@@ -88,7 +88,7 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
-        
+
         $base = [
             "type" => $field->dataType->name,
             "id" => $field->name . '_' . $index,
@@ -131,6 +131,16 @@ class FormTemplateHelper
                     "direction" => "bottom",
                     "size" => "md",
                     "helperText" => "Choose one from the list",
+                    "listItems" => SelectOptions::where('form_field_id', $field->id)
+                        ->get()
+                        ->map(function ($selectOption) {
+                            return ["text" => $selectOption->label];
+                        })
+                        ->toArray(),
+                ]);
+            case "radio":
+                return array_merge($base, [
+                    "helperText" => "Choose one option",
                     "listItems" => SelectOptions::where('form_field_id', $field->id)
                         ->get()
                         ->map(function ($selectOption) {
