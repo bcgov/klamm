@@ -29,17 +29,18 @@ class FormFieldResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required(),
-                Forms\Components\TextInput::make('label'),
+                Forms\Components\TextInput::make('label')
+                    ->required(),
                 Forms\Components\Select::make('data_binding_path')
                     ->label('Field data source')
-                    ->options(FormDataSource::pluck('name', 'name'))
-                    ->required(),
+                    ->options(FormDataSource::pluck('name', 'name')),
                 Forms\Components\Textarea::make('data_binding'),
                 Forms\Components\Textarea::make('conditional_logic'),
                 Forms\Components\Textarea::make('styles'),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->relationship('validations')
+                    ->defaultItems(0)
                     ->schema([
                         Select::make('type')
                             ->label('Validation Type')
