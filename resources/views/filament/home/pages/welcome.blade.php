@@ -1,6 +1,7 @@
 <div class="space-y-4 mt-6">
     <h2 class="text-lg font-semibold">{{ $this->heading }}</h2>
     <p>{{ $this->subheading }}</p>
+    <p>{{ $this->getStarted }}</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <a href="{{ url('/admin') }}" class="block p-6 bg-white dark:bg-gray-800 border rounded-lg shadow hover:bg-gray-100 dark:hover:bg-gray-700">

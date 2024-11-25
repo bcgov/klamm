@@ -70,4 +70,18 @@ class FormField extends Model
        return $this->dataType && $this->dataType->name === 'text-info';
     }
 
+    public function selectOptions(): HasMany
+    {
+        return $this->hasMany(SelectOptions::class);
+    }
+
+    public function formVersions()
+    {
+        return $this->belongsToMany(
+            FormVersion::class,
+            'form_instance_fields',
+            'form_field_id',
+            'form_version_id'
+        )->distinct();
+    }
 }

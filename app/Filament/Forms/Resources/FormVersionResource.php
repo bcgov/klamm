@@ -190,7 +190,7 @@ class FormVersionResource extends Resource
                                                 return [
                                                     'form_field_id' => $field->id,
                                                     'label' => $field->label,
-                                                    'data_binding_path'=> $field->data_binding_path,
+                                                    'data_binding_path' => $field->data_binding_path,
                                                     'data_binding' => $field->data_binding,
                                                     'conditional_logic' => $field->conditional_logic,
                                                     'styles' => $field->styles,
@@ -330,18 +330,6 @@ class FormVersionResource extends Resource
                 Tables\Columns\TextColumn::make('deployed_at')
                     ->date('M j, Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('form_requester_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_requester_email')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_developer_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_developer_email')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_approver_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_approver_email')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -358,9 +346,21 @@ class FormVersionResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
+                Tables\Actions\Action::make('archive')
+                    ->label('Archive')
+                    ->icon('heroicon-o-archive-box-arrow-down')
+                    ->visible(fn($record) => $record->status === 'published')
+                    ->action(function ($record) {
+                        $record->update(['status' => 'archived']);
+                    })
+                    ->requiresConfirmation()
+                    ->color('danger')
+                    ->tooltip('Archive this form version'),
                 Tables\Actions\Action::make('Create New Version')
                     ->label('Create New Version')
                     ->icon('heroicon-o-document-plus')
+                    ->requiresConfirmation()
+                    ->tooltip('Create a new version from this version')
                     ->visible(fn($record) => (Gate::allows('form-developer') && in_array($record->status, ['published', 'archived'])))
                     ->action(function ($record, $livewire) {
                         $newVersion = $record->replicate();

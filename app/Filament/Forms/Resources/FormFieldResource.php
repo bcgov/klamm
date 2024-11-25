@@ -31,7 +31,8 @@ class FormFieldResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required(),
-                Forms\Components\TextInput::make('label'),
+                Forms\Components\TextInput::make('label')
+                    ->required(),
                 Forms\Components\Select::make('data_binding_path')
                     ->label('Field data source')
                     ->options(FormDataSource::pluck('name', 'name')),
@@ -41,6 +42,7 @@ class FormFieldResource extends Resource
                 Repeater::make('validations')
                     ->label('Validations')
                     ->relationship('validations')
+                    ->defaultItems(0)
                     ->schema([
                         Select::make('type')
                             ->label('Validation Type')
@@ -84,6 +86,21 @@ class FormFieldResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('fieldGroups', 'name'),
+                Forms\Components\Repeater::make('selectOptions')
+                    ->label('Select Options')
+                    ->relationship('selectOptions')
+                    ->columnSpanFull()
+                    ->visible(function ($get) {
+                        $dataTypeId = $get('data_type_id');
+                        $dataType = \App\Models\DataType::find($dataTypeId);
+                        return $dataType && in_array($dataType->name, ['radio', 'dropdown']);
+                    })
+                    ->schema([
+                        Forms\Components\TextInput::make('name')->required(),
+                        Forms\Components\TextInput::make('label'),
+                        Forms\Components\TextInput::make('value'),
+                        Forms\Components\Textarea::make('description'),
+                    ]),
             ]);
     }
 
