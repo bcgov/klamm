@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
+use App\Models\FormInstanceFieldValue;
 
 class EditFormVersion extends EditRecord
 {
@@ -71,6 +72,13 @@ class EditFormVersion extends EditRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+                $formFieldValue = $component['field_value'] ?? [];
+                if($formFieldValue) {
+                    FormInstanceFieldValue::create([
+                        'form_instance_field_id' => $formInstanceField->id,                        
+                        'value' => $formFieldValue ?? null,                        
+                    ]);
+                }
             } elseif ($component['component_type'] === 'field_group') {
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
@@ -103,6 +111,13 @@ class EditFormVersion extends EditRecord
                             'type' => $validationData['type'],
                             'value' => $validationData['value'] ?? null,
                             'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
+                    $formFieldValue = $fieldData['field_value'] ?? [];
+                    if($formFieldValue) {
+                        FormInstanceFieldValue::create([
+                            'form_instance_field_id' => $formInstanceField->id,                        
+                            'value' => $formFieldValue ?? null,                        
                         ]);
                     }
                 }
@@ -142,6 +157,7 @@ class EditFormVersion extends EditRecord
                 'validations' => $validations,
                 'order' => $field->order,
                 'custom_id' => $field->custom_id,
+                'field_value' => $field->formInstanceFieldValue?->value,
             ];
         }
 
@@ -170,6 +186,7 @@ class EditFormVersion extends EditRecord
                     'styles' => $field->styles,
                     'validations' => $validations,
                     'custom_id' => $field->custom_id,
+                    'field_value' => $field->formInstanceFieldValue?->value,
                 ];
             }
 

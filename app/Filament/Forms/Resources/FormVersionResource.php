@@ -111,6 +111,7 @@ class FormVersionResource extends Resource
                             ->reactive()
                             ->required(),
                         Section::make('Form Field Settings')
+                            ->live()    
                             ->schema([
                                 Select::make('form_field_id')
                                     ->label('Form Field')
@@ -134,6 +135,12 @@ class FormVersionResource extends Resource
                                 Textarea::make('data_binding')
                                     ->label("Custom Data Binding")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
+                                Textarea::make('field_value')
+                                    ->label("Field Value")                                    
+                                    ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? null)
+                                    ->live()
+                                    ->reactive(),
                                 Textarea::make('conditional_logic')
                                     ->label("Custom Conditional Logic")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
@@ -168,6 +175,7 @@ class FormVersionResource extends Resource
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
                         Section::make('Field Group Settings')
+                            ->live()        
                             ->schema([
                                 Select::make('field_group_id')
                                     ->label('Field Group')
@@ -237,6 +245,11 @@ class FormVersionResource extends Resource
                                         Textarea::make('data_binding')
                                             ->label("Custom Data Binding")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
+                                        Textarea::make('field_value')
+                                            ->label("Field Value")                                    
+                                            ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->formFieldValue()?->value ?? null)
+                                            ->reactive(),
                                         Textarea::make('conditional_logic')
                                             ->label("Custom Conditional Logic")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
