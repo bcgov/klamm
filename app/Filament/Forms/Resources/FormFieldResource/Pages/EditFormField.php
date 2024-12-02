@@ -47,9 +47,9 @@ class EditFormField extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data = array_merge($this->record->toArray(), $data);    
+        $data = array_merge($this->record->toArray(), $data);
 
-        $formFieldValueObj = $this->record->formFieldValue()->first();        
+        $formFieldValueObj = $this->record->formFieldValue()->first();
         $data['value'] = $formFieldValueObj?->value;
 
         return $data;
@@ -58,17 +58,17 @@ class EditFormField extends EditRecord
     protected function afterSave(): void
     {
         $formField = $this->record;
-        $formFieldValue = $this->form->getState()['value'] ?? null;   
-        
+        $formFieldValue = $this->form->getState()['value'] ?? null;
+
         if (method_exists($this, 'getRecord')) {
-            $formField->formFieldValue()->delete();            
+            $formField->formFieldValue()->delete();
         }
-        
-        if($formFieldValue) {
+
+        if ($formFieldValue) {
             FormFieldValue::create([
-                'form_field_id' => $formField->id,                        
-                'value' => $formFieldValue ?? null,                        
+                'form_field_id' => $formField->id,
+                'value' => $formFieldValue ?? null,
             ]);
-        }        
+        }
     }
 }

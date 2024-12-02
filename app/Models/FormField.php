@@ -67,7 +67,7 @@ class FormField extends Model
 
     public function isValueInputNeededForField()
     {
-       return $this->dataType && $this->dataType->name === 'text-info';
+        return $this->dataType && $this->dataType->name === 'text-info';
     }
 
     public function selectOptions(): HasMany
