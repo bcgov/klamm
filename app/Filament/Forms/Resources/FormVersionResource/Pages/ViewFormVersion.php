@@ -35,8 +35,9 @@ class ViewFormVersion extends ViewRecord
                     'value' => $validation->value,
                     'error_message' => $validation->error_message,
                 ];
-            }
-
+            }         
+           
+            
             $components[] = [
                 'component_type' => 'form_field',
                 'form_field_id' => $field->form_field_id,
@@ -47,7 +48,8 @@ class ViewFormVersion extends ViewRecord
                 'styles' => $field->styles,
                 'validations' => $validations,
                 'order' => $field->order,
-                'custom_id' => $field->custom_id, 
+                'custom_id' => $field->custom_id,
+                'field_value' => $field->formInstanceFieldValue?->value, 
             ];
         }
 
@@ -75,7 +77,8 @@ class ViewFormVersion extends ViewRecord
                     'conditional_logic' => $field->conditional_logic,
                     'styles' => $field->styles,
                     'validations' => $validations,
-                    'custom_id' => $field->custom_id, 
+                    'custom_id' => $field->custom_id,
+                    'field_value' => $field->formInstanceFieldValue?->value, 
                 ];
             }
 

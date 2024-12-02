@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Gate;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
+use App\Models\FormInstanceFieldValue;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -83,6 +84,14 @@ class CreateFormVersion extends CreateRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+                $formFieldValue = $component['field_value'] ?? [];
+                if($formFieldValue) {
+                    FormInstanceFieldValue::create([
+                        'form_instance_field_id' => $formInstanceField->id,                        
+                        'value' => $formFieldValue ?? null,                        
+                    ]);
+                }
+                
             } elseif ($component['component_type'] === 'field_group') {
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
@@ -115,6 +124,13 @@ class CreateFormVersion extends CreateRecord
                             'type' => $validationData['type'],
                             'value' => $validationData['value'] ?? null,
                             'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
+                    $formFieldValue = $fieldData['field_value'] ?? [];
+                    if($formFieldValue) {
+                        FormInstanceFieldValue::create([
+                            'form_instance_field_id' => $formInstanceField->id,                        
+                            'value' => $formFieldValue ?? null,                        
                         ]);
                     }
                 }

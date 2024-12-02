@@ -94,7 +94,7 @@ class FormTemplateHelper
             "type" => $field->dataType->name,
             "id" => $fieldInstance->custom_id,
             "label" => $field->label,
-            "customLabel" => $fieldInstance->label,
+            "customLabel" => $fieldInstance->label,            
             "dataBindingPath" => $field->data_binding_path,
             "customDataBindingPath" => $fieldInstance->data_binding_path,
             "dataBinding" => $field->data_binding,
@@ -139,6 +139,11 @@ class FormTemplateHelper
                         })
                         ->toArray(),
                 ]);
+            case "text-info":
+                return array_merge($base, [ 
+                    "value" => $fieldInstance->formInstanceFieldValue?->value ?? $field->formFieldValue?->value,                   
+                    "helperText" => "{$fieldInstance->label} as it appears on official documents",                    
+                ]);    
             default:
                 return $base;
         }

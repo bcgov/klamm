@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FormField extends Model
 {
@@ -58,6 +58,16 @@ class FormField extends Model
     public function validations()
     {
         return $this->hasMany(FormFieldValidation::class);
+    }
+
+    public function formFieldValue(): HasOne
+    {
+        return $this->hasOne(FormFieldValue::class);
+    }
+
+    public function isValueInputNeededForField()
+    {
+       return $this->dataType && $this->dataType->name === 'text-info';
     }
 
 }
