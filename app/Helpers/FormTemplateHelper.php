@@ -12,6 +12,7 @@ use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
+
     public static function generateJsonTemplate($formVersionId)
     {
         $formVersion = FormVersion::find($formVersionId);
@@ -91,7 +92,7 @@ class FormTemplateHelper
 
         $base = [
             "type" => $field->dataType->name,
-            "id" => $field->name . '_' . $index,
+            "id" => $fieldInstance->custom_id,
             "label" => $field->label,
             "customLabel" => $fieldInstance->label,
             "dataBindingPath" => $field->data_binding_path,
@@ -138,6 +139,11 @@ class FormTemplateHelper
                         })
                         ->toArray(),
                 ]);
+            case "text-info":
+                return array_merge($base, [
+                    "value" => $fieldInstance->formInstanceFieldValue?->value ?? $field->formFieldValue?->value,
+                    "helperText" => "{$fieldInstance->label} as it appears on official documents",
+                ]);
             case "radio":
                 return array_merge($base, [
                     "helperText" => "Choose one option",
@@ -167,7 +173,7 @@ class FormTemplateHelper
             "type" => "group",
             "label" => $group->label,
             "customLabel" => $groupInstance->label,
-            "id" => $group->name . '_' . $index,
+            "id" => $groupInstance->custom_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [
@@ -182,5 +188,18 @@ class FormTemplateHelper
                 ],
             ],
         ]);
+    }
+
+    public static function calculateFieldID($state)
+    {
+        $numOfComponents = count($state['components']);
+        return 'field' . $numOfComponents;
+    }
+
+    public static function calculateFieldInGroupID($state)
+    {
+
+        $numOfFormFields = count($state['form_fields']);
+        return 'nestedField' . $numOfFormFields;
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Gate;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
+use App\Models\FormInstanceFieldValue;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -71,6 +72,7 @@ class CreateFormVersion extends CreateRecord
                     'data_binding' => $component['data_binding'] ?? null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
                     'styles' => $component['styles'] ?? null,
+                    'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
                 $validations = $component['validations'] ?? [];
@@ -82,6 +84,14 @@ class CreateFormVersion extends CreateRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+                $formFieldValue = $component['field_value'] ?? [];
+                if($formFieldValue) {
+                    FormInstanceFieldValue::create([
+                        'form_instance_field_id' => $formInstanceField->id,                        
+                        'value' => $formFieldValue ?? null,                        
+                    ]);
+                }
+                
             } elseif ($component['component_type'] === 'field_group') {
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
@@ -89,6 +99,7 @@ class CreateFormVersion extends CreateRecord
                     'order' => $order,
                     'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
+                    'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -103,6 +114,7 @@ class CreateFormVersion extends CreateRecord
                         'data_binding' => $fieldData['data_binding'] ?? null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,
+                        'custom_id' => $fieldData['custom_id'] ?? null,
                     ]);
 
                     $validations = $fieldData['validations'] ?? [];
@@ -112,6 +124,13 @@ class CreateFormVersion extends CreateRecord
                             'type' => $validationData['type'],
                             'value' => $validationData['value'] ?? null,
                             'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
+                    $formFieldValue = $fieldData['field_value'] ?? [];
+                    if($formFieldValue) {
+                        FormInstanceFieldValue::create([
+                            'form_instance_field_id' => $formInstanceField->id,                        
+                            'value' => $formFieldValue ?? null,                        
                         ]);
                     }
                 }

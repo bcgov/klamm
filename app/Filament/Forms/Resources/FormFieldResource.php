@@ -13,6 +13,8 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
+use App\Models\DataType;
 
 class FormFieldResource extends Resource
 {
@@ -67,7 +69,15 @@ class FormFieldResource extends Resource
                 Forms\Components\Select::make('data_type_id')
                     ->relationship('dataType', 'name')
                     ->required()
-                    ->reactive(),
+                    ->live(),
+                Forms\Components\Textarea::make('value')
+                    ->label('Field Value')
+                    ->visible(function (callable $get) {
+                        $dataType = DataType::find($get('data_type_id'));
+                        return $dataType && $dataType->name === 'text-info';
+                    })
+                    ->live()
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('field_group_id')

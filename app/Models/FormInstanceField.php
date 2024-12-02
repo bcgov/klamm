@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FormInstanceField extends Model
 {
@@ -21,6 +22,7 @@ class FormInstanceField extends Model
         'conditional_logic',
         'styles',
         'field_group_instance_id',
+        'custom_id'
     ];
 
     public function formVersion(): BelongsTo
@@ -43,4 +45,8 @@ class FormInstanceField extends Model
         return $this->hasMany(FormInstanceFieldValidation::class);
     }
     
-}
+    public function formInstanceFieldValue(): HasOne
+    {
+        return $this->hasOne(FormInstanceFieldValue::class);
+    }
+} 

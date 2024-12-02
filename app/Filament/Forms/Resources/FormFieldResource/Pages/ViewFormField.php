@@ -16,4 +16,14 @@ class ViewFormField extends ViewRecord
             Actions\EditAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data = array_merge($this->record->toArray(), $data);    
+
+        $formFieldValueObj = $this->record->formFieldValue()->first();        
+        $data['value'] = $formFieldValueObj?->value;
+
+        return $data;
+    }
 }
