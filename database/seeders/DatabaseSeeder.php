@@ -34,7 +34,6 @@ class DatabaseSeeder extends Seeder
             FormSeeder::class,
             FormDataSourceSeeder::class,
             DataGroupSeeder::class,
-            MessageTypeSeeder::class,
         ]);
     }
 }
