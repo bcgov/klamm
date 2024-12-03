@@ -111,6 +111,8 @@ class FormTemplateHelper
             "customConditionalLogic" => $fieldInstance->conditional_logic,
             "styles" => $field->styles,
             "customStyles" => $fieldInstance->styles,
+            "mask" => $field->mask,
+            "customMask" => $fieldInstance->mask,
             "codeContext" => [
                 "name" => $field->name,
             ],

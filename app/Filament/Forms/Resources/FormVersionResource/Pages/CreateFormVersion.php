@@ -72,6 +72,7 @@ class CreateFormVersion extends CreateRecord
                     'data_binding' => $component['data_binding'] ?? null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
                     'styles' => $component['styles'] ?? null,
+                    'mask' => $component['mask'] ?? null,
                     'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
@@ -114,6 +115,7 @@ class CreateFormVersion extends CreateRecord
                         'data_binding' => $fieldData['data_binding'] ?? null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,
+                        'mask' => $fieldData['mask'] ?? null,
                         'custom_id' => $fieldData['custom_id'] ?? null,
                     ]);
 

@@ -39,6 +39,7 @@ class FormInstanceSeeder extends Seeder
                 'data_binding' => NULL,
                 'validation' => NULL,
                 'styles' => NULL,
+                'mask' => NULL,
                 'conditional_logic' => NULL,
             ]);
         }
