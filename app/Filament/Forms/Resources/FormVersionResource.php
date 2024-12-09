@@ -172,6 +172,9 @@ class FormVersionResource extends Resource
                                         TextInput::make('error_message')
                                             ->label('Error Message'),
                                     ]),
+                                Textarea::make('help_text')
+                                    ->label("Custom Help text")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->help_text ?? null),
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
                         Section::make('Field Group Settings')
@@ -193,6 +196,7 @@ class FormVersionResource extends Resource
                                                     'data_binding_path' => $field->data_binding_path,
                                                     'data_binding' => $field->data_binding,
                                                     'conditional_logic' => $field->conditional_logic,
+                                                    'help_text' => $field->help_text,
                                                     'styles' => $field->styles,
                                                     'validations' => [],
                                                     'custom_id' =>'nestedField'.$index+1,
@@ -281,6 +285,9 @@ class FormVersionResource extends Resource
                                                 TextInput::make('error_message')
                                                     ->label('Error Message'),
                                             ]),
+                                        Textarea::make('help_text')
+                                            ->label("Custom Help text")
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->help_text ?? null),
                                     ])
                                     ->columns(1),
                             ])

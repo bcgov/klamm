@@ -107,6 +107,8 @@ class FormTemplateHelper
                     'errorMessage' => $validation->error_message,
                 ];
             })->toArray(),
+            "helpText" => $field->help_text,
+            "customHelpText" => $fieldInstance->help_text,
             "conditionalLogic" => $field->conditional_logic,
             "customConditionalLogic" => $fieldInstance->conditional_logic,
             "styles" => $field->styles,

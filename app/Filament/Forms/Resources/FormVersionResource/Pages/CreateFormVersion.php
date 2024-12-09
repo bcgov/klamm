@@ -71,6 +71,7 @@ class CreateFormVersion extends CreateRecord
                     'data_binding_path' => $component['data_binding_path'] ?? null,
                     'data_binding' => $component['data_binding'] ?? null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
+                    'help_text' => $component['help_text'] ?? null,
                     'styles' => $component['styles'] ?? null,
                     'custom_id' => $component['custom_id'] ?? null,
                 ]);
@@ -113,6 +114,7 @@ class CreateFormVersion extends CreateRecord
                         'data_binding_path' => $fieldData['data_binding_path'] ?? null,
                         'data_binding' => $fieldData['data_binding'] ?? null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
+                        'help_text' => $fieldData['help_text'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,
                         'custom_id' => $fieldData['custom_id'] ?? null,
                     ]);
