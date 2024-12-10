@@ -31,7 +31,11 @@ class SelectOptionsResource extends Resource
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('form_field_id')
-                    ->relationship('formField', 'label')
+                    ->relationship('formField', 'label', function ($query) {
+                        $query->whereHas('dataType', function ($query) {
+                            $query->whereIn('name', ['radio', 'dropdown']);
+                        });
+                    })
                     ->required(),
             ]);
     }
@@ -69,7 +73,10 @@ class SelectOptionsResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

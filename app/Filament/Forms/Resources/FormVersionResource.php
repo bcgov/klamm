@@ -111,15 +111,23 @@ class FormVersionResource extends Resource
                             ->reactive()
                             ->required(),
                         Section::make('Form Field Settings')
+                            ->live()    
                             ->schema([
                                 Select::make('form_field_id')
                                     ->label('Form Field')
                                     ->options(FormField::pluck('label', 'id'))
                                     ->searchable()
-                                    ->required(),
+                                    ->required(),                                                                  
                                 TextInput::make('label')
                                     ->label("Custom Label")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
+                                TextInput::make('custom_id')
+                                    ->label("Custom ID")
+                                    ->default(fn($get) =>  \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))) // Set the sequential default value
+                                    ->required()
+                                    ->alphanum()                                    
+                                    ->reactive()                                    
+                                    ->distinct(),                                
                                 Select::make('data_binding_path')
                                     ->label("Custom Data Binding Path")
                                     ->options(FormDataSource::pluck('name', 'name'))
@@ -127,6 +135,12 @@ class FormVersionResource extends Resource
                                 Textarea::make('data_binding')
                                     ->label("Custom Data Binding")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
+                                Textarea::make('field_value')
+                                    ->label("Field Value")                                    
+                                    ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? null)
+                                    ->live()
+                                    ->reactive(),
                                 Textarea::make('conditional_logic')
                                     ->label("Custom Conditional Logic")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
@@ -161,6 +175,7 @@ class FormVersionResource extends Resource
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
                         Section::make('Field Group Settings')
+                            ->live()        
                             ->schema([
                                 Select::make('field_group_id')
                                     ->label('Field Group')
@@ -168,18 +183,19 @@ class FormVersionResource extends Resource
                                     ->searchable()
                                     ->required()
                                     ->reactive()
-                                    ->afterStateUpdated(function ($state, callable $set) {
-                                        $fieldGroup = FieldGroup::find($state);
+                                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                        $fieldGroup = FieldGroup::find($state);                                       
                                         if ($fieldGroup) {
-                                            $formFields = $fieldGroup->formFields()->get()->map(function ($field) {
+                                            $formFields = $fieldGroup->formFields()->get()->map(function ($field,$index) {
                                                 return [
                                                     'form_field_id' => $field->id,
                                                     'label' => $field->label,
-                                                    'data_binding_path'=> $field->data_binding_path,
+                                                    'data_binding_path' => $field->data_binding_path,
                                                     'data_binding' => $field->data_binding,
                                                     'conditional_logic' => $field->conditional_logic,
                                                     'styles' => $field->styles,
                                                     'validations' => [],
+                                                    'custom_id' =>'nestedField'.$index+1,
                                                 ];
                                             })->toArray();
                                             $set('form_fields', $formFields);
@@ -188,6 +204,13 @@ class FormVersionResource extends Resource
                                 TextInput::make('group_label')
                                     ->label("Group Label")
                                     ->placeholder(fn($get) => FieldGroup::find($get('field_group_id'))->label ?? null),
+                                TextInput::make('custom_id')
+                                    ->label("Custom ID")
+                                    ->default(fn($get) =>  \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))) // Set the sequential default value
+                                    ->required()
+                                    ->alphanum()                                    
+                                    ->reactive()
+                                    ->distinct(),  
                                 Toggle::make('repeater')
                                     ->label('Repeater'),
                                 Repeater::make('form_fields')
@@ -202,12 +225,19 @@ class FormVersionResource extends Resource
                                     ->schema([
                                         Select::make('form_field_id')
                                             ->label('Form Field')
-                                            ->options(FormField::pluck('label', 'id'))
+                                            ->options(FormField::pluck('label', 'id')) 
                                             ->searchable()
                                             ->required(),
                                         TextInput::make('label')
                                             ->label("Custom Label")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
+                                        TextInput::make('custom_id')
+                                            ->label("Custom ID")                                            
+                                            ->default(fn($get) =>  \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))) // Set the sequential default value
+                                            ->required()
+                                            ->alphanum()                                            
+                                            ->reactive()
+                                            ->distinct(),                                        
                                         Select::make('data_binding_path')
                                             ->label("Custom Data Binding Path")
                                             ->options(FormDataSource::pluck('name', 'name'))
@@ -215,6 +245,11 @@ class FormVersionResource extends Resource
                                         Textarea::make('data_binding')
                                             ->label("Custom Data Binding")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
+                                        Textarea::make('field_value')
+                                            ->label("Field Value")                                    
+                                            ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->formFieldValue()?->value ?? null)
+                                            ->reactive(),
                                         Textarea::make('conditional_logic')
                                             ->label("Custom Conditional Logic")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
@@ -295,18 +330,6 @@ class FormVersionResource extends Resource
                 Tables\Columns\TextColumn::make('deployed_at')
                     ->date('M j, Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('form_requester_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_requester_email')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_developer_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_developer_email')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_approver_name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_approver_email')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -323,9 +346,21 @@ class FormVersionResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
+                Tables\Actions\Action::make('archive')
+                    ->label('Archive')
+                    ->icon('heroicon-o-archive-box-arrow-down')
+                    ->visible(fn($record) => $record->status === 'published')
+                    ->action(function ($record) {
+                        $record->update(['status' => 'archived']);
+                    })
+                    ->requiresConfirmation()
+                    ->color('danger')
+                    ->tooltip('Archive this form version'),
                 Tables\Actions\Action::make('Create New Version')
                     ->label('Create New Version')
                     ->icon('heroicon-o-document-plus')
+                    ->requiresConfirmation()
+                    ->tooltip('Create a new version from this version')
                     ->visible(fn($record) => (Gate::allows('form-developer') && in_array($record->status, ['published', 'archived'])))
                     ->action(function ($record, $livewire) {
                         $newVersion = $record->replicate();
@@ -384,6 +419,7 @@ class FormVersionResource extends Resource
         ];
     }
 
+    
     public static function getPages(): array
     {
         return [

@@ -19,6 +19,8 @@ class SiebelProjectResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    protected static ?string $navigationGroup = 'Siebel Tables';
+
     public static function form(Form $form): Form
     {
         return $form
@@ -89,7 +91,10 @@ class SiebelProjectResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

@@ -19,6 +19,8 @@ class SiebelEimInterfaceTableResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    protected static ?string $navigationGroup = 'Siebel Tables';
+
     public static function form(Form $form): Form
     {
         return $form
@@ -106,7 +108,10 @@ class SiebelEimInterfaceTableResource extends Resource
                 ]),
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

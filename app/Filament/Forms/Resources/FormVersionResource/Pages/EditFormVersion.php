@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
+use App\Models\FormInstanceFieldValue;
 
 class EditFormVersion extends EditRecord
 {
@@ -59,6 +60,7 @@ class EditFormVersion extends EditRecord
                     'data_binding' => $component['data_binding'] ?? null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
                     'styles' => $component['styles'] ?? null,
+                    'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
                 $validations = $component['validations'] ?? [];
@@ -70,6 +72,13 @@ class EditFormVersion extends EditRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+                $formFieldValue = $component['field_value'] ?? [];
+                if($formFieldValue) {
+                    FormInstanceFieldValue::create([
+                        'form_instance_field_id' => $formInstanceField->id,                        
+                        'value' => $formFieldValue ?? null,                        
+                    ]);
+                }
             } elseif ($component['component_type'] === 'field_group') {
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
@@ -77,6 +86,7 @@ class EditFormVersion extends EditRecord
                     'order' => $order,
                     'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
+                    'custom_id' => $component['custom_id'] ?? null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -91,6 +101,7 @@ class EditFormVersion extends EditRecord
                         'data_binding' => $fieldData['data_binding'] ?? null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,
+                        'custom_id' => $fieldData['custom_id'] ?? null,                        
                     ]);
 
                     $validations = $fieldData['validations'] ?? [];
@@ -100,6 +111,13 @@ class EditFormVersion extends EditRecord
                             'type' => $validationData['type'],
                             'value' => $validationData['value'] ?? null,
                             'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
+                    $formFieldValue = $fieldData['field_value'] ?? [];
+                    if($formFieldValue) {
+                        FormInstanceFieldValue::create([
+                            'form_instance_field_id' => $formInstanceField->id,                        
+                            'value' => $formFieldValue ?? null,                        
                         ]);
                     }
                 }
@@ -138,6 +156,8 @@ class EditFormVersion extends EditRecord
                 'styles' => $field->styles,
                 'validations' => $validations,
                 'order' => $field->order,
+                'custom_id' => $field->custom_id,
+                'field_value' => $field->formInstanceFieldValue?->value,
             ];
         }
 
@@ -165,6 +185,8 @@ class EditFormVersion extends EditRecord
                     'conditional_logic' => $field->conditional_logic,
                     'styles' => $field->styles,
                     'validations' => $validations,
+                    'custom_id' => $field->custom_id,
+                    'field_value' => $field->formInstanceFieldValue?->value,
                 ];
             }
 
@@ -175,6 +197,7 @@ class EditFormVersion extends EditRecord
                 'repeater' => $group->repeater,
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
+                'custom_id' => $group->custom_id,
             ];
         }
 
