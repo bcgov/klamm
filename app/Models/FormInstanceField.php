@@ -20,6 +20,7 @@ class FormInstanceField extends Model
         'data_binding_path',
         'data_binding',
         'conditional_logic',
+        'help_text',
         'styles',
         'mask',
         'field_group_instance_id',

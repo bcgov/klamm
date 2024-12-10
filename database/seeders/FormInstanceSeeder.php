@@ -38,6 +38,7 @@ class FormInstanceSeeder extends Seeder
                 'label' => $field->label,
                 'data_binding' => NULL,
                 'validation' => NULL,
+                'help_text' => NULL,
                 'styles' => NULL,
                 'mask' => NULL,
                 'conditional_logic' => NULL,
