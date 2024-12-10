@@ -21,6 +21,7 @@ class FormInstanceField extends Model
         'data_binding',
         'conditional_logic',
         'styles',
+        'mask',
         'field_group_instance_id',
         'custom_id'
     ];

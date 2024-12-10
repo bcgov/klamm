@@ -147,6 +147,9 @@ class FormVersionResource extends Resource
                                 Textarea::make('styles')
                                     ->label("Custom Styles")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->styles ?? null),
+                                TextInput::make('mask')
+                                    ->label("Custom Mask")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->mask ?? null),
                                 Repeater::make('validations')
                                     ->label('Validations')
                                     ->collapsible()
@@ -194,6 +197,7 @@ class FormVersionResource extends Resource
                                                     'data_binding' => $field->data_binding,
                                                     'conditional_logic' => $field->conditional_logic,
                                                     'styles' => $field->styles,
+                                                    'mask' => $field->mask,
                                                     'validations' => [],
                                                     'custom_id' =>'nestedField'.$index+1,
                                                 ];
@@ -256,6 +260,9 @@ class FormVersionResource extends Resource
                                         Textarea::make('styles')
                                             ->label("Custom Styles")
                                             ->placeholder(fn($get) => FormField::find($get('form_field_id'))->styles ?? null),
+                                        TextInput::make('mask')
+                                            ->label("Custom Mask")
+                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->mask ?? null),
                                         Repeater::make('validations')
                                             ->label('Validations')
                                             ->collapsible()

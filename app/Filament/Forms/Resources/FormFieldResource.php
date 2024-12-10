@@ -39,6 +39,7 @@ class FormFieldResource extends Resource
                 Forms\Components\Textarea::make('data_binding'),
                 Forms\Components\Textarea::make('conditional_logic'),
                 Forms\Components\Textarea::make('styles'),
+                Forms\Components\TextInput::make('mask'),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->relationship('validations')
