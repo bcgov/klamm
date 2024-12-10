@@ -38,14 +38,4 @@ class Ministry extends Model
     {
         return $this->hasMany(Form::class);
     }
-
-    public function icmErrorMessages()
-    {
-        return $this->belongsToMany(
-            ICMErrorMessage::class,
-            'icm_error_message_ministry',
-            'ministry_id',
-            'icm_error_message_id'
-        );
-    }
 }
