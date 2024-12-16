@@ -27,7 +27,8 @@ class FieldGroupResource extends Resource
             ->schema([
                 TextInput::make('name')
                     ->required(),
-                TextInput::make('label'),
+                TextInput::make('label')
+                    ->required(),
                 Textarea::make('description')
                     ->columnSpanFull(),
                 Textarea::make('internal_description')
@@ -38,8 +39,7 @@ class FieldGroupResource extends Resource
                     ->relationship('formFields', 'name')
                     ->searchable()
                     ->preload(),
-                Toggle::make('repeater')
-                    ->required(),
+                Toggle::make('repeater'),
             ]);
     }
 
