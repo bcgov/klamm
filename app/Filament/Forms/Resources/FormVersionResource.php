@@ -3,7 +3,6 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
-use App\Models\DataType;
 use App\Models\FormVersion;
 use App\Models\FormField;
 use App\Models\FieldGroup;
@@ -99,7 +98,7 @@ class FormVersionResource extends Resource
                         if ($state['component_type'] === 'form_field') {
                             $field = FormField::find($state['form_field_id']) ?: null;
                             $field ? $label = ($state['label'] ?: ($field->label ?? ''))
-                            . ' - '. (DataType::find($field ? $field->data_type_id : null)->short_description ?? '')
+                            . ' - '. $field->dataType->short_description
                             . ' (' . ($field->name ?? '') . ')'
                             : $label =  'New Field';
                             return $label;
@@ -131,8 +130,8 @@ class FormVersionResource extends Resource
                                         foreach ($options as $id => $option) {
                                             $field = FormField::find($id) ?: null;
                                             $options[$id] = $option
-                                            . ' - ' . DataType::find($field ? $field->data_type_id : null)->short_description
-                                            . ' (' . (FormField::find($id)->name ?? '') . ')';
+                                            . ' - ' . $field->dataType->short_description
+                                            . ' (' . ($field->name ?? '') . ')';
                                         }
                                         return $options;
                                     })
@@ -257,7 +256,7 @@ class FormVersionResource extends Resource
                                     ->itemLabel(function ($state) {
                                         $field = FormField::find($state['form_field_id']) ?: null;
                                         $field ? $label = ($state['label'] ?: ($field->label ?? 'New Field'))
-                                        . ' - ' . (DataType::find($field ? $field->data_type_id : null)->short_description ?? '')
+                                        . ' - ' . $field->dataType->short_description
                                         . ' (' . ($field->name ?? 'empty') . ')'
                                         : $label =  'New Field';
                                         return $label;
@@ -272,8 +271,8 @@ class FormVersionResource extends Resource
                                                 foreach ($options as $id => $option) {
                                                     $field = FormField::find($id) ?: null;
                                                     $options[$id] = $option
-                                                    . ' - ' . DataType::find($field ? $field->data_type_id : null)->short_description
-                                                    . ' (' . (FormField::find($id)->name ?? '') . ')';
+                                                    . ' - ' . $field->dataType->short_description
+                                                    . ' (' . ($field->name ?? '') . ')';
                                                 }
                                                 return $options;
                                             })
