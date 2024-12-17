@@ -69,6 +69,7 @@ class FormTemplateHelper
             "lastModified" => $formVersion->updated_at->toIso8601String(),
             "title" => $formVersion->form->form_title,
             "form_id" => $form->form_id,
+            "deployed_to" => $formVersion->deployed_to,
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
                     'name' => $dataSource->name,
