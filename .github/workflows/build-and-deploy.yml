@@ -106,6 +106,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install oc CLI
+        uses: redhat-actions/oc-installer@v1
+
       - name: Authenticate and set context for OpenShift
         uses: redhat-actions/oc-login@v1
         with:
