@@ -96,9 +96,18 @@ class FormVersionResource extends Resource
                     ->collapsed(true)
                     ->itemLabel(function ($state) {
                         if ($state['component_type'] === 'form_field') {
-                            return 'Form Field - ' . ($state['label'] ?: (FormField::find($state['form_field_id'])->label ?? 'Unnamed Field'));
+                            $field = FormField::find($state['form_field_id']) ?: null;
+                            $field ? $label = ($state['label'] ?: ($field->label ?? ''))
+                            . ' - '. $field->dataType->short_description
+                            . ' (' . ($field->name ?? '') . ')'
+                            : $label =  'New Field';
+                            return $label;
                         } elseif ($state['component_type'] === 'field_group') {
-                            return 'Field Group - ' . ($state['group_label'] ?: (FieldGroup::find($state['field_group_id'])->label ?? 'Unnamed Group'));
+                            $group = FieldGroup::find($state['field_group_id']);
+                            $group ? $label = ($state['group_label'] ?: ($group->label ?? ''))
+                            . ' (' . ($group->name ?? '') . ')'
+                            : $label = 'New Group';
+                            return $label;
                         }
                         return 'Component';
                     })
@@ -115,7 +124,17 @@ class FormVersionResource extends Resource
                             ->schema([
                                 Select::make('form_field_id')
                                     ->label('Form Field')
-                                    ->options(FormField::pluck('label', 'id'))
+                                    ->options(function() {
+                                        // Compose option labels
+                                        $options = FormField::pluck('label', 'id');
+                                        foreach ($options as $id => $option) {
+                                            $field = FormField::find($id) ?: null;
+                                            $options[$id] = $option
+                                            . ' - ' . $field->dataType->short_description
+                                            . ' (' . ($field->name ?? '') . ')';
+                                        }
+                                        return $options;
+                                    })
                                     ->searchable()
                                     ->required(),                                                                  
                                 TextInput::make('label')
@@ -185,7 +204,15 @@ class FormVersionResource extends Resource
                             ->schema([
                                 Select::make('field_group_id')
                                     ->label('Field Group')
-                                    ->options(FieldGroup::pluck('label', 'id'))
+                                    ->options(function() {
+                                        // Compose option labels
+                                        $options = FieldGroup::pluck('label', 'id');
+                                        foreach ($options as $id => $option) {
+                                            $options[$id] = $option . ' (' . (FieldGroup::find($id)->name ?? '') . ')';
+                                        }
+                                        return $options;
+                                    })
+
                                     ->searchable()
                                     ->required()
                                     ->reactive()
@@ -227,13 +254,28 @@ class FormVersionResource extends Resource
                                     ->collapsible()
                                     ->collapsed()
                                     ->itemLabel(function ($state) {
-                                        return 'Form Field - ' . ($state['label'] ?: (FormField::find($state['form_field_id'])->label ?? 'Unnamed Field'));
+                                        $field = FormField::find($state['form_field_id']) ?: null;
+                                        $field ? $label = ($state['label'] ?: ($field->label ?? 'New Field'))
+                                        . ' - ' . $field->dataType->short_description
+                                        . ' (' . ($field->name ?? 'empty') . ')'
+                                        : $label =  'New Field';
+                                        return $label;
                                     })
                                     ->defaultItems(0)
                                     ->schema([
                                         Select::make('form_field_id')
                                             ->label('Form Field')
-                                            ->options(FormField::pluck('label', 'id')) 
+                                            ->options(function($state) {
+                                                // Compose option labels
+                                                $options = FormField::pluck('label', 'id');
+                                                foreach ($options as $id => $option) {
+                                                    $field = FormField::find($id) ?: null;
+                                                    $options[$id] = $option
+                                                    . ' - ' . $field->dataType->short_description
+                                                    . ' (' . ($field->name ?? '') . ')';
+                                                }
+                                                return $options;
+                                            })
                                             ->searchable()
                                             ->required(),
                                         TextInput::make('label')
