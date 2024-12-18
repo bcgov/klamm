@@ -90,36 +90,40 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
+        
+        $validation=$fieldInstance->validations->map(function ($validation) {
+            return [
+                'type' => $validation->type,
+                'value' => $validation->value,
+                'errorMessage' => $validation->error_message,
+            ];
+        })->toArray();
+
+        $databindings = [
+            "source" => $fieldInstance->data_binding_path??$field->data_binding_path,
+            "path" => $fieldInstance->data_binding??$field->data_binding,
+        ];
 
         $base = [
             "type" => $field->dataType->name,
             "id" => $fieldInstance->custom_id,
-            "label" => $field->label,
-            "customLabel" => $fieldInstance->label,
-            "dataBindingPath" => $field->data_binding_path,
-            "customDataBindingPath" => $fieldInstance->data_binding_path,
-            "dataBinding" => $field->data_binding,
-            "customDataBinding" => $fieldInstance->data_binding,
-            "validation" => [],
-            "customValidation" => $fieldInstance->validations->map(function ($validation) {
-                return [
-                    'type' => $validation->type,
-                    'value' => $validation->value,
-                    'errorMessage' => $validation->error_message,
-                ];
-            })->toArray(),
-            "helpText" => $field->help_text,
-            "customHelpText" => $fieldInstance->help_text,
-            "conditionalLogic" => $field->conditional_logic,
-            "customConditionalLogic" => $fieldInstance->conditional_logic,
-            "styles" => $field->styles,
-            "customStyles" => $fieldInstance->styles,
-            "mask" => $field->mask,
-            "customMask" => $fieldInstance->mask,
+            "label" => $fieldInstance->label??$field->label,
+            "labelText" => $fieldInstance->label??$field->label,
+            "helpText" => $fieldInstance->help_text??$field->help_text,
+            "styles" => $fieldInstance->styles??$field->styles,
+            "mask" => $fieldInstance->mask??$field->mask,
             "codeContext" => [
                 "name" => $field->name,
             ],
         ];
+
+        if(sizeof($validation) > 0){
+            $base = array_merge($base, ["validation" => $validation]);
+        }
+
+        if(!is_null($databindings["source"]) && !is_null($databindings["path"]) ){
+            $base = array_merge($base, ["databindings" => $databindings]);
+        }
 
         switch ($field->dataType->name) {
             case "text-input":
@@ -176,8 +180,7 @@ class FormTemplateHelper
 
         $base = [
             "type" => "group",
-            "label" => $group->label,
-            "customLabel" => $groupInstance->label,
+            "label" => $groupInstance->label??$group->label,
             "id" => $groupInstance->custom_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
