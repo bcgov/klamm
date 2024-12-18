@@ -21,6 +21,9 @@ class FormDataSourceResource extends Resource
 
     protected static ?string $navigationGroup = 'Form Metadata';
 
+    protected static ?string $navigationLabel = 'Databinding Sources';
+
+
     public static function form(Form $form): Form
     {
         return $form
