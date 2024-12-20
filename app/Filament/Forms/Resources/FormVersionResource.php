@@ -92,6 +92,7 @@ class FormVersionResource extends Resource
                 Repeater::make('components')
                     ->label('Form Components')
                     ->reorderable()
+                    ->cloneable()
                     ->collapsible()
                     ->collapsed(true)
                     ->itemLabel(function ($state) {
@@ -251,6 +252,7 @@ class FormVersionResource extends Resource
                                 Repeater::make('form_fields')
                                     ->label('Form Fields in Group')
                                     ->reorderable()
+                                    ->cloneable()
                                     ->collapsible()
                                     ->collapsed()
                                     ->itemLabel(function ($state) {
