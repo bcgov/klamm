@@ -137,39 +137,39 @@ class FormVersionResource extends Resource
                                         return $options;
                                     })
                                     ->searchable()
-                                    ->required(),                                                                  
-                                TextInput::make('label')
-                                    ->label("Custom Label")
-                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
-                                TextInput::make('custom_id')
-                                    ->label("Custom ID")
-                                    ->default(fn($get) =>  \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))) // Set the sequential default value
-                                    ->required()
-                                    ->alphanum()                                    
-                                    ->reactive()                                    
-                                    ->distinct(),                                
+                                    ->required(),
+                                Textarea::make('data_binding')
+                                    ->label("Custom Data Binding")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
                                 Select::make('data_binding_path')
                                     ->label("Custom Data Binding Path")
                                     ->options(FormDataSource::pluck('name', 'name'))
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? null),
-                                Textarea::make('data_binding')
-                                    ->label("Custom Data Binding")
-                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? null),
-                                Textarea::make('field_value')
-                                    ->label("Field Value")                                    
-                                    ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
-                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? null)
-                                    ->live()
-                                    ->reactive(),
-                                Textarea::make('conditional_logic')
-                                    ->label("Custom Conditional Logic")
-                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
+                                TextInput::make('custom_id')
+                                    ->label("Custom ID")
+                                    ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))) // Set the sequential default value
+                                    ->required()
+                                    ->alphanum()                                    
+                                    ->reactive()                                    
+                                    ->distinct(),                                
                                 Textarea::make('styles')
                                     ->label("Custom Styles")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->styles ?? null),
                                 TextInput::make('mask')
                                     ->label("Custom Mask")
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->mask ?? null),
+                                Textarea::make('help_text')
+                                    ->label("Custom Help text")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->help_text ?? null),
+                                TextInput::make('label')
+                                    ->label("Custom Label")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->label ?? null),
+                                Textarea::make('field_value')
+                                    ->label("Field Value")                                    
+                                    ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? null)
+                                    ->live()
+                                    ->reactive(),
                                 Repeater::make('validations')
                                     ->label('Validations')
                                     ->collapsible()
@@ -195,9 +195,9 @@ class FormVersionResource extends Resource
                                         TextInput::make('error_message')
                                             ->label('Error Message'),
                                     ]),
-                                Textarea::make('help_text')
-                                    ->label("Custom Help text")
-                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->help_text ?? null),
+                                Textarea::make('conditional_logic')
+                                    ->label("Custom Conditional Logic")
+                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
                         Section::make('Field Group Settings')
