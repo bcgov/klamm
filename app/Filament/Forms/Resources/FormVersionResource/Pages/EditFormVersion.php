@@ -8,6 +8,7 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
+use App\Models\FormField;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 
@@ -55,14 +56,16 @@ class EditFormVersion extends EditRecord
                     'form_version_id' => $formVersion->id,
                     'form_field_id' => $component['form_field_id'],
                     'order' => $order,
-                    'label' => $component['label'] ?? null,
-                    'data_binding_path' => $component['data_binding_path'] ?? null,
-                    'data_binding' => $component['data_binding'] ?? null,
+                    'custom_label' => $component['customize_label'] == 'customize' ? $component['custom_label'] : null,
+                    'customize_label' => $component['customize_label'] ?? null,
+                    'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
+                    'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
                     'conditional_logic' => $component['conditional_logic'] ?? null,
-                    'help_text' => $component['help_text'] ?? null,
-                    'styles' => $component['styles'] ?? null,
-                    'mask' => $component['mask'] ?? null,
-                    'custom_id' => $component['custom_id'] ?? null,
+                    'custom_help_text' => $component['customize_help_text'] ? $component['custom_help_text'] : null,
+                    'custom_styles' => $component['customize_styles'] ? $component['custom_styles'] : null,
+                    'custom_mask' => $component['customize_mask'] ? $component['custom_mask'] : null,
+                    'instance_id' => $component['instance_id'] ?? null,
+                    'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
                 $validations = $component['validations'] ?? [];
@@ -74,11 +77,12 @@ class EditFormVersion extends EditRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
-                $formFieldValue = $component['field_value'] ?? [];
-                if($formFieldValue) {
+                $customFieldValueCheckbox = $component['customize_field_value'] ?? false;
+                $customFieldValue = $component['custom_field_value'] ?? null;
+                if ($customFieldValueCheckbox) {
                     FormInstanceFieldValue::create([
-                        'form_instance_field_id' => $formInstanceField->id,                        
-                        'value' => $formFieldValue ?? null,                        
+                        'form_instance_field_id' => $formInstanceField->id,
+                        'custom_value' => $customFieldValue ?? null,
                     ]);
                 }
             } elseif ($component['component_type'] === 'field_group') {
@@ -88,7 +92,7 @@ class EditFormVersion extends EditRecord
                     'order' => $order,
                     'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
-                    'custom_id' => $component['custom_id'] ?? null,
+                    'instance_id' => $component['instance_id'] ?? null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -98,14 +102,16 @@ class EditFormVersion extends EditRecord
                         'form_field_id' => $fieldData['form_field_id'],
                         'field_group_instance_id' => $fieldGroupInstance->id,
                         'order' => $fieldOrder,
-                        'label' => $fieldData['label'] ?? null,
-                        'data_binding_path' => $fieldData['data_binding_path'] ?? null,
-                        'data_binding' => $fieldData['data_binding'] ?? null,
+                        'custom_label' => $fieldData['customize_label'] == 'customize' ? $fieldData['custom_label'] : null,
+                        'customize_label' => $fieldData['customize_label'] ?? null,
+                        'custom_data_binding_path' => $fieldData['customize_data_binding_path'] ? $fieldData['custom_data_binding_path'] : null,
+                        'custom_data_binding' => $fieldData['customize_data_binding'] ? $fieldData['custom_data_binding'] : null,
                         'conditional_logic' => $fieldData['conditional_logic'] ?? null,
-                        'help_text' => $fieldData['help_text'] ?? null,
-                        'styles' => $fieldData['styles'] ?? null,
-                        'mask' => $fieldData['mask'] ?? null,
-                        'custom_id' => $fieldData['custom_id'] ?? null,                        
+                        'custom_help_text' => $fieldData['customize_help_text'] ? $fieldData['custom_help_text'] : null,
+                        'custom_styles' => $fieldData['customize_styles'] ? $fieldData['custom_styles'] : null,
+                        'custom_mask' => $fieldData['customize_mask'] ? $fieldData['custom_mask'] : null,
+                        'instance_id' => $fieldData['instance_id'] ?? null,
+                        'custom_instance_id' => $fieldData['customize_instance_id'] ? $fieldData['custom_instance_id'] : null,
                     ]);
 
                     $validations = $fieldData['validations'] ?? [];
@@ -117,11 +123,12 @@ class EditFormVersion extends EditRecord
                             'error_message' => $validationData['error_message'] ?? null,
                         ]);
                     }
-                    $formFieldValue = $fieldData['field_value'] ?? [];
-                    if($formFieldValue) {
+                    $customFieldValueCheckbox = $fieldData['customize_field_value'] ?? false;
+                    $customFieldValue = $fieldData['custom_field_value'] ?? null;
+                    if ($customFieldValueCheckbox) {
                         FormInstanceFieldValue::create([
-                            'form_instance_field_id' => $formInstanceField->id,                        
-                            'value' => $formFieldValue ?? null,                        
+                            'form_instance_field_id' => $formInstanceField->id,
+                            'custom_value' => $customFieldValue ?? null,
                         ]);
                     }
                 }
@@ -150,20 +157,31 @@ class EditFormVersion extends EditRecord
                 ];
             }
 
+            $formField = FormField::find($field['form_field_id']) ?? 'null';
             $components[] = [
                 'component_type' => 'form_field',
                 'form_field_id' => $field->form_field_id,
-                'label' => $field->label,
-                'data_binding_path' => $field->data_binding_path,
-                'data_binding' => $field->data_binding,
-                'conditional_logic' => $field->conditional_logic,
-                'help_text' => $field->help_text,
-                'styles' => $field->styles,
-                'mask' => $field->mask,
-                'validations' => $validations,
-                'order' => $field->order,
-                'custom_id' => $field->custom_id,
+                'custom_label' => $field->custom_label ?? $formField->label,
+                'customize_label' => $field->customize_label ?? null,
+                'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
+                'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
+                'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
+                'customize_data_binding' => $field->custom_data_binding ?? null,
+                'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
+                'customize_help_text' => $field->custom_help_text ?? null,
+                'custom_styles' => $field->custom_styles ?? $formField->styles,
+                'customize_styles' => $field->custom_styles ?? null,
+                'custom_mask' => $field->custom_mask ?? $formField->mask,
+                'customize_mask' => $field->custom_mask ?? null,
+                'instance_id' => $field->instance_id,
+                'custom_instance_id' => $field->custom_instance_id,
+                'customize_instance_id' => $field->custom_instance_id ?? null,
                 'field_value' => $field->formInstanceFieldValue?->value,
+                'custom_field_value' => $field->formInstanceFieldValue?->value ?? $field->formInstanceFieldValue?->custom_value,
+                'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                'validations' => $validations,
+                'conditional_logic' => $field->conditional_logic,
+                'order' => $field->order,
             ];
         }
 
@@ -183,18 +201,30 @@ class EditFormVersion extends EditRecord
                     ];
                 }
 
+                $formField = FormField::find($field['form_field_id']) ?? 'null';
                 $formFieldsData[] = [
                     'form_field_id' => $field->form_field_id,
                     'label' => $field->label,
-                    'data_binding_path' => $field->data_binding_path,
-                    'data_binding' => $field->data_binding,
-                    'conditional_logic' => $field->conditional_logic,
-                    'help_text' => $field->help_text,
-                    'styles' => $field->styles,
-                    'mask' => $field->mask,
-                    'validations' => $validations,
-                    'custom_id' => $field->custom_id,
+                    'custom_label' => $field->custom_label ?? $formField->label,
+                    'customize_label' => $field->custom_label ?? null,
+                    'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
+                    'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
+                    'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
+                    'customize_data_binding' => $field->custom_data_binding ?? null,
+                    'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
+                    'customize_help_text' => $field->custom_help_text ?? null,
+                    'custom_styles' => $field->custom_styles ?? $formField->styles,
+                    'customize_styles' => $field->custom_styles ?? null,
+                    'custom_mask' => $field->custom_mask ?? $formField->mask,
+                    'customize_mask' => $field->custom_mask ?? null,
+                    'instance_id' => $field->instance_id,
+                    'custom_instance_id' => $field->custom_instance_id,
+                    'customize_instance_id' => $field->custom_instance_id ?? null,
                     'field_value' => $field->formInstanceFieldValue?->value,
+                    'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                    'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                    'validations' => $validations,
+                    'conditional_logic' => $field->conditional_logic,
                 ];
             }
 
@@ -205,7 +235,7 @@ class EditFormVersion extends EditRecord
                 'repeater' => $group->repeater,
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
-                'custom_id' => $group->custom_id,
+                'instance_id' => $group->instance_id,
             ];
         }
 
