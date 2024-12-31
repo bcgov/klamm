@@ -17,7 +17,7 @@ class FieldGroupInstance extends Model
         'label',
         'repeater',
         'order',
-        'custom_id',
+        'instance_id',
 
     ];
 
