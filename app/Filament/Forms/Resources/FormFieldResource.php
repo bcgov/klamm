@@ -30,6 +30,7 @@ class FormFieldResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
+                    ->unique()
                     ->required(),
                 Forms\Components\TextInput::make('label')
                     ->required(),
