@@ -46,10 +46,13 @@ class SelectOptionsResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('value')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('formField.label')
                     ->numeric()

@@ -109,8 +109,10 @@ class FormFieldResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dataType.name')
                     ->sortable(),
