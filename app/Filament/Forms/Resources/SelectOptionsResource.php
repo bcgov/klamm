@@ -36,6 +36,8 @@ class SelectOptionsResource extends Resource
                             $query->whereIn('name', ['radio', 'dropdown']);
                         });
                     })
+                    ->multiple()
+                    ->preload()
                     ->required(),
             ]);
     }
