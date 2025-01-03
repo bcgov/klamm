@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use App\Models\DataType;
+use Filament\Tables\Filters\SelectFilter;
 
 class FormFieldResource extends Resource
 {
@@ -115,6 +116,9 @@ class FormFieldResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dataType.name')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('data_binding')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('fieldGroups.name')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -127,7 +131,18 @@ class FormFieldResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('data_binding')
+                    ->label('Data Binding')
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->options(function () {  // Fetch unique values from the 'data_binding' column            
+                        return \App\Models\FormField::query()
+                            ->distinct()
+                            ->pluck('data_binding', 'data_binding')
+                            ->filter()
+                            ->toArray();
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
