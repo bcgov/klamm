@@ -42,6 +42,7 @@ class FormFieldResource extends Resource
                 Forms\Components\TextInput::make('mask'),
                 Repeater::make('validations')
                     ->label('Validations')
+                    ->itemLabel(fn($state): ?string => $state['type'] ?? 'New Validation')
                     ->relationship('validations')
                     ->defaultItems(0)
                     ->schema([
