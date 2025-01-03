@@ -20,7 +20,6 @@ class SelectOptions extends Model
         'label',
         'value',
         'description',
-        'form_field_id',
     ];
 
     /**
@@ -33,8 +32,8 @@ class SelectOptions extends Model
         'form_field_id' => 'integer',
     ];
 
-    public function formField(): BelongsToMany
+    public function formFields(): BelongsToMany
     {
-        return $this->belongsToMany(FormField::class);
+        return $this->belongsToMany(FormField::class, 'form_field_select_options', 'select_options_id', 'form_field_id');
     }
 }
