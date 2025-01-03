@@ -507,6 +507,7 @@ class FormVersionResource extends Resource
                                             ]),
                                         Repeater::make('validations')
                                             ->label('Validations')
+                                            ->itemLabel(fn($state): ?string => $state['type'] ?? 'New Validation')
                                             ->collapsible()
                                             ->collapsed()
                                             ->defaultItems(0)
