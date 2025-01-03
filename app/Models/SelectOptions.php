@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class SelectOptions extends Model
 {
@@ -20,7 +20,6 @@ class SelectOptions extends Model
         'label',
         'value',
         'description',
-        'form_field_id',
     ];
 
     /**
@@ -33,8 +32,8 @@ class SelectOptions extends Model
         'form_field_id' => 'integer',
     ];
 
-    public function formField(): BelongsTo
+    public function formFields(): BelongsToMany
     {
-        return $this->belongsTo(FormField::class);
+        return $this->belongsToMany(FormField::class, 'form_field_select_options', 'select_options_id', 'form_field_id');
     }
 }
