@@ -30,12 +30,14 @@ class SelectOptionsResource extends Resource
                 Forms\Components\TextInput::make('value'),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
-                Forms\Components\Select::make('form_field_id')
-                    ->relationship('formField', 'label', function ($query) {
+                Forms\Components\Select::make('formFields')
+                    ->relationship('formFields', 'label', function ($query) {
                         $query->whereHas('dataType', function ($query) {
                             $query->whereIn('name', ['radio', 'dropdown']);
                         });
                     })
+                    ->multiple()
+                    ->preload()
                     ->required(),
             ]);
     }
@@ -50,7 +52,7 @@ class SelectOptionsResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('value')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('formField.label')
+                Tables\Columns\TextColumn::make('formFields.label')
                     ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
