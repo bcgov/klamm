@@ -4,14 +4,12 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\SelectOptionsResource\Pages;
 use App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers;
-use App\Filament\Imports\SelectOptionsImporter;
 use App\Models\SelectOptions;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\ImportAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -76,11 +74,12 @@ class SelectOptionsResource extends Resource
             ->bulkActions([
                 //
             ])
-            ->headerActions([
-                ImportAction::make('Import CSV')
-                    ->importer(SelectOptionsImporter::class)
-            ])
-            ->paginated([10, 25, 50, 100,]);
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
+            ]);
     }
 
     public static function getRelations(): array
