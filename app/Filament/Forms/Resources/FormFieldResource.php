@@ -27,6 +27,16 @@ class FormFieldResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $validationOptions = [
+            'minValue' => 'Minimum Value',
+            'maxValue' => 'Maximum Value',
+            'minLength' => 'Minimum Length',
+            'maxLength' => 'Maximum Length',
+            'required' => 'Required',
+            'email' => 'Email',
+            'phone' => 'Phone Number',
+            'javascript' => 'JavaScript',
+        ];
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
@@ -43,21 +53,13 @@ class FormFieldResource extends Resource
                 Forms\Components\TextInput::make('mask'),
                 Repeater::make('validations')
                     ->label('Validations')
+                    ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
                     ->relationship('validations')
                     ->defaultItems(0)
                     ->schema([
                         Select::make('type')
                             ->label('Validation Type')
-                            ->options([
-                                'minValue' => 'Minimum Value',
-                                'maxValue' => 'Maximum Value',
-                                'minLength' => 'Minimum Length',
-                                'maxLength' => 'Maximum Length',
-                                'required' => 'Required',
-                                'email' => 'Email',
-                                'phone' => 'Phone Number',
-                                'javascript' => 'JavaScript',
-                            ])
+                            ->options($validationOptions)
                             ->reactive()
                             ->required(),
                         TextInput::make('value')

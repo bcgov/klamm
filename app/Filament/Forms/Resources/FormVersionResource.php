@@ -38,8 +38,20 @@ class FormVersionResource extends Resource
 
     protected static bool $shouldRegisterNavigation = true;
 
+
     public static function form(Form $form): Form
     {
+        $validationOptions = [
+            'minValue' => 'Minimum Value',
+            'maxValue' => 'Maximum Value',
+            'minLength' => 'Minimum Length',
+            'maxLength' => 'Maximum Length',
+            'required' => 'Required',
+            'email' => 'Email',
+            'phone' => 'Phone Number',
+            'javascript' => 'JavaScript',
+        ];
+
         return $form
             ->schema([
                 Select::make('form_id')
@@ -270,22 +282,14 @@ class FormVersionResource extends Resource
                                     ]),
                                 Repeater::make('validations')
                                     ->label('Validations')
+                                    ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
                                     ->collapsible()
                                     ->collapsed()
                                     ->defaultItems(0)
                                     ->schema([
                                         Select::make('type')
                                             ->label('Validation Type')
-                                            ->options([
-                                                'minValue' => 'Minimum Value',
-                                                'maxValue' => 'Maximum Value',
-                                                'minLength' => 'Minimum Length',
-                                                'maxLength' => 'Maximum Length',
-                                                'required' => 'Required',
-                                                'email' => 'Email',
-                                                'phone' => 'Phone Number',
-                                                'javascript' => 'JavaScript',
-                                            ])
+                                            ->options($validationOptions)
                                             ->reactive()
                                             ->required(),
                                         TextInput::make('value')
@@ -506,22 +510,14 @@ class FormVersionResource extends Resource
                                             ]),
                                         Repeater::make('validations')
                                             ->label('Validations')
+                                            ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
                                             ->collapsible()
                                             ->collapsed()
                                             ->defaultItems(0)
                                             ->schema([
                                                 Select::make('type')
                                                     ->label('Validation Type')
-                                                    ->options([
-                                                        'minValue' => 'Minimum Value',
-                                                        'maxValue' => 'Maximum Value',
-                                                        'minLength' => 'Minimum Length',
-                                                        'maxLength' => 'Maximum Length',
-                                                        'required' => 'Required',
-                                                        'email' => 'Email',
-                                                        'phone' => 'Phone Number',
-                                                        'javascript' => 'JavaScript',
-                                                    ])
+                                                    ->options($validationOptions)
                                                     ->reactive()
                                                     ->required(),
                                                 TextInput::make('value')
