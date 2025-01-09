@@ -30,6 +30,7 @@ class FormFieldResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
+                    ->unique()
                     ->required(),
                 Forms\Components\TextInput::make('label')
                     ->required(),
@@ -108,8 +109,10 @@ class FormFieldResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dataType.name')
                     ->sortable(),
