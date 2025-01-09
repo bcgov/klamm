@@ -26,7 +26,7 @@ class FieldGroupResource extends Resource
         return $form
             ->schema([
                 TextInput::make('name')
-                    ->unique()
+                    ->unique(ignoreRecord: true)
                     ->required(),
                 TextInput::make('label')
                     ->required(),
