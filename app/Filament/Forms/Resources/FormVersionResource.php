@@ -124,7 +124,7 @@ class FormVersionResource extends Resource
                             ])
                             ->reactive()
                             ->required(),
-                        Section::make('Form Field Settings')
+                        Section::make() // Form field settings
                             ->live()
                             ->schema([
                                 Select::make('form_field_id')
@@ -298,7 +298,7 @@ class FormVersionResource extends Resource
                                     ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
-                        Section::make('Field Group Settings')
+                        Section::make() // Field group settings
                             ->live()
                             ->schema([
                                 Select::make('field_group_id')
