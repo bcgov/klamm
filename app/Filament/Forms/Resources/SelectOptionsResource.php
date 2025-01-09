@@ -27,6 +27,7 @@ class SelectOptionsResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
+                    ->unique()
                     ->required(),
                 Forms\Components\TextInput::make('label'),
                 Forms\Components\TextInput::make('value'),
@@ -49,10 +50,13 @@ class SelectOptionsResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('value')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('formFields.label')
                     ->numeric()

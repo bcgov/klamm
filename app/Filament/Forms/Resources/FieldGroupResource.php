@@ -26,6 +26,7 @@ class FieldGroupResource extends Resource
         return $form
             ->schema([
                 TextInput::make('name')
+                    ->unique()
                     ->required(),
                 TextInput::make('label')
                     ->required(),
@@ -47,8 +48,8 @@ class FieldGroupResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\TextColumn::make('label')->searchable(),
+                Tables\Columns\TextColumn::make('name')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('label')->sortable()->searchable(),
                 Tables\Columns\IconColumn::make('repeater')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
