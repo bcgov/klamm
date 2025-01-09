@@ -149,7 +149,7 @@ class FormTemplateHelper
                     "direction" => "bottom",
                     "size" => "md",
                     "helperText" => "Choose one from the list",
-                    "listItems" => SelectOptions::where('form_field_id', $field->id)
+                    "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
                             return ["text" => $selectOption->label];
@@ -164,7 +164,7 @@ class FormTemplateHelper
             case "radio":
                 return array_merge($base, [
                     "helperText" => "Choose one option",
-                    "listItems" => SelectOptions::where('form_field_id', $field->id)
+                    "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
                             return ["text" => $selectOption->label];
