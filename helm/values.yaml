@@ -13,6 +13,15 @@ resources:
     cpu: "250m"
     memory: "256Mi"
 
+queueWorker:
+  resources:
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+
 pvc:
   storage: "100Mi"
 
