@@ -28,8 +28,7 @@ class FieldGroupResource extends Resource
                 TextInput::make('name')
                     ->unique(ignoreRecord: true)
                     ->required(),
-                TextInput::make('label')
-                    ->required(),
+                TextInput::make('label'),
                 Textarea::make('description')
                     ->columnSpanFull(),
                 Textarea::make('internal_description')
