@@ -27,9 +27,10 @@ class SelectOptionsResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->unique()
+                    ->unique(ignoreRecord: true)
                     ->required(),
-                Forms\Components\TextInput::make('label'),
+                Forms\Components\TextInput::make('label')
+                    ->required(),
                 Forms\Components\TextInput::make('value'),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
