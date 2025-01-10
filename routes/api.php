@@ -9,3 +9,6 @@ Route::get('/user', function (Request $request) {
 
 // BRE routes
 require __DIR__ . '/bre_routes.php';
+
+// System Message routes
+require __DIR__ . '/system_message_routes.php';
