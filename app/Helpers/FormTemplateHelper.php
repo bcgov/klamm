@@ -90,8 +90,8 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
-        
-        $validation=$fieldInstance->validations->map(function ($validation) {
+
+        $validation = $fieldInstance->validations->map(function ($validation) {
             return [
                 'type' => $validation->type,
                 'value' => $validation->value,
@@ -100,28 +100,36 @@ class FormTemplateHelper
         })->toArray();
 
         $databindings = [
-            "source" => $fieldInstance->data_binding_path??$field->data_binding_path,
-            "path" => $fieldInstance->data_binding??$field->data_binding,
+            "source" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
+            "path" => $fieldInstance->custom_data_binding ?? $field->data_binding,
         ];
 
+        // Construct $label for $base
+        $label = null;
+        if ($fieldInstance->customize_label == 'default') {
+            $label = $field->label;
+        } elseif ($fieldInstance->customize_label == 'customize') {
+            $label = $fieldInstance->custom_label;
+        } elseif ($fieldInstance->customize_label == 'hide') {
+            $label = null;
+        }
         $base = [
             "type" => $field->dataType->name,
-            "id" => $fieldInstance->custom_id,
-            "label" => $fieldInstance->label??$field->label,
-            "labelText" => $fieldInstance->label??$field->label,
-            "helpText" => $fieldInstance->help_text??$field->help_text,
-            "styles" => $fieldInstance->styles??$field->styles,
-            "mask" => $fieldInstance->mask??$field->mask,
+            "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
+            "label" => $label,
+            "helpText" => $fieldInstance->custom_help_text ?? $field->help_text,
+            "styles" => $fieldInstance->custom_styles ?? $field->styles,
+            "mask" => $fieldInstance->custom_mask ?? $field->mask,
             "codeContext" => [
                 "name" => $field->name,
             ],
         ];
 
-        if(sizeof($validation) > 0){
+        if (sizeof($validation) > 0) {
             $base = array_merge($base, ["validation" => $validation]);
         }
 
-        if(!is_null($databindings["source"]) && !is_null($databindings["path"]) ){
+        if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
             $base = array_merge($base, ["databindings" => $databindings]);
         }
 
@@ -141,7 +149,7 @@ class FormTemplateHelper
                     "direction" => "bottom",
                     "size" => "md",
                     "helperText" => "Choose one from the list",
-                    "listItems" => SelectOptions::where('form_field_id', $field->id)
+                    "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
                             return ["text" => $selectOption->label];
@@ -150,13 +158,13 @@ class FormTemplateHelper
                 ]);
             case "text-info":
                 return array_merge($base, [
-                    "value" => $fieldInstance->formInstanceFieldValue?->value ?? $field->formFieldValue?->value,
+                    "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
                     "helperText" => "{$fieldInstance->label} as it appears on official documents",
                 ]);
             case "radio":
                 return array_merge($base, [
                     "helperText" => "Choose one option",
-                    "listItems" => SelectOptions::where('form_field_id', $field->id)
+                    "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
                             return ["text" => $selectOption->label];
@@ -180,8 +188,8 @@ class FormTemplateHelper
 
         $base = [
             "type" => "group",
-            "label" => $groupInstance->label??$group->label,
-            "id" => $groupInstance->custom_id,
+            "label" => $groupInstance->label ?? $group->label,
+            "id" => $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [

@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use App\Models\DataType;
+use Filament\Tables\Filters\SelectFilter;
 
 class FormFieldResource extends Resource
 {
@@ -27,12 +28,38 @@ class FormFieldResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $validationOptions = [
+            'minValue' => 'Minimum Value',
+            'maxValue' => 'Maximum Value',
+            'minLength' => 'Minimum Length',
+            'maxLength' => 'Maximum Length',
+            'required' => 'Required',
+            'email' => 'Email',
+            'phone' => 'Phone Number',
+            'javascript' => 'JavaScript',
+        ];
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
+                    ->unique(ignoreRecord: true)
                     ->required(),
                 Forms\Components\TextInput::make('label')
                     ->required(),
+                Forms\Components\Select::make('data_type_id')
+                    ->relationship('dataType', 'name')
+                    ->required()
+                    ->live(),
+                Forms\Components\Select::make('selectOptions')
+                    ->label('Select Options')
+                    ->relationship('selectOptions', 'label')
+                    ->multiple()
+                    ->preload()
+                    ->live()
+                    ->visible(function ($get) {
+                        $dataTypeId = $get('data_type_id');
+                        $dataType = \App\Models\DataType::find($dataTypeId);
+                        return $dataType && in_array($dataType->name, ['radio', 'dropdown']);
+                    }),
                 Forms\Components\Select::make('data_binding_path')
                     ->label('Field data source')
                     ->options(FormDataSource::pluck('name', 'name')),
@@ -42,21 +69,13 @@ class FormFieldResource extends Resource
                 Forms\Components\TextInput::make('mask'),
                 Repeater::make('validations')
                     ->label('Validations')
+                    ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
                     ->relationship('validations')
                     ->defaultItems(0)
                     ->schema([
                         Select::make('type')
                             ->label('Validation Type')
-                            ->options([
-                                'minValue' => 'Minimum Value',
-                                'maxValue' => 'Maximum Value',
-                                'minLength' => 'Minimum Length',
-                                'maxLength' => 'Maximum Length',
-                                'required' => 'Required',
-                                'email' => 'Email',
-                                'phone' => 'Phone Number',
-                                'javascript' => 'JavaScript',
-                            ])
+                            ->options($validationOptions)
                             ->reactive()
                             ->required(),
                         TextInput::make('value')
@@ -67,10 +86,6 @@ class FormFieldResource extends Resource
                     ->collapsed(),
                 Forms\Components\Textarea::make('help_text')
                     ->columnSpanFull(),
-                Forms\Components\Select::make('data_type_id')
-                    ->relationship('dataType', 'name')
-                    ->required()
-                    ->live(),
                 Forms\Components\Textarea::make('value')
                     ->label('Field Value')
                     ->visible(function (callable $get) {
@@ -85,21 +100,6 @@ class FormFieldResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('fieldGroups', 'name'),
-                Forms\Components\Repeater::make('selectOptions')
-                    ->label('Select Options')
-                    ->relationship('selectOptions')
-                    ->columnSpanFull()
-                    ->visible(function ($get) {
-                        $dataTypeId = $get('data_type_id');
-                        $dataType = \App\Models\DataType::find($dataTypeId);
-                        return $dataType && in_array($dataType->name, ['radio', 'dropdown']);
-                    })
-                    ->schema([
-                        Forms\Components\TextInput::make('name')->required(),
-                        Forms\Components\TextInput::make('label'),
-                        Forms\Components\TextInput::make('value'),
-                        Forms\Components\Textarea::make('description'),
-                    ]),
             ]);
     }
 
@@ -108,10 +108,15 @@ class FormFieldResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dataType.name')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('data_binding')
+                    ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('fieldGroups.name')
                     ->sortable(),
@@ -125,7 +130,18 @@ class FormFieldResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('data_binding')
+                    ->label('Data Binding')
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->options(function () {  // Fetch unique values from the 'data_binding' column            
+                        return \App\Models\FormField::query()
+                            ->distinct()
+                            ->pluck('data_binding', 'data_binding')
+                            ->filter()
+                            ->toArray();
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
