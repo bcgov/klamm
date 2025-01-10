@@ -54,6 +54,14 @@ class UserSeeder extends Seeder
                 'name' => 'David',
                 'email' => 'david.okulski@gov.bc.ca',
             ],
+            [
+                'name' => 'Joh',
+                'email' => 'johtaro.yoshida@gov.bc.ca',
+            ],
+            [
+                'name' => 'Josh',
+                'email' => 'joshua.larouche@gov.bc.ca',
+            ],
 
         ];
 

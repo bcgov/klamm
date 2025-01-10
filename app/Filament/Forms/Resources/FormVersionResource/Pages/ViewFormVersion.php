@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Models\FormField;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -35,21 +36,39 @@ class ViewFormVersion extends ViewRecord
                     'value' => $validation->value,
                     'error_message' => $validation->error_message,
                 ];
-            }         
-           
-            
+            }
+
+            $formField = FormField::find($field['form_field_id']) ?? null;
             $components[] = [
                 'component_type' => 'form_field',
                 'form_field_id' => $field->form_field_id,
-                'label' => $field->label,
+                'label' => $formField?->label,
+                'custom_label' => $field->custom_label,
+                'customize_label' => $field->customize_label,
                 'data_binding_path' => $field->data_binding_path,
+                'custom_data_binding_path' => $field->custom_data_binding_path,
+                'customize_data_binding_path' => $field->custom_data_binding_path,
                 'data_binding' => $field->data_binding,
-                'conditional_logic' => $field->conditional_logic,
+                'custom_data_binding' => $field->custom_data_binding,
+                'customize_data_binding' => $field->custom_data_binding,
+                'help_text' => $field->help_text,
+                'custom_help_text' => $field->custom_help_text,
+                'customize_help_text' => $field->custom_help_text,
                 'styles' => $field->styles,
+                'custom_styles' => $field->custom_styles,
+                'customize_styles' => $field->custom_styles,
+                'mask' => $field->mask,
+                'custom_mask' => $field->custom_mask,
+                'customize_mask' => $field->custom_mask,
+                'instance_id' => $field->instance_id,
+                'custom_instance_id' => $field->custom_instance_id,
+                'customize_instance_id' => $field->custom_instance_id,
+                'field_value' => $field->formInstanceFieldValue?->value,
+                'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
+                'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
                 'validations' => $validations,
+                'conditional_logic' => $field->conditional_logic,
                 'order' => $field->order,
-                'custom_id' => $field->custom_id,
-                'field_value' => $field->formInstanceFieldValue?->value, 
             ];
         }
 
@@ -69,16 +88,35 @@ class ViewFormVersion extends ViewRecord
                     ];
                 }
 
+                $formField = FormField::find($field['form_field_id']) ?? null;
                 $formFieldsData[] = [
                     'form_field_id' => $field->form_field_id,
-                    'label' => $field->label,
+                    'label' => $formField?->label,
+                    'custom_label' => $field->custom_label,
+                    'customize_label' => $field->customize_label,
                     'data_binding_path' => $field->data_binding_path,
+                    'custom_data_binding_path' => $field->custom_data_binding_path,
+                    'customize_data_binding_path' => $field->custom_data_binding_path,
                     'data_binding' => $field->data_binding,
-                    'conditional_logic' => $field->conditional_logic,
+                    'custom_data_binding' => $field->custom_data_binding,
+                    'customize_data_binding' => $field->custom_data_binding,
+                    'help_text' => $field->help_text,
+                    'custom_help_text' => $field->custom_help_text,
+                    'customize_help_text' => $field->custom_help_text,
                     'styles' => $field->styles,
+                    'custom_styles' => $field->custom_styles,
+                    'customize_styles' => $field->custom_styles,
+                    'mask' => $field->mask,
+                    'custom_mask' => $field->custom_mask,
+                    'customize_mask' => $field->custom_mask,
+                    'instance_id' => $field->instance_id,
+                    'custom_instance_id' => $field->custom_instance_id,
+                    'customize_instance_id' => $field->custom_instance_id,
+                    'field_value' => $field->formInstanceFieldValue?->value,
+                    'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
+                    'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'validations' => $validations,
-                    'custom_id' => $field->custom_id,
-                    'field_value' => $field->formInstanceFieldValue?->value, 
+                    'conditional_logic' => $field->conditional_logic,
                 ];
             }
 
@@ -89,7 +127,7 @@ class ViewFormVersion extends ViewRecord
                 'repeater' => $group->repeater,
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
-                'custom_id' => $group->custom_id, 
+                'instance_id' => $group->instance_id,
             ];
         }
 

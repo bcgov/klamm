@@ -16,13 +16,17 @@ class FormInstanceField extends Model
         'form_version_id',
         'form_field_id',
         'order',
-        'label',
-        'data_binding_path',
-        'data_binding',
+        'custom_label',
+        'customize_label',
+        'custom_data_binding_path',
+        'custom_data_binding',
         'conditional_logic',
-        'styles',
+        'custom_help_text',
+        'custom_styles',
+        'custom_mask',
         'field_group_instance_id',
-        'custom_id'
+        'instance_id',
+        'custom_instance_id'
     ];
 
     public function formVersion(): BelongsTo
@@ -44,9 +48,9 @@ class FormInstanceField extends Model
     {
         return $this->hasMany(FormInstanceFieldValidation::class);
     }
-    
+
     public function formInstanceFieldValue(): HasOne
     {
         return $this->hasOne(FormInstanceFieldValue::class);
     }
-} 
+}

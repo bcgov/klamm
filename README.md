@@ -20,7 +20,7 @@ Requirements:
 Clone the repository:
 
 ```
-git clone https://github.com/kiiskila-bcgov/Klamm.git
+git clone https://github.com/bcgov/klamm.git
 ```
 
 Navigate into the repository:

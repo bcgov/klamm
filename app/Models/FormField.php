@@ -27,7 +27,8 @@ class FormField extends Model
         'data_binding_path',
         'data_binding',
         'conditional_logic',
-        'styles'
+        'styles',
+        'mask'
     ];
 
     /**
@@ -70,9 +71,9 @@ class FormField extends Model
         return $this->dataType && $this->dataType->name === 'text-info';
     }
 
-    public function selectOptions(): HasMany
+    public function selectOptions(): BelongsToMany
     {
-        return $this->hasMany(SelectOptions::class);
+        return $this->belongsToMany(SelectOptions::class);
     }
 
     public function formVersions()
