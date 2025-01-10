@@ -18,9 +18,9 @@ class SystemMessageResource extends Resource
 {
     protected static ?string $model = SystemMessage::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-envelope';
 
-    protected static ?string $navigationGroup = 'System Messages';
+    protected static ?string $navigationGroup = 'Error Lookup Tool';
 
     public static function form(Form $form): Form
     {
@@ -118,7 +118,7 @@ class SystemMessageResource extends Resource
                 25,
                 50,
                 100,
-            ]);;
+            ]);
     }
 
     public static function getRelations(): array
