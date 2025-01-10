@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SystemMessage extends Model
 {
@@ -11,33 +12,34 @@ class SystemMessage extends Model
         'error_code',
         'error_message',
         'icm_error_solution',
-        'explanation' . 'fix',
+        'explanation',
+        'fix',
         'service_desk',
         'limited_data',
     ];
 
-    public function errorEntity(): HasOne
+    public function errorEntity(): BelongsTo
     {
-        return $this->hasOne(ErrorEntity::class);
+        return $this->belongsTo(ErrorEntity::class, 'error_entity_id');
     }
 
-    public function errorDataGroup(): HasOne
+    public function errorDataGroup(): BelongsTo
     {
-        return $this->hasOne(ErrorDataGroup::class);
+        return $this->belongsTo(ErrorDataGroup::class, 'error_data_group_id');
     }
 
-    public function errorIntegrationState(): HasOne
+    public function errorIntegrationState(): BelongsTo
     {
-        return $this->hasOne(ErrorIntegrationState::class);
+        return $this->belongsTo(ErrorIntegrationState::class, 'error_integration_state_id');
     }
 
-    public function errorActor(): HasOne
+    public function errorActor(): BelongsTo
     {
-        return $this->hasOne(ErrorActor::class);
+        return $this->belongsTo(ErrorActor::class, 'error_actor_id');
     }
 
-    public function errorSource(): HasOne
+    public function errorSource(): BelongsTo
     {
-        return $this->hasOne(ErrorSource::class);
+        return $this->belongsTo(ErrorSource::class, 'error_source_id');
     }
 }

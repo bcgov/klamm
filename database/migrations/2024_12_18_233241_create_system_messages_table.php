@@ -50,7 +50,7 @@ return new class extends Migration
         Schema::create('system_messages', function (Blueprint $table) {
             $table->id();
             $table->text("error_code");
-            $table->text("error_message")->nullable();
+            $table->text("error_message");
             $table->text("icm_error_solution")->nullable();
             $table->text("explanation")->nullable();
             $table->text("fix")->nullable();

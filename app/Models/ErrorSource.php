@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ErrorSource extends Model
 {
@@ -11,8 +11,8 @@ class ErrorSource extends Model
         'name'
     ];
 
-    public function formField(): BelongsTo
+    public function systemMessage(): HasOne
     {
-        return $this->belongsTo(SystemMessage::class);
+        return $this->hasOne(SystemMessage::class, 'error_actor_id');
     }
 }
