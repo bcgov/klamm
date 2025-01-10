@@ -14,7 +14,8 @@ class SystemMessageController extends Controller
         $query = SystemMessage::query();
 
         if ($request->has('error_code')) {
-            $query->where('error_code', $request->input('error_code'));
+            $errorCode = $request->input('error_code');
+            $query->where('error_code', 'like', "{$errorCode}%");
         }
 
         $systemMessages = $query->select('id', 'error_code', 'error_message', 'error_data_group_id')->get();
