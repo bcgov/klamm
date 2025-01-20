@@ -113,6 +113,7 @@ class FormTemplateHelper
         } elseif ($fieldInstance->customize_label == 'hide') {
             $label = null;
         }
+
         $base = [
             "type" => $field->dataType->name,
             "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
@@ -186,6 +187,11 @@ class FormTemplateHelper
             return self::formatField($fieldInstance, $fieldIndex + 1);
         })->values()->all();
 
+        $databindings = [
+            "source" => $groupInstance->custom_data_binding_path ?? $group->data_binding_path,
+            "path" => $groupInstance->custom_data_binding ?? $group->data_binding,
+        ];
+
         $base = [
             "type" => "group",
             "label" => $groupInstance->label ?? $group->label,
@@ -196,6 +202,10 @@ class FormTemplateHelper
                 "name" => $group->name,
             ],
         ];
+
+        if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
+            $base = array_merge($base, ["databindings" => $databindings]);
+        }
 
         return array_merge($base, [
             "groupItems" => [

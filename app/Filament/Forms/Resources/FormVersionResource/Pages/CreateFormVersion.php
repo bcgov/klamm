@@ -110,6 +110,10 @@ class CreateFormVersion extends CreateRecord
                     'order' => $order,
                     'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
+                    'data_binding_path' => $component['data_binding_path'] ?? null,
+                    'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
+                    'data_binding' => $component['data_binding'] ?? null,
+                    'custom_data_binding' => $component['custom_data_binding'] ?? null,
                     'instance_id' => $component['instance_id'] ?? null,
                 ]);
 

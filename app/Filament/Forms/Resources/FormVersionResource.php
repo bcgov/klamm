@@ -315,7 +315,6 @@ class FormVersionResource extends Resource
                                         }
                                         return $options;
                                     })
-
                                     ->searchable()
                                     ->required()
                                     ->reactive()
@@ -351,6 +350,35 @@ class FormVersionResource extends Resource
                                     ->distinct(),
                                 Toggle::make('repeater')
                                     ->label('Repeater'),
+                                Fieldset::make('Data Binding')
+                                    ->columns(1)
+                                    ->schema([
+                                        Placeholder::make('data_binding')
+                                            ->label("Default")
+                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding ?? 'null'),
+                                        Checkbox::make('customize_data_binding')
+                                            ->label('Customize Data Binding')
+                                            ->inline()
+                                            ->live(),
+                                        TextInput::make('custom_data_binding')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_data_binding')),
+                                    ]),
+                                Fieldset::make('Data Source')
+                                    ->columns(1)
+                                    ->schema([
+                                        Placeholder::make('data_binding_path')
+                                            ->label("Default")
+                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding_path ?? 'null'),
+                                        Checkbox::make('customize_data_binding_path')
+                                            ->label('Customize Data Source')
+                                            ->inline()
+                                            ->live(),
+                                        Select::make('custom_data_binding_path')
+                                            ->label(false)
+                                            ->options(FormDataSource::pluck('name', 'name'))
+                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                    ]),
                                 Repeater::make('form_fields')
                                     ->label('Form Fields in Group')
                                     ->reorderable()
