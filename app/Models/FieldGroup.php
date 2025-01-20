@@ -21,6 +21,8 @@ class FieldGroup extends Model
         'label',
         'description',
         'internal_description',
+        'data_binding_path',
+        'data_binding',
         'repeater',
     ];
 

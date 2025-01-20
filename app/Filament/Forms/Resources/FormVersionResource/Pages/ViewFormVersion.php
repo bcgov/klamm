@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Models\FieldGroup;
 use App\Models\FormField;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
@@ -120,11 +121,16 @@ class ViewFormVersion extends ViewRecord
                 ];
             }
 
+            $fieldGroup = FieldGroup::find($group['field_group_id']) ?? 'null';
             $components[] = [
                 'component_type' => 'field_group',
                 'field_group_id' => $group->field_group_id,
                 'group_label' => $group->label,
                 'repeater' => $group->repeater,
+                'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
+                'customize_data_binding_path' => $group->custom_data_binding_path ?? null,
+                'custom_data_binding' => $group->custom_data_binding ?? $fieldGroup->data_binding,
+                'customize_data_binding' => $group->custom_data_binding ?? null,
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
