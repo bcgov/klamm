@@ -15,7 +15,8 @@ class Welcome extends Page
 
     public function mount()
     {
-        $this->heading = 'Welcome to Klamm';
-        $this->subheading = 'The data capture and classification tool for FODIG, BRE and the Forms Modernization team. Below you can find links to other panels.';
+        $this->heading = 'Welcome to KLAMM';
+        $this->subheading = 'KLAMM is a tool used to collect and organize data by classifying it, making the information easier to understand and analyze.';
+        $this->getStarted = 'Select a panel below to get started.';
     }
 }

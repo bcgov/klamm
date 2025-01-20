@@ -12,6 +12,7 @@ use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
+
     public static function generateJsonTemplate($formVersionId)
     {
         $formVersion = FormVersion::find($formVersionId);
@@ -68,15 +69,16 @@ class FormTemplateHelper
             "lastModified" => $formVersion->updated_at->toIso8601String(),
             "title" => $formVersion->form->form_title,
             "form_id" => $form->form_id,
+            "deployed_to" => $formVersion->deployed_to,
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
                     'name' => $dataSource->name,
                     'type' => $dataSource->type,
-                    'endpoint' => $dataSource->endpoint, 
-                    'params' => json_decode($dataSource->params, true), 
-                    'body' => json_decode($dataSource->body, true), 
-                    'headers' => json_decode($dataSource->headers, true), 
-                    'host' => $dataSource->host, 
+                    'endpoint' => $dataSource->endpoint,
+                    'params' => json_decode($dataSource->params, true),
+                    'body' => json_decode($dataSource->body, true),
+                    'headers' => json_decode($dataSource->headers, true),
+                    'host' => $dataSource->host,
                 ];
             })->toArray(),
             "data" => [
@@ -88,32 +90,49 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
-        
+
+        $validation = $fieldInstance->validations->map(function ($validation) {
+            return [
+                'type' => $validation->type,
+                'value' => $validation->value,
+                'errorMessage' => $validation->error_message,
+            ];
+        })->toArray();
+
+        $databindings = [
+            "source" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
+            "path" => $fieldInstance->custom_data_binding ?? $field->data_binding,
+        ];
+
+        // Construct $label for $base
+        $label = null;
+        if ($fieldInstance->customize_label == 'default') {
+            $label = $field->label;
+        } elseif ($fieldInstance->customize_label == 'customize') {
+            $label = $fieldInstance->custom_label;
+        } elseif ($fieldInstance->customize_label == 'hide') {
+            $label = null;
+        }
+
         $base = [
             "type" => $field->dataType->name,
-            "id" => $field->name . '_' . $index,
-            "label" => $field->label,
-            "customLabel" => $fieldInstance->label,
-            "dataBindingPath" => $field->data_binding_path,
-            "customDataBindingPath" => $fieldInstance->data_binding_path,
-            "dataBinding" => $field->data_binding,
-            "customDataBinding" => $fieldInstance->data_binding,
-            "validation" => [],
-            "customValidation" => $fieldInstance->validations->map(function ($validation) {
-                return [
-                    'type' => $validation->type,
-                    'value' => $validation->value,
-                    'errorMessage' => $validation->error_message,
-                ];
-            })->toArray(),
-            "conditionalLogic" => $field->conditional_logic,
-            "customConditionalLogic" => $fieldInstance->conditional_logic,
-            "styles" => $field->styles,
-            "customStyles" => $fieldInstance->styles,
+            "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
+            "label" => $label,
+            "helpText" => $fieldInstance->custom_help_text ?? $field->help_text,
+            "styles" => $fieldInstance->custom_styles ?? $field->styles,
+            "mask" => $fieldInstance->custom_mask ?? $field->mask,
             "codeContext" => [
                 "name" => $field->name,
             ],
         ];
+
+        if (sizeof($validation) > 0) {
+            $base = array_merge($base, ["validation" => $validation]);
+        }
+
+        if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
+            $base = array_merge($base, ["databindings" => $databindings]);
+        }
 
         switch ($field->dataType->name) {
             case "text-input":
@@ -131,7 +150,22 @@ class FormTemplateHelper
                     "direction" => "bottom",
                     "size" => "md",
                     "helperText" => "Choose one from the list",
-                    "listItems" => SelectOptions::where('form_field_id', $field->id)
+                    "listItems" => $field->selectOptions()
+                        ->get()
+                        ->map(function ($selectOption) {
+                            return ["text" => $selectOption->label];
+                        })
+                        ->toArray(),
+                ]);
+            case "text-info":
+                return array_merge($base, [
+                    "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
+                    "helperText" => "{$fieldInstance->label} as it appears on official documents",
+                ]);
+            case "radio":
+                return array_merge($base, [
+                    "helperText" => "Choose one option",
+                    "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
                             return ["text" => $selectOption->label];
@@ -153,17 +187,25 @@ class FormTemplateHelper
             return self::formatField($fieldInstance, $fieldIndex + 1);
         })->values()->all();
 
+        $databindings = [
+            "source" => $groupInstance->custom_data_binding_path ?? $group->data_binding_path,
+            "path" => $groupInstance->custom_data_binding ?? $group->data_binding,
+        ];
+
         $base = [
             "type" => "group",
-            "label" => $group->label,
-            "customLabel" => $groupInstance->label,
-            "id" => $group->name . '_' . $index,
+            "label" => $groupInstance->label ?? $group->label,
+            "id" => $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [
                 "name" => $group->name,
             ],
         ];
+
+        if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
+            $base = array_merge($base, ["databindings" => $databindings]);
+        }
 
         return array_merge($base, [
             "groupItems" => [
@@ -172,5 +214,18 @@ class FormTemplateHelper
                 ],
             ],
         ]);
+    }
+
+    public static function calculateFieldID($state)
+    {
+        $numOfComponents = count($state['components']);
+        return 'field' . $numOfComponents;
+    }
+
+    public static function calculateFieldInGroupID($state)
+    {
+
+        $numOfFormFields = count($state['form_fields']);
+        return 'nestedField' . $numOfFormFields;
     }
 }

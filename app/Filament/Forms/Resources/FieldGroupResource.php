@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FieldGroupResource\Pages;
 use App\Models\FieldGroup;
+use App\Models\FormDataSource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -26,8 +27,13 @@ class FieldGroupResource extends Resource
         return $form
             ->schema([
                 TextInput::make('name')
+                    ->unique(ignoreRecord: true)
                     ->required(),
                 TextInput::make('label'),
+                Select::make('data_binding_path')
+                    ->label('Field data source')
+                    ->options(FormDataSource::pluck('name', 'name')),
+                Textarea::make('data_binding'),
                 Textarea::make('description')
                     ->columnSpanFull(),
                 Textarea::make('internal_description')
@@ -38,8 +44,7 @@ class FieldGroupResource extends Resource
                     ->relationship('formFields', 'name')
                     ->searchable()
                     ->preload(),
-                Toggle::make('repeater')
-                    ->required(),
+                Toggle::make('repeater'),
             ]);
     }
 
@@ -47,8 +52,8 @@ class FieldGroupResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->searchable(),
-                Tables\Columns\TextColumn::make('label')->searchable(),
+                Tables\Columns\TextColumn::make('name')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('label')->sortable()->searchable(),
                 Tables\Columns\IconColumn::make('repeater')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),

@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
+use App\Models\FormField;
 use App\Models\FormInstanceFieldValidation;
+use App\Models\FormInstanceFieldValue;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -67,10 +69,21 @@ class CreateFormVersion extends CreateRecord
                     'form_field_id' => $component['form_field_id'],
                     'order' => $order,
                     'label' => $component['label'] ?? null,
+                    'custom_label' => $component['custom_label'] ?? null,
+                    'customize_label' => $component['customize_label'] ?? null,
                     'data_binding_path' => $component['data_binding_path'] ?? null,
+                    'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
                     'data_binding' => $component['data_binding'] ?? null,
-                    'conditional_logic' => $component['conditional_logic'] ?? null,
+                    'custom_data_binding' => $component['custom_data_binding'] ?? null,
+                    'help_text' => $component['help_text'] ?? null,
+                    'custom_help_text' => $component['custom_help_text'] ?? null,
                     'styles' => $component['styles'] ?? null,
+                    'custom_styles' => $component['custom_styles'] ?? null,
+                    'mask' => $component['mask'] ?? null,
+                    'custom_mask' => $component['custom_mask'] ?? null,
+                    'instance_id' => $component['instance_id'] ?? null,
+                    'custom_instance_id' => $component['custom_instance_id'] ?? null,
+                    'conditional_logic' => $component['conditional_logic'] ?? null,
                 ]);
 
                 $validations = $component['validations'] ?? [];
@@ -82,6 +95,14 @@ class CreateFormVersion extends CreateRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+                $customFieldValueCheckbox = $component['customize_field_value'] ?? false;
+                $customFieldValue = $component['custom_field_value'] ?? null;
+                if ($customFieldValueCheckbox) {
+                    FormInstanceFieldValue::create([
+                        'form_instance_field_id' => $formInstanceField->id,
+                        'custom_value' => $customFieldValue ?? null,
+                    ]);
+                }
             } elseif ($component['component_type'] === 'field_group') {
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
@@ -89,6 +110,11 @@ class CreateFormVersion extends CreateRecord
                     'order' => $order,
                     'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
+                    'data_binding_path' => $component['data_binding_path'] ?? null,
+                    'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
+                    'data_binding' => $component['data_binding'] ?? null,
+                    'custom_data_binding' => $component['custom_data_binding'] ?? null,
+                    'instance_id' => $component['instance_id'] ?? null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -99,10 +125,21 @@ class CreateFormVersion extends CreateRecord
                         'field_group_instance_id' => $fieldGroupInstance->id,
                         'order' => $fieldOrder,
                         'label' => $fieldData['label'] ?? null,
+                        'custom_label' => $fieldData['custom_label'] ?? null,
+                        'customize_label' => $fieldData['customize_label'] ?? null,
                         'data_binding_path' => $fieldData['data_binding_path'] ?? null,
+                        'custom_data_binding_path' => $fieldData['custom_data_binding_path'] ?? null,
                         'data_binding' => $fieldData['data_binding'] ?? null,
-                        'conditional_logic' => $fieldData['conditional_logic'] ?? null,
+                        'custom_data_binding' => $fieldData['custom_data_binding'] ?? null,
+                        'help_text' => $fieldData['help_text'] ?? null,
+                        'custom_help_text' => $fieldData['custom_help_text'] ?? null,
                         'styles' => $fieldData['styles'] ?? null,
+                        'custom_styles' => $fieldData['custom_styles'] ?? null,
+                        'mask' => $fieldData['mask'] ?? null,
+                        'custom_mask' => $fieldData['custom_mask'] ?? null,
+                        'instance_id' => $fieldData['instance_id'] ?? null,
+                        'custom_instance_id' => $fieldData['custom_instance_id'] ?? null,
+                        'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                     ]);
 
                     $validations = $fieldData['validations'] ?? [];
@@ -112,6 +149,15 @@ class CreateFormVersion extends CreateRecord
                             'type' => $validationData['type'],
                             'value' => $validationData['value'] ?? null,
                             'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
+
+                    $customFieldValueCheckbox = $fieldData['customize_field_value'] ?? false;
+                    $customFieldValue = $fieldData['custom_field_value'] ?? null;
+                    if ($customFieldValueCheckbox) {
+                        FormInstanceFieldValue::create([
+                            'form_instance_field_id' => $formInstanceField->id,
+                            'custom_value' => $customFieldValue ?? null,
                         ]);
                     }
                 }
