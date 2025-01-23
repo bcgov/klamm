@@ -37,4 +37,9 @@ class FieldGroupInstance extends Model
     {
         return $this->hasMany(FormInstanceField::class);
     }
+
+    public function conditionals(): HasMany
+    {
+        return $this->hasMany(FieldGroupInstanceConditionals::class);
+    }
 }

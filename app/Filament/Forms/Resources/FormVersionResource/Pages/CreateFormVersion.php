@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
-use App\Models\FormField;
+use App\Models\FieldGroupInstanceConditionals;
+use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 
@@ -83,7 +84,6 @@ class CreateFormVersion extends CreateRecord
                     'custom_mask' => $component['custom_mask'] ?? null,
                     'instance_id' => $component['instance_id'] ?? null,
                     'custom_instance_id' => $component['custom_instance_id'] ?? null,
-                    'conditional_logic' => $component['conditional_logic'] ?? null,
                 ]);
 
                 $validations = $component['validations'] ?? [];
@@ -95,6 +95,16 @@ class CreateFormVersion extends CreateRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+
+                $conditionals = $component['conditionals'] ?? [];
+                foreach ($conditionals as $conditionalData) {
+                    FormInstanceFieldConditionals::create([
+                        'form_instance_field_id' => $formInstanceField->id,
+                        'type' => $conditionalData['type'],
+                        'value' => $conditionalData['value'] ?? null,
+                    ]);
+                }
+
                 $customFieldValueCheckbox = $component['customize_field_value'] ?? false;
                 $customFieldValue = $component['custom_field_value'] ?? null;
                 if ($customFieldValueCheckbox) {
@@ -116,6 +126,15 @@ class CreateFormVersion extends CreateRecord
                     'custom_data_binding' => $component['custom_data_binding'] ?? null,
                     'instance_id' => $component['instance_id'] ?? null,
                 ]);
+
+                $groupConditionals = $component['group_conditionals'] ?? [];
+                foreach ($groupConditionals as $conditionalData) {
+                    FieldGroupInstanceConditionals::create([
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                        'type' => $conditionalData['type'],
+                        'value' => $conditionalData['value'] ?? null,
+                    ]);
+                }
 
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $fieldData) {
@@ -139,7 +158,6 @@ class CreateFormVersion extends CreateRecord
                         'custom_mask' => $fieldData['custom_mask'] ?? null,
                         'instance_id' => $fieldData['instance_id'] ?? null,
                         'custom_instance_id' => $fieldData['custom_instance_id'] ?? null,
-                        'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                     ]);
 
                     $validations = $fieldData['validations'] ?? [];
@@ -149,6 +167,15 @@ class CreateFormVersion extends CreateRecord
                             'type' => $validationData['type'],
                             'value' => $validationData['value'] ?? null,
                             'error_message' => $validationData['error_message'] ?? null,
+                        ]);
+                    }
+
+                    $conditionals = $fieldData['conditionals'] ?? [];
+                    foreach ($conditionals as $conditionalData) {
+                        FormInstanceFieldConditionals::create([
+                            'form_instance_field_id' => $formInstanceField->id,
+                            'type' => $conditionalData['type'],
+                            'value' => $conditionalData['value'] ?? null,
                         ]);
                     }
 
