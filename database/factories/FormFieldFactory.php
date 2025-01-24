@@ -34,7 +34,6 @@ class FormFieldFactory extends Factory
             'required' => $this->faker->boolean(),
             'repeater' => $this->faker->boolean(),
             'max_count' => $this->faker->word(),
-            'conditional_logic' => $this->faker->text(),
             'prepopulated' => $this->faker->boolean(),
         ];
     }

@@ -39,6 +39,14 @@ class ViewFormVersion extends ViewRecord
                 ];
             }
 
+            $conditionals = [];
+            foreach ($field->conditionals as $conditional) {
+                $conditionals[] = [
+                    'type' => $conditional->type,
+                    'value' => $conditional->value,
+                ];
+            }
+
             $formField = FormField::find($field['form_field_id']) ?? null;
             $components[] = [
                 'component_type' => 'form_field',
@@ -68,7 +76,7 @@ class ViewFormVersion extends ViewRecord
                 'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                 'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
                 'validations' => $validations,
-                'conditional_logic' => $field->conditional_logic,
+                'conditionals' => $conditionals,
                 'order' => $field->order,
             ];
         }
@@ -86,6 +94,14 @@ class ViewFormVersion extends ViewRecord
                         'type' => $validation->type,
                         'value' => $validation->value,
                         'error_message' => $validation->error_message,
+                    ];
+                }
+
+                $conditionals = [];
+                foreach ($field->conditionals as $conditional) {
+                    $conditionals[] = [
+                        'type' => $conditional->type,
+                        'value' => $conditional->value,
                     ];
                 }
 
@@ -117,7 +133,7 @@ class ViewFormVersion extends ViewRecord
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'validations' => $validations,
-                    'conditional_logic' => $field->conditional_logic,
+                    'conditionals' => $conditionals,
                 ];
             }
 
@@ -134,6 +150,7 @@ class ViewFormVersion extends ViewRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
+                'visibility' => $group->visibility,
             ];
         }
 

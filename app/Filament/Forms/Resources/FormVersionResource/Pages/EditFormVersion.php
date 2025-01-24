@@ -11,6 +11,7 @@ use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormField;
 use App\Models\FormInstanceFieldValidation;
+use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValue;
 
 class EditFormVersion extends EditRecord
@@ -61,7 +62,6 @@ class EditFormVersion extends EditRecord
                     'customize_label' => $component['customize_label'] ?? null,
                     'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
                     'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
-                    'conditional_logic' => $component['conditional_logic'] ?? null,
                     'custom_help_text' => $component['customize_help_text'] ? $component['custom_help_text'] : null,
                     'custom_styles' => $component['customize_styles'] ? $component['custom_styles'] : null,
                     'custom_mask' => $component['customize_mask'] ? $component['custom_mask'] : null,
@@ -78,6 +78,16 @@ class EditFormVersion extends EditRecord
                         'error_message' => $validationData['error_message'] ?? null,
                     ]);
                 }
+
+                $conditionals = $component['conditionals'] ?? [];
+                foreach ($conditionals as $conditionalData) {
+                    FormInstanceFieldConditionals::create([
+                        'form_instance_field_id' => $formInstanceField->id,
+                        'type' => $conditionalData['type'],
+                        'value' => $conditionalData['value'] ?? null,
+                    ]);
+                }
+
                 $customFieldValueCheckbox = $component['customize_field_value'] ?? false;
                 $customFieldValue = $component['custom_field_value'] ?? null;
                 if ($customFieldValueCheckbox) {
@@ -95,6 +105,7 @@ class EditFormVersion extends EditRecord
                     'repeater' => $component['repeater'] ?? false,
                     'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
                     'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
+                    'visibility' => $component['visibility'] ? $component['visibility'] : null,
                     'instance_id' => $component['instance_id'] ?? null,
                 ]);
 
@@ -109,7 +120,6 @@ class EditFormVersion extends EditRecord
                         'customize_label' => $fieldData['customize_label'] ?? null,
                         'custom_data_binding_path' => $fieldData['customize_data_binding_path'] ? $fieldData['custom_data_binding_path'] : null,
                         'custom_data_binding' => $fieldData['customize_data_binding'] ? $fieldData['custom_data_binding'] : null,
-                        'conditional_logic' => $fieldData['conditional_logic'] ?? null,
                         'custom_help_text' => $fieldData['customize_help_text'] ? $fieldData['custom_help_text'] : null,
                         'custom_styles' => $fieldData['customize_styles'] ? $fieldData['custom_styles'] : null,
                         'custom_mask' => $fieldData['customize_mask'] ? $fieldData['custom_mask'] : null,
@@ -126,6 +136,16 @@ class EditFormVersion extends EditRecord
                             'error_message' => $validationData['error_message'] ?? null,
                         ]);
                     }
+
+                    $conditionals = $fieldData['conditionals'] ?? [];
+                    foreach ($conditionals as $conditionalData) {
+                        FormInstanceFieldConditionals::create([
+                            'form_instance_field_id' => $formInstanceField->id,
+                            'type' => $conditionalData['type'],
+                            'value' => $conditionalData['value'] ?? null,
+                        ]);
+                    }
+
                     $customFieldValueCheckbox = $fieldData['customize_field_value'] ?? false;
                     $customFieldValue = $fieldData['custom_field_value'] ?? null;
                     if ($customFieldValueCheckbox) {
@@ -160,6 +180,16 @@ class EditFormVersion extends EditRecord
                 ];
             }
 
+            $conditionals = [];
+            if ($field->conditionals) {
+                foreach ($field->conditionals as $conditional) {
+                    $conditionals[] = [
+                        'type' => $conditional->type,
+                        'value' => $conditional->value,
+                    ];
+                }
+            }
+
             $formField = FormField::find($field['form_field_id']) ?? 'null';
             $components[] = [
                 'component_type' => 'form_field',
@@ -183,7 +213,7 @@ class EditFormVersion extends EditRecord
                 'custom_field_value' => $field->formInstanceFieldValue?->value ?? $field->formInstanceFieldValue?->custom_value,
                 'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
                 'validations' => $validations,
-                'conditional_logic' => $field->conditional_logic,
+                'conditionals' => $conditionals,
                 'order' => $field->order,
             ];
         }
@@ -201,6 +231,14 @@ class EditFormVersion extends EditRecord
                         'type' => $validation->type,
                         'value' => $validation->value,
                         'error_message' => $validation->error_message,
+                    ];
+                }
+
+                $conditionals = [];
+                foreach ($field->conditionals as $conditional) {
+                    $conditionals[] = [
+                        'type' => $conditional->type,
+                        'value' => $conditional->value,
                     ];
                 }
 
@@ -227,7 +265,7 @@ class EditFormVersion extends EditRecord
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
                     'validations' => $validations,
-                    'conditional_logic' => $field->conditional_logic,
+                    'conditionals' => $conditionals,
                 ];
             }
 
@@ -244,6 +282,7 @@ class EditFormVersion extends EditRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
+                'visibility' => $group->visibility,
             ];
         }
 

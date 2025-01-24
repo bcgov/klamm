@@ -18,6 +18,7 @@ class FieldGroupInstance extends Model
         'repeater',
         'custom_data_binding_path',
         'custom_data_binding',
+        'visibility',
         'order',
         'instance_id',
 

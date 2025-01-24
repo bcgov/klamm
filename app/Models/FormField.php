@@ -26,7 +26,6 @@ class FormField extends Model
         'description',
         'data_binding_path',
         'data_binding',
-        'conditional_logic',
         'styles',
         'mask'
     ];

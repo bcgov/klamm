@@ -99,6 +99,13 @@ class FormTemplateHelper
             ];
         })->toArray();
 
+        $conditional = $fieldInstance->conditionals->map(function ($conditional) {
+            return [
+                'type' => $conditional->type,
+                'value' => $conditional->value,
+            ];
+        })->toArray();
+
         $databindings = [
             "source" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
             "path" => $fieldInstance->custom_data_binding ?? $field->data_binding,
@@ -128,6 +135,10 @@ class FormTemplateHelper
 
         if (sizeof($validation) > 0) {
             $base = array_merge($base, ["validation" => $validation]);
+        }
+
+        if (sizeof($conditional) > 0) {
+            $base = array_merge($base, ["conditions" => $conditional]);
         }
 
         if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
@@ -183,6 +194,16 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
 
+        $visibility = [];
+        if ($groupInstance->visibility) {
+            $visibility = [
+                [
+                    'type' => 'visibility',
+                    'value' => $groupInstance->visibility,
+                ],
+            ];
+        }
+
         $fields = $fieldsInGroup->map(function ($fieldInstance, $fieldIndex) {
             return self::formatField($fieldInstance, $fieldIndex + 1);
         })->values()->all();
@@ -202,6 +223,10 @@ class FormTemplateHelper
                 "name" => $group->name,
             ],
         ];
+
+        if (sizeof($visibility) > 0) {
+            $base = array_merge($base, ["conditions" => $visibility]);
+        }
 
         if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
             $base = array_merge($base, ["databindings" => $databindings]);

@@ -52,6 +52,13 @@ class FormVersionResource extends Resource
             'javascript' => 'JavaScript',
         ];
 
+        $conditionalOptions = [
+            'visibility' => 'Visibility',
+            'calculatedValue' => 'Calculated Value',
+            'saveOnSubmit' => 'Save on Submit',
+            'readOnly' => 'Read Only',
+        ];
+
         return $form
             ->schema([
                 Select::make('form_id')
@@ -297,9 +304,21 @@ class FormVersionResource extends Resource
                                         TextInput::make('error_message')
                                             ->label('Error Message'),
                                     ]),
-                                Textarea::make('conditional_logic')
-                                    ->label("Custom Conditional Logic")
-                                    ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
+                                Repeater::make('conditionals')
+                                    ->label('Conditionals')
+                                    ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->defaultItems(0)
+                                    ->schema([
+                                        Select::make('type')
+                                            ->label('Conditional Type')
+                                            ->options($conditionalOptions)
+                                            ->reactive()
+                                            ->required(),
+                                        TextInput::make('value')
+                                            ->label('Value'),
+                                    ]),
                             ])
                             ->visible(fn($get) => $get('component_type') === 'form_field'),
                         Section::make() // Field group settings
@@ -327,11 +346,11 @@ class FormVersionResource extends Resource
                                                     'label' => $field->label,
                                                     'data_binding_path' => $field->data_binding_path,
                                                     'data_binding' => $field->data_binding,
-                                                    'conditional_logic' => $field->conditional_logic,
                                                     'help_text' => $field->help_text,
                                                     'styles' => $field->styles,
                                                     'mask' => $field->mask,
                                                     'validations' => [],
+                                                    'conditionals' => [],
                                                     'instance_id' => 'nestedField' . $index + 1,
                                                 ];
                                             })->toArray();
@@ -379,6 +398,8 @@ class FormVersionResource extends Resource
                                             ->options(FormDataSource::pluck('name', 'name'))
                                             ->visible(fn($get) => $get('customize_data_binding_path')),
                                     ]),
+                                TextInput::make('visibility')
+                                    ->label('Visibility'),
                                 Repeater::make('form_fields')
                                     ->label('Form Fields in Group')
                                     ->reorderable()
@@ -553,9 +574,21 @@ class FormVersionResource extends Resource
                                                 TextInput::make('error_message')
                                                     ->label('Error Message'),
                                             ]),
-                                        Textarea::make('conditional_logic')
-                                            ->label("Custom Conditional Logic")
-                                            ->placeholder(fn($get) => FormField::find($get('form_field_id'))->conditional_logic ?? null),
+                                        Repeater::make('conditionals')
+                                            ->label('Conditionals')
+                                            ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
+                                            ->collapsible()
+                                            ->collapsed()
+                                            ->defaultItems(0)
+                                            ->schema([
+                                                Select::make('type')
+                                                    ->label('Conditional Type')
+                                                    ->options($conditionalOptions)
+                                                    ->reactive()
+                                                    ->required(),
+                                                TextInput::make('value')
+                                                    ->label('Value'),
+                                            ]),
                                     ])
                                     ->columns(1),
                             ])
@@ -654,7 +687,14 @@ class FormVersionResource extends Resource
                                 $newValidation->form_instance_field_id = $newField->id;
                                 $newValidation->save();
                             }
+
+                            foreach ($field->conditionals as $conditional) {
+                                $newConditional = $conditional->replicate();
+                                $newConditional->form_instance_field_id = $newField->id;
+                                $newConditional->save();
+                            }
                         }
+
                         foreach ($record->fieldGroupInstances as $groupInstance) {
                             $newGroupInstance = $groupInstance->replicate();
                             $newGroupInstance->form_version_id = $newVersion->id;
@@ -670,6 +710,12 @@ class FormVersionResource extends Resource
                                     $newValidation = $validation->replicate();
                                     $newValidation->form_instance_field_id = $newField->id;
                                     $newValidation->save();
+                                }
+
+                                foreach ($field->conditionals as $conditional) {
+                                    $newConditional = $conditional->replicate();
+                                    $newConditional->form_instance_field_id = $newField->id;
+                                    $newConditional->save();
                                 }
                             }
                         }
