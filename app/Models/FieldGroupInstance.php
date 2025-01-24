@@ -18,6 +18,7 @@ class FieldGroupInstance extends Model
         'repeater',
         'custom_data_binding_path',
         'custom_data_binding',
+        'visibility',
         'order',
         'instance_id',
 
@@ -36,10 +37,5 @@ class FieldGroupInstance extends Model
     public function formInstanceFields(): HasMany
     {
         return $this->hasMany(FormInstanceField::class);
-    }
-
-    public function conditionals(): HasMany
-    {
-        return $this->hasMany(FieldGroupInstanceConditionals::class);
     }
 }

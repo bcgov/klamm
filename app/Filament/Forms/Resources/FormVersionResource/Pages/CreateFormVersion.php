@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
-use App\Models\FieldGroupInstanceConditionals;
 use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
@@ -124,17 +123,9 @@ class CreateFormVersion extends CreateRecord
                     'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
                     'data_binding' => $component['data_binding'] ?? null,
                     'custom_data_binding' => $component['custom_data_binding'] ?? null,
+                    'visibility' => $component['visibility'] ?? null,
                     'instance_id' => $component['instance_id'] ?? null,
                 ]);
-
-                $groupConditionals = $component['group_conditionals'] ?? [];
-                foreach ($groupConditionals as $conditionalData) {
-                    FieldGroupInstanceConditionals::create([
-                        'field_group_instance_id' => $fieldGroupInstance->id,
-                        'type' => $conditionalData['type'],
-                        'value' => $conditionalData['value'] ?? null,
-                    ]);
-                }
 
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $fieldData) {

@@ -18,12 +18,8 @@ return new class extends Migration
             $table->string('value')->nullable();
             $table->timestamps();
         });
-        Schema::create('field_group_instance_conditionals', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('field_group_instance_id')->constrained()->onDelete('cascade');
-            $table->string('type');
-            $table->string('value')->nullable();
-            $table->timestamps();
+        Schema::table('field_group_instances', function ($table) {
+            $table->string('visibility')->nullable();
         });
         Schema::table('form_fields', function ($table) {
             $table->dropColumn('conditional_logic');
@@ -39,7 +35,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('form_instance_field_conditionals');
-        Schema::dropIfExists('field_group_instance_conditionals');
+        Schema::table('field_group_instances', function ($table) {
+            $table->dropColumn('visibility');
+        });
         Schema::table('form_fields', function (Blueprint $table) {
             $table->string('conditional_logic')->nullable();
         });

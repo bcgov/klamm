@@ -9,7 +9,6 @@ use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
-use App\Models\FieldGroupInstanceConditionals;
 use App\Models\FormField;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldConditionals;
@@ -106,20 +105,9 @@ class EditFormVersion extends EditRecord
                     'repeater' => $component['repeater'] ?? false,
                     'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
                     'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
+                    'visibility' => $component['visibility'] ? $component['visibility'] : null,
                     'instance_id' => $component['instance_id'] ?? null,
                 ]);
-
-                $fieldGroups = $this->record->fieldGroupInstances()->get();
-                foreach ($fieldGroups as $fieldGroupInstance) {
-                    $fieldGroupInstanceConditional = $component['group_conditionals'] ?? [];
-                    foreach ($fieldGroupInstanceConditional as $conditionalData) {
-                        FieldGroupInstanceConditionals::create([
-                            'field_group_instance_id' => $fieldGroupInstance->id,
-                            'type' => $conditionalData['type'],
-                            'value' => $conditionalData['value'],
-                        ]);
-                    }
-                }
 
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $fieldData) {
@@ -235,14 +223,6 @@ class EditFormVersion extends EditRecord
         foreach ($fieldGroups as $group) {
             $groupFields = $group->formInstanceFields()->orderBy('order')->get();
 
-            $groupConditionals = [];
-            foreach ($group->conditionals as $conditional) {
-                $groupConditionals[] = [
-                    'type' => $conditional->type,
-                    'value' => $conditional->value,
-                ];
-            }
-
             $formFieldsData = [];
             foreach ($groupFields as $field) {
                 $validations = [];
@@ -302,7 +282,7 @@ class EditFormVersion extends EditRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
-                'group_conditionals' => $groupConditionals,
+                'visibility' => $group->visibility,
             ];
         }
 

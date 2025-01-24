@@ -194,12 +194,15 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
 
-        $conditional = $groupInstance->conditionals->map(function ($conditional) {
-            return [
-                'type' => $conditional->type,
-                'value' => $conditional->value,
+        $visibility = [];
+        if ($groupInstance->visibility) {
+            $visibility = [
+                [
+                    'type' => 'visibility',
+                    'value' => $groupInstance->visibility,
+                ],
             ];
-        })->toArray();
+        }
 
         $fields = $fieldsInGroup->map(function ($fieldInstance, $fieldIndex) {
             return self::formatField($fieldInstance, $fieldIndex + 1);
@@ -221,8 +224,8 @@ class FormTemplateHelper
             ],
         ];
 
-        if (sizeof($conditional) > 0) {
-            $base = array_merge($base, ["conditions" => $conditional]);
+        if (sizeof($visibility) > 0) {
+            $base = array_merge($base, ["conditions" => $visibility]);
         }
 
         if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {

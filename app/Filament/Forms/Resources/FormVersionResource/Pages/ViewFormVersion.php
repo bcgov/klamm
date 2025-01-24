@@ -86,14 +86,6 @@ class ViewFormVersion extends ViewRecord
         foreach ($fieldGroups as $group) {
             $groupFields = $group->formInstanceFields()->orderBy('order')->get();
 
-            $groupConditionals = [];
-            foreach ($group->conditionals as $conditional) {
-                $groupConditionals[] = [
-                    'type' => $conditional->type,
-                    'value' => $conditional->value,
-                ];
-            }
-
             $formFieldsData = [];
             foreach ($groupFields as $field) {
                 $validations = [];
@@ -158,7 +150,7 @@ class ViewFormVersion extends ViewRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
-                'group_conditionals' => $groupConditionals,
+                'visibility' => $group->visibility,
             ];
         }
 

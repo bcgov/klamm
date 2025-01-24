@@ -398,21 +398,8 @@ class FormVersionResource extends Resource
                                             ->options(FormDataSource::pluck('name', 'name'))
                                             ->visible(fn($get) => $get('customize_data_binding_path')),
                                     ]),
-                                Repeater::make('group_conditionals')
-                                    ->label('Conditionals')
-                                    ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
-                                    ->collapsible()
-                                    ->collapsed()
-                                    ->defaultItems(0)
-                                    ->schema([
-                                        Select::make('type')
-                                            ->label('Conditional Type')
-                                            ->options($conditionalOptions)
-                                            ->reactive()
-                                            ->required(),
-                                        TextInput::make('value')
-                                            ->label('Value'),
-                                    ]),
+                                TextInput::make('visibility')
+                                    ->label('Visibility'),
                                 Repeater::make('form_fields')
                                     ->label('Form Fields in Group')
                                     ->reorderable()
