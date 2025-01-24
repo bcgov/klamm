@@ -247,7 +247,7 @@ class EditFormVersion extends EditRecord
                     'form_field_id' => $field->form_field_id,
                     'label' => $field->label,
                     'custom_label' => $field->custom_label ?? $formField->label,
-                    'customize_label' => $field->custom_label ?? null,
+                    'customize_label' => $field->customize_label ?? null,
                     'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
                     'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
                     'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
