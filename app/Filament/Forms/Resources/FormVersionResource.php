@@ -352,6 +352,7 @@ class FormVersionResource extends Resource
                                                     'validations' => [],
                                                     'conditionals' => [],
                                                     'instance_id' => 'nestedField' . $index + 1,
+                                                    'customize_label' => 'default',
                                                 ];
                                             })->toArray();
                                             $set('form_fields', $formFields);
