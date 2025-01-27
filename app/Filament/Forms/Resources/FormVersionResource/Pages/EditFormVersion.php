@@ -58,7 +58,7 @@ class EditFormVersion extends EditRecord
                     'form_version_id' => $formVersion->id,
                     'form_field_id' => $component['form_field_id'],
                     'order' => $order,
-                    'custom_label' => $component['customize_label'] == 'customize' ? $component['custom_label'] : null,
+                    'custom_label' => $component['customize_label'] === 'customize' ? $component['custom_label'] : null,
                     'customize_label' => $component['customize_label'] ?? null,
                     'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
                     'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
@@ -194,7 +194,7 @@ class EditFormVersion extends EditRecord
             $components[] = [
                 'component_type' => 'form_field',
                 'form_field_id' => $field->form_field_id,
-                'custom_label' => $field->custom_label ?? $formField->label,
+                'custom_label' => $field->custom_label ?? null,
                 'customize_label' => $field->customize_label ?? null,
                 'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
                 'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
@@ -246,7 +246,7 @@ class EditFormVersion extends EditRecord
                 $formFieldsData[] = [
                     'form_field_id' => $field->form_field_id,
                     'label' => $field->label,
-                    'custom_label' => $field->custom_label ?? $formField->label,
+                    'custom_label' => $field->custom_label ?? null,
                     'customize_label' => $field->customize_label ?? null,
                     'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
                     'customize_data_binding_path' => $field->custom_data_binding_path ?? null,

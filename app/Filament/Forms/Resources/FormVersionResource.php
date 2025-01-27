@@ -118,20 +118,31 @@ class FormVersionResource extends Resource
                     ->cloneable()
                     ->collapsible()
                     ->collapsed(true)
+                    ->live()
                     ->itemLabel(function ($state) {
                         if ($state['component_type'] === 'form_field') {
                             $field = FormField::find($state['form_field_id']) ?: null;
-                            $field ? $label = ($state['custom_label'] ?: ($field->label ?? ''))
-                                . ' - ' . $field->dataType->short_description
-                                . ' (' . ($field->name ?? '') . ')'
-                                : $label =  'New Field';
-                            return $label;
+                            if ($field) {
+                                $label = '';
+                                if ($state['customize_label'] !== 'hide') {
+                                    $label .= ($state['custom_label'] ?? $field->label ?? 'null') . ' | ';
+                                } else {
+                                    $label .= '(label hidden) | ';
+                                }
+                                $label .= ($field->dataType->name ?? '')
+                                    . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                                return $label;
+                            }
+                            return 'New Field';
                         } elseif ($state['component_type'] === 'field_group') {
                             $group = FieldGroup::find($state['field_group_id']);
-                            $group ? $label = ($state['group_label'] ?: ($group->label ?? ''))
-                                . ' (' . ($group->name ?? '') . ')'
-                                : $label = 'New Group';
-                            return $label;
+                            if ($group) {
+                                $label = ($state['group_label'] ?? $group->label ?? '(no label)')
+                                    . ' | group '
+                                    . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                                return $label;
+                            }
+                            return 'New Group';
                         }
                         return 'Component';
                     })
@@ -154,13 +165,14 @@ class FormVersionResource extends Resource
                                         foreach ($options as $id => $option) {
                                             $field = FormField::find($id) ?: null;
                                             $options[$id] = $option
-                                                . ' - ' . $field->dataType->short_description
-                                                . ' (' . ($field->name ?? '') . ')';
+                                                . ' | ' . $field->dataType->name
+                                                . ' | name: ' . ($field->name ?? '');
                                         }
                                         return $options;
                                     })
                                     ->searchable()
-                                    ->required(),
+                                    ->required()
+                                    ->reactive(),
                                 Fieldset::make('Field Value')
                                     ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
                                     ->columns(1)
@@ -262,9 +274,15 @@ class FormVersionResource extends Resource
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
-                                            ->live(),
+                                            ->live()
+                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                if ($state !== 'customize') {
+                                                    $set('custom_label', null);
+                                                }
+                                            }),
                                         TextInput::make('custom_label')
                                             ->label(false)
+                                            ->reactive()
                                             ->visible(fn($get) => $get('customize_label') == 'customize'),
                                     ]),
                                 Fieldset::make('Instance ID')
@@ -330,7 +348,7 @@ class FormVersionResource extends Resource
                                         // Compose option labels
                                         $options = FieldGroup::pluck('label', 'id');
                                         foreach ($options as $id => $option) {
-                                            $options[$id] = $option . ' (' . (FieldGroup::find($id)->name ?? '') . ')';
+                                            $options[$id] = ($option ?? '(no label)') . ' | group | name: ' . (FieldGroup::find($id)->name ?? '');
                                         }
                                         return $options;
                                     })
@@ -407,13 +425,21 @@ class FormVersionResource extends Resource
                                     ->cloneable()
                                     ->collapsible()
                                     ->collapsed()
+                                    ->live()
                                     ->itemLabel(function ($state) {
                                         $field = FormField::find($state['form_field_id']) ?: null;
-                                        $field ? $label = ($state['label'] ?: ($field->label ?? 'New Field'))
-                                            . ' - ' . $field->dataType->short_description
-                                            . ' (' . ($field->name ?? 'empty') . ')'
-                                            : $label =  'New Field';
-                                        return $label;
+                                        if ($field) {
+                                            $label = '';
+                                            if ($state['customize_label'] !== 'hide') {
+                                                $label .= ($state['custom_label'] ?? $field->label ?? '') . ' | ';
+                                            } else {
+                                                $label .= '(label hidden) | ';
+                                            }
+                                            $label .= ($field->dataType->name ?? '')
+                                                . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                                            return $label;
+                                        }
+                                        return 'New Field';
                                     })
                                     ->defaultItems(0)
                                     ->schema([
@@ -425,13 +451,14 @@ class FormVersionResource extends Resource
                                                 foreach ($options as $id => $option) {
                                                     $field = FormField::find($id) ?: null;
                                                     $options[$id] = $option
-                                                        . ' - ' . $field->dataType->short_description
-                                                        . ' (' . ($field->name ?? '') . ')';
+                                                        . ' | ' . $field->dataType->name
+                                                        . ' | name: ' . ($field->name ?? '');
                                                 }
                                                 return $options;
                                             })
                                             ->searchable()
-                                            ->required(),
+                                            ->required()
+                                            ->reactive(),
                                         Fieldset::make('Field Value')
                                             ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
                                             ->columns(1)
@@ -533,9 +560,15 @@ class FormVersionResource extends Resource
                                                     ->default('default')
                                                     ->inline()
                                                     ->inlineLabel(false)
-                                                    ->live(),
+                                                    ->live()
+                                                    ->afterStateUpdated(function ($state, callable $set) {
+                                                        if ($state !== 'customize') {
+                                                            $set('custom_label', null);
+                                                        }
+                                                    }),
                                                 TextInput::make('custom_label')
                                                     ->label(false)
+                                                    ->reactive()
                                                     ->visible(fn($get) => $get('customize_label') == 'customize'),
                                             ]),
                                         Fieldset::make('Instance ID')
