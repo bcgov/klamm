@@ -195,8 +195,6 @@ class EditFormVersion extends EditRecord
                 'component_type' => 'form_field',
                 'form_field_id' => $field->form_field_id,
                 'custom_label' => $field->custom_label ?? null,
-                // 'custom_label' => $field->customize_label === 'customize' ? $field->custom_label : null,
-                // 'custom_label' => $component['customize_label'] === 'customize' ? $component['custom_label'] : null,
                 'customize_label' => $field->customize_label ?? null,
                 'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
                 'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
