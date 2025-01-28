@@ -143,6 +143,8 @@ class ViewFormVersion extends ViewRecord
                 'field_group_id' => $group->field_group_id,
                 'group_label' => $group->label,
                 'repeater' => $group->repeater,
+                'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
+                'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
                 'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
                 'customize_data_binding_path' => $group->custom_data_binding_path ?? null,
                 'custom_data_binding' => $group->custom_data_binding ?? $fieldGroup->data_binding,

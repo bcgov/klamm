@@ -387,7 +387,22 @@ class FormVersionResource extends Resource
                                     ->reactive()
                                     ->distinct(),
                                 Toggle::make('repeater')
-                                    ->label('Repeater'),
+                                    ->label('Repeater')
+                                    ->live(),
+                                Fieldset::make('Repeater Item Label')
+                                    ->visible(fn($get) => $get('repeater'))
+                                    ->schema([
+                                        Placeholder::make('repeater_item_label')
+                                            ->label("Default")
+                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->repeater_item_label ?? 'null'),
+                                        Checkbox::make('customize_repeater_item_label')
+                                            ->label('Customize Repeater Item Label')
+                                            ->inline()
+                                            ->live(),
+                                        TextInput::make('custom_repeater_item_label')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_repeater_item_label')),
+                                    ]),
                                 Fieldset::make('Data Binding')
                                     ->columns(1)
                                     ->schema([

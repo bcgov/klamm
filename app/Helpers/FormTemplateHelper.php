@@ -224,6 +224,11 @@ class FormTemplateHelper
             ],
         ];
 
+        if ($groupInstance->repeater) {
+            $label = $groupInstance->custom_repeater_item_label ?? $groupInstance->fieldGroup->repeater_item_label;
+            $base = array_merge($base, ["repeaterItemLabel" => $label]);
+        }
+
         if (sizeof($visibility) > 0) {
             $base = array_merge($base, ["conditions" => $visibility]);
         }
