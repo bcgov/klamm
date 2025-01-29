@@ -125,6 +125,7 @@ class CreateFormVersion extends CreateRecord
                     'custom_data_binding' => $component['custom_data_binding'] ?? null,
                     'visibility' => $component['visibility'] ?? null,
                     'instance_id' => $component['instance_id'] ?? null,
+                    'custom_instance_id' => $component['custom_instance_id'] ?? null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];

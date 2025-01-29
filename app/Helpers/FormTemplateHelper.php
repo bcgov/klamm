@@ -226,7 +226,7 @@ class FormTemplateHelper
         $base = [
             "type" => "group",
             "label" => $label,
-            "id" => $groupInstance->instance_id,
+            "id" => $groupInstance->custom_instance_id ?? $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [

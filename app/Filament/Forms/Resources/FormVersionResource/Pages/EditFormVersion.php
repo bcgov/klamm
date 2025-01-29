@@ -109,6 +109,7 @@ class EditFormVersion extends EditRecord
                     'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
                     'visibility' => $component['visibility'] ? $component['visibility'] : null,
                     'instance_id' => $component['instance_id'] ?? null,
+                    'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -287,6 +288,8 @@ class EditFormVersion extends EditRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
+                'custom_instance_id' => $group->custom_instance_id,
+                'customize_instance_id' => $group->custom_instance_id,
                 'visibility' => $group->visibility,
             ];
         }

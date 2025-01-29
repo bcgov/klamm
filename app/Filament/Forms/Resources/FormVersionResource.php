@@ -382,16 +382,26 @@ class FormVersionResource extends Resource
                                             $set('form_fields', $formFields);
                                         }
                                     }),
-                                TextInput::make('instance_id')
-                                    ->label("ID")
-                                    ->default(fn($get) =>  \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))) // Set the sequential default value
-                                    ->required()
-                                    ->alphanum()
-                                    ->reactive()
-                                    ->distinct(),
-                                Toggle::make('repeater')
-                                    ->label('Repeater')
-                                    ->live(),
+                                Fieldset::make('Instance ID')
+                                    ->columns(1)
+                                    ->schema([
+                                        Placeholder::make('instance_id_placeholder') // used to view value in builder
+                                            ->label("Default")
+                                            ->content(fn($get) => $get('instance_id')), // Set the sequential default value
+                                        Hidden::make('instance_id') // used to populate value in template 
+                                            ->hidden()
+                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
+                                        Checkbox::make('customize_instance_id')
+                                            ->label('Customize Instance ID')
+                                            ->inline()
+                                            ->live(),
+                                        TextInput::make('custom_instance_id')
+                                            ->label(false)
+                                            ->alphanum()
+                                            ->reactive()
+                                            ->distinct()
+                                            ->visible(fn($get) => $get('customize_instance_id')),
+                                    ]),
                                 Fieldset::make('Group Label')
                                     ->schema([
                                         Placeholder::make('group_label')
@@ -416,6 +426,9 @@ class FormVersionResource extends Resource
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_group_label') == 'customize'),
                                     ]),
+                                Toggle::make('repeater')
+                                    ->label('Repeater')
+                                    ->live(),
                                 Fieldset::make('Repeater Item Label')
                                     ->visible(fn($get) => $get('repeater'))
                                     ->schema([

@@ -153,6 +153,8 @@ class ViewFormVersion extends ViewRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
+                'custom_instance_id' => $group->custom_instance_id,
+                'customize_instance_id' => $group->custom_instance_id,
                 'visibility' => $group->visibility,
             ];
         }

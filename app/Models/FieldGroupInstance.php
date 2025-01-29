@@ -23,6 +23,7 @@ class FieldGroupInstance extends Model
         'visibility',
         'order',
         'instance_id',
+        'custom_instance_id',
 
     ];
 
