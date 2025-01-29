@@ -13,6 +13,40 @@ class ErrorDataGroupSeeder extends Seeder
      */
     public function run(): void
     {
-        ErrorDataGroup::insert([['name' => 'Admission'],    ['name' => 'BusPassAttachments'],    ['name' => 'BusPassRefunds'],    ['name' => 'BusPassSticker'],    ['name' => 'BusPassTransLink'],    ['name' => 'Case Information'],    ['name' => 'CaseAddress'],    ['name' => 'CaseBenefitPlan'],    ['name' => 'CaseBenefitRecalc'],    ['name' => 'CaseClientBankInformation'],    ['name' => 'CaseContactEligibility'],    ['name' => 'CaseExpenses'],    ['name' => 'CaselAInformation'],    ['name' => 'CaseOrderRecalc'],    ['name' => 'CasePlan'],    ['name' => 'CasePositiveReport'],    ['name' => 'CaseServiceOrder'],    ['name' => 'CaseSignalCheque'],    ['name' => 'CFMS Case'],    ['name' => 'Contact Attachment'],    ['name' => 'ContactAboriginal'],    ['name' => 'ContactCaseAssets'],    ['name' => 'ContactCaselncome'],    ['name' => 'ContactCPA'],    ['name' => 'ContactImmigration'],    ['name' => 'ContactMerge'],    ['name' => 'ContactSanctionAdd'],    ['name' => 'ContactSanctionResolve'],    ['name' => 'ContactTombstone'],    ['name' => 'ExtendedHealthCoverage'],    ['name' => 'MSPCoverage'],    ['name' => 'RequestToCRA'],    ['name' => 'SeniorSupplementPayments'],]);
+        ErrorDataGroup::insert([
+            ['name' => 'Admission'],
+            ['name' => 'BusPassAttachments'],
+            ['name' => 'BusPassRefunds'],
+            ['name' => 'BusPassSticker'],
+            ['name' => 'BusPassTransLink'],
+            ['name' => 'Case Information'],
+            ['name' => 'CaseAddress'],
+            ['name' => 'CaseBenefitPlan'],
+            ['name' => 'CaseBenefitRecalc'],
+            ['name' => 'CaseClientBankInformation'],
+            ['name' => 'CaseContactEligibility'],
+            ['name' => 'CaseExpenses'],
+            ['name' => 'CaseIAInformation'],
+            ['name' => 'CaseOrderRecalc'],
+            ['name' => 'CasePlan'],
+            ['name' => 'CasePositiveReport'],
+            ['name' => 'CaseServiceOrder'],
+            ['name' => 'CaseSignalCheque'],
+            ['name' => 'CFMS Case'],
+            ['name' => 'Contact Attachment'],
+            ['name' => 'ContactAboriginal'],
+            ['name' => 'ContactCaseAssets'],
+            ['name' => 'ContactCaseIncome'],
+            ['name' => 'ContactCPA'],
+            ['name' => 'ContactImmigration'],
+            ['name' => 'ContactMerge'],
+            ['name' => 'ContactSanctionAdd'],
+            ['name' => 'ContactSanctionResolve'],
+            ['name' => 'ContactTombstone'],
+            ['name' => 'ExtendedHealthCoverage'],
+            ['name' => 'MSPCoverage'],
+            ['name' => 'RequestToCRA'],
+            ['name' => 'SeniorSupplementPayments'],
+        ]);
     }
 }
