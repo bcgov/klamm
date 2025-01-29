@@ -22,13 +22,15 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Builder;
+use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-
+use Filament\Support\Enums\Alignment;
 
 class FormVersionResource extends Resource
 {
@@ -112,58 +114,39 @@ class FormVersionResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('formDataSources', 'name'),
-                Repeater::make('components')
+                Builder::make('components')
                     ->label('Form Components')
-                    ->reorderable()
-                    ->cloneable()
+                    ->addBetweenActionLabel('Insert between elements')
+                    ->columnSpan(2)
                     ->collapsible()
                     ->collapsed(true)
-                    ->live()
-                    ->itemLabel(function ($state) {
-                        if ($state['component_type'] === 'form_field') {
-                            $field = FormField::find($state['form_field_id']) ?: null;
-                            if ($field) {
-                                $label = '';
-                                if ($state['customize_label'] !== 'hide') {
-                                    $label .= ($state['custom_label'] ?? $field->label ?? 'null') . ' | ';
-                                } else {
-                                    $label .= '(label hidden) | ';
+                    ->blockNumbers(false)
+                    ->cloneable()
+                    ->blocks([
+                        Block::make('form_field')
+                            ->label(function (?array $state): string {
+                                if ($state === null) {
+                                    return 'Field';
                                 }
-                                $label .= ($field->dataType->name ?? '')
-                                    . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
-                                return $label;
-                            }
-                            return 'New Field';
-                        } elseif ($state['component_type'] === 'field_group') {
-                            $group = FieldGroup::find($state['field_group_id']);
-                            if ($group) {
-                                $label = '';
-                                if ($state['customize_group_label'] !== 'hide') {
-                                    $label .= ($state['custom_group_label'] ?? $group->label ?? '(no label)') . ' | ';
-                                } else {
-                                    $label .= '(label hidden) | ';
+                                $field = FormField::find($state['form_field_id']) ?: null;
+                                if ($field) {
+                                    $label = '';
+                                    if ($state['customize_label'] !== 'hide') {
+                                        $label .= ($state['custom_label'] ?? $field->label ?? 'null') . ' | ';
+                                    } else {
+                                        $label .= '(label hidden) | ';
+                                    }
+                                    $label .= ($field->dataType->name ?? '')
+                                        . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                                    return $label;
                                 }
-                                $label .= ' group '
-                                    . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
-                                return $label;
-                            }
-                            return 'New Group';
-                        }
-                        return 'Component';
-                    })
-                    ->schema([
-                        Select::make('component_type')
-                            ->options([
-                                'form_field' => 'Form Field',
-                                'field_group' => 'Field Group',
-                            ])
-                            ->reactive()
-                            ->required(),
-                        Section::make() // Form field settings
-                            ->live()
+                                return 'New Field';
+                            })
+                            ->icon('heroicon-o-stop')
                             ->schema([
                                 Select::make('form_field_id')
                                     ->label('Form Field')
+                                    ->live()
                                     ->options(function () {
                                         // Compose option labels
                                         $options = FormField::pluck('label', 'id');
@@ -316,6 +299,7 @@ class FormVersionResource extends Resource
                                     ->collapsible()
                                     ->collapsed()
                                     ->defaultItems(0)
+                                    ->addActionAlignment(Alignment::Start)
                                     ->schema([
                                         Select::make('type')
                                             ->label('Validation Type')
@@ -333,6 +317,7 @@ class FormVersionResource extends Resource
                                     ->collapsible()
                                     ->collapsed()
                                     ->defaultItems(0)
+                                    ->addActionAlignment(Alignment::Start)
                                     ->schema([
                                         Select::make('type')
                                             ->label('Conditional Type')
@@ -342,10 +327,22 @@ class FormVersionResource extends Resource
                                         TextInput::make('value')
                                             ->label('Value'),
                                     ]),
-                            ])
-                            ->visible(fn($get) => $get('component_type') === 'form_field'),
-                        Section::make() // Field group settings
-                            ->live()
+                            ]),
+                        Block::make('field_group')
+                            ->label(function (?array $state): string {
+                                if ($state === null) {
+                                    return 'Group';
+                                }
+                                $group = FieldGroup::find($state['field_group_id']);
+                                if ($group) {
+                                    $label = ($state['group_label'] ?? $group->label ?? '(no label)')
+                                        . ' | group '
+                                        . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                                    return $label;
+                                }
+                                return 'New Group';
+                            })
+                            ->icon('heroicon-o-square-2-stack')
                             ->schema([
                                 Select::make('field_group_id')
                                     ->label('Field Group')
@@ -390,7 +387,7 @@ class FormVersionResource extends Resource
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
                                         Hidden::make('instance_id') // used to populate value in template 
                                             ->hidden()
-                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
+                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
                                         Checkbox::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()
@@ -474,217 +471,223 @@ class FormVersionResource extends Resource
                                     ]),
                                 TextInput::make('visibility')
                                     ->label('Visibility'),
-                                Repeater::make('form_fields')
+                                Builder::make('form_fields')
                                     ->label('Form Fields in Group')
-                                    ->reorderable()
-                                    ->cloneable()
+                                    ->addBetweenActionLabel('Insert between fields')
                                     ->collapsible()
-                                    ->collapsed()
-                                    ->live()
-                                    ->itemLabel(function ($state) {
-                                        $field = FormField::find($state['form_field_id']) ?: null;
-                                        if ($field) {
-                                            $label = '';
-                                            if ($state['customize_label'] !== 'hide') {
-                                                $label .= ($state['custom_label'] ?? $field->label ?? '') . ' | ';
-                                            } else {
-                                                $label .= '(label hidden) | ';
-                                            }
-                                            $label .= ($field->dataType->name ?? '')
-                                                . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
-                                            return $label;
-                                        }
-                                        return 'New Field';
-                                    })
-                                    ->defaultItems(0)
-                                    ->schema([
-                                        Select::make('form_field_id')
-                                            ->label('Form Field')
-                                            ->options(function ($state) {
-                                                // Compose option labels
-                                                $options = FormField::pluck('label', 'id');
-                                                foreach ($options as $id => $option) {
-                                                    $field = FormField::find($id) ?: null;
-                                                    $options[$id] = $option
-                                                        . ' | ' . $field->dataType->name
-                                                        . ' | name: ' . ($field->name ?? '');
+                                    ->collapsed(true)
+                                    ->blockNumbers(false)
+                                    ->columnSpan(2)
+                                    ->cloneable()
+                                    ->blocks([
+                                        Block::make('form_field')
+                                            ->label(function (?array $state): string {
+                                                if ($state === null) {
+                                                    return 'Field';
                                                 }
-                                                return $options;
+                                                $field = FormField::find($state['form_field_id']) ?: null;
+                                                if ($field) {
+                                                    $label = '';
+                                                    if ($state['customize_label'] !== 'hide') {
+                                                        $label .= ($state['custom_label'] ?? $field->label ?? 'null') . ' | ';
+                                                    } else {
+                                                        $label .= '(label hidden) | ';
+                                                    }
+                                                    $label .= ($field->dataType->name ?? '')
+                                                        . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                                                    return $label;
+                                                }
+                                                return 'New Field';
                                             })
-                                            ->searchable()
-                                            ->required()
-                                            ->reactive(),
-                                        Fieldset::make('Field Value')
-                                            ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
-                                            ->columns(1)
+                                            ->icon('heroicon-o-stop')
                                             ->schema([
-                                                Placeholder::make('field_value')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? 'null'),
-                                                Checkbox::make('customize_field_value')
-                                                    ->label('Customize Field Value')
-                                                    ->inline()
-                                                    ->live(),
-                                                TextInput::make('custom_field_value')
-                                                    ->label(false)
-                                                    ->visible(fn($get) => $get('customize_field_value')),
-                                            ]),
-                                        Fieldset::make('Data Binding')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('data_binding')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
-                                                Checkbox::make('customize_data_binding')
-                                                    ->label('Customize Data Binding')
-                                                    ->inline()
-                                                    ->live(),
-                                                Textarea::make('custom_data_binding')
-                                                    ->label(false)
-                                                    ->visible(fn($get) => $get('customize_data_binding')),
-                                            ]),
-                                        Fieldset::make('Data Source')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('data_binding_path')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
-                                                Checkbox::make('customize_data_binding_path')
-                                                    ->label('Customize Data Source')
-                                                    ->inline()
-                                                    ->live(),
-                                                Select::make('custom_data_binding_path')
-                                                    ->label(false)
-                                                    ->options(FormDataSource::pluck('name', 'name'))
-                                                    ->visible(fn($get) => $get('customize_data_binding_path')),
-                                            ]),
-                                        Fieldset::make('Styles')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('styles')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->styles ?? 'null'),
-                                                Checkbox::make('customize_styles')
-                                                    ->label('Customize Styles')
-                                                    ->inline()
-                                                    ->live(),
-                                                Textarea::make('custom_styles')
-                                                    ->label(false)
-                                                    ->visible(fn($get) => $get('customize_styles')),
-                                            ]),
-                                        Fieldset::make('Mask')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('mask')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->mask ?? 'null'),
-                                                Checkbox::make('customize_mask')
-                                                    ->label('Customize Mask')
-                                                    ->inline()
-                                                    ->live(),
-                                                TextInput::make('custom_mask')
-                                                    ->label(false)
-                                                    ->visible(fn($get) => $get('customize_mask')),
-                                            ]),
-                                        Fieldset::make('Help Text')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('help_text')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->help_text ?? 'null'),
-                                                Checkbox::make('customize_help_text')
-                                                    ->label('Customize Help text')
-                                                    ->inline()
-                                                    ->live(),
-                                                Textarea::make('custom_help_text')
-                                                    ->label(false)
-                                                    ->visible(fn($get) => $get('customize_help_text')),
-                                            ]),
-                                        Fieldset::make('Label')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('label')
-                                                    ->label("Default")
-                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
-                                                Radio::make('customize_label')
-                                                    ->options([
-                                                        'default' => 'Use Default',
-                                                        'hide' => 'Hide Label',
-                                                        'customize' => 'Customize Label'
-                                                    ])
-                                                    ->default('default')
-                                                    ->inline()
-                                                    ->inlineLabel(false)
+                                                Select::make('form_field_id')
+                                                    ->label('Form Field')
                                                     ->live()
-                                                    ->afterStateUpdated(function ($state, callable $set) {
-                                                        if ($state !== 'customize') {
-                                                            $set('custom_label', null);
+                                                    ->options(function () {
+                                                        // Compose option labels
+                                                        $options = FormField::pluck('label', 'id');
+                                                        foreach ($options as $id => $option) {
+                                                            $field = FormField::find($id) ?: null;
+                                                            $options[$id] = $option
+                                                                . ' | ' . $field->dataType->name
+                                                                . ' | name: ' . ($field->name ?? '');
                                                         }
-                                                    }),
-                                                TextInput::make('custom_label')
-                                                    ->label(false)
-                                                    ->reactive()
-                                                    ->visible(fn($get) => $get('customize_label') == 'customize'),
+                                                        return $options;
+                                                    })
+                                                    ->searchable()
+                                                    ->required()
+                                                    ->reactive(),
+                                                Fieldset::make('Field Value')
+                                                    ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('field_value')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? 'null'),
+                                                        Checkbox::make('customize_field_value')
+                                                            ->label('Customize Field Value')
+                                                            ->inline()
+                                                            ->live(),
+                                                        TextInput::make('custom_field_value')
+                                                            ->label(false)
+                                                            ->visible(fn($get) => $get('customize_field_value')),
+                                                    ]),
+                                                Fieldset::make('Data Binding')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('data_binding')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
+                                                        Checkbox::make('customize_data_binding')
+                                                            ->label('Customize Data Binding')
+                                                            ->inline()
+                                                            ->live(),
+                                                        Textarea::make('custom_data_binding')
+                                                            ->label(false)
+                                                            ->visible(fn($get) => $get('customize_data_binding')),
+                                                    ]),
+                                                Fieldset::make('Data Source')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('data_binding_path')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
+                                                        Checkbox::make('customize_data_binding_path')
+                                                            ->label('Customize Data Source')
+                                                            ->inline()
+                                                            ->live(),
+                                                        Select::make('custom_data_binding_path')
+                                                            ->label(false)
+                                                            ->options(FormDataSource::pluck('name', 'name'))
+                                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                                    ]),
+                                                Fieldset::make('Styles')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('styles')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->styles ?? 'null'),
+                                                        Checkbox::make('customize_styles')
+                                                            ->label('Customize Styles')
+                                                            ->inline()
+                                                            ->live(),
+                                                        Textarea::make('custom_styles')
+                                                            ->label(false)
+                                                            ->visible(fn($get) => $get('customize_styles')),
+                                                    ]),
+                                                Fieldset::make('Mask')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('mask')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->mask ?? 'null'),
+                                                        Checkbox::make('customize_mask')
+                                                            ->label('Customize Mask')
+                                                            ->inline()
+                                                            ->live(),
+                                                        TextInput::make('custom_mask')
+                                                            ->label(false)
+                                                            ->visible(fn($get) => $get('customize_mask')),
+                                                    ]),
+                                                Fieldset::make('Help Text')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('help_text')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->help_text ?? 'null'),
+                                                        Checkbox::make('customize_help_text')
+                                                            ->label('Customize Help text')
+                                                            ->inline()
+                                                            ->live(),
+                                                        Textarea::make('custom_help_text')
+                                                            ->label(false)
+                                                            ->visible(fn($get) => $get('customize_help_text')),
+                                                    ]),
+                                                Fieldset::make('Label')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('label')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
+                                                        Radio::make('customize_label')
+                                                            ->options([
+                                                                'default' => 'Use Default',
+                                                                'hide' => 'Hide Label',
+                                                                'customize' => 'Customize Label'
+                                                            ])
+                                                            ->default('default')
+                                                            ->inline()
+                                                            ->inlineLabel(false)
+                                                            ->live()
+                                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                                if ($state !== 'customize') {
+                                                                    $set('custom_label', null);
+                                                                }
+                                                            }),
+                                                        TextInput::make('custom_label')
+                                                            ->label(false)
+                                                            ->reactive()
+                                                            ->visible(fn($get) => $get('customize_label') == 'customize'),
+                                                    ]),
+                                                Fieldset::make('Instance ID')
+                                                    ->columns(1)
+                                                    ->schema([
+                                                        Placeholder::make('instance_id_placeholder') // used to view value in builder
+                                                            ->label("Default")
+                                                            ->content(fn($get) => $get('instance_id')), // Set the sequential default value
+                                                        Hidden::make('instance_id') // used to populate value in template 
+                                                            ->hidden()
+                                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
+                                                        Checkbox::make('customize_instance_id')
+                                                            ->label('Customize Instance ID')
+                                                            ->inline()
+                                                            ->live(),
+                                                        TextInput::make('custom_instance_id')
+                                                            ->label(false)
+                                                            ->alphanum()
+                                                            ->reactive()
+                                                            ->distinct()
+                                                            ->visible(fn($get) => $get('customize_instance_id')),
+                                                    ]),
+                                                Repeater::make('validations')
+                                                    ->label('Validations')
+                                                    ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
+                                                    ->collapsible()
+                                                    ->collapsed()
+                                                    ->defaultItems(0)
+                                                    ->addActionAlignment(Alignment::Start)
+                                                    ->schema([
+                                                        Select::make('type')
+                                                            ->label('Validation Type')
+                                                            ->options($validationOptions)
+                                                            ->reactive()
+                                                            ->required(),
+                                                        TextInput::make('value')
+                                                            ->label('Value'),
+                                                        TextInput::make('error_message')
+                                                            ->label('Error Message'),
+                                                    ]),
+                                                Repeater::make('conditionals')
+                                                    ->label('Conditionals')
+                                                    ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
+                                                    ->collapsible()
+                                                    ->collapsed()
+                                                    ->defaultItems(0)
+                                                    ->addActionAlignment(Alignment::Start)
+                                                    ->schema([
+                                                        Select::make('type')
+                                                            ->label('Conditional Type')
+                                                            ->options($conditionalOptions)
+                                                            ->reactive()
+                                                            ->required(),
+                                                        TextInput::make('value')
+                                                            ->label('Value'),
+                                                    ]),
                                             ]),
-                                        Fieldset::make('Instance ID')
-                                            ->columns(1)
-                                            ->schema([
-                                                Placeholder::make('instance_id_placeholder') // used to view value in builder
-                                                    ->label("Default")
-                                                    ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                                Hidden::make('instance_id') // used to populate value in template 
-                                                    ->hidden()
-                                                    ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
-                                                Checkbox::make('customize_instance_id')
-                                                    ->label('Customize Instance ID')
-                                                    ->inline()
-                                                    ->live(),
-                                                TextInput::make('custom_instance_id')
-                                                    ->label(false)
-                                                    ->alphanum()
-                                                    ->reactive()
-                                                    ->distinct()
-                                                    ->visible(fn($get) => $get('customize_instance_id')),
-                                            ]),
-                                        Repeater::make('validations')
-                                            ->label('Validations')
-                                            ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
-                                            ->collapsible()
-                                            ->collapsed()
-                                            ->defaultItems(0)
-                                            ->schema([
-                                                Select::make('type')
-                                                    ->label('Validation Type')
-                                                    ->options($validationOptions)
-                                                    ->reactive()
-                                                    ->required(),
-                                                TextInput::make('value')
-                                                    ->label('Value'),
-                                                TextInput::make('error_message')
-                                                    ->label('Error Message'),
-                                            ]),
-                                        Repeater::make('conditionals')
-                                            ->label('Conditionals')
-                                            ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
-                                            ->collapsible()
-                                            ->collapsed()
-                                            ->defaultItems(0)
-                                            ->schema([
-                                                Select::make('type')
-                                                    ->label('Conditional Type')
-                                                    ->options($conditionalOptions)
-                                                    ->reactive()
-                                                    ->required(),
-                                                TextInput::make('value')
-                                                    ->label('Value'),
-                                            ]),
-                                    ])
-                                    ->columns(1),
-                            ])
-                            ->visible(fn($get) => $get('component_type') === 'field_group'),
-                    ])
-                    ->addActionLabel('Add Form Field or Field Group')
-                    ->columnSpan(2),
+                                    ]),
+                            ]),
+                    ]),
                 Actions::make([
                     Action::make('Generate Form Template')
                         ->action(function (Get $get, Set $set) {

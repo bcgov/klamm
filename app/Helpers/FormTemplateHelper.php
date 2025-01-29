@@ -258,14 +258,13 @@ class FormTemplateHelper
 
     public static function calculateFieldID($state)
     {
-        $numOfComponents = count($state['components']);
+        $numOfComponents = count($state);
         return 'field' . $numOfComponents;
     }
 
     public static function calculateFieldInGroupID($state)
     {
-
-        $numOfFormFields = count($state['form_fields']);
+        $numOfFormFields = count($state);
         return 'nestedField' . $numOfFormFields;
     }
 }
