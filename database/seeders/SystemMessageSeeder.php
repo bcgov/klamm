@@ -17,6 +17,7 @@ class SystemMessageSeeder extends Seeder
             ErrorIntegrationStateSeeder::class,
             ErrorActorSeeder::class,
             ErrorSourceSeeder::class,
+            SystemMessagesTableSeeder::class,
         ]);
     }
 }
