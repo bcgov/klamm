@@ -137,8 +137,13 @@ class FormVersionResource extends Resource
                         } elseif ($state['component_type'] === 'field_group') {
                             $group = FieldGroup::find($state['field_group_id']);
                             if ($group) {
-                                $label = ($state['group_label'] ?? $group->label ?? '(no label)')
-                                    . ' | group '
+                                $label = '';
+                                if ($state['customize_group_label'] !== 'hide') {
+                                    $label .= ($state['custom_group_label'] ?? $group->label ?? '(no label)') . ' | ';
+                                } else {
+                                    $label .= '(label hidden) | ';
+                                }
+                                $label .= ' group '
                                     . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
                                 return $label;
                             }
@@ -371,14 +376,12 @@ class FormVersionResource extends Resource
                                                     'conditionals' => [],
                                                     'instance_id' => 'nestedField' . $index + 1,
                                                     'customize_label' => 'default',
+                                                    'customize_group_label' => 'default',
                                                 ];
                                             })->toArray();
                                             $set('form_fields', $formFields);
                                         }
                                     }),
-                                TextInput::make('group_label')
-                                    ->label("Group Label")
-                                    ->placeholder(fn($get) => FieldGroup::find($get('field_group_id'))->label ?? null),
                                 TextInput::make('instance_id')
                                     ->label("ID")
                                     ->default(fn($get) =>  \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))) // Set the sequential default value
@@ -389,6 +392,30 @@ class FormVersionResource extends Resource
                                 Toggle::make('repeater')
                                     ->label('Repeater')
                                     ->live(),
+                                Fieldset::make('Group Label')
+                                    ->schema([
+                                        Placeholder::make('group_label')
+                                            ->label("Default")
+                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->label ?? 'null'),
+                                        Radio::make('customize_group_label')
+                                            ->options([
+                                                'default' => 'Use Default',
+                                                'hide' => 'Hide Label',
+                                                'customize' => 'Customize Label'
+                                            ])
+                                            ->default('default')
+                                            ->inline()
+                                            ->inlineLabel(false)
+                                            ->live()
+                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                if ($state !== 'customize') {
+                                                    $set('custom_group_label', null);
+                                                }
+                                            }),
+                                        TextInput::make('custom_group_label')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_group_label') == 'customize'),
+                                    ]),
                                 Fieldset::make('Repeater Item Label')
                                     ->visible(fn($get) => $get('repeater'))
                                     ->schema([

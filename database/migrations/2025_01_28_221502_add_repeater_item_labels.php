@@ -17,6 +17,7 @@ return new class extends Migration
 
         Schema::table('field_group_instances', function ($table) {
             $table->string('custom_repeater_item_label')->nullable();
+            $table->string('customize_label')->nullable();
         });
     }
 
@@ -31,6 +32,7 @@ return new class extends Migration
 
         Schema::table('field_group_instances', function ($table) {
             $table->dropColumn('custom_repeater_item_label')->nullable();
+            $table->dropColumn('customize_label')->nullable();
         });
     }
 };
