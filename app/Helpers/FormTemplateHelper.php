@@ -209,16 +209,31 @@ class FormTemplateHelper
             "path" => $groupInstance->custom_data_binding ?? $group->data_binding,
         ];
 
+        // Construct $label for $base
+        $label = null;
+        if ($groupInstance->customize_label == 'default') {
+            $label = $group->label;
+        } elseif ($groupInstance->customize_label == 'customize') {
+            $label = $groupInstance->label;
+        } elseif ($groupInstance->customize_label == 'hide') {
+            $label = null;
+        }
+
         $base = [
             "type" => "group",
-            "label" => $groupInstance->label ?? $group->label,
-            "id" => $groupInstance->instance_id,
+            "label" => $label,
+            "id" => $groupInstance->custom_instance_id ?? $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [
                 "name" => $group->name,
             ],
         ];
+
+        if ($groupInstance->repeater) {
+            $label = $groupInstance->custom_repeater_item_label ?? $groupInstance->fieldGroup->repeater_item_label;
+            $base = array_merge($base, ["repeaterItemLabel" => $label]);
+        }
 
         if (sizeof($visibility) > 0) {
             $base = array_merge($base, ["conditions" => $visibility]);

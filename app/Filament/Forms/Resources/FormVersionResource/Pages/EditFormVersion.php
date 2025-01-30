@@ -101,12 +101,15 @@ class EditFormVersion extends EditRecord
                     'form_version_id' => $formVersion->id,
                     'field_group_id' => $component['field_group_id'],
                     'order' => $order,
-                    'label' => $component['group_label'] ?? null,
                     'repeater' => $component['repeater'] ?? false,
+                    'label' => $component['customize_group_label'] == 'customize' ? $component['custom_group_label'] : null,
+                    'customize_label' => $component['customize_group_label'] ?? null,
+                    'custom_repeater_item_label' => $component['customize_repeater_item_label'] ? $component['custom_repeater_item_label'] : null,
                     'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
                     'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
                     'visibility' => $component['visibility'] ? $component['visibility'] : null,
                     'instance_id' => $component['instance_id'] ?? null,
+                    'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
@@ -273,8 +276,11 @@ class EditFormVersion extends EditRecord
             $components[] = [
                 'component_type' => 'field_group',
                 'field_group_id' => $group->field_group_id,
-                'group_label' => $group->label,
                 'repeater' => $group->repeater,
+                'custom_group_label' => $group->label ?? null,
+                'customize_group_label' => $group->customize_label ?? null,
+                'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
+                'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
                 'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
                 'customize_data_binding_path' => $group->custom_data_binding_path ?? null,
                 'custom_data_binding' => $group->custom_data_binding ?? $fieldGroup->data_binding,
@@ -282,6 +288,8 @@ class EditFormVersion extends EditRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
+                'custom_instance_id' => $group->custom_instance_id,
+                'customize_instance_id' => $group->custom_instance_id,
                 'visibility' => $group->visibility,
             ];
         }

@@ -141,8 +141,11 @@ class ViewFormVersion extends ViewRecord
             $components[] = [
                 'component_type' => 'field_group',
                 'field_group_id' => $group->field_group_id,
-                'group_label' => $group->label,
+                'custom_group_label' => $group->label,
+                'customize_group_label' => $group->customize_label,
                 'repeater' => $group->repeater,
+                'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
+                'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
                 'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
                 'customize_data_binding_path' => $group->custom_data_binding_path ?? null,
                 'custom_data_binding' => $group->custom_data_binding ?? $fieldGroup->data_binding,
@@ -150,6 +153,8 @@ class ViewFormVersion extends ViewRecord
                 'form_fields' => $formFieldsData,
                 'order' => $group->order,
                 'instance_id' => $group->instance_id,
+                'custom_instance_id' => $group->custom_instance_id,
+                'customize_instance_id' => $group->custom_instance_id,
                 'visibility' => $group->visibility,
             ];
         }
