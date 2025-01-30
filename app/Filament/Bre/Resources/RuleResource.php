@@ -140,7 +140,71 @@ class RuleResource extends Resource
                     })
                     ->html()
                     ->label('ICM CDW Fields used by the inputs and outputs of this Rule')
-                    ->columnSpanFull()
+                    ->columnSpanFull(),
+                TextEntry::make('input_siebel_business_objects')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessObjects('inputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessObjects('inputs')->map(function ($object) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-objects/{$object->id}",
+                                    $object->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Objects used by inputs'),
+                TextEntry::make('output_siebel_business_objects')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessObjects('outputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessObjects('outputs')->map(function ($object) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-objects/{$object->id}",
+                                    $object->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Objects used by outputs'),
+                TextEntry::make('input_siebel_business_components')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessComponents('inputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessComponents('inputs')->map(function ($component) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-components/{$component->id}",
+                                    $component->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Components used by inputs'),
+                TextEntry::make('output_siebel_business_components')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessComponents('outputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessComponents('outputs')->map(function ($component) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-components/{$component->id}",
+                                    $component->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Components used by outputs')
             ]);
     }
 
@@ -178,6 +242,24 @@ class RuleResource extends Resource
                     ->default(function ($record) {
                         if ($record instanceof BRERule) {
                             return $record->getRelatedIcmCDWFields();
+                        }
+                        return [];
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('related_siebel_business_objects')
+                    ->label('Connected Siebel Business Objects')
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getRelatedSiebelBusinessObjects();
+                        }
+                        return [];
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('related_siebel_business_components')
+                    ->label('Connected Siebel Business Components')
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getRelatedSiebelBusinessComponents();
                         }
                         return [];
                     })

@@ -91,7 +91,35 @@ class BREFieldController extends Controller
             });
         }
 
+        if ($request->has('siebel_business_objects')) {
+            $query->whereHas('siebelBusinessObjects', function ($query) use ($request) {
+                if ($request->filled('siebel_business_objects')) {
+                    $input = $request->siebel_business_objects;
+                    if (is_numeric($input)) {
+                        $query->where('siebel_business_objects.id', $input);
+                    } else {
+                        $query->whereRaw('LOWER(siebel_business_objects.name) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_objects.description) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_objects.comments) LIKE ?', ['%' . strtolower($input) . '%']);
+                    }
+                }
+            });
+        }
 
+        if ($request->has('siebel_business_components')) {
+            $query->whereHas('siebelBusinessComponents', function ($query) use ($request) {
+                if ($request->filled('siebel_business_components')) {
+                    $input = $request->siebel_business_components;
+                    if (is_numeric($input)) {
+                        $query->where('siebel_business_components.id', $input);
+                    } else {
+                        $query->whereRaw('LOWER(siebel_business_components.name) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_components.description) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_components.comments) LIKE ?', ['%' . strtolower($input) . '%']);
+                    }
+                }
+            });
+        }
 
         if ($request->has('input_output_type')) {
             $inputOutputType = strtolower($request->input_output_type);
@@ -155,6 +183,8 @@ class BREFieldController extends Controller
             'rule_outputs' => 'nullable|array',
             'icmcdw_fields' => 'nullable|array',
             'child_fields' => 'nullable|array',
+            'siebel_business_objects' => 'nullable|array',
+            'siebel_business_components' => 'nullable|array',
         ]);
 
         $breField = BREField::create($validated);
@@ -179,6 +209,14 @@ class BREFieldController extends Controller
             $breField->syncChildFields($validated['child_fields']);
         }
 
+        if (isset($validated['siebel_business_objects'])) {
+            $breField->syncSiebelBusinessObjects($validated['siebel_business_objects']);
+        }
+
+        if (isset($validated['siebel_business_components'])) {
+            $breField->syncSiebelBusinessComponents($validated['siebel_business_components']);
+        }
+
         return new BREFieldResource($breField);
     }
 
@@ -195,6 +233,8 @@ class BREFieldController extends Controller
             'rule_outputs' => 'nullable|array',
             'icmcdw_fields' => 'nullable|array',
             'child_fields' => 'nullable|array',
+            'siebel_business_objects' => 'nullable|array',
+            'siebel_business_components' => 'nullable|array',
         ]);
 
         $breField = BREField::findOrFail($id);
@@ -219,6 +259,14 @@ class BREFieldController extends Controller
 
         if (isset($validated['child_fields'])) {
             $breField->syncChildFields($validated['child_fields']);
+        }
+
+        if (isset($validated['siebel_business_objects'])) {
+            $breField->syncSiebelBusinessObjects($validated['siebel_business_objects']);
+        }
+
+        if (isset($validated['siebel_business_components'])) {
+            $breField->syncSiebelBusinessComponents($validated['siebel_business_components']);
         }
 
         return new BREFieldResource($breField);
