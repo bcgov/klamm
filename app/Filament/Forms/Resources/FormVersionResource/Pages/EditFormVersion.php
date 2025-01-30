@@ -52,8 +52,9 @@ class EditFormVersion extends EditRecord
             $formVersion->fieldGroupInstances()->delete();
         }
 
-        foreach ($components as $order => $component) {
-            if ($component['component_type'] === 'form_field') {
+        foreach ($components as $order => $block) {
+            if ($block['type'] === 'form_field') {
+                $component = $block['data'];
                 $formInstanceField = FormInstanceField::create([
                     'form_version_id' => $formVersion->id,
                     'form_field_id' => $component['form_field_id'],
@@ -96,7 +97,8 @@ class EditFormVersion extends EditRecord
                         'custom_value' => $customFieldValue ?? null,
                     ]);
                 }
-            } elseif ($component['component_type'] === 'field_group') {
+            } elseif ($block['type'] === 'field_group') {
+                $component = $block['data'];
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
                     'field_group_id' => $component['field_group_id'],
@@ -113,7 +115,8 @@ class EditFormVersion extends EditRecord
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
-                foreach ($formFields as $fieldOrder => $fieldData) {
+                foreach ($formFields as $fieldOrder => $field) {
+                    $fieldData = $field['data'];
                     $formInstanceField = FormInstanceField::create([
                         'form_version_id' => $formVersion->id,
                         'form_field_id' => $fieldData['form_field_id'],
@@ -195,29 +198,31 @@ class EditFormVersion extends EditRecord
 
             $formField = FormField::find($field['form_field_id']) ?? 'null';
             $components[] = [
-                'component_type' => 'form_field',
-                'form_field_id' => $field->form_field_id,
-                'custom_label' => $field->custom_label ?? null,
-                'customize_label' => $field->customize_label ?? null,
-                'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
-                'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
-                'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
-                'customize_data_binding' => $field->custom_data_binding ?? null,
-                'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
-                'customize_help_text' => $field->custom_help_text ?? null,
-                'custom_styles' => $field->custom_styles ?? $formField->styles,
-                'customize_styles' => $field->custom_styles ?? null,
-                'custom_mask' => $field->custom_mask ?? $formField->mask,
-                'customize_mask' => $field->custom_mask ?? null,
-                'instance_id' => $field->instance_id,
-                'custom_instance_id' => $field->custom_instance_id,
-                'customize_instance_id' => $field->custom_instance_id ?? null,
-                'field_value' => $field->formInstanceFieldValue?->value,
-                'custom_field_value' => $field->formInstanceFieldValue?->value ?? $field->formInstanceFieldValue?->custom_value,
-                'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                'validations' => $validations,
-                'conditionals' => $conditionals,
-                'order' => $field->order,
+                'type' => 'form_field',
+                'data' => [
+                    'form_field_id' => $field->form_field_id,
+                    'custom_label' => $field->custom_label ?? null,
+                    'customize_label' => $field->customize_label ?? null,
+                    'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
+                    'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
+                    'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
+                    'customize_data_binding' => $field->custom_data_binding ?? null,
+                    'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
+                    'customize_help_text' => $field->custom_help_text ?? null,
+                    'custom_styles' => $field->custom_styles ?? $formField->styles,
+                    'customize_styles' => $field->custom_styles ?? null,
+                    'custom_mask' => $field->custom_mask ?? $formField->mask,
+                    'customize_mask' => $field->custom_mask ?? null,
+                    'instance_id' => $field->instance_id,
+                    'custom_instance_id' => $field->custom_instance_id,
+                    'customize_instance_id' => $field->custom_instance_id ?? null,
+                    'field_value' => $field->formInstanceFieldValue?->value,
+                    'custom_field_value' => $field->formInstanceFieldValue?->value ?? $field->formInstanceFieldValue?->custom_value,
+                    'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                    'validations' => $validations,
+                    'conditionals' => $conditionals,
+                    'order' => $field->order,
+                ],
             ];
         }
 
@@ -247,59 +252,64 @@ class EditFormVersion extends EditRecord
 
                 $formField = FormField::find($field['form_field_id']) ?? 'null';
                 $formFieldsData[] = [
-                    'form_field_id' => $field->form_field_id,
-                    'label' => $field->label,
-                    'custom_label' => $field->custom_label ?? null,
-                    'customize_label' => $field->customize_label ?? null,
-                    'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
-                    'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
-                    'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
-                    'customize_data_binding' => $field->custom_data_binding ?? null,
-                    'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
-                    'customize_help_text' => $field->custom_help_text ?? null,
-                    'custom_styles' => $field->custom_styles ?? $formField->styles,
-                    'customize_styles' => $field->custom_styles ?? null,
-                    'custom_mask' => $field->custom_mask ?? $formField->mask,
-                    'customize_mask' => $field->custom_mask ?? null,
-                    'instance_id' => $field->instance_id,
-                    'custom_instance_id' => $field->custom_instance_id,
-                    'customize_instance_id' => $field->custom_instance_id ?? null,
-                    'field_value' => $field->formInstanceFieldValue?->value,
-                    'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                    'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                    'validations' => $validations,
-                    'conditionals' => $conditionals,
+                    'type' => 'form_field',
+                    'data' => [
+                        'form_field_id' => $field->form_field_id,
+                        'label' => $field->label,
+                        'custom_label' => $field->custom_label ?? null,
+                        'customize_label' => $field->customize_label ?? null,
+                        'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
+                        'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
+                        'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
+                        'customize_data_binding' => $field->custom_data_binding ?? null,
+                        'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
+                        'customize_help_text' => $field->custom_help_text ?? null,
+                        'custom_styles' => $field->custom_styles ?? $formField->styles,
+                        'customize_styles' => $field->custom_styles ?? null,
+                        'custom_mask' => $field->custom_mask ?? $formField->mask,
+                        'customize_mask' => $field->custom_mask ?? null,
+                        'instance_id' => $field->instance_id,
+                        'custom_instance_id' => $field->custom_instance_id,
+                        'customize_instance_id' => $field->custom_instance_id ?? null,
+                        'field_value' => $field->formInstanceFieldValue?->value,
+                        'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                        'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                        'validations' => $validations,
+                        'conditionals' => $conditionals,
+                    ],
                 ];
             }
 
             $fieldGroup = FieldGroup::find($group['field_group_id']) ?? 'null';
             $components[] = [
-                'component_type' => 'field_group',
-                'field_group_id' => $group->field_group_id,
-                'repeater' => $group->repeater,
-                'custom_group_label' => $group->label ?? null,
-                'customize_group_label' => $group->customize_label ?? null,
-                'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
-                'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
-                'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
-                'customize_data_binding_path' => $group->custom_data_binding_path ?? null,
-                'custom_data_binding' => $group->custom_data_binding ?? $fieldGroup->data_binding,
-                'customize_data_binding' => $group->custom_data_binding ?? null,
-                'form_fields' => $formFieldsData,
-                'order' => $group->order,
-                'instance_id' => $group->instance_id,
-                'custom_instance_id' => $group->custom_instance_id,
-                'customize_instance_id' => $group->custom_instance_id,
-                'visibility' => $group->visibility,
+                'type' => 'field_group',
+                'data' => [
+                    'field_group_id' => $group->field_group_id,
+                    'repeater' => $group->repeater,
+                    'custom_group_label' => $group->label ?? null,
+                    'customize_group_label' => $group->customize_label ?? null,
+                    'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
+                    'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
+                    'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
+                    'customize_data_binding_path' => $group->custom_data_binding_path ?? null,
+                    'custom_data_binding' => $group->custom_data_binding ?? $fieldGroup->data_binding,
+                    'customize_data_binding' => $group->custom_data_binding ?? null,
+                    'form_fields' => $formFieldsData,
+                    'order' => $group->order,
+                    'instance_id' => $group->instance_id,
+                    'custom_instance_id' => $group->custom_instance_id,
+                    'customize_instance_id' => $group->custom_instance_id,
+                    'visibility' => $group->visibility,
+                ],
             ];
         }
 
         usort($components, function ($a, $b) {
-            return $a['order'] <=> $b['order'];
+            return $a['data']['order'] <=> $b['data']['order'];
         });
 
         foreach ($components as &$component) {
-            unset($component['order']);
+            unset($component['data']['order']);
         }
 
         $data['components'] = $components;

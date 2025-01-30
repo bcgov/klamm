@@ -62,8 +62,9 @@ class CreateFormVersion extends CreateRecord
             $formVersion->fieldGroupInstances()->delete();
         }
 
-        foreach ($components as $order => $component) {
-            if ($component['component_type'] === 'form_field') {
+        foreach ($components as $order => $block) {
+            if ($block['type'] === 'form_field') {
+                $component = $block['data'];
                 $formInstanceField = FormInstanceField::create([
                     'form_version_id' => $formVersion->id,
                     'form_field_id' => $component['form_field_id'],
@@ -112,7 +113,8 @@ class CreateFormVersion extends CreateRecord
                         'custom_value' => $customFieldValue ?? null,
                     ]);
                 }
-            } elseif ($component['component_type'] === 'field_group') {
+            } elseif ($block['type'] === 'field_group') {
+                $component = $block['data'];
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
                     'field_group_id' => $component['field_group_id'],
@@ -129,7 +131,8 @@ class CreateFormVersion extends CreateRecord
                 ]);
 
                 $formFields = $component['form_fields'] ?? [];
-                foreach ($formFields as $fieldOrder => $fieldData) {
+                foreach ($formFields as $fieldOrder => $field) {
+                    $fieldData = $field['data'];
                     $formInstanceField = FormInstanceField::create([
                         'form_version_id' => $formVersion->id,
                         'form_field_id' => $fieldData['form_field_id'],
