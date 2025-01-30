@@ -125,7 +125,7 @@ class FormTemplateHelper
             "type" => $field->dataType->name,
             "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
             "label" => $label,
-            "helpText" => $fieldInstance->custom_help_text ?? $field->help_text,
+            "helperText" => $fieldInstance->custom_help_text ?? $field->help_text,
             "styles" => $fieldInstance->custom_styles ?? $field->styles,
             "mask" => $fieldInstance->custom_mask ?? $field->mask,
             "codeContext" => [
@@ -148,19 +148,17 @@ class FormTemplateHelper
         switch ($field->dataType->name) {
             case "text-input":
                 return array_merge($base, [
-                    "placeholder" => "Enter your {$fieldInstance->label}",
-                    "helperText" => "{$fieldInstance->label} as it appears on official documents",
                     "inputType" => "text",
                 ]);
             case "dropdown":
+                $label = $fieldInstance->custom_label ?? $fieldInstance->formField->label;
                 return array_merge($base, [
-                    "placeholder" => "Select your {$fieldInstance->label}",
+                    "placeholder" => "Select your {$label}",
                     "isMulti" => false,
                     "isInline" => false,
                     "selectionFeedback" => "top-after-reopen",
                     "direction" => "bottom",
                     "size" => "md",
-                    "helperText" => "Choose one from the list",
                     "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
@@ -171,11 +169,9 @@ class FormTemplateHelper
             case "text-info":
                 return array_merge($base, [
                     "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
-                    "helperText" => "{$fieldInstance->label} as it appears on official documents",
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "helperText" => "Choose one option",
                     "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
