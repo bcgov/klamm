@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FieldGroupResource\Pages;
 use App\Models\FieldGroup;
+use App\Models\FormDataSource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -29,6 +30,10 @@ class FieldGroupResource extends Resource
                     ->unique(ignoreRecord: true)
                     ->required(),
                 TextInput::make('label'),
+                Select::make('data_binding_path')
+                    ->label('Field data source')
+                    ->options(FormDataSource::pluck('name', 'name')),
+                Textarea::make('data_binding'),
                 Textarea::make('description')
                     ->columnSpanFull(),
                 Textarea::make('internal_description')
@@ -38,8 +43,18 @@ class FieldGroupResource extends Resource
                     ->multiple()
                     ->relationship('formFields', 'name')
                     ->searchable()
+                    ->columnSpanFull()
                     ->preload(),
-                Toggle::make('repeater'),
+                Toggle::make('repeater')
+                    ->live()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        if (!$state) {
+                            $set('repeater_item_label', null);
+                        }
+                    }),
+                TextInput::make('repeater_item_label')
+                    ->live()
+                    ->visible(fn($get) => $get('repeater')),
             ]);
     }
 

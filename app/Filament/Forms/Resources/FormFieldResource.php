@@ -64,7 +64,6 @@ class FormFieldResource extends Resource
                     ->label('Field data source')
                     ->options(FormDataSource::pluck('name', 'name')),
                 Forms\Components\Textarea::make('data_binding'),
-                Forms\Components\Textarea::make('conditional_logic'),
                 Forms\Components\Textarea::make('styles'),
                 Forms\Components\TextInput::make('mask'),
                 Repeater::make('validations')

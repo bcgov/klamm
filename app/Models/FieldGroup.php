@@ -19,8 +19,11 @@ class FieldGroup extends Model
     protected $fillable = [
         'name',
         'label',
+        'repeater_item_label',
         'description',
         'internal_description',
+        'data_binding_path',
+        'data_binding',
         'repeater',
     ];
 
@@ -33,6 +36,15 @@ class FieldGroup extends Model
         'id' => 'integer',
         'repeater' => 'boolean',
     ];
+
+    protected static function booted()
+    {
+        static::saving(function (FieldGroup $fieldGroup) {
+            if (!$fieldGroup->repeater) {
+                $fieldGroup->repeater_item_label = null;
+            }
+        });
+    }
 
     public function formFields(): BelongsToMany
     {
