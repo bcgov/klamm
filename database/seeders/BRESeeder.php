@@ -15,12 +15,12 @@ class BRESeeder extends Seeder
         $this->call([
             BREValueTypeSeeder::class,
             BREDataTypeSeeder::class,
+            BREValidationTypeSeeder::class,
             BREFieldSeeder::class,
             BREFieldGroupSeeder::class,
             BRERuleSeeder::class,
-            ICMCDWFieldSeeder::class,
-            BREValidationTypeSeeder::class,
             BREDataValidationSeeder::class,
+            ICMCDWFieldSeeder::class,
         ]);
     }
 }

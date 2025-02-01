@@ -24,6 +24,8 @@ class BREFieldResource extends JsonResource
             'field_groups' => $this->breFieldGroups,
             'icmcdw_fields' => $this->icmcdwFields,
             'child_fields' => $this->childFields,
+            'siebel_business_objects' => $this->siebelBusinessObjects,
+            'siebel_business_components' => $this->siebelBusinessComponents,
         ];
     }
 }

@@ -25,6 +25,10 @@ class BRERuleResource extends JsonResource
             'parent_rules' => $this->parentRules,
             'child_rules' => $this->childRules,
             'icmcdw_fields' => $this->icmcdwFields,
+            'siebel_business_object_inputs' => $this->getSiebelBusinessObjects('inputs'),
+            'siebel_business_object_outputs' => $this->getSiebelBusinessObjects('outputs'),
+            'siebel_business_component_inputs' => $this->getSiebelBusinessComponents('inputs'),
+            'siebel_business_component_outputs' => $this->getSiebelBusinessComponents('outputs'),
         ];
     }
 }

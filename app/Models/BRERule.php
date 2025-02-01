@@ -35,6 +35,8 @@ class BRERule extends Model
         'parent_rules' => 'array',
         'child_rules' => 'array',
         'icmcdw_fields' => 'array',
+        'siebel_business_objects' => 'array',
+        'siebel_business_components' => 'array',
     ];
 
     public function getRouteKeyName()
@@ -87,6 +89,70 @@ class BRERule extends Model
             ->toArray();
     }
 
+    public function siebelBusinessObjects()
+    {
+        return $this->belongsToMany(SiebelBusinessObject::class, 'bre_field_siebel_business_object', 'bre_field_id', 'siebel_business_object_id')->withTimestamps();
+    }
+
+    public function getSiebelBusinessObjects(string $type = 'both')
+    {
+        $query = match ($type) {
+            'inputs' => $this->breInputs()->pluck('bre_field_id'),
+            'outputs' => $this->breOutputs()->pluck('bre_field_id'),
+            'both' => $this->breInputs()
+                ->pluck('bre_field_id')
+                ->merge($this->breOutputs()->pluck('bre_field_id')),
+            default => throw new \InvalidArgumentException("Invalid type: {$type}. Must be 'inputs', 'outputs', or 'both'"),
+        };
+
+        $fieldIds = $query->unique();
+
+        return SiebelBusinessObject::select('siebel_business_objects.id', 'siebel_business_objects.name')
+            ->join('bre_field_siebel_business_object', 'siebel_business_objects.id', '=', 'bre_field_siebel_business_object.siebel_business_object_id')
+            ->join('bre_fields', 'bre_field_siebel_business_object.bre_field_id', '=', 'bre_fields.id')
+            ->whereIn('bre_fields.id', $fieldIds)
+            ->get();
+    }
+
+    public function getRelatedSiebelBusinessObjects(string $type = 'both'): array
+    {
+        return $this->getSiebelBusinessObjects($type)
+            ->pluck('name', 'id', 'comments')
+            ->toArray();
+    }
+
+    public function siebelBusinessComponents()
+    {
+        return $this->belongsToMany(SiebelBusinessComponent::class, 'bre_field_siebel_business_component', 'bre_field_id', 'siebel_business_component_id')->withTimestamps();
+    }
+
+    public function getSiebelBusinessComponents(string $type = 'both')
+    {
+        $query = match ($type) {
+            'inputs' => $this->breInputs()->pluck('bre_field_id'),
+            'outputs' => $this->breOutputs()->pluck('bre_field_id'),
+            'both' => $this->breInputs()
+                ->pluck('bre_field_id')
+                ->merge($this->breOutputs()->pluck('bre_field_id')),
+            default => throw new \InvalidArgumentException("Invalid type: {$type}. Must be 'inputs', 'outputs', or 'both'"),
+        };
+
+        $fieldIds = $query->unique();
+
+        return SiebelBusinessComponent::select('siebel_business_components.id', 'siebel_business_components.name')
+            ->join('bre_field_siebel_business_component', 'siebel_business_components.id', '=', 'bre_field_siebel_business_component.siebel_business_component_id')
+            ->join('bre_fields', 'bre_field_siebel_business_component.bre_field_id', '=', 'bre_fields.id')
+            ->whereIn('bre_fields.id', $fieldIds)
+            ->get();
+    }
+
+    public function getRelatedSiebelBusinessComponents(string $type = 'both'): array
+    {
+        return $this->getSiebelBusinessComponents($type)
+            ->pluck('name', 'id', 'description', 'data_source', 'search_specification', 'comments')
+            ->toArray();
+    }
+
     public function syncRuleInputs(array $ruleInputs)
     {
         $inputIds = collect($ruleInputs)->pluck('id')->all();
@@ -115,5 +181,37 @@ class BRERule extends Model
     {
         $icmCDWFieldIds = collect($icmCDWFields)->pluck('id')->all();
         $this->icmCDWFields()->sync($icmCDWFieldIds);
+    }
+
+    public function syncSiebelBusinessObjects(array $objects, string $type = 'both')
+    {
+        $objectIds = collect($objects)->pluck('id')->all();
+
+        $fieldsToSync = match ($type) {
+            'inputs' => $this->breInputs()->pluck('id'),
+            'outputs' => $this->breOutputs()->pluck('id'),
+            'both' => $this->breInputs()->pluck('id')->merge($this->breOutputs()->pluck('id')),
+            default => throw new \InvalidArgumentException("Invalid type: {$type}")
+        };
+
+        foreach ($fieldsToSync as $fieldId) {
+            $this->siebelBusinessObjects()->wherePivot('bre_field_id', $fieldId)->sync($objectIds);
+        }
+    }
+
+    public function syncSiebelBusinessComponents(array $components, string $type = 'both')
+    {
+        $componentIds = collect($components)->pluck('id')->all();
+
+        $fieldsToSync = match ($type) {
+            'inputs' => $this->breInputs()->pluck('id'),
+            'outputs' => $this->breOutputs()->pluck('id'),
+            'both' => $this->breInputs()->pluck('id')->merge($this->breOutputs()->pluck('id')),
+            default => throw new \InvalidArgumentException("Invalid type: {$type}")
+        };
+
+        foreach ($fieldsToSync as $fieldId) {
+            $this->siebelBusinessComponents()->wherePivot('bre_field_id', $fieldId)->sync($componentIds);
+        }
     }
 }

@@ -9,6 +9,9 @@ use App\Models\BREDataType;
 use App\Models\BREDataValidation;
 use App\Models\BREField;
 use App\Models\ICMCDWField;
+use App\Models\SiebelBusinessObject;
+use App\Filament\Fodig\Resources\SiebelBusinessObjectResource;
+use App\Filament\Fodig\Resources\SiebelBusinessComponentResource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Infolist;
@@ -19,6 +22,10 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
+use App\Filament\Exports\BREFieldExporter;
+use Filament\Tables\Actions\ExportAction;
+use Filament\Actions\Exports\Models\Export;
+use Filament\Support\Colors\Color;
 
 class FieldResource extends Resource
 {
@@ -40,8 +47,6 @@ class FieldResource extends Resource
         return sprintf(static::$badgeTemplate, $url, e($text));
     }
 
-    // protected static ?string $navigationGroup = 'Rule Building';
-
     public static function form(Form $form): Form
     {
         $dataTypeIdsForChildFields = BREDataType::where('name', 'LIKE', '%array%')
@@ -59,7 +64,7 @@ class FieldResource extends Resource
                 Forms\Components\Select::make('data_type_id')
                     ->relationship('breDataType', 'name')
                     ->required()
-                    ->reactive() // This makes the field listen for changes
+                    ->reactive()
                     ->afterStateUpdated(function (callable $set) {
                         $set('child_fields', null);
                     }),
@@ -91,7 +96,25 @@ class FieldResource extends Resource
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')->orderBy('field')->orderBy('panel_type')->orderBy('entity')->orderBy('subject_area')
                     )
                     ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
-                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area'])
+                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area']),
+                Forms\Components\Select::make('siebelBusinessObjectField')
+                    ->label('Related Siebel Business Objects:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelBusinessObjects',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
+                    ->searchable(['name', 'repository_name', 'comments']),
+                Forms\Components\Select::make('siebelBusinessComponentField')
+                    ->label('Related Siebel Business Components:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelBusinessComponents',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
+                    ->searchable(['name', 'repository_name', 'comments'])
             ]);
     }
 
@@ -119,6 +142,19 @@ class FieldResource extends Resource
                     })
                     ->html()
                     ->label('Data Validation'),
+                TextEntry::make('childFields')
+                    ->label('Child Rule Fields')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->childFields->map(function ($field) {
+                                return static::formatBadge(
+                                    static::getUrl('view', ['record' => $field->name]),
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html(),
                 TextEntry::make('breFieldGroups.name')
                     ->label('Field Groups'),
                 TextEntry::make('description')
@@ -163,6 +199,32 @@ class FieldResource extends Resource
                     ->html()
                     ->label('Related ICM CDW Fields')
                     ->columnSpanFull(),
+                TextEntry::make('siebelBusinessObjects.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelBusinessObjects->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-objects/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Objects'),
+                TextEntry::make('siebelBusinessComponents.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelBusinessComponents->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-components/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Components')
             ]);
     }
 
@@ -189,14 +251,11 @@ class FieldResource extends Resource
                     ->label('Data Validations')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('childFields')
-                    ->label('Child Fields')
-                    ->formatStateUsing(function ($record) {
-                        if ($record->childFields && $record->childFields->isNotEmpty()) {
-                            return $record->childFields->pluck('name')->join(', ');
-                        }
-                        return '';
-                    })
+                Tables\Columns\TextColumn::make('childFields.name')
+                    ->label('Child Rule Fields')
+                    ->badge()
+                    ->color('success')
+                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroupNames')
                     ->label('Field Groups')
@@ -206,19 +265,42 @@ class FieldResource extends Resource
                     ->default(function ($record) {
                         return $record->getInputOutputType();
                     })
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'input' => 'primary',
+                        'output' => 'danger',
+                        'input/output' => 'warning',
+                    })
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Rules: Inputs')
                     ->searchable()
+                    ->badge()
+                    ->color('primary')
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Rules: Outputs')
                     ->searchable()
+                    ->badge()
+                    ->color('danger')
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('icmcdwFields.name')
                     ->label('Related ICM CDW Fields')
                     ->sortable()
                     ->searchable()
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelBusinessObjects.name')
+                    ->label('Related Siebel Business Objects')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#E9C46A'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelBusinessComponents.name')
+                    ->label('Related Siebel Business Components')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#397367'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -229,7 +311,8 @@ class FieldResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('name')
+            // disabled to enable exports
+            // ->defaultSort('name')
             ->filters([
                 Tables\Filters\SelectFilter::make('data_type_id')
                     ->label('Data Type')
@@ -302,11 +385,62 @@ class FieldResource extends Resource
                     ->preload()
                     ->attribute(('icmcdwFields.name'))
                     ->relationship('icmcdwFields', 'name'),
-                //                
+                Tables\Filters\SelectFilter::make('siebel_business_objects')
+                    ->label('Related Siebel Business Objects:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('siebelBusinessObjects.name'))
+                    ->relationship('siebelBusinessObjects', 'name'),
+                Tables\Filters\SelectFilter::make('siebel_business_components')
+                    ->label('Related Siebel Business Components:')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->attribute(('siebelBusinessComponents.name'))
+                    ->relationship('siebelBusinessComponents', 'name'),
+                Tables\Filters\SelectFilter::make('siebel_business_objects_existence')
+                    ->label('Siebel Business Objects Status')
+                    ->options([
+                        'with' => 'Has Siebel Business Objects',
+                        'without' => 'No Siebel Business Objects',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+                        return match ($data['value']) {
+                            'with' => $query->whereHas('siebelBusinessObjects'),
+                            'without' => $query->whereDoesntHave('siebelBusinessObjects'),
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('siebel_business_components_existence')
+                    ->label('Siebel Business Components Status')
+                    ->options([
+                        'with' => 'Has Siebel Business Components',
+                        'without' => 'No Siebel Business Components',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+                        return match ($data['value']) {
+                            'with' => $query->whereHas('siebelBusinessComponents'),
+                            'without' => $query->whereDoesntHave('siebelBusinessComponents'),
+                            default => $query,
+                        };
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->label('Export BRE Rule Fields')
+                    ->exporter(BREFieldExporter::class)
+                    ->fileName(fn(Export $export): string => "BRE-Rule-Fields-{$export->getKey()}"),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

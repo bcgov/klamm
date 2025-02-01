@@ -42,6 +42,8 @@ class BREField extends Model
         'rule_outputs' => 'array',
         'field_groups' => 'array',
         'child_fields' => 'array',
+        'siebel_business_objects' => 'array',
+        'siebel_business_components' => 'array',
     ];
 
     public function getRouteKeyName()
@@ -106,6 +108,16 @@ class BREField extends Model
         return $this->belongsToMany(ICMCDWField::class, 'bre_field_icm_cdw_field', 'bre_field_id', 'icm_cdw_field_id')->withTimestamps();
     }
 
+    public function siebelBusinessObjects()
+    {
+        return $this->belongsToMany(SiebelBusinessObject::class, 'bre_field_siebel_business_object', 'bre_field_id', 'siebel_business_object_id')->withTimestamps();
+    }
+
+    public function siebelBusinessComponents()
+    {
+        return $this->belongsToMany(SiebelBusinessComponent::class, 'bre_field_siebel_business_component', 'bre_field_id', 'siebel_business_component_id')->withTimestamps();
+    }
+
     public function getInputOutputType()
     {
         $hasInputs = $this->breInputs()->exists();
@@ -156,6 +168,18 @@ class BREField extends Model
     {
         $icmCDWFieldIds = collect($icmCDWFields)->pluck('id')->all();
         $this->icmCDWFields()->sync($icmCDWFieldIds);
+    }
+
+    public function syncSiebelBusinessObjects(array $siebelBusinessObjects)
+    {
+        $siebelObjectFieldIds = collect($siebelBusinessObjects)->pluck('id')->all();
+        $this->siebelBusinessObjects()->sync($siebelObjectFieldIds);
+    }
+
+    public function syncSiebelBusinessComponents(array $siebelBusinessComponents)
+    {
+        $siebelComponentFieldIds = collect($siebelBusinessComponents)->pluck('id')->all();
+        $this->siebelBusinessComponents()->sync($siebelComponentFieldIds);
     }
 
     public function syncChildFields(array $childFields)
