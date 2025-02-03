@@ -78,42 +78,53 @@ class FormVersionResource extends Resource
                         'published' => 'Published',
                     ])
                     ->required(),
-                Fieldset::make('Requester Information')
+                Section::make('Form Properties')
+                    ->collapsible()
+                    ->collapsed()
+                    ->columns(3)
+                    ->compact()
                     ->schema([
-                        TextInput::make('form_requester_name')
-                            ->label('Name'),
-                        TextInput::make('form_requester_email')
-                            ->label('Email')
-                            ->email(),
-                    ])
-                    ->label('Requester Information'),
-                Fieldset::make('Approver Information')
-                    ->schema([
-                        TextInput::make('form_approver_name')
-                            ->label('Name'),
-                        TextInput::make('form_approver_email')
-                            ->label('Email')
-                            ->email(),
-                    ])
-                    ->label('Approver Information'),
-                Textarea::make('comments')
-                    ->label('Comments')
-                    ->maxLength(500),
-                Select::make('deployed_to')
-                    ->label('Deployed To')
-                    ->options([
-                        'dev' => 'Development',
-                        'test' => 'Testing',
-                        'prod' => 'Production',
-                    ])
-                    ->nullable()
-                    ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
-                DateTimePicker::make('deployed_at')
-                    ->label('Deployment Date'),
-                Select::make('form_data_sources')
-                    ->multiple()
-                    ->preload()
-                    ->relationship('formDataSources', 'name'),
+                        Fieldset::make('Requester Information')
+                            ->schema([
+                                TextInput::make('form_requester_name')
+                                    ->label('Name'),
+                                TextInput::make('form_requester_email')
+                                    ->label('Email')
+                                    ->email(),
+                            ])
+                            ->label('Requester Information'),
+                        Fieldset::make('Approver Information')
+                            ->schema([
+                                TextInput::make('form_approver_name')
+                                    ->label('Name'),
+                                TextInput::make('form_approver_email')
+                                    ->label('Email')
+                                    ->email(),
+                            ])
+                            ->label('Approver Information'),
+                        Select::make('deployed_to')
+                            ->label('Deployed To')
+                            ->options([
+                                'dev' => 'Development',
+                                'test' => 'Testing',
+                                'prod' => 'Production',
+                            ])
+                            ->columnSpan(1)
+                            ->nullable()
+                            ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
+                        DateTimePicker::make('deployed_at')
+                            ->label('Deployment Date')
+                            ->columnSpan(1),
+                        Select::make('form_data_sources')
+                            ->multiple()
+                            ->preload()
+                            ->columnSpan(1)
+                            ->relationship('formDataSources', 'name'),
+                        Textarea::make('comments')
+                            ->label('Comments')
+                            ->columnSpanFull()
+                            ->maxLength(500),
+                    ]),
                 Builder::make('components')
                     ->label('Form Components')
                     ->addBetweenActionLabel('Insert between elements')
