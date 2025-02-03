@@ -179,6 +179,54 @@ class FormVersionResource extends Resource
                                     ->schema([
                                         Grid::make(2)
                                             ->schema([
+                                                Fieldset::make('Instance ID')
+                                                    ->columns(1)
+                                                    ->columnSpan(1)
+                                                    ->schema([
+                                                        Placeholder::make('instance_id_placeholder') // used to view value in builder
+                                                            ->label("Default")
+                                                            ->content(fn($get) => $get('instance_id')), // Set the sequential default value
+                                                        Hidden::make('instance_id') // used to populate value in template 
+                                                            ->hidden()
+                                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
+                                                        Checkbox::make('customize_instance_id')
+                                                            ->label('Customize Instance ID')
+                                                            ->inline()
+                                                            ->live(),
+                                                        TextInput::make('custom_instance_id')
+                                                            ->label(false)
+                                                            ->alphanum()
+                                                            ->reactive()
+                                                            ->distinct()
+                                                            ->visible(fn($get) => $get('customize_instance_id')),
+                                                    ]),
+                                                Fieldset::make('Label')
+                                                    ->columns(1)
+                                                    ->columnSpan(1)
+                                                    ->schema([
+                                                        Placeholder::make('label')
+                                                            ->label("Default")
+                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
+                                                        Radio::make('customize_label')
+                                                            ->options([
+                                                                'default' => 'Use Default',
+                                                                'hide' => 'Hide Label',
+                                                                'customize' => 'Customize Label'
+                                                            ])
+                                                            ->default('default')
+                                                            ->inline()
+                                                            ->inlineLabel(false)
+                                                            ->live()
+                                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                                if ($state !== 'customize') {
+                                                                    $set('custom_label', null);
+                                                                }
+                                                            }),
+                                                        TextInput::make('custom_label')
+                                                            ->label(false)
+                                                            ->reactive()
+                                                            ->visible(fn($get) => $get('customize_label') == 'customize'),
+                                                    ]),
                                                 Fieldset::make('Field Value')
                                                     ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
                                                     ->columns(1)
@@ -269,54 +317,6 @@ class FormVersionResource extends Resource
                                                         Textarea::make('custom_help_text')
                                                             ->label(false)
                                                             ->visible(fn($get) => $get('customize_help_text')),
-                                                    ]),
-                                                Fieldset::make('Label')
-                                                    ->columns(1)
-                                                    ->columnSpan(1)
-                                                    ->schema([
-                                                        Placeholder::make('label')
-                                                            ->label("Default")
-                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
-                                                        Radio::make('customize_label')
-                                                            ->options([
-                                                                'default' => 'Use Default',
-                                                                'hide' => 'Hide Label',
-                                                                'customize' => 'Customize Label'
-                                                            ])
-                                                            ->default('default')
-                                                            ->inline()
-                                                            ->inlineLabel(false)
-                                                            ->live()
-                                                            ->afterStateUpdated(function ($state, callable $set) {
-                                                                if ($state !== 'customize') {
-                                                                    $set('custom_label', null);
-                                                                }
-                                                            }),
-                                                        TextInput::make('custom_label')
-                                                            ->label(false)
-                                                            ->reactive()
-                                                            ->visible(fn($get) => $get('customize_label') == 'customize'),
-                                                    ]),
-                                                Fieldset::make('Instance ID')
-                                                    ->columns(1)
-                                                    ->columnSpan(1)
-                                                    ->schema([
-                                                        Placeholder::make('instance_id_placeholder') // used to view value in builder
-                                                            ->label("Default")
-                                                            ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                                        Hidden::make('instance_id') // used to populate value in template 
-                                                            ->hidden()
-                                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
-                                                        Checkbox::make('customize_instance_id')
-                                                            ->label('Customize Instance ID')
-                                                            ->inline()
-                                                            ->live(),
-                                                        TextInput::make('custom_instance_id')
-                                                            ->label(false)
-                                                            ->alphanum()
-                                                            ->reactive()
-                                                            ->distinct()
-                                                            ->visible(fn($get) => $get('customize_instance_id')),
                                                     ]),
                                             ]),
                                     ]),
@@ -567,6 +567,54 @@ class FormVersionResource extends Resource
                                                     ->schema([
                                                         Grid::make(2)
                                                             ->schema([
+                                                                Fieldset::make('Instance ID')
+                                                                    ->columns(1)
+                                                                    ->columnSpan(1)
+                                                                    ->schema([
+                                                                        Placeholder::make('instance_id_placeholder') // used to view value in builder
+                                                                            ->label("Default")
+                                                                            ->content(fn($get) => $get('instance_id')), // Set the sequential default value
+                                                                        Hidden::make('instance_id') // used to populate value in template 
+                                                                            ->hidden()
+                                                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
+                                                                        Checkbox::make('customize_instance_id')
+                                                                            ->label('Customize Instance ID')
+                                                                            ->inline()
+                                                                            ->live(),
+                                                                        TextInput::make('custom_instance_id')
+                                                                            ->label(false)
+                                                                            ->alphanum()
+                                                                            ->reactive()
+                                                                            ->distinct()
+                                                                            ->visible(fn($get) => $get('customize_instance_id')),
+                                                                    ]),
+                                                                Fieldset::make('Label')
+                                                                    ->columns(1)
+                                                                    ->columnSpan(1)
+                                                                    ->schema([
+                                                                        Placeholder::make('label')
+                                                                            ->label("Default")
+                                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
+                                                                        Radio::make('customize_label')
+                                                                            ->options([
+                                                                                'default' => 'Use Default',
+                                                                                'hide' => 'Hide Label',
+                                                                                'customize' => 'Customize Label'
+                                                                            ])
+                                                                            ->default('default')
+                                                                            ->inline()
+                                                                            ->inlineLabel(false)
+                                                                            ->live()
+                                                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                                                if ($state !== 'customize') {
+                                                                                    $set('custom_label', null);
+                                                                                }
+                                                                            }),
+                                                                        TextInput::make('custom_label')
+                                                                            ->label(false)
+                                                                            ->reactive()
+                                                                            ->visible(fn($get) => $get('customize_label') == 'customize'),
+                                                                    ]),
                                                                 Fieldset::make('Field Value')
                                                                     ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
                                                                     ->columns(1)
@@ -657,54 +705,6 @@ class FormVersionResource extends Resource
                                                                         Textarea::make('custom_help_text')
                                                                             ->label(false)
                                                                             ->visible(fn($get) => $get('customize_help_text')),
-                                                                    ]),
-                                                                Fieldset::make('Label')
-                                                                    ->columns(1)
-                                                                    ->columnSpan(1)
-                                                                    ->schema([
-                                                                        Placeholder::make('label')
-                                                                            ->label("Default")
-                                                                            ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
-                                                                        Radio::make('customize_label')
-                                                                            ->options([
-                                                                                'default' => 'Use Default',
-                                                                                'hide' => 'Hide Label',
-                                                                                'customize' => 'Customize Label'
-                                                                            ])
-                                                                            ->default('default')
-                                                                            ->inline()
-                                                                            ->inlineLabel(false)
-                                                                            ->live()
-                                                                            ->afterStateUpdated(function ($state, callable $set) {
-                                                                                if ($state !== 'customize') {
-                                                                                    $set('custom_label', null);
-                                                                                }
-                                                                            }),
-                                                                        TextInput::make('custom_label')
-                                                                            ->label(false)
-                                                                            ->reactive()
-                                                                            ->visible(fn($get) => $get('customize_label') == 'customize'),
-                                                                    ]),
-                                                                Fieldset::make('Instance ID')
-                                                                    ->columns(1)
-                                                                    ->columnSpan(1)
-                                                                    ->schema([
-                                                                        Placeholder::make('instance_id_placeholder') // used to view value in builder
-                                                                            ->label("Default")
-                                                                            ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                                                        Hidden::make('instance_id') // used to populate value in template 
-                                                                            ->hidden()
-                                                                            ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
-                                                                        Checkbox::make('customize_instance_id')
-                                                                            ->label('Customize Instance ID')
-                                                                            ->inline()
-                                                                            ->live(),
-                                                                        TextInput::make('custom_instance_id')
-                                                                            ->label(false)
-                                                                            ->alphanum()
-                                                                            ->reactive()
-                                                                            ->distinct()
-                                                                            ->visible(fn($get) => $get('customize_instance_id')),
                                                                     ]),
                                                             ]),
                                                     ]),
