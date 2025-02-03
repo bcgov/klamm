@@ -41,7 +41,6 @@ class FormInstanceSeeder extends Seeder
                 'help_text' => NULL,
                 'styles' => NULL,
                 'mask' => NULL,
-                'conditional_logic' => NULL,
             ]);
         }
     }

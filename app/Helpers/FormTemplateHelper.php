@@ -99,6 +99,13 @@ class FormTemplateHelper
             ];
         })->toArray();
 
+        $conditional = $fieldInstance->conditionals->map(function ($conditional) {
+            return [
+                'type' => $conditional->type,
+                'value' => $conditional->value,
+            ];
+        })->toArray();
+
         $databindings = [
             "source" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
             "path" => $fieldInstance->custom_data_binding ?? $field->data_binding,
@@ -118,7 +125,7 @@ class FormTemplateHelper
             "type" => $field->dataType->name,
             "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
             "label" => $label,
-            "helpText" => $fieldInstance->custom_help_text ?? $field->help_text,
+            "helperText" => $fieldInstance->custom_help_text ?? $field->help_text,
             "styles" => $fieldInstance->custom_styles ?? $field->styles,
             "mask" => $fieldInstance->custom_mask ?? $field->mask,
             "codeContext" => [
@@ -130,6 +137,10 @@ class FormTemplateHelper
             $base = array_merge($base, ["validation" => $validation]);
         }
 
+        if (sizeof($conditional) > 0) {
+            $base = array_merge($base, ["conditions" => $conditional]);
+        }
+
         if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
             $base = array_merge($base, ["databindings" => $databindings]);
         }
@@ -137,19 +148,17 @@ class FormTemplateHelper
         switch ($field->dataType->name) {
             case "text-input":
                 return array_merge($base, [
-                    "placeholder" => "Enter your {$fieldInstance->label}",
-                    "helperText" => "{$fieldInstance->label} as it appears on official documents",
                     "inputType" => "text",
                 ]);
             case "dropdown":
+                $label = $fieldInstance->custom_label ?? $fieldInstance->formField->label;
                 return array_merge($base, [
-                    "placeholder" => "Select your {$fieldInstance->label}",
+                    "placeholder" => "Select your {$label}",
                     "isMulti" => false,
                     "isInline" => false,
                     "selectionFeedback" => "top-after-reopen",
                     "direction" => "bottom",
                     "size" => "md",
-                    "helperText" => "Choose one from the list",
                     "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
@@ -160,11 +169,9 @@ class FormTemplateHelper
             case "text-info":
                 return array_merge($base, [
                     "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
-                    "helperText" => "{$fieldInstance->label} as it appears on official documents",
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "helperText" => "Choose one option",
                     "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
@@ -183,6 +190,16 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
 
+        $visibility = [];
+        if ($groupInstance->visibility) {
+            $visibility = [
+                [
+                    'type' => 'visibility',
+                    'value' => $groupInstance->visibility,
+                ],
+            ];
+        }
+
         $fields = $fieldsInGroup->map(function ($fieldInstance, $fieldIndex) {
             return self::formatField($fieldInstance, $fieldIndex + 1);
         })->values()->all();
@@ -192,16 +209,35 @@ class FormTemplateHelper
             "path" => $groupInstance->custom_data_binding ?? $group->data_binding,
         ];
 
+        // Construct $label for $base
+        $label = null;
+        if ($groupInstance->customize_label == 'default') {
+            $label = $group->label;
+        } elseif ($groupInstance->customize_label == 'customize') {
+            $label = $groupInstance->label;
+        } elseif ($groupInstance->customize_label == 'hide') {
+            $label = null;
+        }
+
         $base = [
             "type" => "group",
-            "label" => $groupInstance->label ?? $group->label,
-            "id" => $groupInstance->instance_id,
+            "label" => $label,
+            "id" => $groupInstance->custom_instance_id ?? $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
             "codeContext" => [
                 "name" => $group->name,
             ],
         ];
+
+        if ($groupInstance->repeater) {
+            $label = $groupInstance->custom_repeater_item_label ?? $groupInstance->fieldGroup->repeater_item_label;
+            $base = array_merge($base, ["repeaterItemLabel" => $label]);
+        }
+
+        if (sizeof($visibility) > 0) {
+            $base = array_merge($base, ["conditions" => $visibility]);
+        }
 
         if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
             $base = array_merge($base, ["databindings" => $databindings]);
@@ -218,14 +254,13 @@ class FormTemplateHelper
 
     public static function calculateFieldID($state)
     {
-        $numOfComponents = count($state['components']);
+        $numOfComponents = count($state);
         return 'field' . $numOfComponents;
     }
 
     public static function calculateFieldInGroupID($state)
     {
-
-        $numOfFormFields = count($state['form_fields']);
+        $numOfFormFields = count($state);
         return 'nestedField' . $numOfFormFields;
     }
 }

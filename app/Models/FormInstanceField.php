@@ -20,7 +20,6 @@ class FormInstanceField extends Model
         'customize_label',
         'custom_data_binding_path',
         'custom_data_binding',
-        'conditional_logic',
         'custom_help_text',
         'custom_styles',
         'custom_mask',
@@ -47,6 +46,11 @@ class FormInstanceField extends Model
     public function validations(): HasMany
     {
         return $this->hasMany(FormInstanceFieldValidation::class);
+    }
+
+    public function conditionals(): HasMany
+    {
+        return $this->hasMany(FormInstanceFieldConditionals::class);
     }
 
     public function formInstanceFieldValue(): HasOne

@@ -43,8 +43,18 @@ class FieldGroupResource extends Resource
                     ->multiple()
                     ->relationship('formFields', 'name')
                     ->searchable()
+                    ->columnSpanFull()
                     ->preload(),
-                Toggle::make('repeater'),
+                Toggle::make('repeater')
+                    ->live()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        if (!$state) {
+                            $set('repeater_item_label', null);
+                        }
+                    }),
+                TextInput::make('repeater_item_label')
+                    ->live()
+                    ->visible(fn($get) => $get('repeater')),
             ]);
     }
 

@@ -15,11 +15,15 @@ class FieldGroupInstance extends Model
         'form_version_id',
         'field_group_id',
         'label',
+        'customize_label',
+        'custom_repeater_item_label',
         'repeater',
         'custom_data_binding_path',
         'custom_data_binding',
+        'visibility',
         'order',
         'instance_id',
+        'custom_instance_id',
 
     ];
 
