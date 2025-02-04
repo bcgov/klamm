@@ -389,18 +389,21 @@ class FormVersionResource extends Resource
                                         if ($fieldGroup) {
                                             $formFields = $fieldGroup->formFields()->get()->map(function ($field, $index) {
                                                 return [
-                                                    'form_field_id' => $field->id,
-                                                    'label' => $field->label,
-                                                    'data_binding_path' => $field->data_binding_path,
-                                                    'data_binding' => $field->data_binding,
-                                                    'help_text' => $field->help_text,
-                                                    'styles' => $field->styles,
-                                                    'mask' => $field->mask,
-                                                    'validations' => [],
-                                                    'conditionals' => [],
-                                                    'instance_id' => 'nestedField' . $index + 1,
-                                                    'customize_label' => 'default',
-                                                    'customize_group_label' => 'default',
+                                                    'type' => 'form_field',
+                                                    'data' => [
+                                                        'form_field_id' => $field->id,
+                                                        'label' => $field->label,
+                                                        'data_binding_path' => $field->data_binding_path,
+                                                        'data_binding' => $field->data_binding,
+                                                        'help_text' => $field->help_text,
+                                                        'styles' => $field->styles,
+                                                        'mask' => $field->mask,
+                                                        'validations' => [],
+                                                        'conditionals' => [],
+                                                        'instance_id' => 'nestedField' . $index + 1,
+                                                        'customize_label' => 'default',
+                                                        'customize_group_label' => 'default',
+                                                    ],
                                                 ];
                                             })->toArray();
                                             $set('form_fields', $formFields);
