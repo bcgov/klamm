@@ -84,6 +84,36 @@ class BRERuleController extends Controller
             });
         }
 
+        if ($request->has('siebel_business_objects')) {
+            $query->whereHas('siebelBusinessObjects', function ($query) use ($request) {
+                if ($request->filled('siebel_business_objects')) {
+                    $input = $request->siebel_business_objects;
+                    if (is_numeric($input)) {
+                        $query->where('siebel_business_objects.id', $input);
+                    } else {
+                        $query->whereRaw('LOWER(siebel_business_objects.name) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_objects.description) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_objects.comments) LIKE ?', ['%' . strtolower($input) . '%']);
+                    }
+                }
+            });
+        }
+
+        if ($request->has('siebel_business_components')) {
+            $query->whereHas('siebelBusinessComponents', function ($query) use ($request) {
+                if ($request->filled('siebel_business_components')) {
+                    $input = $request->siebel_business_components;
+                    if (is_numeric($input)) {
+                        $query->where('siebel_business_components.id', $input);
+                    } else {
+                        $query->whereRaw('LOWER(siebel_business_components.name) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_components.description) LIKE ?', ['%' . strtolower($input) . '%'])
+                            ->orWhereRaw('LOWER(siebel_business_components.comments) LIKE ?', ['%' . strtolower($input) . '%']);
+                    }
+                }
+            });
+        }
+
         if ($request->has('parent_rules')) {
             $query->whereHas('parentRules', function ($query) use ($request) {
                 if ($request->filled('parent_rules')) {
@@ -160,6 +190,14 @@ class BRERuleController extends Controller
             'child_rules.*.id' => 'integer|exists:bre_rules,id',
             'icmcdw_fields' => 'array',
             'icmcdw_fields.*.id' => 'integer|exists:icm_cdw_fields,id',
+            'siebel_business_object_inputs' => 'array',
+            'siebel_business_object_inputs.*.id' => 'integer|exists:siebel_business_objects,id',
+            'siebel_business_object_outputs' => 'array',
+            'siebel_business_object_outputs.*.id' => 'integer|exists:siebel_business_objects,id',
+            'siebel_business_component_inputs' => 'array',
+            'siebel_business_component_inputs.*.id' => 'integer|exists:siebel_business_components,id',
+            'siebel_business_component_outputs' => 'array',
+            'siebel_business_component_outputs.*.id' => 'integer|exists:siebel_business_components,id',
         ]);
 
         $breRule = BRERule::create($validated);
@@ -184,6 +222,22 @@ class BRERuleController extends Controller
             $breRule->syncIcmCDWFields($validated['icmcdw_fields']);
         }
 
+        if (isset($validated['siebel_business_object_inputs'])) {
+            $breRule->syncSiebelBusinessObjects($validated['siebel_business_object_inputs'], 'inputs');
+        }
+
+        if (isset($validated['siebel_business_object_outputs'])) {
+            $breRule->syncSiebelBusinessObjects($validated['siebel_business_object_outputs'], 'outputs');
+        }
+
+        if (isset($validated['siebel_business_component_inputs'])) {
+            $breRule->syncSiebelBusinessComponents($validated['siebel_business_component_inputs'], 'inputs');
+        }
+
+        if (isset($validated['siebel_business_component_outputs'])) {
+            $breRule->syncSiebelBusinessComponents($validated['siebel_business_component_outputs'], 'outputs');
+        }
+
         return new BRERuleResource($breRule);
     }
 
@@ -204,6 +258,14 @@ class BRERuleController extends Controller
             'child_rules.*.id' => 'integer|exists:bre_rules,id',
             'icmcdw_fields' => 'array',
             'icmcdw_fields.*.id' => 'integer|exists:icm_cdw_fields,id',
+            'siebel_business_object_inputs' => 'array',
+            'siebel_business_object_inputs.*.id' => 'integer|exists:siebel_business_objects,id',
+            'siebel_business_object_outputs' => 'array',
+            'siebel_business_object_outputs.*.id' => 'integer|exists:siebel_business_objects,id',
+            'siebel_business_component_inputs' => 'array',
+            'siebel_business_component_inputs.*.id' => 'integer|exists:siebel_business_components,id',
+            'siebel_business_component_outputs' => 'array',
+            'siebel_business_component_outputs.*.id' => 'integer|exists:siebel_business_components,id',
         ]);
 
         $breRule = BRERule::findOrFail($id);
@@ -228,6 +290,22 @@ class BRERuleController extends Controller
 
         if (isset($validated['icmcdw_fields'])) {
             $breRule->syncIcmCDWFields($validated['icmcdw_fields']);
+        }
+
+        if (isset($validated['siebel_business_object_inputs'])) {
+            $breRule->syncSiebelBusinessObjects($validated['siebel_business_object_inputs'], 'inputs');
+        }
+
+        if (isset($validated['siebel_business_object_outputs'])) {
+            $breRule->syncSiebelBusinessObjects($validated['siebel_business_object_outputs'], 'outputs');
+        }
+
+        if (isset($validated['siebel_business_component_inputs'])) {
+            $breRule->syncSiebelBusinessComponents($validated['siebel_business_component_inputs'], 'inputs');
+        }
+
+        if (isset($validated['siebel_business_component_outputs'])) {
+            $breRule->syncSiebelBusinessComponents($validated['siebel_business_component_outputs'], 'outputs');
         }
 
         return new BRERuleResource($breRule);
