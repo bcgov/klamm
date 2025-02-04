@@ -217,6 +217,14 @@ sail artisan permissions:sync
 
 ```
 
+### Enable Local Exports
+
+Certain views offer the ability to export a list of entries in the form of a CSV or Excel File. To enable this in local development run
+
+```
+sail artisan queue:work
+```
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
