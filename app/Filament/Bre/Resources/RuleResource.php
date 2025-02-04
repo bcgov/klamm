@@ -34,7 +34,11 @@ class RuleResource extends Resource
 
     private static string $badgeTemplate = '
         <a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
+            <span class="fi-badge flex items-center justify-center gap-x-1 rounded-md text-xs font-medium ring-1 ring-inset px-2 min-w-[theme(spacing.6)] py-1 fi-color-custom bg-custom-50 text-custom-600 ring-custom-600/10 dark:bg-custom-400/10 dark:text-custom-400 dark:ring-custom-400/30 fi-color-primary" style="--c-50:var(--primary-50);--c-400:var(--primary-400);--c-600:var(--primary-600);">
+                <span class="grid">
                     <span class="truncate">%s</span>
+                </span>
+            </span>
         </a>';
 
     private static function formatBadge(string $url, string $text): string
@@ -88,8 +92,6 @@ class RuleResource extends Resource
                             })->join('')
                         );
                     })
-                    ->badge()
-                    ->color('primary')
                     ->html(),
                 TextEntry::make('breOutputs.name')
                     ->formatStateUsing(function ($state, $record) {
@@ -102,8 +104,6 @@ class RuleResource extends Resource
                             })->join('')
                         );
                     })
-                    ->badge()
-                    ->color('danger')
                     ->html(),
                 TextEntry::make('parentRules.name')
                     ->formatStateUsing(function ($state, $record) {
@@ -116,8 +116,6 @@ class RuleResource extends Resource
                             })->join('')
                         );
                     })
-                    ->badge()
-                    ->color(Color::hex('#4169e1'))
                     ->html(),
                 TextEntry::make('childRules.name')
                     ->formatStateUsing(function ($state, $record) {
@@ -130,8 +128,6 @@ class RuleResource extends Resource
                             })->join('')
                         );
                     })
-                    ->badge()
-                    ->color(Color::hex('#32cd32'))
                     ->html(),
                 TextEntry::make('related_icm_cdw_fields')
                     ->state(function (BRERule $record) {
@@ -148,7 +144,6 @@ class RuleResource extends Resource
                         );
                     })
                     ->html()
-                    ->badge()
                     ->label('ICM CDW Fields used by the inputs and outputs of this Rule')
                     ->columnSpanFull(),
                 TextEntry::make('input_siebel_business_objects')
@@ -166,8 +161,6 @@ class RuleResource extends Resource
                         );
                     })
                     ->html()
-                    ->badge()
-                    ->color(Color::hex('#D88373'))
                     ->label('Siebel Business Objects used by inputs'),
                 TextEntry::make('output_siebel_business_objects')
                     ->state(function (BRERule $record) {
@@ -184,8 +177,6 @@ class RuleResource extends Resource
                         );
                     })
                     ->html()
-                    ->badge()
-                    ->color(Color::hex('#E9C46A'))
                     ->label('Siebel Business Objects used by outputs'),
                 TextEntry::make('input_siebel_business_components')
                     ->state(function (BRERule $record) {
@@ -202,8 +193,6 @@ class RuleResource extends Resource
                         );
                     })
                     ->html()
-                    ->badge()
-                    ->color(Color::hex('#397367'))
                     ->label('Siebel Business Components used by inputs'),
                 TextEntry::make('output_siebel_business_components')
                     ->state(function (BRERule $record) {
@@ -220,8 +209,6 @@ class RuleResource extends Resource
                         );
                     })
                     ->html()
-                    ->badge()
-                    ->color(Color::hex('#4E0110'))
                     ->label('Siebel Business Components used by outputs')
             ]);
     }
