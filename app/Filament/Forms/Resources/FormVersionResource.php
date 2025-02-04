@@ -189,7 +189,7 @@ class FormVersionResource extends Resource
                                                         Hidden::make('instance_id') // used to populate value in template 
                                                             ->hidden()
                                                             ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
-                                                        Checkbox::make('customize_instance_id')
+                                                        Toggle::make('customize_instance_id')
                                                             ->label('Customize Instance ID')
                                                             ->inline()
                                                             ->live(),
@@ -235,7 +235,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('field_value')
                                                             ->label("Default")
                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? 'null'),
-                                                        Checkbox::make('customize_field_value')
+                                                        Toggle::make('customize_field_value')
                                                             ->label('Customize Field Value')
                                                             ->inline()
                                                             ->live(),
@@ -250,7 +250,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('data_binding')
                                                             ->label("Default")
                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
-                                                        Checkbox::make('customize_data_binding')
+                                                        Toggle::make('customize_data_binding')
                                                             ->label('Customize Data Binding')
                                                             ->inline()
                                                             ->live(),
@@ -265,7 +265,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('data_binding_path')
                                                             ->label("Default")
                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
-                                                        Checkbox::make('customize_data_binding_path')
+                                                        Toggle::make('customize_data_binding_path')
                                                             ->label('Customize Data Source')
                                                             ->inline()
                                                             ->live(),
@@ -280,7 +280,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('styles')
                                                             ->label("Default")
                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->styles ?? 'null'),
-                                                        Checkbox::make('customize_styles')
+                                                        Toggle::make('customize_styles')
                                                             ->label('Customize Styles')
                                                             ->inline()
                                                             ->live(),
@@ -295,7 +295,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('mask')
                                                             ->label("Default")
                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->mask ?? 'null'),
-                                                        Checkbox::make('customize_mask')
+                                                        Toggle::make('customize_mask')
                                                             ->label('Customize Mask')
                                                             ->inline()
                                                             ->live(),
@@ -310,7 +310,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('help_text')
                                                             ->label("Default")
                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->help_text ?? 'null'),
-                                                        Checkbox::make('customize_help_text')
+                                                        Toggle::make('customize_help_text')
                                                             ->label('Customize Help text')
                                                             ->inline()
                                                             ->live(),
@@ -422,7 +422,7 @@ class FormVersionResource extends Resource
                                                         Hidden::make('instance_id') // used to populate value in template 
                                                             ->hidden()
                                                             ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
-                                                        Checkbox::make('customize_instance_id')
+                                                        Toggle::make('customize_instance_id')
                                                             ->label('Customize Instance ID')
                                                             ->inline()
                                                             ->live(),
@@ -470,7 +470,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('repeater_item_label')
                                                             ->label("Default")
                                                             ->content(fn($get) => FieldGroup::find($get('field_group_id'))->repeater_item_label ?? 'null'),
-                                                        Checkbox::make('customize_repeater_item_label')
+                                                        Toggle::make('customize_repeater_item_label')
                                                             ->label('Customize Repeater Item Label')
                                                             ->inline()
                                                             ->live(),
@@ -485,7 +485,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('data_binding')
                                                             ->label("Default")
                                                             ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding ?? 'null'),
-                                                        Checkbox::make('customize_data_binding')
+                                                        Toggle::make('customize_data_binding')
                                                             ->label('Customize Data Binding')
                                                             ->inline()
                                                             ->live(),
@@ -500,7 +500,7 @@ class FormVersionResource extends Resource
                                                         Placeholder::make('data_binding_path')
                                                             ->label("Default")
                                                             ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding_path ?? 'null'),
-                                                        Checkbox::make('customize_data_binding_path')
+                                                        Toggle::make('customize_data_binding_path')
                                                             ->label('Customize Data Source')
                                                             ->inline()
                                                             ->live(),
@@ -577,7 +577,7 @@ class FormVersionResource extends Resource
                                                                         Hidden::make('instance_id') // used to populate value in template 
                                                                             ->hidden()
                                                                             ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldInGroupID($get('../../'))), // Set the sequential default value
-                                                                        Checkbox::make('customize_instance_id')
+                                                                        Toggle::make('customize_instance_id')
                                                                             ->label('Customize Instance ID')
                                                                             ->inline()
                                                                             ->live(),
@@ -623,7 +623,7 @@ class FormVersionResource extends Resource
                                                                         Placeholder::make('field_value')
                                                                             ->label("Default")
                                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? 'null'),
-                                                                        Checkbox::make('customize_field_value')
+                                                                        Toggle::make('customize_field_value')
                                                                             ->label('Customize Field Value')
                                                                             ->inline()
                                                                             ->live(),
@@ -638,7 +638,7 @@ class FormVersionResource extends Resource
                                                                         Placeholder::make('data_binding')
                                                                             ->label("Default")
                                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
-                                                                        Checkbox::make('customize_data_binding')
+                                                                        Toggle::make('customize_data_binding')
                                                                             ->label('Customize Data Binding')
                                                                             ->inline()
                                                                             ->live(),
@@ -653,7 +653,7 @@ class FormVersionResource extends Resource
                                                                         Placeholder::make('data_binding_path')
                                                                             ->label("Default")
                                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
-                                                                        Checkbox::make('customize_data_binding_path')
+                                                                        Toggle::make('customize_data_binding_path')
                                                                             ->label('Customize Data Source')
                                                                             ->inline()
                                                                             ->live(),
@@ -668,7 +668,7 @@ class FormVersionResource extends Resource
                                                                         Placeholder::make('styles')
                                                                             ->label("Default")
                                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->styles ?? 'null'),
-                                                                        Checkbox::make('customize_styles')
+                                                                        Toggle::make('customize_styles')
                                                                             ->label('Customize Styles')
                                                                             ->inline()
                                                                             ->live(),
@@ -683,7 +683,7 @@ class FormVersionResource extends Resource
                                                                         Placeholder::make('mask')
                                                                             ->label("Default")
                                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->mask ?? 'null'),
-                                                                        Checkbox::make('customize_mask')
+                                                                        Toggle::make('customize_mask')
                                                                             ->label('Customize Mask')
                                                                             ->inline()
                                                                             ->live(),
@@ -698,7 +698,7 @@ class FormVersionResource extends Resource
                                                                         Placeholder::make('help_text')
                                                                             ->label("Default")
                                                                             ->content(fn($get) => FormField::find($get('form_field_id'))->help_text ?? 'null'),
-                                                                        Checkbox::make('customize_help_text')
+                                                                        Toggle::make('customize_help_text')
                                                                             ->label('Customize Help text')
                                                                             ->inline()
                                                                             ->live(),
