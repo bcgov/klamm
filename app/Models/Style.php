@@ -31,4 +31,10 @@ class Style extends Model
         return $this->belongsToMany(FormField::class, 'form_field_style', 'style_id', 'form_field_id')
             ->withTimestamps();
     }
+
+    public function fieldGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(FieldGroup::class, 'field_group_style', 'style_id', 'field_group_id')
+            ->withTimestamps();
+    }
 }

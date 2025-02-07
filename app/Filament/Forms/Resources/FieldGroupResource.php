@@ -30,6 +30,18 @@ class FieldGroupResource extends Resource
                     ->unique(ignoreRecord: true)
                     ->required(),
                 TextInput::make('label'),
+                Select::make('form_field_ids')
+                    ->label('Form Fields')
+                    ->multiple()
+                    ->relationship('formFields', 'name')
+                    ->searchable()
+                    ->preload(),
+                Select::make('styles')
+                    ->relationship('styles', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->live()
+                    ->reactive(),
                 Select::make('data_binding_path')
                     ->label('Field data source')
                     ->options(FormDataSource::pluck('name', 'name')),
@@ -38,13 +50,6 @@ class FieldGroupResource extends Resource
                     ->columnSpanFull(),
                 Textarea::make('internal_description')
                     ->columnSpanFull(),
-                Select::make('form_field_ids')
-                    ->label('Form Fields')
-                    ->multiple()
-                    ->relationship('formFields', 'name')
-                    ->searchable()
-                    ->columnSpanFull()
-                    ->preload(),
                 Toggle::make('repeater')
                     ->live()
                     ->afterStateUpdated(function ($state, callable $set) {

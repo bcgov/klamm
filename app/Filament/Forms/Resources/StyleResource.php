@@ -36,6 +36,11 @@ class StyleResource extends Resource
                     ->multiple()
                     ->searchable()
                     ->preload(),
+                Select::make('fieldGroups')
+                    ->relationship('fieldGroups', 'name')
+                    ->multiple()
+                    ->searchable()
+                    ->preload(),
             ]);
     }
 
@@ -47,6 +52,8 @@ class StyleResource extends Resource
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('formFields.name')
+                    ->sortable(),
+                TextColumn::make('fieldGroups.name')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()
