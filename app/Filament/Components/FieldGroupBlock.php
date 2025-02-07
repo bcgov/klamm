@@ -5,6 +5,7 @@ namespace App\Filament\Components;
 use App\Helpers\FormTemplateHelper;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
+use App\Models\Style;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Fieldset;
@@ -54,6 +55,14 @@ class FieldGroupBlock
                         $fieldGroup = FieldGroup::find($state);
                         if ($fieldGroup) {
                             $formFields = $fieldGroup->formFields()->get()->map(function ($field, $index) {
+                                $styles = $field->styles()->pluck('styles.id')->toArray();
+                                $validations = $field->validations()->get()->map(function ($validation) {
+                                    return [
+                                        'type' => $validation->type,
+                                        'value' => $validation->value,
+                                        'error_message' => $validation->error_message,
+                                    ];
+                                })->toArray();
                                 return [
                                     'type' => 'form_field',
                                     'data' => [
@@ -62,9 +71,9 @@ class FieldGroupBlock
                                         'data_binding_path' => $field->data_binding_path,
                                         'data_binding' => $field->data_binding,
                                         'help_text' => $field->help_text,
-                                        'styles' => $field->styles,
+                                        'styles' => $styles,
                                         'mask' => $field->mask,
-                                        'validations' => [],
+                                        'validations' => $validations,
                                         'conditionals' => [],
                                         'instance_id' => 'nestedField' . $index + 1,
                                         'customize_label' => 'default',
@@ -73,6 +82,10 @@ class FieldGroupBlock
                                 ];
                             })->toArray();
                             $set('form_fields', $formFields);
+                            $set('styles', $fieldGroup->styles()->pluck('styles.id')->toArray());
+                        } else {
+                            $set('form_fields', []);
+                            $set('styles', []);
                         }
                     }),
                 Section::make('Group Properties')
@@ -183,6 +196,13 @@ class FieldGroupBlock
                                     ->label('Visibility'),
                             ]),
                     ]),
+                Select::make('styles')
+                    ->options(Style::pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(2)
+                    ->live()
+                    ->reactive(),
                 Builder::make('form_fields')
                     ->label('Form Fields in Group')
                     ->addBetweenActionLabel('Insert between fields')

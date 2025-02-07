@@ -137,6 +137,15 @@ class CreateFormVersion extends CreateRecord
                     'custom_instance_id' => $component['custom_instance_id'] ?? null,
                 ]);
 
+                $styles = $component['styles'] ?? [];
+                foreach ($styles as $styleData) {
+                    $styleId = is_array($styleData) ? $styleData['id'] : $styleData;
+                    StyleInstance::create([
+                        'style_id' => $styleId,
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                    ]);
+                }
+
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $field) {
                     $fieldData = $field['data'];
@@ -157,8 +166,9 @@ class CreateFormVersion extends CreateRecord
 
                     $styles = $fieldData['styles'] ?? [];
                     foreach ($styles as $styleData) {
+                        $styleId = is_array($styleData) ? $styleData['id'] : $styleData;
                         StyleInstance::create([
-                            'style_id' => $styleData,
+                            'style_id' => $styleId,
                             'form_instance_field_id' => $formInstanceField->id,
                         ]);
                     }

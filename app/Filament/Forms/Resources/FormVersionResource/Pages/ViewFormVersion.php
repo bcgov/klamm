@@ -149,6 +149,11 @@ class ViewFormVersion extends ViewRecord
                 ];
             }
 
+            $styles = [];
+            foreach ($group->styleInstances as $styleInstance) {
+                $styles[] = $styleInstance->style_id;
+            }
+
             $fieldGroup = FieldGroup::find($group['field_group_id']) ?? 'null';
             $components[] = [
                 'type' => 'field_group',
@@ -170,6 +175,7 @@ class ViewFormVersion extends ViewRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
+                    'styles' => $styles,
                 ],
             ];
         }

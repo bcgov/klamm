@@ -122,6 +122,14 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
+                $styles = $component['styles'] ?? [];
+                foreach ($styles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                    ]);
+                }
+
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $field) {
                     $fieldData = $field['data'];
@@ -303,6 +311,11 @@ class EditFormVersion extends EditRecord
                 ];
             }
 
+            $styles = [];
+            foreach ($group->styleInstances as $styleInstance) {
+                $styles[] = $styleInstance->style_id;
+            }
+
             $fieldGroup = FieldGroup::find($group['field_group_id']);
             $components[] = [
                 'type' => 'field_group',
@@ -323,6 +336,7 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
+                    'styles' => $styles,
                 ],
             ];
         }

@@ -42,4 +42,9 @@ class StyleInstance extends Model
     {
         return $this->belongsTo(FormInstanceField::class, 'form_instance_field_id');
     }
+
+    public function fieldGroupInstance(): BelongsTo
+    {
+        return $this->belongsTo(FieldGroupInstance::class);
+    }
 }
