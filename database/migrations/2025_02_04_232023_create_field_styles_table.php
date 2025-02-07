@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('styles', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('declaration')->nullable();
+            $table->string('declaration');
             $table->timestamps();
         });
 

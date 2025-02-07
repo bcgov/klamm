@@ -30,7 +30,8 @@ class StyleResource extends Resource
                     ->validationAttribute('style name')
                     ->required(),
                 TextInput::make('declaration')
-                    ->label('CSS Declaration'),
+                    ->label('CSS Declaration')
+                    ->required(),
                 Select::make('formFields')
                     ->relationship('formFields', 'name')
                     ->multiple()
