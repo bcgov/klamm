@@ -94,6 +94,11 @@ class ViewFormVersion extends ViewRecord
 
             $formFieldsData = [];
             foreach ($groupFields as $field) {
+                $styles = [];
+                foreach ($field->styleInstances as $styleInstance) {
+                    $styles[] = $styleInstance->style_id;
+                }
+
                 $validations = [];
                 foreach ($field->validations as $validation) {
                     $validations[] = [
@@ -137,6 +142,7 @@ class ViewFormVersion extends ViewRecord
                         'field_value' => $field->formInstanceFieldValue?->value,
                         'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                         'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
+                        'styles' => $styles,
                         'validations' => $validations,
                         'conditionals' => $conditionals,
                     ],

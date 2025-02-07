@@ -155,6 +155,14 @@ class CreateFormVersion extends CreateRecord
                         'custom_instance_id' => $fieldData['custom_instance_id'] ?? null,
                     ]);
 
+                    $styles = $fieldData['styles'] ?? [];
+                    foreach ($styles as $styleData) {
+                        StyleInstance::create([
+                            'style_id' => $styleData,
+                            'form_instance_field_id' => $formInstanceField->id,
+                        ]);
+                    }
+
                     $validations = $fieldData['validations'] ?? [];
                     foreach ($validations as $validationData) {
                         FormInstanceFieldValidation::create([

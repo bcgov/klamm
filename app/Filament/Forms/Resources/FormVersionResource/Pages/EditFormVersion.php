@@ -140,6 +140,14 @@ class EditFormVersion extends EditRecord
                         'custom_instance_id' => $fieldData['customize_instance_id'] ? $fieldData['custom_instance_id'] : null,
                     ]);
 
+                    $styles = $fieldData['styles'] ?? [];
+                    foreach ($styles as $styleData) {
+                        StyleInstance::create([
+                            'style_id' => $styleData,
+                            'form_instance_field_id' => $formInstanceField->id,
+                        ]);
+                    }
+
                     $validations = $fieldData['validations'] ?? [];
                     foreach ($validations as $validationData) {
                         FormInstanceFieldValidation::create([
@@ -244,6 +252,11 @@ class EditFormVersion extends EditRecord
 
             $formFieldsData = [];
             foreach ($groupFields as $field) {
+                $styles = [];
+                foreach ($field->styleInstances as $styleInstance) {
+                    $styles[] = $styleInstance->style_id;
+                }
+
                 $validations = [];
                 foreach ($field->validations as $validation) {
                     $validations[] = [
@@ -283,6 +296,7 @@ class EditFormVersion extends EditRecord
                         'field_value' => $field->formInstanceFieldValue?->value,
                         'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
                         'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
+                        'styles' => $styles,
                         'validations' => $validations,
                         'conditionals' => $conditionals,
                     ],
