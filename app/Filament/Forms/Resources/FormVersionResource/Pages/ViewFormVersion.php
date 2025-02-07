@@ -30,6 +30,11 @@ class ViewFormVersion extends ViewRecord
             ->get();
 
         foreach ($formFields as $field) {
+            $styles = [];
+            foreach ($field->styleInstances as $styleInstance) {
+                $styles[] = $styleInstance->style_id;
+            }
+
             $validations = [];
             foreach ($field->validations as $validation) {
                 $validations[] = [
@@ -65,9 +70,6 @@ class ViewFormVersion extends ViewRecord
                     'help_text' => $field->help_text,
                     'custom_help_text' => $field->custom_help_text,
                     'customize_help_text' => $field->custom_help_text,
-                    'styles' => $field->styles,
-                    'custom_styles' => $field->custom_styles,
-                    'customize_styles' => $field->custom_styles,
                     'mask' => $field->mask,
                     'custom_mask' => $field->custom_mask,
                     'customize_mask' => $field->custom_mask,
@@ -77,6 +79,7 @@ class ViewFormVersion extends ViewRecord
                     'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
+                    'styles' => $styles,
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'order' => $field->order,
@@ -125,9 +128,6 @@ class ViewFormVersion extends ViewRecord
                         'help_text' => $field->help_text,
                         'custom_help_text' => $field->custom_help_text,
                         'customize_help_text' => $field->custom_help_text,
-                        'styles' => $field->styles,
-                        'custom_styles' => $field->custom_styles,
-                        'customize_styles' => $field->custom_styles,
                         'mask' => $field->mask,
                         'custom_mask' => $field->custom_mask,
                         'customize_mask' => $field->custom_mask,

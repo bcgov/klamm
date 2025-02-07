@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Models\Style;
 use App\Models\FormField;
 use App\Models\FormDataSource;
 use Closure;
@@ -78,7 +79,28 @@ class FormFieldBlock
                     })
                     ->searchable()
                     ->required()
-                    ->reactive(),
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        $field = FormField::find($state);
+                        if ($field) {
+                            // Fetch styles and set them manually
+                            $styles = $field->styles()->pluck('styles.id')->toArray();
+                            $set('styles', $styles);
+                            // Fetch validations as well
+                            $validations = $field->validations()->get()->map(function ($validation) {
+                                return [
+                                    'type' => $validation->type,
+                                    'value' => $validation->value,
+                                    'error_message' => $validation->error_message,
+                                ];
+                            })->toArray();
+                            $set('validations', $validations);
+                        } else {
+                            // Reset when no field is selected
+                            $set('styles', []);
+                            $set('validations', []);
+                        }
+                    }),
                 Section::make('Field Properties')
                     ->collapsible()
                     ->compact()
@@ -95,7 +117,6 @@ class FormFieldBlock
                                         Hidden::make('instance_id') // used to populate value in template 
                                             ->hidden()
                                             ->default($calculateIDCallback), // Set the sequential default value
-                                        // ->default(fn($get) => \App\Helpers\FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()
@@ -181,20 +202,6 @@ class FormFieldBlock
                                             ->options(FormDataSource::pluck('name', 'name'))
                                             ->visible(fn($get) => $get('customize_data_binding_path')),
                                     ]),
-                                Fieldset::make('Styles')
-                                    ->columns(1)
-                                    ->schema([
-                                        Placeholder::make('styles')
-                                            ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->styles ?? 'null'),
-                                        Toggle::make('customize_styles')
-                                            ->label('Customize Styles')
-                                            ->inline()
-                                            ->live(),
-                                        Textarea::make('custom_styles')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_styles')),
-                                    ]),
                                 Fieldset::make('Mask')
                                     ->columns(1)
                                     ->columnSpan(1)
@@ -227,6 +234,13 @@ class FormFieldBlock
                                     ]),
                             ]),
                     ]),
+                Select::make('styles')
+                    ->options(Style::pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(2)
+                    ->live()
+                    ->reactive(),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')

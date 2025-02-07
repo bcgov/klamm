@@ -26,7 +26,6 @@ class FormField extends Model
         'description',
         'data_binding_path',
         'data_binding',
-        'styles',
         'mask'
     ];
 
@@ -55,7 +54,12 @@ class FormField extends Model
         return $this->hasMany(FormInstanceField::class);
     }
 
-    public function validations()
+    public function styles(): BelongsToMany
+    {
+        return $this->belongsToMany(Style::class, 'form_field_style', 'form_field_id', 'style_id');
+    }
+
+    public function validations(): HasMany
     {
         return $this->hasMany(FormFieldValidation::class);
     }
