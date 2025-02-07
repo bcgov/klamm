@@ -80,6 +80,7 @@ class FormFieldBlock
                     ->searchable()
                     ->required()
                     ->reactive()
+                    ->columnSpan(2)
                     ->afterStateUpdated(function ($state, callable $set) {
                         $field = FormField::find($state);
                         if ($field) {
@@ -104,6 +105,7 @@ class FormFieldBlock
                 Section::make('Field Properties')
                     ->collapsible()
                     ->compact()
+                    ->columnSpan(2)
                     ->schema([
                         Grid::make(2)
                             ->schema([
