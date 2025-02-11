@@ -25,32 +25,48 @@ class FieldGroupResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
+            ->columns(6)
             ->schema([
                 TextInput::make('name')
                     ->unique(ignoreRecord: true)
+                    ->columnSpan(2)
                     ->required(),
-                TextInput::make('label'),
+                TextInput::make('label')
+                    ->columnSpan(2),
                 Select::make('form_field_ids')
                     ->label('Form Fields')
+                    ->columnSpan(2)
                     ->multiple()
                     ->relationship('formFields', 'name')
                     ->searchable()
                     ->preload(),
-                Select::make('styles')
-                    ->relationship('styles', 'name')
+                Select::make('webStyles')
+                    ->relationship('webStyles', 'name')
+                    ->columnSpan(3)
+                    ->multiple()
+                    ->preload()
+                    ->live()
+                    ->reactive(),
+                Select::make('pdfStyles')
+                    ->relationship('pdfStyles', 'name')
+                    ->label('PDF styles')
+                    ->columnSpan(3)
                     ->multiple()
                     ->preload()
                     ->live()
                     ->reactive(),
                 Select::make('data_binding_path')
                     ->label('Field data source')
+                    ->columnSpan(3)
                     ->options(FormDataSource::pluck('name', 'name')),
-                Textarea::make('data_binding'),
+                Textarea::make('data_binding')
+                    ->columnSpan(3),
                 Textarea::make('description')
                     ->columnSpanFull(),
                 Textarea::make('internal_description')
                     ->columnSpanFull(),
                 Toggle::make('repeater')
+                    ->columnSpan(1)
                     ->live()
                     ->afterStateUpdated(function ($state, callable $set) {
                         if (!$state) {
@@ -58,6 +74,7 @@ class FieldGroupResource extends Resource
                         }
                     }),
                 TextInput::make('repeater_item_label')
+                    ->columnSpan(5)
                     ->live()
                     ->visible(fn($get) => $get('repeater')),
             ]);

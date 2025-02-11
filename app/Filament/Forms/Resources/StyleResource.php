@@ -24,23 +24,48 @@ class StyleResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
+            ->columns(6)
             ->schema([
                 TextInput::make('name')
                     ->unique(ignoreRecord: true)
                     ->validationAttribute('style name')
+                    ->columnSpan(2)
                     ->required(),
-                TextInput::make('declaration')
-                    ->label('CSS Declaration')
+                TextInput::make('property')
+                    ->label('CSS property')
+                    ->columnSpan(2)
                     ->required(),
-                Select::make('formFields')
-                    ->relationship('formFields', 'name')
+                TextInput::make('value')
+                    ->label('CSS value')
+                    ->columnSpan(2)
+                    ->required(),
+                Select::make('webFormFields')
+                    ->relationship('webFormFields', 'name')
+                    ->label('Web fields')
                     ->multiple()
                     ->searchable()
+                    ->columnSpan(3)
                     ->preload(),
-                Select::make('fieldGroups')
-                    ->relationship('fieldGroups', 'name')
+                Select::make('webFieldGroups')
+                    ->relationship('webFieldGroups', 'name')
+                    ->label('Web groups')
                     ->multiple()
                     ->searchable()
+                    ->columnSpan(3)
+                    ->preload(),
+                Select::make('pdfFormFields')
+                    ->label('PDF fields')
+                    ->relationship('pdfFormFields', 'name')
+                    ->multiple()
+                    ->searchable()
+                    ->columnSpan(3)
+                    ->preload(),
+                Select::make('pdfFieldGroups')
+                    ->label('PDF groups')
+                    ->relationship('pdfFieldGroups', 'name')
+                    ->multiple()
+                    ->searchable()
+                    ->columnSpan(3)
                     ->preload(),
             ]);
     }
@@ -52,9 +77,17 @@ class StyleResource extends Resource
                 TextColumn::make('name')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('formFields.name')
+                TextColumn::make('webFormFields.name')
+                    ->label('Web Fields')
                     ->sortable(),
-                TextColumn::make('fieldGroups.name')
+                TextColumn::make('pdfFormFields.name')
+                    ->label('PDF Fields')
+                    ->sortable(),
+                TextColumn::make('webFieldGroups.name')
+                    ->label('Web Groups')
+                    ->sortable(),
+                TextColumn::make('pdfFieldGroups.name')
+                    ->label('PDF Groups')
                     ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()

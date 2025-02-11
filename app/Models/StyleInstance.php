@@ -17,6 +17,7 @@ class StyleInstance extends Model
      */
     protected $fillable = [
         'style_id',
+        'type',
         'form_instance_field_id',
         'field_group_instance_id',
     ];

@@ -70,10 +70,19 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
-                $styles = $component['styles'] ?? [];
-                foreach ($styles as $styleData) {
+                $webStyles = $component['webStyles'] ?? [];
+                foreach ($webStyles as $styleData) {
                     StyleInstance::create([
                         'style_id' => $styleData,
+                        'type' => 'web',
+                        'form_instance_field_id' => $formInstanceField->id,
+                    ]);
+                }
+                $pdfStyles = $component['pdfStyles'] ?? [];
+                foreach ($pdfStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'pdf',
                         'form_instance_field_id' => $formInstanceField->id,
                     ]);
                 }
@@ -122,10 +131,19 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
-                $styles = $component['styles'] ?? [];
-                foreach ($styles as $styleData) {
+                $webStyles = $component['webStyles'] ?? [];
+                foreach ($webStyles as $styleData) {
                     StyleInstance::create([
                         'style_id' => $styleData,
+                        'type' => 'web',
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                    ]);
+                }
+                $pdfStyles = $component['pdfStyles'] ?? [];
+                foreach ($pdfStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'pdf',
                         'field_group_instance_id' => $fieldGroupInstance->id,
                     ]);
                 }
@@ -148,10 +166,20 @@ class EditFormVersion extends EditRecord
                         'custom_instance_id' => $fieldData['customize_instance_id'] ? $fieldData['custom_instance_id'] : null,
                     ]);
 
-                    $styles = $fieldData['styles'] ?? [];
-                    foreach ($styles as $styleData) {
+                    $webStyles = $fieldData['webStyles'] ?? [];
+                    foreach ($webStyles as $styleData) {
                         StyleInstance::create([
                             'style_id' => $styleData,
+                            'type' => 'web',
+                            'form_instance_field_id' => $formInstanceField->id,
+                        ]);
+                    }
+
+                    $pdfStyles = $fieldData['pdfStyles'] ?? [];
+                    foreach ($pdfStyles as $styleData) {
+                        StyleInstance::create([
+                            'style_id' => $styleData,
+                            'type' => 'pdf',
                             'form_instance_field_id' => $formInstanceField->id,
                         ]);
                     }
@@ -200,9 +228,14 @@ class EditFormVersion extends EditRecord
             ->get();
 
         foreach ($formFields as $field) {
-            $styles = [];
+            $webStyles = [];
+            $pdfStyles = [];
             foreach ($field->styleInstances as $styleInstance) {
-                $styles[] = $styleInstance->style_id;
+                if ($styleInstance->type === 'web') {
+                    $webStyles[] = $styleInstance->style_id;
+                } elseif ($styleInstance->type === 'pdf') {
+                    $pdfStyles[] = $styleInstance->style_id;
+                }
             }
 
             $validations = [];
@@ -245,7 +278,8 @@ class EditFormVersion extends EditRecord
                     'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->value ?? $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                    'styles' => $styles,
+                    'webStyles' => $webStyles,
+                    'pdfStyles' => $pdfStyles,
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'order' => $field->order,
@@ -260,9 +294,14 @@ class EditFormVersion extends EditRecord
 
             $formFieldsData = [];
             foreach ($groupFields as $field) {
-                $styles = [];
+                $webStyles = [];
+                $pdfStyles = [];
                 foreach ($field->styleInstances as $styleInstance) {
-                    $styles[] = $styleInstance->style_id;
+                    if ($styleInstance->type === 'web') {
+                        $webStyles[] = $styleInstance->style_id;
+                    } elseif ($styleInstance->type === 'pdf') {
+                        $pdfStyles[] = $styleInstance->style_id;
+                    }
                 }
 
                 $validations = [];
@@ -304,16 +343,22 @@ class EditFormVersion extends EditRecord
                         'field_value' => $field->formInstanceFieldValue?->value,
                         'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
                         'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                        'styles' => $styles,
+                        'webStyles' => $webStyles,
+                        'pdfStyles' => $pdfStyles,
                         'validations' => $validations,
                         'conditionals' => $conditionals,
                     ],
                 ];
             }
 
-            $styles = [];
+            $webStyles = [];
+            $pdfStyles = [];
             foreach ($group->styleInstances as $styleInstance) {
-                $styles[] = $styleInstance->style_id;
+                if ($styleInstance->type === 'web') {
+                    $webStyles[] = $styleInstance->style_id;
+                } elseif ($styleInstance->type === 'pdf') {
+                    $pdfStyles[] = $styleInstance->style_id;
+                }
             }
 
             $fieldGroup = FieldGroup::find($group['field_group_id']);
@@ -336,7 +381,8 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
-                    'styles' => $styles,
+                    'webStyles' => $webStyles,
+                    'pdfStyles' => $pdfStyles,
                 ],
             ];
         }

@@ -62,6 +62,7 @@ class FormFieldBlock
                 return 'New Field';
             })
             ->icon('heroicon-o-stop')
+            ->columns(2)
             ->schema([
                 Select::make('form_field_id')
                     ->label('Form Field')
@@ -85,8 +86,10 @@ class FormFieldBlock
                         $field = FormField::find($state);
                         if ($field) {
                             // Fetch styles and set them manually
-                            $styles = $field->styles()->pluck('styles.id')->toArray();
-                            $set('styles', $styles);
+                            $webStyles = $field->webStyles()->pluck('styles.id')->toArray();
+                            $set('webStyles', $webStyles);
+                            $pdfStyles = $field->pdfStyles()->pluck('styles.id')->toArray();
+                            $set('pdfStyles', $pdfStyles);
                             // Fetch validations as well
                             $validations = $field->validations()->get()->map(function ($validation) {
                                 return [
@@ -98,7 +101,8 @@ class FormFieldBlock
                             $set('validations', $validations);
                         } else {
                             // Reset when no field is selected
-                            $set('styles', []);
+                            $set('webStyles', []);
+                            $set('pdfStyles', []);
                             $set('validations', []);
                         }
                     }),
@@ -236,11 +240,20 @@ class FormFieldBlock
                                     ]),
                             ]),
                     ]),
-                Select::make('styles')
+                Select::make('webStyles')
+                    ->label('Web Styles')
                     ->options(Style::pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->columnSpan(2)
+                    ->columnSpan(1)
+                    ->live()
+                    ->reactive(),
+                Select::make('pdfStyles')
+                    ->label('PDF Styles')
+                    ->options(Style::pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(1)
                     ->live()
                     ->reactive(),
                 Repeater::make('validations')

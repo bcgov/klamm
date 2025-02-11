@@ -30,9 +30,14 @@ class ViewFormVersion extends ViewRecord
             ->get();
 
         foreach ($formFields as $field) {
-            $styles = [];
+            $webStyles = [];
+            $pdfStyles = [];
             foreach ($field->styleInstances as $styleInstance) {
-                $styles[] = $styleInstance->style_id;
+                if ($styleInstance->type === 'web') {
+                    $webStyles[] = $styleInstance->style_id;
+                } elseif ($styleInstance->type === 'pdf') {
+                    $pdfStyles[] = $styleInstance->style_id;
+                }
             }
 
             $validations = [];
@@ -79,7 +84,8 @@ class ViewFormVersion extends ViewRecord
                     'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
-                    'styles' => $styles,
+                    'webStyles' => $webStyles,
+                    'pdfStyles' => $pdfStyles,
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'order' => $field->order,
@@ -94,9 +100,14 @@ class ViewFormVersion extends ViewRecord
 
             $formFieldsData = [];
             foreach ($groupFields as $field) {
-                $styles = [];
+                $webStyles = [];
+                $pdfStyles = [];
                 foreach ($field->styleInstances as $styleInstance) {
-                    $styles[] = $styleInstance->style_id;
+                    if ($styleInstance->type === 'web') {
+                        $webStyles[] = $styleInstance->style_id;
+                    } elseif ($styleInstance->type === 'pdf') {
+                        $pdfStyles[] = $styleInstance->style_id;
+                    }
                 }
 
                 $validations = [];
@@ -142,16 +153,22 @@ class ViewFormVersion extends ViewRecord
                         'field_value' => $field->formInstanceFieldValue?->value,
                         'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                         'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
-                        'styles' => $styles,
+                        'webStyles' => $webStyles,
+                        'pdfStyles' => $pdfStyles,
                         'validations' => $validations,
                         'conditionals' => $conditionals,
                     ],
                 ];
             }
 
-            $styles = [];
+            $webStyles = [];
+            $pdfStyles = [];
             foreach ($group->styleInstances as $styleInstance) {
-                $styles[] = $styleInstance->style_id;
+                if ($styleInstance->type === 'web') {
+                    $webStyles[] = $styleInstance->style_id;
+                } elseif ($styleInstance->type === 'pdf') {
+                    $pdfStyles[] = $styleInstance->style_id;
+                }
             }
 
             $fieldGroup = FieldGroup::find($group['field_group_id']) ?? 'null';
@@ -175,7 +192,8 @@ class ViewFormVersion extends ViewRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
-                    'styles' => $styles,
+                    'webStyles' => $webStyles,
+                    'pdfStyles' => $pdfStyles,
                 ],
             ];
         }

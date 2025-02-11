@@ -37,6 +37,7 @@ class FieldGroupBlock
                 return 'New Group';
             })
             ->icon('heroicon-o-square-2-stack')
+            ->columns(2)
             ->schema([
                 Select::make('field_group_id')
                     ->label('Field Group')
@@ -51,11 +52,13 @@ class FieldGroupBlock
                     ->searchable()
                     ->required()
                     ->reactive()
+                    ->columnSpan(2)
                     ->afterStateUpdated(function ($state, callable $set, callable $get) {
                         $fieldGroup = FieldGroup::find($state);
                         if ($fieldGroup) {
                             $formFields = $fieldGroup->formFields()->get()->map(function ($field, $index) {
-                                $styles = $field->styles()->pluck('styles.id')->toArray();
+                                $webStyles = $field->webStyles()->pluck('styles.id')->toArray();
+                                $pdfStyles = $field->pdfStyles()->pluck('styles.id')->toArray();
                                 $validations = $field->validations()->get()->map(function ($validation) {
                                     return [
                                         'type' => $validation->type,
@@ -71,7 +74,8 @@ class FieldGroupBlock
                                         'data_binding_path' => $field->data_binding_path,
                                         'data_binding' => $field->data_binding,
                                         'help_text' => $field->help_text,
-                                        'styles' => $styles,
+                                        'webStyles' => $webStyles,
+                                        'pdfStyles' => $pdfStyles,
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
@@ -82,15 +86,18 @@ class FieldGroupBlock
                                 ];
                             })->toArray();
                             $set('form_fields', $formFields);
-                            $set('styles', $fieldGroup->styles()->pluck('styles.id')->toArray());
+                            $set('webStyles', $fieldGroup->webStyles()->pluck('styles.id')->toArray());
+                            $set('pdfStyles', $fieldGroup->pdfStyles()->pluck('styles.id')->toArray());
                         } else {
                             $set('form_fields', []);
-                            $set('styles', []);
+                            $set('webStyles', []);
+                            $set('pdfStyles', []);
                         }
                     }),
                 Section::make('Group Properties')
                     ->collapsible()
                     ->compact()
+                    ->columnSpan(2)
                     ->schema([
                         Grid::make(2)
                             ->schema([
@@ -196,11 +203,20 @@ class FieldGroupBlock
                                     ->label('Visibility'),
                             ]),
                     ]),
-                Select::make('styles')
+                Select::make('webStyles')
+                    ->label('Web Styles')
                     ->options(Style::pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->columnSpan(2)
+                    ->columnSpan(1)
+                    ->live()
+                    ->reactive(),
+                Select::make('pdfStyles')
+                    ->label('PDF Styles')
+                    ->options(Style::pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(1)
                     ->live()
                     ->reactive(),
                 Builder::make('form_fields')

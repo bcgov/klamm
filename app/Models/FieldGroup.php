@@ -51,9 +51,14 @@ class FieldGroup extends Model
         return $this->belongsToMany(FormField::class)->withTimestamps();
     }
 
-    public function styles(): BelongsToMany
+    public function webStyles(): BelongsToMany
     {
-        return $this->belongsToMany(Style::class, 'field_group_style', 'field_group_id', 'style_id');
+        return $this->belongsToMany(Style::class, 'field_group_style_web', 'field_group_id', 'style_id');
+    }
+
+    public function pdfStyles(): BelongsToMany
+    {
+        return $this->belongsToMany(Style::class, 'field_group_style_pdf', 'field_group_id', 'style_id');
     }
 
     public function formVersions(): HasManyThrough

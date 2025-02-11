@@ -85,10 +85,19 @@ class CreateFormVersion extends CreateRecord
                     'custom_instance_id' => $component['custom_instance_id'] ?? null,
                 ]);
 
-                $styles = $component['styles'] ?? [];
-                foreach ($styles as $styleData) {
+                $webStyles = $component['webStyles'] ?? [];
+                foreach ($webStyles as $styleData) {
                     StyleInstance::create([
                         'style_id' => $styleData,
+                        'type' => 'web',
+                        'form_instance_field_id' => $formInstanceField->id,
+                    ]);
+                }
+                $pdfStyles = $component['pdfStyles'] ?? [];
+                foreach ($pdfStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'pdf',
                         'form_instance_field_id' => $formInstanceField->id,
                     ]);
                 }
@@ -137,11 +146,19 @@ class CreateFormVersion extends CreateRecord
                     'custom_instance_id' => $component['custom_instance_id'] ?? null,
                 ]);
 
-                $styles = $component['styles'] ?? [];
-                foreach ($styles as $styleData) {
-                    $styleId = is_array($styleData) ? $styleData['id'] : $styleData;
+                $webStyles = $component['webStyles'] ?? [];
+                foreach ($webStyles as $styleData) {
                     StyleInstance::create([
-                        'style_id' => $styleId,
+                        'style_id' => $styleData,
+                        'type' => 'web',
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                    ]);
+                }
+                $pdfStyles = $component['pdfStyles'] ?? [];
+                foreach ($pdfStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'pdf',
                         'field_group_instance_id' => $fieldGroupInstance->id,
                     ]);
                 }
@@ -164,11 +181,19 @@ class CreateFormVersion extends CreateRecord
                         'custom_instance_id' => $fieldData['custom_instance_id'] ?? null,
                     ]);
 
-                    $styles = $fieldData['styles'] ?? [];
-                    foreach ($styles as $styleData) {
-                        $styleId = is_array($styleData) ? $styleData['id'] : $styleData;
+                    $webStyles = $fieldData['webStyles'] ?? [];
+                    foreach ($webStyles as $styleData) {
                         StyleInstance::create([
-                            'style_id' => $styleId,
+                            'style_id' => $styleData,
+                            'type' => 'web',
+                            'form_instance_field_id' => $formInstanceField->id,
+                        ]);
+                    }
+                    $pdfStyles = $fieldData['pdfStyles'] ?? [];
+                    foreach ($pdfStyles as $styleData) {
+                        StyleInstance::create([
+                            'style_id' => $styleData,
+                            'type' => 'pdf',
                             'form_instance_field_id' => $formInstanceField->id,
                         ]);
                     }

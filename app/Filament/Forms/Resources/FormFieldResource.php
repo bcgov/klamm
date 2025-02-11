@@ -72,19 +72,27 @@ class FormFieldResource extends Resource
                 Textarea::make('data_binding')
                     ->columnSpan(3),
                 TextInput::make('mask')
-                    ->columnSpan(2),
-                Select::make('styles')
-                    ->relationship('styles', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(2)
-                    ->live()
-                    ->reactive(),
+                    ->columnSpan(3),
                 Select::make('field_group_id')
-                    ->columnSpan(2)
+                    ->columnSpan(3)
                     ->multiple()
                     ->preload()
                     ->relationship('fieldGroups', 'name'),
+                Select::make('webStyles')
+                    ->relationship('webStyles', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(3)
+                    ->live()
+                    ->reactive(),
+                Select::make('pdfStyles')
+                    ->relationship('pdfStyles', 'name')
+                    ->label('PDF styles')
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(3)
+                    ->live()
+                    ->reactive(),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')

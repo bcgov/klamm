@@ -14,12 +14,14 @@ return new class extends Migration
         Schema::create('styles', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('declaration');
+            $table->string('property');
+            $table->string('value');
             $table->timestamps();
         });
 
         Schema::create('style_instances', function (Blueprint $table) {
             $table->id();
+            $table->string('type'); // web or PDF
             $table->foreignId('style_id')->constrained()->onDelete('cascade');
             $table->foreignId('form_instance_field_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('field_group_instance_id')->nullable()->constrained()->onDelete('cascade');
@@ -27,14 +29,28 @@ return new class extends Migration
         });
 
         // Pivot tables
-        Schema::create('form_field_style', function (Blueprint $table) {
+        Schema::create('form_field_style_web', function (Blueprint $table) {
             $table->id();
             $table->foreignId('form_field_id')->constrained()->onDelete('cascade');
             $table->foreignId('style_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });
 
-        Schema::create('field_group_style', function (Blueprint $table) {
+        Schema::create('form_field_style_pdf', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('form_field_id')->constrained()->onDelete('cascade');
+            $table->foreignId('style_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
+        });
+
+        Schema::create('field_group_style_web', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('field_group_id')->constrained()->onDelete('cascade');
+            $table->foreignId('style_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
+        });
+
+        Schema::create('field_group_style_pdf', function (Blueprint $table) {
             $table->id();
             $table->foreignId('field_group_id')->constrained()->onDelete('cascade');
             $table->foreignId('style_id')->constrained()->onDelete('cascade');
@@ -62,8 +78,10 @@ return new class extends Migration
         Schema::table('form_instance_fields', function (Blueprint $table) {
             $table->string('custom_styles')->nullable();
         });
-        Schema::dropIfExists('form_field_style');
-        Schema::dropIfExists('field_group_style');
+        Schema::dropIfExists('form_field_style_web');
+        Schema::dropIfExists('form_field_style_pdf');
+        Schema::dropIfExists('field_group_style_web');
+        Schema::dropIfExists('field_group_style_pdf');
         Schema::dropIfExists('style_instances');
         Schema::dropIfExists('styles');
     }

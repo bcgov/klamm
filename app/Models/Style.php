@@ -18,7 +18,8 @@ class Style extends Model
      */
     protected $fillable = [
         'name',
-        'declaration'
+        'property',
+        'value'
     ];
 
     public function styleInstances(): HasMany
@@ -26,15 +27,27 @@ class Style extends Model
         return $this->hasMany(StyleInstance::class);
     }
 
-    public function formFields(): BelongsToMany
+    public function webFormFields(): BelongsToMany
     {
-        return $this->belongsToMany(FormField::class, 'form_field_style', 'style_id', 'form_field_id')
+        return $this->belongsToMany(FormField::class, 'form_field_style_web', 'style_id', 'form_field_id')
             ->withTimestamps();
     }
 
-    public function fieldGroups(): BelongsToMany
+    public function pdfFormFields(): BelongsToMany
     {
-        return $this->belongsToMany(FieldGroup::class, 'field_group_style', 'style_id', 'field_group_id')
+        return $this->belongsToMany(FormField::class, 'form_field_style_pdf', 'style_id', 'form_field_id')
+            ->withTimestamps();
+    }
+
+    public function webFieldGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(FieldGroup::class, 'field_group_style_web', 'style_id', 'field_group_id')
+            ->withTimestamps();
+    }
+
+    public function pdfFieldGroups(): BelongsToMany
+    {
+        return $this->belongsToMany(FieldGroup::class, 'field_group_style_pdf', 'style_id', 'field_group_id')
             ->withTimestamps();
     }
 }
