@@ -51,14 +51,110 @@ class EditFormVersion extends EditRecord
         if (method_exists($this, 'getRecord')) {
             $formVersion->formInstanceFields()->delete();
             $formVersion->fieldGroupInstances()->delete();
+            $formVersion->containers()->delete();
         }
 
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
-                $component = $block['data'];
+                $this->createField($formVersion, $order, $block['data'], null);
+            } elseif ($block['type'] === 'field_group') {
+                $this->createGroup($formVersion, $order, $block['data']);
+            }
+        }
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Eager load required records
+        $this->record->load([
+            'formInstanceFields' => function ($query) {
+                $query->whereNull('field_group_instance_id');
+            },
+            'fieldGroupInstances',
+            'formInstanceFields.formInstanceFieldValue',
+            'formInstanceFields.styleInstances',
+            'fieldGroupInstances.styleInstances',
+        ]);
+
+        $data = array_merge($this->record->toArray(), $data);
+
+        $components = array_merge(
+            $this->fillFields($this->record->formInstanceFields),
+            $this->fillGroups($this->record->fieldGroupInstances)
+        );
+
+        usort($components, function ($a, $b) {
+            return $a['data']['order'] <=> $b['data']['order'];
+        });
+
+        foreach ($components as &$component) {
+            unset($component['data']['order']);
+        }
+
+        $data['components'] = $components;
+
+        return $data;
+    }
+
+    // Helper functions to create records
+    private function createStyles($component, $id, $instanceType)
+    {
+        foreach ($component['webStyles'] ?? [] as $styleId) {
+            StyleInstance::create([
+                'style_id' => $styleId,
+                'type' => 'web',
+                $instanceType => $id,
+            ]);
+        }
+
+        foreach ($component['pdfStyles'] ?? [] as $styleId) {
+            StyleInstance::create([
+                'style_id' => $styleId,
+                'type' => 'pdf',
+                $instanceType => $id,
+            ]);
+        }
+    }
+
+    private function createFieldValidations($component, $formInstanceField)
+    {
+        foreach ($component['validations'] ?? [] as $validationData) {
+            FormInstanceFieldValidation::create([
+                'form_instance_field_id' => $formInstanceField->id,
+                'type' => $validationData['type'],
+                'value' => $validationData['value'] ?? null,
+                'error_message' => $validationData['error_message'] ?? null,
+            ]);
+        }
+    }
+
+    private function createFieldConditionals($component, $formInstanceField)
+    {
+        foreach ($component['conditionals'] ?? [] as $conditionalData) {
+            FormInstanceFieldConditionals::create([
+                'form_instance_field_id' => $formInstanceField->id,
+                'type' => $conditionalData['type'],
+                'value' => $conditionalData['value'] ?? null,
+            ]);
+        }
+    }
+
+    private function createFieldValue($component, $formInstanceField)
+    {
+        if (!empty($component['customize_field_value'])) {
+            FormInstanceFieldValue::create([
+                'form_instance_field_id' => $formInstanceField->id,
+                'custom_value' => $component['custom_field_value'] ?? null,
+            ]);
+        }
+    }
+
+    private function createField($formVersion, $order, $component, $fieldGroupInstanceID)
+    {
                 $formInstanceField = FormInstanceField::create([
                     'form_version_id' => $formVersion->id,
                     'form_field_id' => $component['form_field_id'],
+            'field_group_instance_id' => $fieldGroupInstanceID,
                     'order' => $order,
                     'custom_label' => $component['customize_label'] === 'customize' ? $component['custom_label'] : null,
                     'customize_label' => $component['customize_label'] ?? null,
@@ -70,52 +166,14 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
-                $webStyles = $component['webStyles'] ?? [];
-                foreach ($webStyles as $styleData) {
-                    StyleInstance::create([
-                        'style_id' => $styleData,
-                        'type' => 'web',
-                        'form_instance_field_id' => $formInstanceField->id,
-                    ]);
-                }
-                $pdfStyles = $component['pdfStyles'] ?? [];
-                foreach ($pdfStyles as $styleData) {
-                    StyleInstance::create([
-                        'style_id' => $styleData,
-                        'type' => 'pdf',
-                        'form_instance_field_id' => $formInstanceField->id,
-                    ]);
-                }
+        $this->createStyles($component, $formInstanceField->id, 'form_instance_field_id');
+        $this->createFieldValidations($component, $formInstanceField);
+        $this->createFieldConditionals($component, $formInstanceField);
+        $this->createFieldValue($component, $formInstanceField);
+    }
 
-                $validations = $component['validations'] ?? [];
-                foreach ($validations as $validationData) {
-                    FormInstanceFieldValidation::create([
-                        'form_instance_field_id' => $formInstanceField->id,
-                        'type' => $validationData['type'],
-                        'value' => $validationData['value'] ?? null,
-                        'error_message' => $validationData['error_message'] ?? null,
-                    ]);
-                }
-
-                $conditionals = $component['conditionals'] ?? [];
-                foreach ($conditionals as $conditionalData) {
-                    FormInstanceFieldConditionals::create([
-                        'form_instance_field_id' => $formInstanceField->id,
-                        'type' => $conditionalData['type'],
-                        'value' => $conditionalData['value'] ?? null,
-                    ]);
-                }
-
-                $customFieldValueCheckbox = $component['customize_field_value'] ?? false;
-                $customFieldValue = $component['custom_field_value'] ?? null;
-                if ($customFieldValueCheckbox) {
-                    FormInstanceFieldValue::create([
-                        'form_instance_field_id' => $formInstanceField->id,
-                        'custom_value' => $customFieldValue ?? null,
-                    ]);
-                }
-            } elseif ($block['type'] === 'field_group') {
-                $component = $block['data'];
+    private function createGroup($formVersion, $order, $component)
+    {
                 $fieldGroupInstance = FieldGroupInstance::create([
                     'form_version_id' => $formVersion->id,
                     'field_group_id' => $component['field_group_id'],
@@ -131,113 +189,33 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
                 ]);
 
-                $webStyles = $component['webStyles'] ?? [];
-                foreach ($webStyles as $styleData) {
-                    StyleInstance::create([
-                        'style_id' => $styleData,
-                        'type' => 'web',
-                        'field_group_instance_id' => $fieldGroupInstance->id,
-                    ]);
-                }
-                $pdfStyles = $component['pdfStyles'] ?? [];
-                foreach ($pdfStyles as $styleData) {
-                    StyleInstance::create([
-                        'style_id' => $styleData,
-                        'type' => 'pdf',
-                        'field_group_instance_id' => $fieldGroupInstance->id,
-                    ]);
-                }
+        $this->createStyles($component, $fieldGroupInstance->id, 'field_group_instance_id');
 
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $field) {
-                    $fieldData = $field['data'];
-                    $formInstanceField = FormInstanceField::create([
-                        'form_version_id' => $formVersion->id,
-                        'form_field_id' => $fieldData['form_field_id'],
-                        'field_group_instance_id' => $fieldGroupInstance->id,
-                        'order' => $fieldOrder,
-                        'custom_label' => $fieldData['customize_label'] == 'customize' ? $fieldData['custom_label'] : null,
-                        'customize_label' => $fieldData['customize_label'] ?? null,
-                        'custom_data_binding_path' => $fieldData['customize_data_binding_path'] ? $fieldData['custom_data_binding_path'] : null,
-                        'custom_data_binding' => $fieldData['customize_data_binding'] ? $fieldData['custom_data_binding'] : null,
-                        'custom_help_text' => $fieldData['customize_help_text'] ? $fieldData['custom_help_text'] : null,
-                        'custom_mask' => $fieldData['customize_mask'] ? $fieldData['custom_mask'] : null,
-                        'instance_id' => $fieldData['instance_id'] ?? null,
-                        'custom_instance_id' => $fieldData['customize_instance_id'] ? $fieldData['custom_instance_id'] : null,
-                    ]);
-
-                    $webStyles = $fieldData['webStyles'] ?? [];
-                    foreach ($webStyles as $styleData) {
-                        StyleInstance::create([
-                            'style_id' => $styleData,
-                            'type' => 'web',
-                            'form_instance_field_id' => $formInstanceField->id,
-                        ]);
-                    }
-
-                    $pdfStyles = $fieldData['pdfStyles'] ?? [];
-                    foreach ($pdfStyles as $styleData) {
-                        StyleInstance::create([
-                            'style_id' => $styleData,
-                            'type' => 'pdf',
-                            'form_instance_field_id' => $formInstanceField->id,
-                        ]);
-                    }
-
-                    $validations = $fieldData['validations'] ?? [];
-                    foreach ($validations as $validationData) {
-                        FormInstanceFieldValidation::create([
-                            'form_instance_field_id' => $formInstanceField->id,
-                            'type' => $validationData['type'],
-                            'value' => $validationData['value'] ?? null,
-                            'error_message' => $validationData['error_message'] ?? null,
-                        ]);
-                    }
-
-                    $conditionals = $fieldData['conditionals'] ?? [];
-                    foreach ($conditionals as $conditionalData) {
-                        FormInstanceFieldConditionals::create([
-                            'form_instance_field_id' => $formInstanceField->id,
-                            'type' => $conditionalData['type'],
-                            'value' => $conditionalData['value'] ?? null,
-                        ]);
-                    }
-
-                    $customFieldValueCheckbox = $fieldData['customize_field_value'] ?? false;
-                    $customFieldValue = $fieldData['custom_field_value'] ?? null;
-                    if ($customFieldValueCheckbox) {
-                        FormInstanceFieldValue::create([
-                            'form_instance_field_id' => $formInstanceField->id,
-                            'custom_value' => $customFieldValue ?? null,
-                        ]);
-                    }
-                }
-            }
+            $this->createField($formVersion, $order, $field['data'], $fieldGroupInstance->id);
         }
     }
 
-
-    protected function mutateFormDataBeforeFill(array $data): array
+    // Helper functions to fill data
+    private function fillStyles($styleInstances)
     {
-        $data = array_merge($this->record->toArray(), $data);
-
-        $components = [];
-
-        $formFields = $this->record->formInstanceFields()
-            ->whereNull('field_group_instance_id')
-            ->get();
-
-        foreach ($formFields as $field) {
-            $webStyles = [];
-            $pdfStyles = [];
-            foreach ($field->styleInstances as $styleInstance) {
-                if ($styleInstance->type === 'web') {
-                    $webStyles[] = $styleInstance->style_id;
-                } elseif ($styleInstance->type === 'pdf') {
-                    $pdfStyles[] = $styleInstance->style_id;
-                }
+        $styles = [
+            'webStyles' => [],
+            'pdfStyles' => [],
+        ];
+        foreach ($styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'web') {
+                $styles['webStyles'][] = $styleInstance->style_id;
+            } elseif ($styleInstance->type === 'pdf') {
+                $styles['pdfStyles'][] = $styleInstance->style_id;
             }
+        }
+        return $styles;
+    }
 
+    private function fillValidations($field)
+    {
             $validations = [];
             foreach ($field->validations as $validation) {
                 $validations[] = [
@@ -245,23 +223,37 @@ class EditFormVersion extends EditRecord
                     'value' => $validation->value,
                     'error_message' => $validation->error_message,
                 ];
+        }
+        return $validations;
             }
 
+    private function fillConditionals($field)
+    {
             $conditionals = [];
-            if ($field->conditionals) {
                 foreach ($field->conditionals as $conditional) {
                     $conditionals[] = [
                         'type' => $conditional->type,
                         'value' => $conditional->value,
                     ];
-                }
             }
+        return $conditionals;
+    }
+
+    private function fillFields($formFields)
+    {
+        $components = [];
+
+        foreach ($formFields as $field) {
+            $styles = $this->fillStyles($field->styleInstances);
+            $validations = $this->fillValidations($field);
+            $conditionals = $this->fillConditionals($field);
 
             $formField = FormField::find($field['form_field_id']);
             $components[] = [
                 'type' => 'form_field',
                 'data' => [
                     'form_field_id' => $field->form_field_id,
+                    'label' => $field->label,
                     'custom_label' => $field->custom_label ?? null,
                     'customize_label' => $field->customize_label ?? null,
                     'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
@@ -276,91 +268,29 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $field->custom_instance_id,
                     'customize_instance_id' => $field->custom_instance_id ?? null,
                     'field_value' => $field->formInstanceFieldValue?->value,
-                    'custom_field_value' => $field->formInstanceFieldValue?->value ?? $field->formInstanceFieldValue?->custom_value,
+                    'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                    'webStyles' => $webStyles,
-                    'pdfStyles' => $pdfStyles,
+                    'webStyles' => $styles['webStyles'],
+                    'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'order' => $field->order,
                 ],
             ];
         }
+        return $components;
+        }
 
-        $fieldGroups = $this->record->fieldGroupInstances()->get();
-
+    private function fillGroups($fieldGroups)
+    {
         foreach ($fieldGroups as $group) {
-            $groupFields = $group->formInstanceFields()->orderBy('order')->get();
-
             $formFieldsData = [];
-            foreach ($groupFields as $field) {
-                $webStyles = [];
-                $pdfStyles = [];
-                foreach ($field->styleInstances as $styleInstance) {
-                    if ($styleInstance->type === 'web') {
-                        $webStyles[] = $styleInstance->style_id;
-                    } elseif ($styleInstance->type === 'pdf') {
-                        $pdfStyles[] = $styleInstance->style_id;
-                    }
-                }
+            $groupFields = $group->formInstanceFields()->orderBy('order')->get();
+            $formFieldsData = $this->fillFields($groupFields);
 
-                $validations = [];
-                foreach ($field->validations as $validation) {
-                    $validations[] = [
-                        'type' => $validation->type,
-                        'value' => $validation->value,
-                        'error_message' => $validation->error_message,
-                    ];
-                }
+            $styles = $this->fillStyles($group->styleInstances);
 
-                $conditionals = [];
-                foreach ($field->conditionals as $conditional) {
-                    $conditionals[] = [
-                        'type' => $conditional->type,
-                        'value' => $conditional->value,
-                    ];
-                }
-
-                $formField = FormField::find($field['form_field_id']);
-                $formFieldsData[] = [
-                    'type' => 'form_field',
-                    'data' => [
-                        'form_field_id' => $field->form_field_id,
-                        'label' => $field->label,
-                        'custom_label' => $field->custom_label ?? null,
-                        'customize_label' => $field->customize_label ?? null,
-                        'custom_data_binding_path' => $field->custom_data_binding_path ?? $formField->data_binding_path,
-                        'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
-                        'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
-                        'customize_data_binding' => $field->custom_data_binding ?? null,
-                        'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
-                        'customize_help_text' => $field->custom_help_text ?? null,
-                        'custom_mask' => $field->custom_mask ?? $formField->mask,
-                        'customize_mask' => $field->custom_mask ?? null,
-                        'instance_id' => $field->instance_id,
-                        'custom_instance_id' => $field->custom_instance_id,
-                        'customize_instance_id' => $field->custom_instance_id ?? null,
-                        'field_value' => $field->formInstanceFieldValue?->value,
-                        'custom_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                        'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                        'webStyles' => $webStyles,
-                        'pdfStyles' => $pdfStyles,
-                        'validations' => $validations,
-                        'conditionals' => $conditionals,
-                    ],
-                ];
-            }
-
-            $webStyles = [];
-            $pdfStyles = [];
-            foreach ($group->styleInstances as $styleInstance) {
-                if ($styleInstance->type === 'web') {
-                    $webStyles[] = $styleInstance->style_id;
-                } elseif ($styleInstance->type === 'pdf') {
-                    $pdfStyles[] = $styleInstance->style_id;
-                }
-            }
-
+            $components = [];
             $fieldGroup = FieldGroup::find($group['field_group_id']);
             $components[] = [
                 'type' => 'field_group',
@@ -381,22 +311,11 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
-                    'webStyles' => $webStyles,
-                    'pdfStyles' => $pdfStyles,
+                    'webStyles' => $styles['webStyles'],
+                    'pdfStyles' => $styles['pdfStyles'],
                 ],
             ];
         }
-
-        usort($components, function ($a, $b) {
-            return $a['data']['order'] <=> $b['data']['order'];
-        });
-
-        foreach ($components as &$component) {
-            unset($component['data']['order']);
-        }
-
-        $data['components'] = $components;
-
-        return $data;
+        return $components;
     }
 }
