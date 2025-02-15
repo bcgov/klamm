@@ -38,4 +38,9 @@ class Ministry extends Model
     {
         return $this->hasMany(Form::class);
     }
+
+    public function boundarySystems(): HasMany
+    {
+        return $this->hasMany(BoundarySystem::class);
+    }
 }
