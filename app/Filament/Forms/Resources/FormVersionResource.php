@@ -2,6 +2,7 @@
 
 namespace App\Filament\Forms\Resources;
 
+use App\Filament\Components\ContainerBlock;
 use App\Filament\Components\FieldGroupBlock;
 use App\Filament\Components\FormFieldBlock;
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
@@ -109,7 +110,8 @@ class FormVersionResource extends Resource
                     ->cloneable()
                     ->blocks([
                         FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))),
-                        FieldGroupBlock::make(),
+                        FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))),
+                        ContainerBlock::make(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))),
                     ]),
                 Actions::make([
                     Action::make('Generate Form Template')

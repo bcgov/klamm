@@ -6,6 +6,7 @@ use App\Helpers\FormTemplateHelper;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
 use App\Models\Style;
+use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Fieldset;
@@ -20,7 +21,7 @@ use Filament\Forms\Components\Toggle;
 
 class FieldGroupBlock
 {
-    public static function make(): Block
+    public static function make(Closure $calculateIDCallback): Block
     {
         return Block::make('field_group')
             ->label(function (?array $state): string {
@@ -79,7 +80,7 @@ class FieldGroupBlock
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
-                                        'instance_id' => 'nestedField' . $index + 1,
+                                        'instance_id' => 'nestedField' . ($index + 1),
                                         'customize_label' => 'default',
                                         'customize_group_label' => 'default',
                                     ],
@@ -110,7 +111,7 @@ class FieldGroupBlock
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
                                         Hidden::make('instance_id') // used to populate value in template 
                                             ->hidden()
-                                            ->default(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))), // Set the sequential default value
+                                            ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()

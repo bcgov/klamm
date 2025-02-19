@@ -3,13 +3,12 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
-use App\Models\FieldGroup;
+use App\Models\Container;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
-use App\Models\FormField;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValue;
@@ -56,9 +55,11 @@ class EditFormVersion extends EditRecord
 
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
-                $this->createField($formVersion, $order, $block['data'], null);
+                $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
             } elseif ($block['type'] === 'field_group') {
-                $this->createGroup($formVersion, $order, $block['data']);
+                $this->createGroup($formVersion, $order, $block['data'], containerID: null);
+            } elseif ($block['type'] === 'container') {
+                $this->createContainer($formVersion, $order, $block['data']);
             }
         }
     }
@@ -68,19 +69,23 @@ class EditFormVersion extends EditRecord
         // Eager load required records
         $this->record->load([
             'formInstanceFields' => function ($query) {
-                $query->whereNull('field_group_instance_id');
+                $query->whereNull('field_group_instance_id')->whereNull('container_id');
             },
-            'fieldGroupInstances',
+            'fieldGroupInstances' => function ($query) {
+                $query->whereNull('container_id');
+            },
             'formInstanceFields.formInstanceFieldValue',
             'formInstanceFields.styleInstances',
             'fieldGroupInstances.styleInstances',
+            'containers',
         ]);
 
         $data = array_merge($this->record->toArray(), $data);
 
         $components = array_merge(
             $this->fillFields($this->record->formInstanceFields),
-            $this->fillGroups($this->record->fieldGroupInstances)
+            $this->fillGroups($this->record->fieldGroupInstances),
+            $this->fillContainers($this->record->containers),
         );
 
         usort($components, function ($a, $b) {
@@ -149,22 +154,23 @@ class EditFormVersion extends EditRecord
         }
     }
 
-    private function createField($formVersion, $order, $component, $fieldGroupInstanceID)
+    private function createField($formVersion, $order, $component, $fieldGroupInstanceID, $containerID)
     {
-                $formInstanceField = FormInstanceField::create([
-                    'form_version_id' => $formVersion->id,
-                    'form_field_id' => $component['form_field_id'],
+        $formInstanceField = FormInstanceField::create([
+            'form_version_id' => $formVersion->id,
+            'form_field_id' => $component['form_field_id'],
             'field_group_instance_id' => $fieldGroupInstanceID,
-                    'order' => $order,
-                    'custom_label' => $component['customize_label'] === 'customize' ? $component['custom_label'] : null,
-                    'customize_label' => $component['customize_label'] ?? null,
-                    'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
-                    'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
-                    'custom_help_text' => $component['customize_help_text'] ? $component['custom_help_text'] : null,
-                    'custom_mask' => $component['customize_mask'] ? $component['custom_mask'] : null,
-                    'instance_id' => $component['instance_id'] ?? null,
-                    'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
-                ]);
+            'container_id' => $containerID,
+            'order' => $order,
+            'custom_label' => $component['customize_label'] === 'customize' ? $component['custom_label'] : null,
+            'customize_label' => $component['customize_label'] ?? null,
+            'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
+            'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
+            'custom_help_text' => $component['customize_help_text'] ? $component['custom_help_text'] : null,
+            'custom_mask' => $component['customize_mask'] ? $component['custom_mask'] : null,
+            'instance_id' => $component['instance_id'] ?? null,
+            'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
+        ]);
 
         $this->createStyles($component, $formInstanceField->id, 'form_instance_field_id');
         $this->createFieldValidations($component, $formInstanceField);
@@ -172,28 +178,51 @@ class EditFormVersion extends EditRecord
         $this->createFieldValue($component, $formInstanceField);
     }
 
-    private function createGroup($formVersion, $order, $component)
+    private function createGroup($formVersion, $order, $component, $containerID)
     {
-                $fieldGroupInstance = FieldGroupInstance::create([
-                    'form_version_id' => $formVersion->id,
-                    'field_group_id' => $component['field_group_id'],
-                    'order' => $order,
-                    'repeater' => $component['repeater'] ?? false,
-                    'label' => $component['customize_group_label'] == 'customize' ? $component['custom_group_label'] : null,
-                    'customize_label' => $component['customize_group_label'] ?? null,
-                    'custom_repeater_item_label' => $component['customize_repeater_item_label'] ? $component['custom_repeater_item_label'] : null,
-                    'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
-                    'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
-                    'visibility' => $component['visibility'] ? $component['visibility'] : null,
-                    'instance_id' => $component['instance_id'] ?? null,
-                    'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
-                ]);
+        $fieldGroupInstance = FieldGroupInstance::create([
+            'form_version_id' => $formVersion->id,
+            'field_group_id' => $component['field_group_id'],
+            'container_id' => $containerID,
+            'order' => $order,
+            'repeater' => $component['repeater'] ?? false,
+            'label' => $component['customize_group_label'] == 'customize' ? $component['custom_group_label'] : null,
+            'customize_label' => $component['customize_group_label'] ?? null,
+            'custom_repeater_item_label' => $component['customize_repeater_item_label'] ? $component['custom_repeater_item_label'] : null,
+            'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
+            'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
+            'visibility' => $component['visibility'] ? $component['visibility'] : null,
+            'instance_id' => $component['instance_id'] ?? null,
+            'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
+        ]);
 
         $this->createStyles($component, $fieldGroupInstance->id, 'field_group_instance_id');
 
-                $formFields = $component['form_fields'] ?? [];
-                foreach ($formFields as $fieldOrder => $field) {
-            $this->createField($formVersion, $order, $field['data'], $fieldGroupInstance->id);
+        $formFields = $component['form_fields'] ?? [];
+        foreach ($formFields as $field) {
+            $this->createField($formVersion, $order, $field['data'], fieldGroupInstanceID: $fieldGroupInstance->id, containerID: null);
+        }
+    }
+
+    private function createContainer($formVersion, $order, $component)
+    {
+        $container = Container::create([
+            'form_version_id' => $formVersion->id,
+            'order' => $order,
+            'instance_id' => $component['instance_id'] ?? null,
+            'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
+            'visibility' => $component['visibility'] ? $component['visibility'] : null,
+        ]);
+
+        $this->createStyles($component, $container->id, 'container_id');
+
+        $blocks = $component['components'] ?? [];
+        foreach ($blocks as $order => $block) {
+            if ($block['type'] === 'form_field') {
+                $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: $container->id);
+            } elseif ($block['type'] === 'field_group') {
+                $this->createGroup($formVersion, $order, $block['data'], $container->id);
+            }
         }
     }
 
@@ -216,39 +245,38 @@ class EditFormVersion extends EditRecord
 
     private function fillValidations($field)
     {
-            $validations = [];
-            foreach ($field->validations as $validation) {
-                $validations[] = [
-                    'type' => $validation->type,
-                    'value' => $validation->value,
-                    'error_message' => $validation->error_message,
-                ];
+        $validations = [];
+        foreach ($field->validations as $validation) {
+            $validations[] = [
+                'type' => $validation->type,
+                'value' => $validation->value,
+                'error_message' => $validation->error_message,
+            ];
         }
         return $validations;
-            }
+    }
 
     private function fillConditionals($field)
     {
-            $conditionals = [];
-                foreach ($field->conditionals as $conditional) {
-                    $conditionals[] = [
-                        'type' => $conditional->type,
-                        'value' => $conditional->value,
-                    ];
-            }
+        $conditionals = [];
+        foreach ($field->conditionals as $conditional) {
+            $conditionals[] = [
+                'type' => $conditional->type,
+                'value' => $conditional->value,
+            ];
+        }
         return $conditionals;
     }
 
     private function fillFields($formFields)
     {
         $components = [];
-
         foreach ($formFields as $field) {
             $styles = $this->fillStyles($field->styleInstances);
             $validations = $this->fillValidations($field);
             $conditionals = $this->fillConditionals($field);
 
-            $formField = FormField::find($field['form_field_id']);
+            $formField = $field->formField;
             $components[] = [
                 'type' => 'form_field',
                 'data' => [
@@ -278,20 +306,17 @@ class EditFormVersion extends EditRecord
                 ],
             ];
         }
-        return $components;
-        }
+        return $components ?? [];
+    }
 
     private function fillGroups($fieldGroups)
     {
+        $components = [];
         foreach ($fieldGroups as $group) {
-            $formFieldsData = [];
-            $groupFields = $group->formInstanceFields()->orderBy('order')->get();
-            $formFieldsData = $this->fillFields($groupFields);
-
+            $formFieldsData = $this->fillFields($group->formInstanceFields()->orderBy('order')->get());
             $styles = $this->fillStyles($group->styleInstances);
 
-            $components = [];
-            $fieldGroup = FieldGroup::find($group['field_group_id']);
+            $fieldGroup = $group->fieldGroup;
             $components[] = [
                 'type' => 'field_group',
                 'data' => [
@@ -316,6 +341,38 @@ class EditFormVersion extends EditRecord
                 ],
             ];
         }
-        return $components;
+        return $components ?? [];
+    }
+
+    private function fillContainers($containers)
+    {
+        $components = [];
+        foreach ($containers as $container) {
+            $styles = $this->fillStyles($container->styleInstances);
+
+            $blocks = array_merge(
+                $this->fillFields($container->formInstanceFields),
+                $this->fillGroups($container->fieldGroupInstances),
+            );
+
+            usort($blocks, function ($a, $b) {
+                return $a['data']['order'] <=> $b['data']['order'];
+            });
+
+            $components[] = [
+                'type' => 'container',
+                'data' => [
+                    'instance_id' => $container->instance_id,
+                    'custom_instance_id' => $container->custom_instance_id,
+                    'customize_instance_id' => $container->custom_instance_id ?? null,
+                    'components' => $blocks,
+                    'webStyles' => $styles['webStyles'],
+                    'pdfStyles' => $styles['pdfStyles'],
+                    'visibility' => $container->visibility,
+                    'order' => $container->order,
+                ],
+            ];
+        }
+        return $components ?? [];
     }
 }

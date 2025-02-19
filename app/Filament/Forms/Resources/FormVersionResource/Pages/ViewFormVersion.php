@@ -21,11 +21,26 @@ class ViewFormVersion extends ViewRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
+        // Eager load required records
+        $this->record->load([
+            'formInstanceFields' => function ($query) {
+                $query->whereNull('field_group_instance_id')->whereNull('container_id');
+            },
+            'fieldGroupInstances' => function ($query) {
+                $query->whereNull('container_id');
+            },
+            'formInstanceFields.formInstanceFieldValue',
+            'formInstanceFields.styleInstances',
+            'fieldGroupInstances.styleInstances',
+            'containers',
+        ]);
+
         $data = array_merge($this->record->toArray(), $data);
 
         $components = array_merge(
-            $this->fillFields($this->record->formInstanceFields()->whereNull('field_group_instance_id')->get()),
-            $this->fillGroups($this->record->fieldGroupInstances()->get())
+            $this->fillFields($this->record->formInstanceFields),
+            $this->fillGroups($this->record->fieldGroupInstances),
+            $this->fillContainers($this->record->containers),
         );
 
         usort($components, function ($a, $b) {
@@ -81,7 +96,7 @@ class ViewFormVersion extends ViewRecord
                 ];
             }
 
-            $formField = FormField::find($field['form_field_id']) ?? null;
+            $formField = $field->formField;
             $components[] = [
                 'type' => 'form_field',
                 'data' => [
@@ -115,7 +130,7 @@ class ViewFormVersion extends ViewRecord
                 ],
             ];
         }
-        return $components;
+        return $components ?? [];
     }
 
     private function fillGroups($fieldGroups)
@@ -127,7 +142,7 @@ class ViewFormVersion extends ViewRecord
 
             $styles = $this->fillStyles($group->styleInstances);
 
-            $fieldGroup = FieldGroup::find($group['field_group_id']) ?? 'null';
+            $fieldGroup = $group->fieldGroup;
             $components[] = [
                 'type' => 'field_group',
                 'data' => [
@@ -152,6 +167,38 @@ class ViewFormVersion extends ViewRecord
                 ],
             ];
         }
-        return $components;
+        return $components ?? [];
+    }
+
+    private function fillContainers($containers)
+    {
+        $components = [];
+        foreach ($containers as $container) {
+            $styles = $this->fillStyles($container->styleInstances);
+
+            $blocks = array_merge(
+                $this->fillFields($container->formInstanceFields),
+                $this->fillGroups($container->fieldGroupInstances),
+            );
+
+            usort($blocks, function ($a, $b) {
+                return $a['data']['order'] <=> $b['data']['order'];
+            });
+
+            $components[] = [
+                'type' => 'container',
+                'data' => [
+                    'instance_id' => $container->instance_id,
+                    'custom_instance_id' => $container->custom_instance_id,
+                    'customize_instance_id' => $container->custom_instance_id ?? null,
+                    'components' => $blocks,
+                    'webStyles' => $styles['webStyles'],
+                    'pdfStyles' => $styles['pdfStyles'],
+                    'visibility' => $container->visibility,
+                    'order' => $container->order,
+                ],
+            ];
+        }
+        return $components ?? [];
     }
 }

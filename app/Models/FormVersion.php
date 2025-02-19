@@ -57,6 +57,11 @@ class FormVersion extends Model
         return $this->hasMany(FieldGroupInstance::class);
     }
 
+    public function containers(): HasMany
+    {
+        return $this->hasMany(Container::class);
+    }
+
     public function formDataSources(): BelongsToMany
     {
         return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');

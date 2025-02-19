@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Models\Container;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -61,13 +62,16 @@ class CreateFormVersion extends CreateRecord
         if (method_exists($this, 'getRecord')) {
             $formVersion->formInstanceFields()->delete();
             $formVersion->fieldGroupInstances()->delete();
+            $formVersion->containers()->delete();
         }
 
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
-                $this->createField($formVersion, $order, $block['data'], null);
+                $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
             } elseif ($block['type'] === 'field_group') {
-                $this->createGroup($formVersion, $order, $block['data']);
+                $this->createGroup($formVersion, $order, $block['data'], containerID: null);
+            } elseif ($block['type'] === 'container') {
+                $this->createContainer($formVersion, $order, $block['data']);
             }
         }
     }
@@ -125,12 +129,13 @@ class CreateFormVersion extends CreateRecord
         }
     }
 
-    private function createField($formVersion, $order, $component, $fieldGroupInstanceID)
+    private function createField($formVersion, $order, $component, $fieldGroupInstanceID, $containerID)
     {
         $formInstanceField = FormInstanceField::create([
             'form_version_id' => $formVersion->id,
             'form_field_id' => $component['form_field_id'],
             'field_group_instance_id' => $fieldGroupInstanceID,
+            'container_id' => $containerID,
             'order' => $order,
             'label' => $component['label'] ?? null,
             'custom_label' => $component['custom_label'] ?? null,
@@ -153,11 +158,12 @@ class CreateFormVersion extends CreateRecord
         $this->createFieldValue($component, $formInstanceField);
     }
 
-    private function createGroup($formVersion, $order, $component)
+    private function createGroup($formVersion, $order, $component, $containerID)
     {
         $fieldGroupInstance = FieldGroupInstance::create([
             'form_version_id' => $formVersion->id,
             'field_group_id' => $component['field_group_id'],
+            'container_id' => $containerID,
             'order' => $order,
             'label' => $component['custom_group_label'] ?? null,
             'customize_label' => $component['customize_group_label'] ?? null,
@@ -174,7 +180,29 @@ class CreateFormVersion extends CreateRecord
 
         $formFields = $component['form_fields'] ?? [];
         foreach ($formFields as $fieldOrder => $field) {
-            $this->createField($formVersion, $order, $field['data'], $fieldGroupInstance->id);
+            $this->createField($formVersion, $order, $field['data'], $fieldGroupInstance->id, containerID: null);
+        }
+    }
+
+    private function createContainer($formVersion, $order, $component)
+    {
+        $container = Container::create([
+            'form_version_id' => $formVersion->id,
+            'order' => $order,
+            'instance_id' => $component['instance_id'] ?? null,
+            'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
+            'visibility' => $component['visibility'] ? $component['visibility'] : null,
+        ]);
+
+        $this->createStyles($component, $container->id, 'container_id');
+
+        $blocks = $component['components'] ?? [];
+        foreach ($blocks as $order => $block) {
+            if ($block['type'] === 'form_field') {
+                $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: $container->id);
+            } elseif ($block['type'] === 'field_group') {
+                $this->createGroup($formVersion, $order, $block['data'], $container->id);
+            }
         }
     }
 }
