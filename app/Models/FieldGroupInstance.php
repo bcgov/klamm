@@ -41,4 +41,9 @@ class FieldGroupInstance extends Model
     {
         return $this->hasMany(FormInstanceField::class);
     }
+
+    public function styleInstances(): HasMany
+    {
+        return $this->hasMany(StyleInstance::class);
+    }
 }

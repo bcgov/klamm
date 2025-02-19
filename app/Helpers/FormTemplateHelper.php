@@ -91,6 +91,20 @@ class FormTemplateHelper
     {
         $field = $fieldInstance->formField;
 
+        $webStyle = [];
+        foreach ($fieldInstance->styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'web') {
+                $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
+            }
+        }
+
+        $pdfStyle = [];
+        foreach ($fieldInstance->styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'pdf') {
+                $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
+            }
+        }
+
         $validation = $fieldInstance->validations->map(function ($validation) {
             return [
                 'type' => $validation->type,
@@ -126,12 +140,19 @@ class FormTemplateHelper
             "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
             "label" => $label,
             "helperText" => $fieldInstance->custom_help_text ?? $field->help_text,
-            "styles" => $fieldInstance->custom_styles ?? $field->styles,
             "mask" => $fieldInstance->custom_mask ?? $field->mask,
             "codeContext" => [
                 "name" => $field->name,
             ],
         ];
+
+        if (sizeof($webStyle) > 0) {
+            $base = array_merge($base, ["webStyles" => $webStyle]);
+        }
+
+        if (sizeof($pdfStyle) > 0) {
+            $base = array_merge($base, ["pdfStyles" => $pdfStyle]);
+        }
 
         if (sizeof($validation) > 0) {
             $base = array_merge($base, ["validation" => $validation]);
@@ -190,6 +211,20 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
 
+        $webStyle = [];
+        foreach ($groupInstance->styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'web') {
+                $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
+            }
+        }
+
+        $pdfStyle = [];
+        foreach ($groupInstance->styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'pdf') {
+                $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
+            }
+        }
+
         $visibility = [];
         if ($groupInstance->visibility) {
             $visibility = [
@@ -229,6 +264,14 @@ class FormTemplateHelper
                 "name" => $group->name,
             ],
         ];
+
+        if (sizeof($webStyle) > 0) {
+            $base = array_merge($base, ["webStyles" => $webStyle]);
+        }
+
+        if (sizeof($pdfStyle) > 0) {
+            $base = array_merge($base, ["pdfStyles" => $pdfStyle]);
+        }
 
         if ($groupInstance->repeater) {
             $label = $groupInstance->custom_repeater_item_label ?? $groupInstance->fieldGroup->repeater_item_label;

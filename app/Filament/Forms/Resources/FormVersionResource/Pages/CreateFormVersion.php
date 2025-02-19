@@ -11,6 +11,7 @@ use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
+use App\Models\StyleInstance;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -78,13 +79,28 @@ class CreateFormVersion extends CreateRecord
                     'custom_data_binding' => $component['custom_data_binding'] ?? null,
                     'help_text' => $component['help_text'] ?? null,
                     'custom_help_text' => $component['custom_help_text'] ?? null,
-                    'styles' => $component['styles'] ?? null,
-                    'custom_styles' => $component['custom_styles'] ?? null,
                     'mask' => $component['mask'] ?? null,
                     'custom_mask' => $component['custom_mask'] ?? null,
                     'instance_id' => $component['instance_id'] ?? null,
                     'custom_instance_id' => $component['custom_instance_id'] ?? null,
                 ]);
+
+                $webStyles = $component['webStyles'] ?? [];
+                foreach ($webStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'web',
+                        'form_instance_field_id' => $formInstanceField->id,
+                    ]);
+                }
+                $pdfStyles = $component['pdfStyles'] ?? [];
+                foreach ($pdfStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'pdf',
+                        'form_instance_field_id' => $formInstanceField->id,
+                    ]);
+                }
 
                 $validations = $component['validations'] ?? [];
                 foreach ($validations as $validationData) {
@@ -130,6 +146,23 @@ class CreateFormVersion extends CreateRecord
                     'custom_instance_id' => $component['custom_instance_id'] ?? null,
                 ]);
 
+                $webStyles = $component['webStyles'] ?? [];
+                foreach ($webStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'web',
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                    ]);
+                }
+                $pdfStyles = $component['pdfStyles'] ?? [];
+                foreach ($pdfStyles as $styleData) {
+                    StyleInstance::create([
+                        'style_id' => $styleData,
+                        'type' => 'pdf',
+                        'field_group_instance_id' => $fieldGroupInstance->id,
+                    ]);
+                }
+
                 $formFields = $component['form_fields'] ?? [];
                 foreach ($formFields as $fieldOrder => $field) {
                     $fieldData = $field['data'];
@@ -143,11 +176,27 @@ class CreateFormVersion extends CreateRecord
                         'custom_data_binding_path' => $fieldData['custom_data_binding_path'] ?? null,
                         'custom_data_binding' => $fieldData['custom_data_binding'] ?? null,
                         'custom_help_text' => $fieldData['custom_help_text'] ?? null,
-                        'custom_styles' => $fieldData['custom_styles'] ?? null,
                         'custom_mask' => $fieldData['custom_mask'] ?? null,
                         'instance_id' => $fieldData['instance_id'] ?? null,
                         'custom_instance_id' => $fieldData['custom_instance_id'] ?? null,
                     ]);
+
+                    $webStyles = $fieldData['webStyles'] ?? [];
+                    foreach ($webStyles as $styleData) {
+                        StyleInstance::create([
+                            'style_id' => $styleData,
+                            'type' => 'web',
+                            'form_instance_field_id' => $formInstanceField->id,
+                        ]);
+                    }
+                    $pdfStyles = $fieldData['pdfStyles'] ?? [];
+                    foreach ($pdfStyles as $styleData) {
+                        StyleInstance::create([
+                            'style_id' => $styleData,
+                            'type' => 'pdf',
+                            'form_instance_field_id' => $formInstanceField->id,
+                        ]);
+                    }
 
                     $validations = $fieldData['validations'] ?? [];
                     foreach ($validations as $validationData) {

@@ -30,6 +30,16 @@ class ViewFormVersion extends ViewRecord
             ->get();
 
         foreach ($formFields as $field) {
+            $webStyles = [];
+            $pdfStyles = [];
+            foreach ($field->styleInstances as $styleInstance) {
+                if ($styleInstance->type === 'web') {
+                    $webStyles[] = $styleInstance->style_id;
+                } elseif ($styleInstance->type === 'pdf') {
+                    $pdfStyles[] = $styleInstance->style_id;
+                }
+            }
+
             $validations = [];
             foreach ($field->validations as $validation) {
                 $validations[] = [
@@ -65,9 +75,6 @@ class ViewFormVersion extends ViewRecord
                     'help_text' => $field->help_text,
                     'custom_help_text' => $field->custom_help_text,
                     'customize_help_text' => $field->custom_help_text,
-                    'styles' => $field->styles,
-                    'custom_styles' => $field->custom_styles,
-                    'customize_styles' => $field->custom_styles,
                     'mask' => $field->mask,
                     'custom_mask' => $field->custom_mask,
                     'customize_mask' => $field->custom_mask,
@@ -77,6 +84,8 @@ class ViewFormVersion extends ViewRecord
                     'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
+                    'webStyles' => $webStyles,
+                    'pdfStyles' => $pdfStyles,
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'order' => $field->order,
@@ -91,6 +100,16 @@ class ViewFormVersion extends ViewRecord
 
             $formFieldsData = [];
             foreach ($groupFields as $field) {
+                $webStyles = [];
+                $pdfStyles = [];
+                foreach ($field->styleInstances as $styleInstance) {
+                    if ($styleInstance->type === 'web') {
+                        $webStyles[] = $styleInstance->style_id;
+                    } elseif ($styleInstance->type === 'pdf') {
+                        $pdfStyles[] = $styleInstance->style_id;
+                    }
+                }
+
                 $validations = [];
                 foreach ($field->validations as $validation) {
                     $validations[] = [
@@ -125,9 +144,6 @@ class ViewFormVersion extends ViewRecord
                         'help_text' => $field->help_text,
                         'custom_help_text' => $field->custom_help_text,
                         'customize_help_text' => $field->custom_help_text,
-                        'styles' => $field->styles,
-                        'custom_styles' => $field->custom_styles,
-                        'customize_styles' => $field->custom_styles,
                         'mask' => $field->mask,
                         'custom_mask' => $field->custom_mask,
                         'customize_mask' => $field->custom_mask,
@@ -137,10 +153,22 @@ class ViewFormVersion extends ViewRecord
                         'field_value' => $field->formInstanceFieldValue?->value,
                         'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                         'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
+                        'webStyles' => $webStyles,
+                        'pdfStyles' => $pdfStyles,
                         'validations' => $validations,
                         'conditionals' => $conditionals,
                     ],
                 ];
+            }
+
+            $webStyles = [];
+            $pdfStyles = [];
+            foreach ($group->styleInstances as $styleInstance) {
+                if ($styleInstance->type === 'web') {
+                    $webStyles[] = $styleInstance->style_id;
+                } elseif ($styleInstance->type === 'pdf') {
+                    $pdfStyles[] = $styleInstance->style_id;
+                }
             }
 
             $fieldGroup = FieldGroup::find($group['field_group_id']) ?? 'null';
@@ -164,6 +192,8 @@ class ViewFormVersion extends ViewRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
+                    'webStyles' => $webStyles,
+                    'pdfStyles' => $pdfStyles,
                 ],
             ];
         }
