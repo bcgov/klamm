@@ -13,6 +13,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use App\Models\DataType;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Textarea;
 use Filament\Support\Enums\Alignment;
 use Filament\Tables\Filters\SelectFilter;
@@ -53,6 +54,30 @@ class FormFieldResource extends Resource
                     ->columnSpan(2)
                     ->required()
                     ->live(),
+                RichEditor::make('value')
+                    ->label('Field Value')
+                    ->visible(function (callable $get) {
+                        $dataType = DataType::find($get('data_type_id'));
+                        return $dataType && $dataType->name === 'text-info';
+                    })
+                    ->toolbarButtons([
+                        'bold',
+                        'italic',
+                        'underline',
+                        'strike',
+                        'link',
+                        'h1',
+                        'h2',
+                        'h3',
+                        'blockquote',
+                        'codeBlock',
+                        'bulletList',
+                        'orderedList',
+                        'undo',
+                        'redo',
+                    ])
+                    ->live()
+                    ->columnSpanFull(),
                 Select::make('selectOptions')
                     ->label('Select Options')
                     ->relationship('selectOptions', 'label')
@@ -113,14 +138,6 @@ class FormFieldResource extends Resource
                     ])
                     ->collapsed(),
                 Textarea::make('help_text')
-                    ->columnSpanFull(),
-                Textarea::make('value')
-                    ->label('Field Value')
-                    ->visible(function (callable $get) {
-                        $dataType = DataType::find($get('data_type_id'));
-                        return $dataType && $dataType->name === 'text-info';
-                    })
-                    ->live()
                     ->columnSpanFull(),
                 Textarea::make('description')
                     ->columnSpanFull(),
