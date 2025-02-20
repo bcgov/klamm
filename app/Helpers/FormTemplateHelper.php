@@ -22,6 +22,7 @@ class FormTemplateHelper
 
         $formFields = $formVersion->formInstanceFields()
             ->whereNull('field_group_instance_id')
+            ->whereNull('container_id')
             ->orderBy('order')
             ->get();
 
@@ -33,13 +34,26 @@ class FormTemplateHelper
             ];
         }
 
-        $fieldGroups = $formVersion->fieldGroupInstances()->orderBy('order')->get();
+        $fieldGroups = $formVersion->fieldGroupInstances()
+            ->whereNull('container_id')
+            ->orderBy('order')
+            ->get();
 
         foreach ($fieldGroups as $group) {
             $components[] = [
                 'component_type' => 'field_group',
                 'data' => $group,
                 'order' => $group->order,
+            ];
+        }
+
+        $containers = $formVersion->containers()->orderBy('order')->get();
+
+        foreach ($containers as $container) {
+            $components[] = [
+                'component_type' => 'container',
+                'data' => $container,
+                'order' => $container->order,
             ];
         }
 
@@ -58,6 +72,10 @@ class FormTemplateHelper
             } elseif ($component['component_type'] === 'field_group') {
                 $group = $component['data'];
                 $items[] = self::formatGroup($group, $index);
+                $index++;
+            } elseif ($component['component_type'] === 'container') {
+                $container = $component['data'];
+                $items[] = self::formatContainer($container, $index);
                 $index++;
             }
         }
@@ -146,24 +164,24 @@ class FormTemplateHelper
             ],
         ];
 
-        if (sizeof($webStyle) > 0) {
-            $base = array_merge($base, ["webStyles" => $webStyle]);
+        if (!empty($webStyle)) {
+            $base["webStyles"] = $webStyle;
         }
 
-        if (sizeof($pdfStyle) > 0) {
-            $base = array_merge($base, ["pdfStyles" => $pdfStyle]);
+        if (!empty($pdfStyle)) {
+            $base["pdfStyles"] = $pdfStyle;
         }
 
-        if (sizeof($validation) > 0) {
-            $base = array_merge($base, ["validation" => $validation]);
+        if (!empty($validation) > 0) {
+            $base["validation"] = $validation;
         }
 
-        if (sizeof($conditional) > 0) {
-            $base = array_merge($base, ["conditions" => $conditional]);
+        if (!empty($conditional) > 0) {
+            $base['conditions'] = $conditional;
         }
 
-        if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
-            $base = array_merge($base, ["databindings" => $databindings]);
+        if (!empty($databindings["source"]) && !empty($databindings["path"])) {
+            $base['databindings'] = $databindings;
         }
 
         switch ($field->dataType->name) {
@@ -265,12 +283,12 @@ class FormTemplateHelper
             ],
         ];
 
-        if (sizeof($webStyle) > 0) {
-            $base = array_merge($base, ["webStyles" => $webStyle]);
+        if (!empty($webStyle)) {
+            $base["webStyles"] = $webStyle;
         }
 
-        if (sizeof($pdfStyle) > 0) {
-            $base = array_merge($base, ["pdfStyles" => $pdfStyle]);
+        if (!empty($pdfStyle)) {
+            $base["pdfStyles"] = $pdfStyle;
         }
 
         if ($groupInstance->repeater) {
@@ -278,12 +296,12 @@ class FormTemplateHelper
             $base = array_merge($base, ["repeaterItemLabel" => $label]);
         }
 
-        if (sizeof($visibility) > 0) {
-            $base = array_merge($base, ["conditions" => $visibility]);
+        if (!empty($visibility)) {
+            $base["conditions"] = $visibility;
         }
 
-        if (!is_null($databindings["source"]) && !is_null($databindings["path"])) {
-            $base = array_merge($base, ["databindings" => $databindings]);
+        if (!empty($databindings["source"]) && !empty($databindings["path"])) {
+            $base['databindings'] = $databindings;
         }
 
         return array_merge($base, [
@@ -295,15 +313,100 @@ class FormTemplateHelper
         ]);
     }
 
+    protected static function formatContainer($container, $index)
+    {
+        $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
+        $groupsInContainer = $container->fieldGroupInstances()->orderBy('order')->get();
+
+        $items = [];
+        foreach ($fieldsInContainer as $fieldInstance) {
+            $items[] = [
+                'type' => 'field',
+                'data' => $fieldInstance,
+                'order' => $fieldInstance->order,
+            ];
+        }
+        foreach ($groupsInContainer as $groupInstance) {
+            $items[] = [
+                'type' => 'group',
+                'data' => $groupInstance,
+                'order' => $groupInstance->order,
+            ];
+        }
+
+        // Sort items by order before processing
+        usort($items, fn($a, $b) => $a['order'] <=> $b['order']);
+
+        // Process sorted items
+        $containerItems = [];
+        foreach ($items as $item) {
+            if ($item['type'] === 'field') {
+                $containerItems[] = self::formatField($item['data'], $index);
+            } elseif ($item['type'] === 'group') {
+                $containerItems[] = self::formatGroup($item['data'], $index);
+            }
+            $index++;
+        }
+
+        $webStyle = [];
+        foreach ($container->styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'web') {
+                $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
+            }
+        }
+
+        $pdfStyle = [];
+        foreach ($container->styleInstances as $styleInstance) {
+            if ($styleInstance->type === 'pdf') {
+                $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
+            }
+        }
+
+        $visibility = [];
+        if ($container->visibility) {
+            $visibility = [
+                [
+                    'type' => 'visibility',
+                    'value' => $container->visibility,
+                ],
+            ];
+        }
+
+        $base = [
+            "type" => "container",
+            "id" => $container->custom_instance_id ?? $container->instance_id,
+            "containerId" => (string) $container->id,
+            "codeContext" => [
+                "name" => 'container',
+            ],
+        ];
+
+        if (!empty($webStyle)) {
+            $base["webStyles"] = $webStyle;
+        }
+
+        if (!empty($pdfStyle)) {
+            $base["pdfStyles"] = $pdfStyle;
+        }
+
+        if (!empty($visibility)) {
+            $base["conditions"] = $visibility;
+        }
+
+        return array_merge($base, [
+            "containerItems" => $containerItems,
+        ]);
+    }
+
     public static function calculateFieldID($state)
     {
         $numOfComponents = count($state);
-        return 'field' . $numOfComponents;
+        return 'element' . $numOfComponents;
     }
 
     public static function calculateFieldInGroupID($state)
     {
         $numOfFormFields = count($state);
-        return 'nestedField' . $numOfFormFields;
+        return 'nestedElement' . $numOfFormFields;
     }
 }

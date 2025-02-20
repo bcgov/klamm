@@ -4,28 +4,35 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class FieldGroupInstance extends Model
+class Container extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
     protected $fillable = [
+        'id',
         'form_version_id',
-        'field_group_id',
-        'container_id',
-        'label',
-        'customize_label',
-        'custom_repeater_item_label',
-        'repeater',
-        'custom_data_binding_path',
-        'custom_data_binding',
-        'visibility',
         'order',
         'instance_id',
         'custom_instance_id',
+        'visibility'
+    ];
 
+    /**
+     * The attributes that should be cast to native types.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'id' => 'integer',
+        'order' => 'integer',
     ];
 
     public function formVersion(): BelongsTo
@@ -33,14 +40,9 @@ class FieldGroupInstance extends Model
         return $this->belongsTo(FormVersion::class);
     }
 
-    public function container(): BelongsTo
+    public function fieldGroupInstances(): HasMany
     {
-        return $this->belongsTo(Container::class);
-    }
-
-    public function fieldGroup(): BelongsTo
-    {
-        return $this->belongsTo(FieldGroup::class);
+        return $this->hasMany(FieldGroupInstance::class);
     }
 
     public function formInstanceFields(): HasMany

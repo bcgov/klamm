@@ -20,6 +20,7 @@ class StyleInstance extends Model
         'type',
         'form_instance_field_id',
         'field_group_instance_id',
+        'container_id',
     ];
 
     /**
@@ -32,6 +33,7 @@ class StyleInstance extends Model
         'style_id' => 'integer',
         'form_instance_field_id' => 'integer',
         'field_group_instance_id' => 'integer',
+        'container_id' => 'integer',
     ];
 
     public function style(): BelongsTo
@@ -47,5 +49,10 @@ class StyleInstance extends Model
     public function fieldGroupInstance(): BelongsTo
     {
         return $this->belongsTo(FieldGroupInstance::class);
+    }
+
+    public function container(): BelongsTo
+    {
+        return $this->belongsTo(Container::class);
     }
 }
