@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Bre\Widgets\BREStatsWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -31,14 +32,16 @@ class BrePanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('10s')
             ->colors([
                 'primary' => Color::Blue,
             ])
             ->userMenuItems([
                 MenuItem::make()
-                   ->label('Edit Profile')
-                   ->url('/profile')
-                   ->icon('heroicon-o-pencil-square')
+                    ->label('Edit Profile')
+                    ->url('/profile')
+                    ->icon('heroicon-o-pencil-square')
             ])
             ->discoverResources(in: app_path('Filament/Bre/Resources'), for: 'App\\Filament\\Bre\\Resources')
             ->discoverPages(in: app_path('Filament/Bre/Pages'), for: 'App\\Filament\\Bre\\Pages')
@@ -48,6 +51,7 @@ class BrePanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Bre/Widgets'), for: 'App\\Filament\\Bre\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
+                BREStatsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
