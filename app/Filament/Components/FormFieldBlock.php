@@ -13,6 +13,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -166,16 +167,37 @@ class FormFieldBlock
                                     ->columns(1)
                                     ->columnSpanFull()
                                     ->schema([
-                                        Placeholder::make('field_value')
+                                        RichEditor::make('field_value')
                                             ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->formFieldValue?->value ?? 'null'),
+                                            ->toolbarButtons([])
+                                            ->disabled()
+                                            ->afterStateHydrated(function ($state, callable $set, callable $get) {
+                                                $value = FormField::find($get('form_field_id'))?->formFieldValue?->value ?? '';
+                                                $set('field_value', $value);
+                                            }),
                                         Toggle::make('customize_field_value')
                                             ->label('Customize Field Value')
                                             ->inline()
                                             ->live(),
-                                        TextInput::make('custom_field_value')
+                                        RichEditor::make('custom_field_value')
                                             ->label(false)
-                                            ->visible(fn($get) => $get('customize_field_value')),
+                                            ->visible(fn($get) => $get('customize_field_value'))
+                                            ->toolbarButtons([
+                                                'bold',
+                                                'italic',
+                                                'underline',
+                                                'strike',
+                                                'link',
+                                                'h1',
+                                                'h2',
+                                                'h3',
+                                                'blockquote',
+                                                'codeBlock',
+                                                'bulletList',
+                                                'orderedList',
+                                                'undo',
+                                                'redo',
+                                            ]),
                                     ]),
                                 Fieldset::make('Data Binding')
                                     ->columns(1)
