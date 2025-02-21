@@ -190,7 +190,6 @@ class FormTemplateHelper
                     "inputType" => "text",
                 ]);
             case "dropdown":
-                $label = $fieldInstance->custom_label ?? $fieldInstance->formField->label;
                 return array_merge($base, [
                     "placeholder" => "Select your {$label}",
                     "isMulti" => false,
@@ -201,7 +200,10 @@ class FormTemplateHelper
                     "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
-                            return ["text" => $selectOption->label];
+                            return [
+                                "text" => $selectOption->label,
+                                "value" => $selectOption->value
+                            ];
                         })
                         ->toArray(),
                 ]);
@@ -214,7 +216,10 @@ class FormTemplateHelper
                     "listItems" => $field->selectOptions()
                         ->get()
                         ->map(function ($selectOption) {
-                            return ["text" => $selectOption->label];
+                            return [
+                                "text" => $selectOption->label,
+                                "value" => $selectOption->value
+                            ];
                         })
                         ->toArray(),
                 ]);
