@@ -4,10 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SelectOptions extends Model
+class SelectOptionInstance extends Model
 {
     use HasFactory;
 
@@ -17,10 +16,9 @@ class SelectOptions extends Model
      * @var array
      */
     protected $fillable = [
-        'name',
-        'label',
-        'value',
-        'description',
+        'form_field_id',
+        'select_option_id',
+        'order',
     ];
 
     /**
@@ -30,11 +28,15 @@ class SelectOptions extends Model
      */
     protected $casts = [
         'id' => 'integer',
-        'form_field_id' => 'integer',
     ];
 
-    public function selectOptionInstances(): HasMany
+    public function selectOption(): BelongsTo
     {
-        return $this->hasMany(SelectOptionInstance::class);
+        return $this->belongsTo(SelectOptions::class, 'select_option_id');
+    }
+
+    public function formField(): BelongsTo
+    {
+        return $this->belongsTo(FormField::class, 'form_field_id');
     }
 }

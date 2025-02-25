@@ -19,10 +19,15 @@ class ViewFormField extends ViewRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data = array_merge($this->record->toArray(), $data);    
+        $data = array_merge($this->record->toArray(), $data);
 
-        $formFieldValueObj = $this->record->formFieldValue()->first();        
+        $formFieldValueObj = $this->record->formFieldValue()->first();
         $data['value'] = $formFieldValueObj?->value;
+
+        $data['select_option_instances'] = $this->record->selectOptionInstances->map(fn($instance) => [
+            'type' => 'select_option_instance',
+            'data' => ['select_option_id' => $instance->select_option_id],
+        ])->toArray();
 
         return $data;
     }
