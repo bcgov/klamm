@@ -191,7 +191,24 @@ class SiebelAppletResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('project_id')
+                    ->label('Project')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('project.name')
+                    ->relationship('project', 'name'),
+                Tables\Filters\SelectFilter::make('business_component_id')
+                    ->label('Business Component')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('businessComponent.name')
+                    ->relationship('businessComponent', 'name'),
+                Tables\Filters\SelectFilter::make('class_id')
+                    ->label('Class')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('class.name')
+                    ->relationship('class', 'name'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

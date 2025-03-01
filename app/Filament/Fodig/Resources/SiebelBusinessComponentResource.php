@@ -4,7 +4,10 @@ namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\Pages;
 use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\RelationManagers;
+use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\RelationManagers\SiebelAppletsRelationManager;
+use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\RelationManagers\SiebelFieldsRelationManager;
 use App\Models\SiebelBusinessComponent;
+use App\Models\SiebelField;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -108,16 +111,18 @@ class SiebelBusinessComponentResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('siebelFields.name')
+                    ->searchable()
+                    ->badge()
+                    ->label('Child Siebel Fields'),
+                Tables\Columns\TextColumn::make('siebelApplets.name')
+                    ->searchable()
+                    ->badge()
+                    ->label('Child Siebel Applets'),
                 Tables\Columns\BooleanColumn::make('changed')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('repository_name')
                     ->searchable()
-                    ->sortable(),
-                Tables\Columns\BooleanColumn::make('cache_data')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('data_source')
-                    ->sortable(),
-                Tables\Columns\BooleanColumn::make('dirty_reads')
                     ->sortable(),
                 Tables\Columns\BooleanColumn::make('distinct')
                     ->sortable(),
@@ -194,7 +199,36 @@ class SiebelBusinessComponentResource extends Resource
                     ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('project_id')
+                    ->label('Project')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('project.name')
+                    ->relationship('project', 'name'),
+                Tables\Filters\SelectFilter::make('class_id')
+                    ->label('Class')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('class.name')
+                    ->relationship('class', 'name'),
+                Tables\Filters\SelectFilter::make('table_id')
+                    ->label('Table')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('table.name')
+                    ->relationship('table', 'name'),
+                Tables\Filters\SelectFilter::make('siebelFields')
+                    ->label('Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('siebelFields.name')
+                    ->relationship('siebelFields', 'name'),
+                Tables\Filters\SelectFilter::make('siebelApplets')
+                    ->label('Applets')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('siebelApplets.name')
+                    ->relationship('siebelApplets', 'name'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -216,7 +250,8 @@ class SiebelBusinessComponentResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            SiebelFieldsRelationManager::class,
+            SiebelAppletsRelationManager::class,
         ];
     }
 
