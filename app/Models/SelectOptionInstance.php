@@ -17,6 +17,7 @@ class SelectOptionInstance extends Model
      */
     protected $fillable = [
         'form_field_id',
+        'form_instance_field_id',
         'select_option_id',
         'order',
     ];
@@ -38,5 +39,10 @@ class SelectOptionInstance extends Model
     public function formField(): BelongsTo
     {
         return $this->belongsTo(FormField::class, 'form_field_id');
+    }
+
+    public function formInstanceField(): BelongsTo
+    {
+        return $this->belongsTo(FormInstanceField::class, 'form_instance_field_id');
     }
 }

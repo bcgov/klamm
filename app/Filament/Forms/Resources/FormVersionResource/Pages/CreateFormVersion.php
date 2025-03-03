@@ -12,6 +12,7 @@ use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
+use App\Models\SelectOptionInstance;
 use App\Models\StyleInstance;
 
 class CreateFormVersion extends CreateRecord
@@ -129,6 +130,19 @@ class CreateFormVersion extends CreateRecord
         }
     }
 
+    private function createSelectOptionInstance($component, $formInstanceField)
+    {
+        foreach ($component['select_option_instances'] as $index => $instance) {
+            if (!empty($component['select_option_instances'])) {
+                SelectOptionInstance::create([
+                    'form_instance_field_id' => $formInstanceField->id,
+                    'select_option_id' => $instance['data']['select_option_id'] ?? null,
+                    'order' => $index + 1,
+                ]);
+            }
+        }
+    }
+
     private function createField($formVersion, $order, $component, $fieldGroupInstanceID, $containerID)
     {
         $formInstanceField = FormInstanceField::create([
@@ -156,6 +170,7 @@ class CreateFormVersion extends CreateRecord
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
+        $this->createSelectOptionInstance($component, $formInstanceField);
     }
 
     private function createGroup($formVersion, $order, $component, $containerID)

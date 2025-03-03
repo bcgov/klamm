@@ -3,8 +3,6 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
-use App\Models\FieldGroup;
-use App\Models\FormField;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -73,28 +71,54 @@ class ViewFormVersion extends ViewRecord
         return $styles;
     }
 
+    private function fillValidations($validations)
+    {
+        $data = [];
+        foreach ($validations as $validation) {
+            $data[] = [
+                'type' => $validation->type,
+                'value' => $validation->value,
+                'error_message' => $validation->error_message,
+            ];
+        }
+        return $data;
+    }
+
+    private function fillConditionals($conditionals)
+    {
+        $data = [];
+        foreach ($conditionals as $conditional) {
+            $data[] = [
+                'type' => $conditional->type,
+                'value' => $conditional->value,
+            ];
+        }
+        return $data;
+    }
+
+    private function fillSelectOptionInstances($selectOptionInstances)
+    {
+        $data = [];
+        foreach ($selectOptionInstances as $instance) {
+            $data[] = [
+                'type' => 'select_option_instance',
+                'data' => [
+                    'select_option_id' => $instance->select_option_id,
+                    'order' => $instance->order
+                ],
+            ];
+        }
+        return $data;
+    }
+
     private function fillFields($formFields)
     {
         $components = [];
         foreach ($formFields as $field) {
             $styles = $this->fillStyles($field->styleInstances);
-
-            $validations = [];
-            foreach ($field->validations as $validation) {
-                $validations[] = [
-                    'type' => $validation->type,
-                    'value' => $validation->value,
-                    'error_message' => $validation->error_message,
-                ];
-            }
-
-            $conditionals = [];
-            foreach ($field->conditionals as $conditional) {
-                $conditionals[] = [
-                    'type' => $conditional->type,
-                    'value' => $conditional->value,
-                ];
-            }
+            $validations = $this->fillValidations($field->validations);
+            $conditionals = $this->fillConditionals($field->conditionals);
+            $selectOptionInstances = $this->fillSelectOptionInstances($field->selectOptionInstances);
 
             $formField = $field->formField;
             $components[] = [
@@ -126,6 +150,7 @@ class ViewFormVersion extends ViewRecord
                     'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
+                    'select_option_instances' => $selectOptionInstances,
                     'order' => $field->order,
                 ],
             ];

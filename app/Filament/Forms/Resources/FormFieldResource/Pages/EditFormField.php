@@ -55,7 +55,10 @@ class EditFormField extends EditRecord
 
         $data['select_option_instances'] = $this->record->selectOptionInstances->map(fn($instance) => [
             'type' => 'select_option_instance',
-            'data' => ['select_option_id' => $instance->select_option_id],
+            'data' => [
+                'select_option_id' => $instance->select_option_id,
+                'order' => $instance->order,
+            ],
         ])->toArray();
 
         return $data;

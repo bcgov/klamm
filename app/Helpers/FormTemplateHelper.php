@@ -3,12 +3,8 @@
 namespace App\Helpers;
 
 use Illuminate\Support\Str;
-use App\Models\SelectOptions;
 use App\Models\FormVersion;
 use App\Models\Form;
-use App\Models\FieldGroupInstance;
-use App\Models\FormInstanceField;
-use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
@@ -197,12 +193,12 @@ class FormTemplateHelper
                     "selectionFeedback" => "top-after-reopen",
                     "direction" => "bottom",
                     "size" => "md",
-                    "listItems" => $field->selectOptions()
+                    "listItems" => $fieldInstance->selectOptionInstances()
                         ->get()
-                        ->map(function ($selectOption) {
+                        ->map(function ($selectOptionInstance) {
                             return [
-                                "text" => $selectOption->label,
-                                "value" => $selectOption->value
+                                "text" => $selectOptionInstance->selectOption->label,
+                                "value" => $selectOptionInstance->selectOption->value
                             ];
                         })
                         ->toArray(),
@@ -213,12 +209,12 @@ class FormTemplateHelper
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "listItems" => $field->selectOptions()
+                    "listItems" => $field->selectOptionInstances()
                         ->get()
-                        ->map(function ($selectOption) {
+                        ->map(function ($selectOptionInstance) {
                             return [
-                                "text" => $selectOption->label,
-                                "value" => $selectOption->value
+                                "text" => $selectOptionInstance->selectOption->label,
+                                "value" => $selectOptionInstance->selectOption->value
                             ];
                         })
                         ->toArray(),

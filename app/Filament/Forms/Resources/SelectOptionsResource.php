@@ -4,6 +4,8 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\SelectOptionsResource\Pages;
 use App\Filament\Imports\SelectOptionsImporter;
+use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormFieldsRelationManager;
+use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
 use App\Models\SelectOptions;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -85,7 +87,8 @@ class SelectOptionsResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            FormFieldsRelationManager::class,
+            FormInstanceFieldsRelationManager::class,
         ];
     }
 

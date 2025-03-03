@@ -35,6 +35,6 @@ class SelectOptions extends Model
 
     public function selectOptionInstances(): HasMany
     {
-        return $this->hasMany(SelectOptionInstance::class);
+        return $this->hasMany(SelectOptionInstance::class, "select_option_id");
     }
 }
