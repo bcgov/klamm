@@ -31,7 +31,8 @@ class SelectOptionsResource extends Resource
                     ->required(),
                 Forms\Components\TextInput::make('label')
                     ->required(),
-                Forms\Components\TextInput::make('value'),
+                Forms\Components\TextInput::make('value')
+                    ->required(),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('formFields')

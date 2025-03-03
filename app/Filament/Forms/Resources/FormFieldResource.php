@@ -5,7 +5,6 @@ namespace App\Filament\Forms\Resources;
 use App\Filament\Forms\Resources\FormFieldResource\Pages;
 use App\Models\FormField;
 use App\Models\FormDataSource;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -13,8 +12,10 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
 use App\Models\DataType;
+use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Textarea;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables\Filters\SelectFilter;
 
 class FormFieldResource extends Resource
@@ -39,19 +40,48 @@ class FormFieldResource extends Resource
             'javascript' => 'JavaScript',
         ];
         return $form
+            ->columns(6)
             ->schema([
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->unique(ignoreRecord: true)
+                    ->columnSpan(2)
                     ->required(),
-                Forms\Components\TextInput::make('label')
+                TextInput::make('label')
+                    ->columnSpan(2)
                     ->required(),
-                Forms\Components\Select::make('data_type_id')
+                Select::make('data_type_id')
                     ->relationship('dataType', 'name')
+                    ->columnSpan(2)
                     ->required()
                     ->live(),
-                Forms\Components\Select::make('selectOptions')
+                RichEditor::make('value')
+                    ->label('Field Value')
+                    ->visible(function (callable $get) {
+                        $dataType = DataType::find($get('data_type_id'));
+                        return $dataType && $dataType->name === 'text-info';
+                    })
+                    ->toolbarButtons([
+                        'bold',
+                        'italic',
+                        'underline',
+                        'strike',
+                        'link',
+                        'h1',
+                        'h2',
+                        'h3',
+                        'blockquote',
+                        'codeBlock',
+                        'bulletList',
+                        'orderedList',
+                        'undo',
+                        'redo',
+                    ])
+                    ->live()
+                    ->columnSpanFull(),
+                Select::make('selectOptions')
                     ->label('Select Options')
                     ->relationship('selectOptions', 'label')
+                    ->columnSpan(3)
                     ->multiple()
                     ->preload()
                     ->live()
@@ -60,17 +90,41 @@ class FormFieldResource extends Resource
                         $dataType = \App\Models\DataType::find($dataTypeId);
                         return $dataType && in_array($dataType->name, ['radio', 'dropdown']);
                     }),
-                Forms\Components\Select::make('data_binding_path')
+                Select::make('data_binding_path')
                     ->label('Field data source')
-                    ->options(FormDataSource::pluck('name', 'name')),
-                Forms\Components\Textarea::make('data_binding'),
-                Forms\Components\Textarea::make('styles'),
-                Forms\Components\TextInput::make('mask'),
+                    ->options(FormDataSource::pluck('name', 'name'))
+                    ->columnSpan(3),
+                Textarea::make('data_binding')
+                    ->columnSpan(3),
+                TextInput::make('mask')
+                    ->columnSpan(3),
+                Select::make('field_group_id')
+                    ->columnSpan(3)
+                    ->multiple()
+                    ->preload()
+                    ->relationship('fieldGroups', 'name'),
+                Select::make('webStyles')
+                    ->relationship('webStyles', 'name')
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(3)
+                    ->live()
+                    ->reactive(),
+                Select::make('pdfStyles')
+                    ->relationship('pdfStyles', 'name')
+                    ->label('PDF styles')
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(3)
+                    ->live()
+                    ->reactive(),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
                     ->relationship('validations')
                     ->defaultItems(0)
+                    ->columnSpanFull()
+                    ->addActionAlignment(Alignment::Start)
                     ->schema([
                         Select::make('type')
                             ->label('Validation Type')
@@ -83,22 +137,10 @@ class FormFieldResource extends Resource
                             ->label('Error Message'),
                     ])
                     ->collapsed(),
-                Forms\Components\Textarea::make('help_text')
+                Textarea::make('help_text')
                     ->columnSpanFull(),
-                Forms\Components\Textarea::make('value')
-                    ->label('Field Value')
-                    ->visible(function (callable $get) {
-                        $dataType = DataType::find($get('data_type_id'));
-                        return $dataType && $dataType->name === 'text-info';
-                    })
-                    ->live()
+                Textarea::make('description')
                     ->columnSpanFull(),
-                Forms\Components\Textarea::make('description')
-                    ->columnSpanFull(),
-                Forms\Components\Select::make('field_group_id')
-                    ->multiple()
-                    ->preload()
-                    ->relationship('fieldGroups', 'name'),
             ]);
     }
 
