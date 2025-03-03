@@ -22,12 +22,12 @@ class SiebelFieldsRelationManager extends RelationManager
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->searchable()
                     ->maxLength(400)
                     ->label('Field Name'),
 
                 Forms\Components\Select::make('table_id')
                     ->relationship('table', 'name')
-                    ->searchable()
                     ->preload()
                     ->label('Table')
                     ->nullable(),
@@ -77,7 +77,6 @@ class SiebelFieldsRelationManager extends RelationManager
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('table.name')
-                    ->searchable()
                     ->sortable()
                     ->toggleable(),
 
@@ -94,7 +93,6 @@ class SiebelFieldsRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('join')
-                    ->searchable()
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('join_column')

@@ -10,11 +10,6 @@ class SiebelField extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
     protected $fillable = [
         'name',
         'business_component_id',
@@ -28,31 +23,31 @@ class SiebelField extends Model
     ];
 
     /**
-     * The attributes that should be cast to native types.
-     *
-     * @var array
+     * Get the table that owns the field.
      */
-    protected $casts = [
-        'id' => 'integer',
-        'business_component_id' => 'integer',
-        'table_id' => 'integer',
-    ];
+    public function table(): BelongsTo
+    {
+        return $this->belongsTo(SiebelTable::class);
+    }
 
     /**
      * Get the business component that owns the field.
      */
-
     public function businessComponent(): BelongsTo
     {
         return $this->belongsTo(SiebelBusinessComponent::class);
     }
 
     /**
-     * Get the table that is related to the field.
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
      */
-
-    public function table(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(SiebelTable::class);
+        return [
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+        ];
     }
 }

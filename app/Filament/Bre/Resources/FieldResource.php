@@ -26,12 +26,63 @@ use App\Filament\Exports\BREFieldExporter;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Models\Export;
 use Filament\Support\Colors\Color;
+use Filament\GlobalSearch\Actions\Action;
 
 class FieldResource extends Resource
 {
     protected static ?string $model = BREField::class;
     protected static ?string $navigationLabel = 'BRE Rule Fields';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $recordTitleAttribute = 'name';
+    protected static int $globalSearchResultsLimit = 25;
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'name',
+            'label',
+            'description',
+            'breDataType.name',
+            'breDataValidation.name',
+            'breFieldGroups.name',
+        ];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Label' => $record->label,
+            'Data Type' => $record->breDataType?->name,
+            'Data Validation' => $record->breDataValidation?->name,
+            'Field Groups' => $record->fieldGroupNames,
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(['breDataType', 'breDataValidation', 'breFieldGroups', 'childFields'])
+            ->when(
+                request('search'),
+                fn(Builder $query, $search) => $query->orWhere('help_text', 'ilike', "%{$search}%")
+                    ->orWhere('description', 'ilike', "%{$search}%")
+            );
+    }
+
+    public static function getGlobalSearchResultActions(Model $record): array
+    {
+        return [
+            Action::make('view')
+                ->url(static::getUrl('view', ['record' => $record->name])),
+            Action::make('edit')
+                ->url(static::getUrl('edit', ['record' => $record->name])),
+        ];
+    }
 
     private static string $badgeTemplate = '
         <a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">

@@ -12,6 +12,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\GlobalSearch\Actions\Action;
+use Illuminate\Database\Eloquent\Model;
 
 class SiebelFieldResource extends Resource
 {
@@ -20,6 +22,55 @@ class SiebelFieldResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationGroup = 'Siebel Tables';
+    protected static ?string $recordTitleAttribute = 'name';
+    protected static int $globalSearchResultsLimit = 25;
+
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'name',
+            'table.name',
+            'businessComponent.name',
+        ];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Table' => $record->table?->name,
+            'Business Component' => $record->businessComponent?->name,
+            'Table Column' => $record->table_column,
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(['table', 'businessComponent'])
+            ->when(
+                request('search'),
+                fn(Builder $query, $search) => $query->orWhere('table_column', 'ilike', "%{$search}%")
+                    ->orWhere('multi_value_link', 'ilike', "%{$search}%")
+                    ->orWhere('multi_value_link_field', 'ilike', "%{$search}%")
+                    ->orWhere('join', 'ilike', "%{$search}%")
+                    ->orWhere('join_column', 'ilike', "%{$search}%")
+                    ->orWhere('calculated_value', 'ilike', "%{$search}%")
+            );
+    }
+
+    public static function getGlobalSearchResultActions(Model $record): array
+    {
+        return [
+            Action::make('view')
+                ->url(static::getUrl('view', ['record' => $record])),
+        ];
+    }
 
     public static function form(Form $form): Form
     {

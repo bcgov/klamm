@@ -24,12 +24,12 @@ class SiebelAppletsRelationManager extends RelationManager
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->searchable()
                     ->maxLength(400)
                     ->label('Applet Name'),
 
                 Forms\Components\Select::make('class_id')
                     ->relationship('class', 'name')
-                    ->searchable()
                     ->preload()
                     ->label('Class')
                     ->nullable(),
@@ -96,7 +96,6 @@ class SiebelAppletsRelationManager extends RelationManager
 
                 Forms\Components\Select::make('project_id')
                     ->relationship('project', 'name')
-                    ->searchable()
                     ->preload()
                     ->label('Project')
                     ->nullable(),
@@ -112,7 +111,6 @@ class SiebelAppletsRelationManager extends RelationManager
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('class.name')
-                    ->searchable()
                     ->sortable()
                     ->toggleable(),
 
@@ -143,7 +141,6 @@ class SiebelAppletsRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('project.name')
-                    ->searchable()
                     ->sortable()
                     ->toggleable(),
 
