@@ -21,9 +21,9 @@ class FormInstanceField extends Model
         'custom_data_binding_path',
         'custom_data_binding',
         'custom_help_text',
-        'custom_styles',
         'custom_mask',
         'field_group_instance_id',
+        'container_id',
         'instance_id',
         'custom_instance_id'
     ];
@@ -41,6 +41,16 @@ class FormInstanceField extends Model
     public function fieldGroupInstance(): BelongsTo
     {
         return $this->belongsTo(FieldGroupInstance::class);
+    }
+
+    public function container(): BelongsTo
+    {
+        return $this->belongsTo(Container::class);
+    }
+
+    public function styleInstances(): HasMany
+    {
+        return $this->hasMany(StyleInstance::class);
     }
 
     public function validations(): HasMany

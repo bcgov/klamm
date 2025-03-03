@@ -19,6 +19,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\HtmlString;
+use Illuminate\Database\Eloquent\Model;
+use App\Filament\Exports\BRERuleExporter;
+use Filament\Tables\Actions\ExportAction;
+use Filament\Actions\Exports\Models\Export;
+use Filament\Support\Colors\Color;
 
 class RuleResource extends Resource
 {
@@ -140,7 +145,71 @@ class RuleResource extends Resource
                     })
                     ->html()
                     ->label('ICM CDW Fields used by the inputs and outputs of this Rule')
-                    ->columnSpanFull()
+                    ->columnSpanFull(),
+                TextEntry::make('input_siebel_business_objects')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessObjects('inputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessObjects('inputs')->map(function ($object) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-objects/{$object->id}",
+                                    $object->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Objects used by inputs'),
+                TextEntry::make('output_siebel_business_objects')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessObjects('outputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessObjects('outputs')->map(function ($object) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-objects/{$object->id}",
+                                    $object->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Objects used by outputs'),
+                TextEntry::make('input_siebel_business_components')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessComponents('inputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessComponents('inputs')->map(function ($component) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-components/{$component->id}",
+                                    $component->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Components used by inputs'),
+                TextEntry::make('output_siebel_business_components')
+                    ->state(function (BRERule $record) {
+                        return $record->getSiebelBusinessComponents('outputs');
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->getSiebelBusinessComponents('outputs')->map(function ($component) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-business-components/{$component->id}",
+                                    $component->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Siebel Business Components used by outputs')
             ]);
     }
 
@@ -149,8 +218,12 @@ class RuleResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->sortable()
+                    ->tooltip(fn(Model $record): string => "{$record->description}")
                     ->searchable(),
                 Tables\Columns\TextColumn::make('label')
+                    ->sortable()
+                    ->tooltip(fn(Model $record): string => "{$record->description}")
                     ->searchable(),
                 Tables\Columns\TextColumn::make('description')
                     ->searchable()
@@ -158,28 +231,81 @@ class RuleResource extends Resource
                 Tables\Columns\TextColumn::make('breInputs.name')
                     ->label('Inputs')
                     ->searchable()
+                    ->badge()
+                    ->color('primary')
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('breOutputs.name')
                     ->label('Outputs')
                     ->searchable()
+                    ->badge()
+                    ->color('danger')
                     ->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('parentRules.name')
                     ->label('Parent Rules')
                     ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#4169e1'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('childRules')
                     ->label('Child Rules')
+                    ->badge()
+                    ->color(Color::hex('#32cd32'))
                     ->formatStateUsing(function ($record) {
                         return $record->childRules->pluck('name')->join(', ');
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('related_icm_cdw_fields')
                     ->label('ICM CDW Fields used')
+                    ->badge()
                     ->default(function ($record) {
                         if ($record instanceof BRERule) {
                             return $record->getRelatedIcmCDWFields();
                         }
                         return [];
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('input_siebel_business_objects')
+                    ->label('Input Siebel Business Objects')
+                    ->badge()
+                    ->color(Color::hex('#D88373'))
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getSiebelBusinessObjects('inputs')->pluck('name')->join(', ');
+                        }
+                        return '';
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('output_siebel_business_objects')
+                    ->label('Output Siebel Business Objects')
+                    ->badge()
+                    ->color(Color::hex('#E9C46A'))
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getSiebelBusinessObjects('outputs')->pluck('name')->join(', ');
+                        }
+                        return '';
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('input_siebel_business_components')
+                    ->label('Input Siebel Business Components')
+                    ->badge()
+                    ->color(Color::hex('#397367'))
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getSiebelBusinessComponents('inputs')->pluck('name')->join(', ');
+                        }
+                        return '';
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('output_siebel_business_components')
+                    ->label('Output Siebel Business Components')
+                    ->badge()
+                    ->color(Color::hex('#4E0110'))
+                    ->default(function ($record) {
+                        if ($record instanceof BRERule) {
+                            return $record->getSiebelBusinessComponents('outputs')->pluck('name')->join(', ');
+                        }
+                        return '';
                     })
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
@@ -191,9 +317,106 @@ class RuleResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('name')
+            // ->defaultSort('name')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('breInputs')
+                    ->label('Input Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('breInputs', 'name'),
+                Tables\Filters\SelectFilter::make('breOutputs')
+                    ->label('Output Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('breOutputs', 'name'),
+                Tables\Filters\SelectFilter::make('parentRules')
+                    ->label('Parent Rules')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('parentRules', 'name'),
+                Tables\Filters\SelectFilter::make('childRules')
+                    ->label('Child Rules')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('childRules', 'name'),
+                Tables\Filters\SelectFilter::make('icmcdw_fields')
+                    ->label('ICM CDW Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->options(function () {
+                        return ICMCDWField::orderBy('name')->pluck('name', 'id');
+                    }),
+                Tables\Filters\SelectFilter::make('siebel_business_objects_existence')
+                    ->label('Siebel Business Objects Status')
+                    ->options([
+                        'with' => 'Has Siebel Business Objects',
+                        'without' => 'No Siebel Business Objects',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+                        return match ($data['value']) {
+                            'with' => $query->whereHas('breInputs.siebelBusinessObjects')
+                                ->orWhereHas('breOutputs.siebelBusinessObjects'),
+                            'without' => $query->whereDoesntHave('breInputs.siebelBusinessObjects')
+                                ->whereDoesntHave('breOutputs.siebelBusinessObjects'),
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('siebel_business_components_existence')
+                    ->label('Siebel Business Components Status')
+                    ->options([
+                        'with' => 'Has Siebel Business Components',
+                        'without' => 'No Siebel Business Components',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+                        return match ($data['value']) {
+                            'with' => $query->whereHas('breInputs.siebelBusinessComponents')
+                                ->orWhereHas('breOutputs.siebelBusinessComponents'),
+                            'without' => $query->whereDoesntHave('breInputs.siebelBusinessComponents')
+                                ->whereDoesntHave('breOutputs.siebelBusinessComponents'),
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('input_siebel_business_objects')
+                    ->label('Input Siebel Business Objects')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('breInputs.siebelBusinessObjects', 'name'),
+                Tables\Filters\SelectFilter::make('output_siebel_business_objects')
+                    ->label('Output Siebel Business Objects')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('breOutputs.siebelBusinessObjects', 'name'),
+                Tables\Filters\SelectFilter::make('input_siebel_business_components')
+                    ->label('Input Siebel Business Components')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('breInputs.siebelBusinessComponents', 'name'),
+                Tables\Filters\SelectFilter::make('output_siebel_business_components')
+                    ->label('Output Siebel Business Components')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->relationship('breOutputs.siebelBusinessComponents', 'name'),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->label('Export BRE Rules')
+                    ->exporter(BRERuleExporter::class)
+                    ->fileName(fn(Export $export): string => "BRE-Rules-{$export->getKey()}"),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
