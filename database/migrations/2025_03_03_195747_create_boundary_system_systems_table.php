@@ -11,12 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('boundary_systems', function (Blueprint $table) {
+        Schema::create('boundary_system_systems', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('ministry_id')->nullable()->constrained()->onDelete('cascade');
-            $table->string('interface_name')->nullable();
-            $table->boolean('active')->nullable()->default(false);
-            $table->text('comments')->nullable();
+            $table->string('name', 400);
+            $table->text('description')->nullable();
             $table->timestamps();
         });
     }
@@ -26,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('boundary_systems');
+        Schema::dropIfExists('boundary_system_systems');
     }
 };
