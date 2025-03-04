@@ -33,6 +33,11 @@ class DatabaseSeeder extends Seeder
             FormTagSeeder::class,
             FormSeeder::class,
             FormDataSourceSeeder::class,
+            BoundarySystemProcessSeeder::class,
+            BoundarySystemFileFormatSeeder::class,
+            BoundarySystemFrequencySeeder::class,
+            BoundarySystemModeOfTransferSeeder::class,
+            BoundarySystemSystemSeeder::class,
         ]);
     }
 }
