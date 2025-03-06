@@ -45,11 +45,8 @@ class BoundarySystemFrequencyResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->bulkActions([])
+            ->paginated([10, 25, 50, 100]);
     }
 
     public static function getRelations(): array
