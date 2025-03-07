@@ -158,8 +158,8 @@ class EditFormVersion extends EditRecord
 
     private function createSelectOptionInstance($component, $formInstanceField)
     {
-        foreach ($component['select_option_instances'] as $index => $instance) {
-            if (!empty($component['select_option_instances'])) {
+        if (!empty($component['select_option_instances'])) {
+            foreach ($component['select_option_instances'] as $index => $instance) {
                 SelectOptionInstance::create([
                     'form_instance_field_id' => $formInstanceField->id,
                     'select_option_id' => $instance['data']['select_option_id'] ?? null,
