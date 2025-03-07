@@ -32,10 +32,10 @@ class FieldGroupBlock
                 if ($group) {
                     $label = ($state['group_label'] ?? $group->label ?? '(no label)')
                         . ' | group '
-                        . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                        . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
                     return $label;
                 }
-                return 'New Group';
+                return 'New Group | id: ' . $state['instance_id'];
             })
             ->icon('heroicon-o-square-2-stack')
             ->columns(2)

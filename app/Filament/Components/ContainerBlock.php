@@ -25,7 +25,7 @@ class ContainerBlock
                 if ($state === null) {
                     return 'Container';
                 }
-                return 'Container | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                return 'Container | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
             })
             ->icon('heroicon-o-square-3-stack-3d')
             ->schema([
