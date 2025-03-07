@@ -86,8 +86,8 @@ class ContainerBlock
                     ->columnSpan(2)
                     ->cloneable()
                     ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateFieldInGroupID($get('../../'))),
-                        FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateFieldInGroupID($get('../../'))),
+                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                        FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
                     ]),
             ]);
     }

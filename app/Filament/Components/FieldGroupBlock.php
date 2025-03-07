@@ -54,10 +54,10 @@ class FieldGroupBlock
                     ->required()
                     ->reactive()
                     ->columnSpan(2)
-                    ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    ->afterStateUpdated(function ($state, callable $set) {
                         $fieldGroup = FieldGroup::find($state);
                         if ($fieldGroup) {
-                            $formFields = $fieldGroup->formFields()->get()->map(function ($field, $index) {
+                            $formFields = $fieldGroup->formFields()->get()->map(function ($field) {
                                 $webStyles = $field->webStyles()->pluck('styles.id')->toArray();
                                 $pdfStyles = $field->pdfStyles()->pluck('styles.id')->toArray();
                                 $validations = $field->validations()->get()->map(function ($validation) {
@@ -80,7 +80,7 @@ class FieldGroupBlock
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
-                                        'instance_id' => 'nestedField' . ($index + 1),
+                                        'instance_id' => FormTemplateHelper::calculateElementID(),
                                         'customize_label' => 'default',
                                         'customize_group_label' => 'default',
                                     ],
@@ -229,7 +229,7 @@ class FieldGroupBlock
                     ->columnSpan(2)
                     ->cloneable()
                     ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateFieldInGroupID($get('../../'))),
+                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
                     ]),
             ]);
     }
