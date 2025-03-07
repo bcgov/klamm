@@ -60,11 +60,15 @@ class FormFieldBlock
                     } else {
                         $label .= '(label hidden) | ';
                     }
-                    $label .= ($field->dataType->name ?? '')
-                        . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                    $label .= ($field->dataType->name ?? '') . ' | id: ';
+                    if (!empty($state['customize_instance_id'] ?? null) && !empty($state['custom_instance_id'] ?? null)) {
+                        $label .= $state['custom_instance_id'];
+                    } else {
+                        $label .= $state['instance_id'] ?? 'null';
+                    }
                     return $label;
                 }
-                return 'New Field';
+                return 'New Field | id: ' . $state['instance_id'];
             })
             ->icon('heroicon-o-stop')
             ->columns(2)

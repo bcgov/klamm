@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
 use App\Models\FormVersion;
 use App\Models\Form;
@@ -399,15 +400,10 @@ class FormTemplateHelper
         ]);
     }
 
-    public static function calculateFieldID($state)
+    public static function calculateElementID(): string
     {
-        $numOfComponents = count($state);
-        return 'element' . $numOfComponents;
-    }
-
-    public static function calculateFieldInGroupID($state)
-    {
-        $numOfFormFields = count($state);
-        return 'nestedElement' . $numOfFormFields;
+        $counter = FormVersionResource::getElementCounter();
+        FormVersionResource::incrementElementCounter();
+        return 'element' . $counter;
     }
 }
