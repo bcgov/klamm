@@ -71,7 +71,7 @@ class EditFormVersion extends EditRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
-                $query->with('selectOptionInstances');
+                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField']);
             },
             'fieldGroupInstances' => function ($query) {
                 $query->whereNull('container_id');
