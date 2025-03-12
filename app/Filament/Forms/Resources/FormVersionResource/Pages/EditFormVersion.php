@@ -12,6 +12,7 @@ use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldValue;
+use App\Models\SelectOptionInstance;
 use App\Models\StyleInstance;
 
 class EditFormVersion extends EditRecord
@@ -70,6 +71,7 @@ class EditFormVersion extends EditRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
+                $query->with('selectOptionInstances');
             },
             'fieldGroupInstances' => function ($query) {
                 $query->whereNull('container_id');
@@ -154,6 +156,19 @@ class EditFormVersion extends EditRecord
         }
     }
 
+    private function createSelectOptionInstance($component, $formInstanceField)
+    {
+        if (!empty($component['select_option_instances'])) {
+            foreach ($component['select_option_instances'] as $index => $instance) {
+                SelectOptionInstance::create([
+                    'form_instance_field_id' => $formInstanceField->id,
+                    'select_option_id' => $instance['data']['select_option_id'] ?? null,
+                    'order' => $index + 1,
+                ]);
+            }
+        }
+    }
+
     private function createField($formVersion, $order, $component, $fieldGroupInstanceID, $containerID)
     {
         $formInstanceField = FormInstanceField::create([
@@ -176,6 +191,7 @@ class EditFormVersion extends EditRecord
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
+        $this->createSelectOptionInstance($component, $formInstanceField);
     }
 
     private function createGroup($formVersion, $order, $component, $containerID)
@@ -243,29 +259,44 @@ class EditFormVersion extends EditRecord
         return $styles;
     }
 
-    private function fillValidations($field)
+    private function fillValidations($validations)
     {
-        $validations = [];
-        foreach ($field->validations as $validation) {
-            $validations[] = [
+        $data = [];
+        foreach ($validations as $validation) {
+            $data[] = [
                 'type' => $validation->type,
                 'value' => $validation->value,
                 'error_message' => $validation->error_message,
             ];
         }
-        return $validations;
+        return $data;
     }
 
-    private function fillConditionals($field)
+    private function fillConditionals($conditionals)
     {
-        $conditionals = [];
-        foreach ($field->conditionals as $conditional) {
-            $conditionals[] = [
+        $data = [];
+        foreach ($conditionals as $conditional) {
+            $data[] = [
                 'type' => $conditional->type,
                 'value' => $conditional->value,
             ];
         }
-        return $conditionals;
+        return $data;
+    }
+
+    private function fillSelectOptionInstances($selectOptionInstances)
+    {
+        $data = [];
+        foreach ($selectOptionInstances as $instance) {
+            $data[] = [
+                'type' => 'select_option_instance',
+                'data' => [
+                    'select_option_id' => $instance->select_option_id,
+                    'order' => $instance->order
+                ],
+            ];
+        }
+        return $data;
     }
 
     private function fillFields($formFields)
@@ -273,8 +304,9 @@ class EditFormVersion extends EditRecord
         $components = [];
         foreach ($formFields as $field) {
             $styles = $this->fillStyles($field->styleInstances);
-            $validations = $this->fillValidations($field);
-            $conditionals = $this->fillConditionals($field);
+            $validations = $this->fillValidations($field->validations);
+            $conditionals = $this->fillConditionals($field->conditionals);
+            $selectOptionInstances = $this->fillSelectOptionInstances($field->selectOptionInstances);
 
             $formField = $field->formField;
             $components[] = [
@@ -302,6 +334,7 @@ class EditFormVersion extends EditRecord
                     'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
+                    'select_option_instances' => $selectOptionInstances,
                     'order' => $field->order,
                 ],
             ];

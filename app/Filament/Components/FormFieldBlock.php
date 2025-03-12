@@ -5,7 +5,9 @@ namespace App\Filament\Components;
 use App\Models\Style;
 use App\Models\FormField;
 use App\Models\FormDataSource;
+use App\Models\SelectOptions;
 use Closure;
+use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Grid;
@@ -43,6 +45,8 @@ class FormFieldBlock
             'readOnly' => 'Read Only',
         ];
 
+        $selectOptions = fn() => SelectOptions::all()->keyBy('id');
+
         return Block::make('form_field')
             ->label(function (?array $state): string {
                 if ($state === null) {
@@ -56,11 +60,15 @@ class FormFieldBlock
                     } else {
                         $label .= '(label hidden) | ';
                     }
-                    $label .= ($field->dataType->name ?? '')
-                        . ' | id: ' . ($state['custom_instance_id'] ?? $state['instance_id'] ?? '');
+                    $label .= ($field->dataType->name ?? '') . ' | id: ';
+                    if (!empty($state['customize_instance_id'] ?? null) && !empty($state['custom_instance_id'] ?? null)) {
+                        $label .= $state['custom_instance_id'];
+                    } else {
+                        $label .= $state['instance_id'] ?? 'null';
+                    }
                     return $label;
                 }
-                return 'New Field';
+                return 'New Field | id: ' . $state['instance_id'];
             })
             ->icon('heroicon-o-stop')
             ->columns(2)
@@ -68,43 +76,36 @@ class FormFieldBlock
                 Select::make('form_field_id')
                     ->label('Form Field')
                     ->live()
-                    ->options(function () {
-                        // Compose option labels
-                        $options = FormField::pluck('label', 'id');
-                        foreach ($options as $id => $option) {
-                            $field = FormField::find($id) ?: null;
-                            $options[$id] = $option
-                                . ' | ' . $field->dataType->name
-                                . ' | name: ' . ($field->name ?? '');
-                        }
-                        return $options;
-                    })
+                    ->options(fn() => FormField::with('dataType')->get()->mapWithKeys(fn($field) => [
+                        $field->id => "{$field->label} | {$field->dataType?->name} | name: {$field->name}"
+                    ]))
                     ->searchable()
                     ->required()
                     ->reactive()
                     ->columnSpan(2)
                     ->afterStateUpdated(function ($state, callable $set) {
-                        $field = FormField::find($state);
+                        $field = FormField::with(['webStyles', 'pdfStyles', 'validations', 'selectOptionInstances'])->find($state);
                         if ($field) {
-                            // Fetch styles and set them manually
-                            $webStyles = $field->webStyles()->pluck('styles.id')->toArray();
-                            $set('webStyles', $webStyles);
-                            $pdfStyles = $field->pdfStyles()->pluck('styles.id')->toArray();
-                            $set('pdfStyles', $pdfStyles);
-                            // Fetch validations as well
-                            $validations = $field->validations()->get()->map(function ($validation) {
-                                return [
-                                    'type' => $validation->type,
-                                    'value' => $validation->value,
-                                    'error_message' => $validation->error_message,
-                                ];
-                            })->toArray();
-                            $set('validations', $validations);
+                            $set('webStyles', $field->webStyles->pluck('id')->toArray());
+                            $set('pdfStyles', $field->pdfStyles->pluck('id')->toArray());
+                            $set('validations', $field->validations->map(fn($validation) => [
+                                'type' => $validation->type,
+                                'value' => $validation->value,
+                                'error_message' => $validation->error_message,
+                            ])->toArray());
+                            $set('select_option_instances', $field->selectOptionInstances->map(fn($instance) => [
+                                'type' => 'select_option_instance',
+                                'data' => [
+                                    'select_option_id' => $instance->select_option_id,
+                                    'order' => $instance->order,
+                                ],
+                            ])->toArray());
                         } else {
                             // Reset when no field is selected
                             $set('webStyles', []);
                             $set('pdfStyles', []);
                             $set('validations', []);
+                            $set('select_option_instances', []);
                         }
                     }),
                 Section::make('Field Properties')
@@ -262,6 +263,39 @@ class FormFieldBlock
                                     ]),
                             ]),
                     ]),
+                Builder::make('select_option_instances')
+                    ->label('Select Option Instances')
+                    ->columnSpanFull()
+                    ->reorderable()
+                    ->blockNumbers(false)
+                    ->collapsible()
+                    ->collapsed(true)
+                    ->live()
+                    ->reactive()
+                    ->visible(fn($get) => in_array(FormField::find($get('form_field_id'))?->dataType?->name, ['radio', 'dropdown']))
+                    ->blocks([
+                        Block::make('select_option_instance')
+                            ->label(
+                                fn(?array $state): string =>
+                                isset($state['select_option_id']) && $selectOptions()->has($state['select_option_id'])
+                                    ? $selectOptions()[$state['select_option_id']]->label
+                                    . ' | ' . $selectOptions()[$state['select_option_id']]->name
+                                    . ' | value: ' . $selectOptions()[$state['select_option_id']]->value
+                                    : 'New Option'
+                            )
+                            ->schema([
+                                Select::make('select_option_id')
+                                    ->label('Option')
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->live()
+                                    ->options($selectOptions()->map(function ($option) {
+                                        return "{$option->label} | {$option->name} | value: {$option->value}";
+                                    })->toArray()),
+                            ])
+                    ]),
+
                 Select::make('webStyles')
                     ->label('Web Styles')
                     ->options(Style::pluck('name', 'id'))

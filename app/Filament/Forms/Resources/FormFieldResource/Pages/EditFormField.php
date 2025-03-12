@@ -7,6 +7,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\FormFieldValue;
+use App\Models\SelectOptionInstance;
 use Filament\Notifications\Notification;
 
 class EditFormField extends EditRecord
@@ -52,22 +53,52 @@ class EditFormField extends EditRecord
         $formFieldValueObj = $this->record->formFieldValue()->first();
         $data['value'] = $formFieldValueObj?->value;
 
+        $data['select_option_instances'] = $this->record->selectOptionInstances->map(fn($instance) => [
+            'type' => 'select_option_instance',
+            'data' => [
+                'select_option_id' => $instance->select_option_id,
+                'order' => $instance->order,
+            ],
+        ])->toArray();
+
         return $data;
     }
 
     protected function afterSave(): void
     {
         $formField = $this->record;
-        $formFieldValue = $this->form->getState()['value'] ?? null;
 
+        $this->createFormFieldValue($formField);
+        $this->createSelectOptionInstance($formField);
+    }
+
+    private function createFormFieldValue($formField)
+    {
         if (method_exists($this, 'getRecord')) {
             $formField->formFieldValue()->delete();
         }
 
+        $formFieldValue = $this->form->getState()['value'] ?? null;
         if ($formFieldValue) {
             FormFieldValue::create([
                 'form_field_id' => $formField->id,
                 'value' => $formFieldValue ?? null,
+            ]);
+        }
+    }
+
+    private function createSelectOptionInstance($formField)
+    {
+        if (method_exists($this, 'getRecord')) {
+            $formField->selectOptionInstances()->delete();
+        }
+
+        $selectOptions = $this->form->getState()['select_option_instances'] ?? [];
+        foreach ($selectOptions as $index => $instance) {
+            SelectOptionInstance::create([
+                'form_field_id' => $formField->id,
+                'select_option_id' => $instance['data']['select_option_id'],
+                'order' => $index + 1,
             ]);
         }
     }

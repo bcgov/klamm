@@ -3,17 +3,19 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\SelectOptionsResource\Pages;
-use App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers;
 use App\Filament\Imports\SelectOptionsImporter;
+use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormFieldsRelationManager;
+use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
 use App\Models\SelectOptions;
-use Filament\Forms;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Actions\ImportAction;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SelectOptionsResource extends Resource
 {
@@ -26,24 +28,15 @@ class SelectOptionsResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->unique(ignoreRecord: true)
                     ->required(),
-                Forms\Components\TextInput::make('label')
+                TextInput::make('label')
                     ->required(),
-                Forms\Components\TextInput::make('value')
+                TextInput::make('value')
                     ->required(),
-                Forms\Components\Textarea::make('description')
+                Textarea::make('description')
                     ->columnSpanFull(),
-                Forms\Components\Select::make('formFields')
-                    ->relationship('formFields', 'label', function ($query) {
-                        $query->whereHas('dataType', function ($query) {
-                            $query->whereIn('name', ['radio', 'dropdown']);
-                        });
-                    })
-                    ->multiple()
-                    ->preload()
-                    ->required(),
             ]);
     }
 
@@ -51,23 +44,20 @@ class SelectOptionsResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('label')
+                TextColumn::make('label')
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('name')
+                TextColumn::make('name')
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('value')
+                TextColumn::make('value')
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('formFields.label')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -97,7 +87,8 @@ class SelectOptionsResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            FormFieldsRelationManager::class,
+            FormInstanceFieldsRelationManager::class,
         ];
     }
 
