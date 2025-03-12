@@ -40,9 +40,7 @@ jobs:
           unzip \
           git \
           curl \
-          postgresql-client \
-          nodejs \
-          npm
+          postgresql-client
 
       - name: Cache dependencies
         uses: actions/cache@v4
@@ -53,11 +51,6 @@ jobs:
 
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
-
-      - name: Install Node.js dependencies and build assets
-        run: |
-          npm install
-          npm run build
 
       - name: Set up Laravel environment
         run: |
