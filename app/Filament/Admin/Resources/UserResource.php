@@ -47,6 +47,10 @@ class UserResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
+                Tables\Columns\IconColumn::make('is_admin')
+                    ->boolean()
+                    ->label('Admin')
+                    ->getStateUsing(fn(User $record) => $record->hasRole('admin'))
             ])
             ->filters([])
             ->actions([])
