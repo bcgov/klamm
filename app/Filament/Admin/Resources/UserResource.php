@@ -43,8 +43,14 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name'),
-                Tables\Columns\TextColumn::make('email'),
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('email')
+                    ->searchable(),
+                Tables\Columns\IconColumn::make('is_admin')
+                    ->boolean()
+                    ->label('Admin')
+                    ->getStateUsing(fn(User $record) => $record->hasRole('admin'))
             ])
             ->filters([])
             ->actions([])

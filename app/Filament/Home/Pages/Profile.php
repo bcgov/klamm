@@ -26,13 +26,13 @@ class Profile extends Page
     public $current_password;
     public $new_password;
     public $new_password_confirmation;
-    public $api_token; 
+    public $api_token;
 
     public function mount()
     {
         $user = Auth::user();
 
-        if(!$user) {
+        if (!$user) {
             abort(401, '');
         }
 
@@ -42,7 +42,9 @@ class Profile extends Page
 
     protected function getFormSchema(): array
     {
-        return [
+        $user = Auth::user();
+
+        $schema = [
             Section::make('Profile Information')
                 ->schema([
                     TextInput::make('name')
@@ -52,11 +54,11 @@ class Profile extends Page
                         ->label('Email')
                         ->email()
                         ->required(),
-                        Actions::make([
-                            Action::make('updateProfile')
-                                ->label('Update Profile')
-                                ->action('updateProfile')
-                        ])
+                    Actions::make([
+                        Action::make('updateProfile')
+                            ->label('Update Profile')
+                            ->action('updateProfile')
+                    ])
                 ]),
             Section::make('Update Password')
                 ->schema([
@@ -79,20 +81,25 @@ class Profile extends Page
                             ->action('updatePassword')
                     ])
                 ]),
-            Section::make('API Token Management')
+        ];
+
+        if (optional(Auth::user())->hasRole('admin')) {
+            $schema[] = Section::make('API Token Management')
                 ->schema([
                     TextInput::make('api_token')
                         ->label('API Token')
-                        ->disabled()  // Disable editing of this field directly
-                        ->default(fn() => session('api_token_plaintext')), // Show the plaintext token from the session
+                        ->disabled()
+                        ->default(fn() => session('api_token_plaintext')),
                     Actions::make([
                         Action::make('updateApiToken')
                             ->label('Regenerate API Token')
                             ->action('updateApiToken')
                             ->color('danger')
                     ])
-                ]),
-        ];
+                ]);
+        }
+
+        return $schema;
     }
 
     public function updateProfile()
@@ -115,7 +122,7 @@ class Profile extends Page
             ->success()
             ->send();
     }
- 
+
     public function updatePassword()
     {
         $user = Auth::user();
@@ -146,7 +153,7 @@ class Profile extends Page
             ->send();
     }
 
-    public static function shouldRegisterNavigation():bool
+    public static function shouldRegisterNavigation(): bool
     {
         return Auth::check();
     }
