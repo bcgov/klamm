@@ -13,6 +13,11 @@ return new class extends Migration
     {
         Schema::create('boundary_system_file_field_maps', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('boundary_system_file_id')->nullable()->constrained()->onDelete('cascade');
+            $table->foreignId('boundary_system_file_field_id')->nullable()->constrained()->onDelete('cascade');
+            $table->foreignId('boundary_system_file_field_map_sections_id')->nullable()->constrained()->onDelete('cascade');
+            $table->text('file_structure')->nullable();
+            $table->boolean('mandatory')->nullable();
             $table->timestamps();
         });
     }
