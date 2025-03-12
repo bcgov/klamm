@@ -136,8 +136,8 @@ class FormTemplateHelper
         })->toArray();
 
         $databindings = [
-            "source" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
-            "path" => $fieldInstance->custom_data_binding ?? $field->data_binding,
+            "source" => $fieldInstance->custom_data_binding ?? $field->data_binding,
+            "path" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
         ];
 
         // Construct $label for $base
@@ -260,17 +260,17 @@ class FormTemplateHelper
         })->values()->all();
 
         $databindings = [
-            "source" => $groupInstance->custom_data_binding_path ?? $group->data_binding_path,
-            "path" => $groupInstance->custom_data_binding ?? $group->data_binding,
+            "source" => $groupInstance->custom_data_binding ?? $group->data_binding,
+            "path" => $groupInstance->custom_data_binding_path ?? $group->data_binding_path,
         ];
 
         // Construct $label for $base
         $label = null;
-        if ($groupInstance->customize_label == 'default') {
+        if ($groupInstance->customize_group_label == 'default') {
             $label = $group->label;
-        } elseif ($groupInstance->customize_label == 'customize') {
-            $label = $groupInstance->label;
-        } elseif ($groupInstance->customize_label == 'hide') {
+        } elseif ($groupInstance->customize_group_label == 'customize') {
+            $label = $groupInstance->custom_group_label;
+        } elseif ($groupInstance->customize_group_label == 'hide') {
             $label = null;
         }
 
