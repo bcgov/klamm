@@ -21,7 +21,7 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with('formField.dataType', 'styleInstances', 'validations', 'conditionals')
+            ->with(['formField.dataType', 'styleInstances', 'validations', 'conditionals'])
             ->get();
 
         foreach ($formFields as $field) {
@@ -45,7 +45,10 @@ class FormTemplateHelper
             ];
         }
 
-        $containers = $formVersion->containers()->orderBy('order')->get();
+        $containers = $formVersion->containers()
+            ->orderBy('order')
+            ->with(['styleInstances'])
+            ->get();
 
         foreach ($containers as $container) {
             $components[] = [
@@ -230,7 +233,10 @@ class FormTemplateHelper
     {
         $group = $groupInstance->fieldGroup;
 
-        $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
+        $fieldsInGroup = $groupInstance->formInstanceFields()
+            ->orderBy('order')
+            ->with(['formField.dataType', 'styleInstances', 'validations', 'conditionals'])
+            ->get();
 
         $webStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
@@ -319,7 +325,10 @@ class FormTemplateHelper
     protected static function formatContainer($container, $index)
     {
         $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
-        $groupsInContainer = $container->fieldGroupInstances()->orderBy('order')->get();
+        $groupsInContainer = $container->fieldGroupInstances()
+            ->orderBy('order')
+            ->with(['fieldGroup', 'styleInstances'])
+            ->get();
 
         $items = [];
         foreach ($fieldsInContainer as $fieldInstance) {
