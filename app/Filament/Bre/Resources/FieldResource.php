@@ -165,7 +165,34 @@ class FieldResource extends Resource
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
                     ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments'])
+                    ->searchable(['name', 'repository_name', 'comments']),
+                Forms\Components\Select::make('siebelAppletField')
+                    ->label('Related Siebel Business Applets:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelApplets',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
+                    ->searchable(['name', 'repository_name', 'comments']),
+                Forms\Components\Select::make('siebelTableField')
+                    ->label('Related Siebel Business Tables:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelTables',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
+                    ->searchable(['name', 'repository_name', 'comments']),
+                Forms\Components\Select::make('siebelFieldField')
+                    ->label('Related Siebel Business Fields:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelFields',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
+                    ->searchable(['name', 'multi_value_link', 'join_column', 'calculated_value']),
             ]);
     }
 
@@ -275,7 +302,46 @@ class FieldResource extends Resource
                         );
                     })
                     ->html()
-                    ->label('Related Siebel Business Components')
+                    ->label('Related Siebel Business Components'),
+                TextEntry::make('siebelApplets.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelApplets->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-applets/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Applets'),
+                TextEntry::make('siebelTables.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelTables->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-tables/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Tables'),
+                TextEntry::make('siebelFields.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelFields->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-fields/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Fields'),
             ]);
     }
 
@@ -352,6 +418,24 @@ class FieldResource extends Resource
                     ->searchable()
                     ->badge()
                     ->color(Color::hex('#397367'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelApplets.name')
+                    ->label('Related Siebel Business Applets')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#2A9D8F'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelTables.name')
+                    ->label('Related Siebel Business Tables')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#F4A261'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelFields.name')
+                    ->label('Related Siebel Business Fields')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#2A9D8F'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

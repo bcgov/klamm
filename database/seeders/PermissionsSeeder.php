@@ -113,6 +113,11 @@ class PermissionsSeeder extends Seeder
             'create SiebelWorkflowProcess',
             'update SiebelWorkflowProcess',
             'delete SiebelWorkflowProcess',
+            'view-any SiebelField',
+            'view SiebelField',
+            'create SiebelField',
+            'update SiebelField',
+            'delete SiebelField',
         ])->where('guard_name', 'web')->get());
 
         // Assign fodig-read-only with read only access to fodig resources
@@ -154,6 +159,8 @@ class PermissionsSeeder extends Seeder
             'view SiebelWebTemplate',
             'view-any SiebelWorkflowProcess',
             'view SiebelWorkflowProcess',
+            'view-any SiebelField',
+            'view SiebelField',
         ])->where('guard_name', 'web')->get());
 
         // Assign forms with full access to forms resources
