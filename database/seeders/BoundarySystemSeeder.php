@@ -20,6 +20,7 @@ class BoundarySystemSeeder extends Seeder
             BoundarySystemFileFormatSeeder::class,
             BoundarySystemFrequencySeeder::class,
             BoundarySystemModeOfTransferSeeder::class,
+            BoundarySystemSystemSeeder::class,
             BoundarySystemFileFieldMapSectionSeeder::class,
             BoundarySystemFileFieldTypeSeeder::class,
             BoundarySystemFileSeparatorSeeder::class,
