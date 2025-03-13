@@ -190,8 +190,6 @@ class ViewFormVersion extends ViewRecord
             $groupFields = $group->formInstanceFields;
             $formFieldsData = $this->fillFields($groupFields);
 
-            $formFieldsData = $this->fillFields(($groupFields));
-
             $styles = $this->fillStyles($group->styleInstances);
 
             $fieldGroup = $group->fieldGroup;
