@@ -72,5 +72,9 @@ class BREValueTypeSeeder extends Seeder
         $blob->name = 'Blob';
         $blob->description = 'Blob values are file inputs or data- (e.g. attachments, formdata, etc.)';
         $blob->save();
+
+        $objectArray = new BREValueType();
+        $objectArray->name = 'Object Array';
+        $objectArray->description = 'An object array is a collection of objects (e.g. a list of addresses, a list of phone numbers)';
     }
 }

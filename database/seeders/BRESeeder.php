@@ -13,13 +13,10 @@ class BRESeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            BREValueTypeSeeder::class,
-            BREDataTypeSeeder::class,
-            BREValidationTypeSeeder::class,
+            BREBasicSeeder::class,
             BREFieldSeeder::class,
             BREFieldGroupSeeder::class,
             BRERuleSeeder::class,
-            BREDataValidationSeeder::class,
             ICMCDWFieldSeeder::class,
         ]);
     }
