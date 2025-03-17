@@ -14,7 +14,6 @@ class ReportEntry extends Model
     protected $fillable = [
         'report_id',
         'business_area_id',
-        'name',
         'existing_label',
         'label_source_id',
         'data_field',
@@ -34,7 +33,7 @@ class ReportEntry extends Model
 
     public function report(): BelongsTo
     {
-        return $this->belongsTo(Report::class, 'report_id');
+        return $this->belongsTo(Report::class);
     }
 
     public function labelSource(): BelongsTo

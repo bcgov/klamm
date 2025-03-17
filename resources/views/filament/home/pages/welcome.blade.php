@@ -20,5 +20,10 @@
             <h3 class="text-xl font-semibold text-black dark:text-white">FODIG Panel</h3>
             <p class="text-gray-500 dark:text-gray-400">Financial Operations and Data Integration Gateway</p>
         </a>
+
+        <a href="{{ url('/reports') }}" class="block p-6 bg-white dark:bg-gray-800 border rounded-lg shadow hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 class="text-xl font-semibold text-black dark:text-white">Reports Panel</h3>
+            <p class="text-gray-500 dark:text-gray-400">Reports labeling and metadata cataloguing</p>
+        </a>
     </div>
 </div>

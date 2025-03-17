@@ -61,5 +61,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('form-developer', function (User $user) {
             return $user->hasRole('form-developer');
         });
+
+        Gate::define('reports', function (User $user) {
+            return $user->hasRole('reports');
+        });
     }
 }
