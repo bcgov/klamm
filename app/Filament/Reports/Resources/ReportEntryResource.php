@@ -12,7 +12,9 @@ use Filament\Tables\Table;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\ExportAction;
+use Filament\Tables\Actions\ImportAction;
 use App\Filament\Exports\ReportEntryExporter;
+use App\Filament\Imports\ReportEntryImporter;
 
 class ReportEntryResource extends Resource
 {
@@ -83,7 +85,6 @@ class ReportEntryResource extends Resource
                     ->label('Last Updated By'),
             ])
             ->filters([
-
                 Tables\Filters\SelectFilter::make('business_area_id')
                     ->relationship('reportBusinessArea', 'name')
                     ->preload()
@@ -118,7 +119,9 @@ class ReportEntryResource extends Resource
             ], position: ActionsPosition::BeforeColumns)
             ->headerActions([
                 ExportAction::make()
-                    ->exporter(ReportEntryExporter::class)
+                    ->exporter(ReportEntryExporter::class),
+                ImportAction::make('Import CSV')
+                    ->importer(ReportEntryImporter::class)
             ])
             ->paginated([
                 10,
