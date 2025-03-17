@@ -10,17 +10,19 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Enums\ActionsPosition;
+use Filament\Tables\Actions\ActionGroup;
 
 class ReportEntryResource extends Resource
 {
     protected static ?string $model = ReportEntry::class;
 
+    protected static ?string $label = 'Report Label';
+
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-
     protected static ?string $navigationLabel = 'Report Labels';
+
 
     public static function form(Form $form): Form
     {
@@ -57,6 +59,13 @@ class ReportEntryResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('data_matching_rate')
+                    ->badge()
+                    ->colors([
+                        'success' => static fn($state): bool => $state === 'easy',
+                        'warning' => static fn($state): bool => $state === 'medium',
+                        'danger' => static fn($state): bool => $state === 'complex',
+                    ]),
                 Tables\Columns\TextColumn::make('reportBusinessArea.name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('report.name')
@@ -69,7 +78,6 @@ class ReportEntryResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('icm_data_field_path')
                     ->label('ICM Data Field Path'),
-                Tables\Columns\TextColumn::make('data_matching_rate'),
                 Tables\Columns\TextColumn::make('lastUpdatedBy.name')
                     ->label('Last Updated By'),
             ])
@@ -100,9 +108,13 @@ class ReportEntryResource extends Resource
                     ->label('Last Updated By'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-            ])
+                ActionGroup::make([
+                    Tables\Actions\EditAction::make(),
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\DeleteAction::make()
+                        ->requiresConfirmation(),
+                ])->icon('heroicon-m-ellipsis-vertical')
+            ], position: ActionsPosition::BeforeColumns)
             ->paginated([
                 10,
                 25,
