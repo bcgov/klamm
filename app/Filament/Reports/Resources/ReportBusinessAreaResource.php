@@ -17,6 +17,8 @@ class ReportBusinessAreaResource extends Resource
 {
     protected static ?string $model = ReportBusinessArea::class;
 
+    protected static ?string $label = 'Business Area';
+
     protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
 
     protected static ?string $navigationGroup = 'Report Metadata';

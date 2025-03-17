@@ -17,6 +17,8 @@ class ReportLabelSourceResource extends Resource
 {
     protected static ?string $model = ReportLabelSource::class;
 
+    protected static ?string $label = 'Label Sources';
+
     protected static ?string $navigationIcon = 'heroicon-o-tag';
 
     protected static ?string $navigationGroup = 'Report Metadata';

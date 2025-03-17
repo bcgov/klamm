@@ -19,6 +19,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
+use App\Filament\Reports\Widgets\ReportsStatsWidget;
 
 class ReportsPanelProvider extends PanelProvider
 {
@@ -46,7 +47,7 @@ class ReportsPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Reports/Widgets'), for: 'App\\Filament\\Reports\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
+                ReportsStatsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
