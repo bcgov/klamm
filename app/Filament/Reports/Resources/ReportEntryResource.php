@@ -62,13 +62,6 @@ class ReportEntryResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('data_matching_rate')
-                    ->badge()
-                    ->colors([
-                        'success' => static fn($state): bool => $state === 'easy',
-                        'warning' => static fn($state): bool => $state === 'medium',
-                        'danger' => static fn($state): bool => $state === 'complex',
-                    ]),
                 Tables\Columns\TextColumn::make('reportBusinessArea.name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('report.name')
@@ -81,6 +74,13 @@ class ReportEntryResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('icm_data_field_path')
                     ->label('ICM Data Field Path'),
+                Tables\Columns\TextColumn::make('data_matching_rate')
+                    ->badge()
+                    ->colors([
+                        'success' => static fn($state): bool => $state === 'easy',
+                        'warning' => static fn($state): bool => $state === 'medium',
+                        'danger' => static fn($state): bool => $state === 'complex',
+                    ]),
                 Tables\Columns\TextColumn::make('lastUpdatedBy.name')
                     ->label('Last Updated By'),
             ])
