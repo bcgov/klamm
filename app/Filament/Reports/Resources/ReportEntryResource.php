@@ -19,7 +19,8 @@ class ReportEntryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Report Metadata';
+
+    protected static ?string $navigationLabel = 'Report Labels';
 
     public static function form(Form $form): Form
     {
@@ -89,6 +90,10 @@ class ReportEntryResource extends Resource
                         'complex' => 'Complex',
                     ])
                     ->label('Data Matching Rate'),
+                Tables\Filters\SelectFilter::make('report_id')
+                    ->relationship('report', 'name')
+                    ->preload()
+                    ->label('Report'),
                 Tables\Filters\SelectFilter::make('last_updated_by')
                     ->relationship('lastUpdatedBy', 'name')
                     ->preload()
@@ -98,10 +103,11 @@ class ReportEntryResource extends Resource
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
