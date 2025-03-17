@@ -17,8 +17,28 @@ class ReportEntryExporter extends Exporter
     {
         try {
             return [
-                ExportColumn::make('report_id')
-                    ->label('Report ID'),
+                ExportColumn::make('report.name')
+                    ->label('Report Name'),
+                // ExportColumn::make('reportBusinessArea.name')
+                //     ->label('Business Area'),
+                ExportColumn::make('existing_label')
+                    ->label('Existing Label'),
+                // ExportColumn::make('labelSource.name')
+                //     ->label('Label Source'),
+                ExportColumn::make('data_field')
+                    ->label('Data Field'),
+                ExportColumn::make('icm_data_field_path')
+                    ->label('ICM Data Field Path'),
+                ExportColumn::make('data_matching_rate')
+                    ->label('Data Matching Rate'),
+                ExportColumn::make('note')
+                    ->label('Note'),
+                ExportColumn::make('created_at')
+                    ->label('Created At'),
+                ExportColumn::make('updated_at')
+                    ->label('Updated At'),
+                // ExportColumn::make('lastUpdatedBy.name')
+                //     ->label('Last Updated By'),
             ];
         } catch (\Exception $e) {
             return [];
