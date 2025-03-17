@@ -353,6 +353,11 @@ class PermissionsSeeder extends Seeder
             'create ReportEntry',
             'update ReportEntry',
             'delete ReportEntry',
+            'view-any ReportLabelSource',
+            'view ReportLabelSource',
+            'create ReportLabelSource',
+            'update ReportLabelSource',
+            'delete ReportLabelSource',
         ])->where('guard_name', 'web')->get());
 
         // Role for Form Developers to edit forms
