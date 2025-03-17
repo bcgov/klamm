@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\ReportBusinessAreaResource\Pages;
+namespace App\Filament\Reports\Resources\ReportBusinessAreaResource\Pages;
 
-use App\Filament\Fodig\Resources\ReportBusinessAreaResource;
+use App\Filament\Reports\Resources\ReportBusinessAreaResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 

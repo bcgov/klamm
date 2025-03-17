@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\ReportResource\Pages;
+namespace App\Filament\Reports\Resources\ReportEntryResource\Pages;
 
-use App\Filament\Fodig\Resources\ReportResource;
+use App\Filament\Reports\Resources\ReportEntryResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditReport extends EditRecord
+class EditReportEntry extends EditRecord
 {
-    protected static string $resource = ReportResource::class;
+    protected static string $resource = ReportEntryResource::class;
 
     protected function getHeaderActions(): array
     {

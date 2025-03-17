@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\ReportLabelSourceResource\Pages;
+namespace App\Filament\Reports\Resources\ReportLabelSourceResource\Pages;
 
-use App\Filament\Fodig\Resources\ReportLabelSourceResource;
+use App\Filament\Reports\Resources\ReportLabelSourceResource;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
 

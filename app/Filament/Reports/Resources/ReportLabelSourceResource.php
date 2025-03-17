@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\Fodig\Resources;
+namespace App\Filament\Reports\Resources;
 
-use App\Filament\Fodig\Resources\ReportBusinessAreaResource\Pages;
-use App\Filament\Fodig\Resources\ReportBusinessAreaResource\RelationManagers;
-use App\Models\ReportBusinessArea;
+use App\Filament\Reports\Resources\ReportLabelSourceResource\Pages;
+use App\Filament\Reports\Resources\ReportLabelSourceResource\RelationManagers;
+use App\Models\ReportLabelSource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,13 +13,13 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class ReportBusinessAreaResource extends Resource
+class ReportLabelSourceResource extends Resource
 {
-    protected static ?string $model = ReportBusinessArea::class;
+    protected static ?string $model = ReportLabelSource::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-building-office-2';
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
 
-    protected static ?string $navigationGroup = 'Financial Components';
+    protected static ?string $navigationGroup = 'Report Metadata';
 
     public static function form(Form $form): Form
     {
@@ -70,10 +70,10 @@ class ReportBusinessAreaResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListReportBusinessAreas::route('/'),
-            'create' => Pages\CreateReportBusinessArea::route('/create'),
-            'view' => Pages\ViewReportBusinessArea::route('/{record}'),
-            'edit' => Pages\EditReportBusinessArea::route('/{record}/edit'),
+            'index' => Pages\ListReportLabelSources::route('/'),
+            'create' => Pages\CreateReportLabelSource::route('/create'),
+            'view' => Pages\ViewReportLabelSource::route('/{record}'),
+            'edit' => Pages\EditReportLabelSource::route('/{record}/edit'),
         ];
     }
 }

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\ReportEntryResource\Pages;
+namespace App\Filament\Reports\Resources\ReportEntryResource\Pages;
 
-use App\Filament\Fodig\Resources\ReportEntryResource;
+use App\Filament\Reports\Resources\ReportEntryResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Fodig\Resources;
+namespace App\Filament\Reports\Resources;
 
-use App\Filament\Fodig\Resources\ReportEntryResource\Pages;
-use App\Filament\Fodig\Resources\ReportEntryResource\RelationManagers;
+use App\Filament\Reports\Resources\ReportEntryResource\Pages;
+use App\Filament\Reports\Resources\ReportEntryResource\RelationManagers;
 use App\Models\ReportEntry;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -19,7 +19,7 @@ class ReportEntryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationGroup = 'Financial Components';
+    protected static ?string $navigationGroup = 'Report Metadata';
 
     public static function form(Form $form): Form
     {
