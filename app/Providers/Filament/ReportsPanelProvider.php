@@ -31,6 +31,8 @@ class ReportsPanelProvider extends PanelProvider
             ->brandLogo(asset('svg/klamm-logo.svg'))
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('10s')
             ->login()
             ->colors([
                 'primary' => Color::Blue,

@@ -3,7 +3,6 @@
 namespace App\Filament\Reports\Resources;
 
 use App\Filament\Reports\Resources\ReportEntryResource\Pages;
-use App\Filament\Reports\Resources\ReportEntryResource\RelationManagers;
 use App\Models\ReportEntry;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -12,6 +11,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\ExportAction;
+use App\Filament\Exports\ReportEntryExporter;
 
 class ReportEntryResource extends Resource
 {
@@ -115,6 +116,10 @@ class ReportEntryResource extends Resource
                         ->requiresConfirmation(),
                 ])->icon('heroicon-m-ellipsis-vertical')
             ], position: ActionsPosition::BeforeColumns)
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(ReportEntryExporter::class)
+            ])
             ->paginated([
                 10,
                 25,
