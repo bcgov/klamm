@@ -335,6 +335,26 @@ class PermissionsSeeder extends Seeder
             'view BREDataType',
         ])->where('guard_name', 'web')->get());
 
+        // Assign reports with access to reports resources
+        $formDeveloperRole = Role::firstOrCreate(['name' => 'reports']);
+        $formDeveloperRole->syncPermissions(Permission::whereIn('name', [
+            'view-any Report',
+            'view Report',
+            'create Report',
+            'update Report',
+            'delete Report',
+            'view-any ReportBusinessArea',
+            'view ReportBusinessArea',
+            'create ReportBusinessArea',
+            'update ReportBusinessArea',
+            'delete ReportBusinessArea',
+            'view-any ReportEntry',
+            'view ReportEntry',
+            'create ReportEntry',
+            'update ReportEntry',
+            'delete ReportEntry',
+        ])->where('guard_name', 'web')->get());
+
         // Role for Form Developers to edit forms
         $formDeveloperRole = Role::firstOrCreate(['name' => 'form-developer']);
         $formDeveloperRole->syncPermissions(Permission::whereIn('name', [
