@@ -7,4 +7,5 @@ return [
     App\Providers\Filament\FodigPanelProvider::class,
     App\Providers\Filament\FormsPanelProvider::class,
     App\Providers\Filament\HomePanelProvider::class,
+    App\Providers\Filament\ReportsPanelProvider::class,
 ];
