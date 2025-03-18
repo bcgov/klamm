@@ -65,5 +65,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('reports', function (User $user) {
             return $user->hasRole('reports');
         });
+
+        Gate::define('reports-view-only', function (User $user) {
+            return $user->hasRole('reports-view-only');
+        });
     }
 }

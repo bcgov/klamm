@@ -231,7 +231,7 @@ class PermissionsSeeder extends Seeder
             'delete BusinessArea',
         ])->where('guard_name', 'web')->get());
 
-        // Assign forms-read-only with ready only access to forms resources
+        // Assign forms-read-only with read only access to forms resources
         $formsReadOnlyRole = Role::firstOrCreate(['name' => 'forms-view-only']);
         $formsReadOnlyRole->syncPermissions(Permission::whereIn('name', [
             'view-any FormVersion',
@@ -314,7 +314,7 @@ class PermissionsSeeder extends Seeder
 
         ])->where('guard_name', 'web')->get());
 
-        // Assign bre-read-only with ready only access to bre resources
+        // Assign bre-read-only with read only access to bre resources
         $breReadOnlyRole = Role::firstOrCreate(['name' => 'bre-view-only']);
         $breReadOnlyRole->syncPermissions(Permission::whereIn('name', [
             'view-any BREField',
@@ -335,9 +335,24 @@ class PermissionsSeeder extends Seeder
             'view BREDataType',
         ])->where('guard_name', 'web')->get());
 
+        // Assign reports-view-only with read only access to report resources
+        $reportsViewOnlyRole = Role::firstOrCreate(['name' => 'reports-view-only']);
+        $reportsViewOnlyRole->syncPermissions(Permission::whereIn('name', [
+            'view-any Report',
+            'view Report',
+            'view-any ReportBusinessArea',
+            'view ReportBusinessArea',
+            'view-any ReportEntry',
+            'view ReportEntry',
+            'view-any ReportLabelSource',
+            'view ReportLabelSource',
+            'view-any ReportDictionaryLabel',
+            'view ReportDictionaryLabel',
+        ])->where('guard_name', 'web')->get());
+
         // Assign reports with access to reports resources
-        $formDeveloperRole = Role::firstOrCreate(['name' => 'reports']);
-        $formDeveloperRole->syncPermissions(Permission::whereIn('name', [
+        $reportsRole = Role::firstOrCreate(['name' => 'reports']);
+        $reportsRole->syncPermissions(Permission::whereIn('name', [
             'view-any Report',
             'view Report',
             'create Report',

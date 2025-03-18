@@ -110,7 +110,7 @@ class ImportReportsFromCsv extends Command
                     }
                 }
 
-                $dataMatchingRate = strtolower(trim($row['Data Matching Rate'] ?? ''));
+                $dataMatchingRate = strtolower(trim($row['Label Match Rating'] ?? ''));
                 if ($dataMatchingRate === 'hard') {
                     $dataMatchingRate = 'complex';
                 }
@@ -130,7 +130,7 @@ class ImportReportsFromCsv extends Command
                     'label_source_id' => $labelSource->id,
                     'report_dictionary_label_id' => $dictionaryLabel->id,
                     'existing_label' => $row['Existing Label'],
-                    'data_field' => $row['Data Field'] ?? null,
+                    'data_field' => $row['Source Data Field'] ?? null,
                     'icm_data_field_path' => $row['ICM Data Field Path'] ?? null,
                     'data_matching_rate' => $dataMatchingRate,
                     'note' => $row['Note'] ?? null,
