@@ -14,6 +14,7 @@ class ReportEntry extends Model
     protected $fillable = [
         'report_id',
         'business_area_id',
+        'report_dictionary_label_id',
         'existing_label',
         'label_source_id',
         'data_field',

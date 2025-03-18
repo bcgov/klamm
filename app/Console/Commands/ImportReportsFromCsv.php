@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\ReportBusinessArea;
 use App\Models\Report;
+use App\Models\ReportDictionaryLabel;
 use App\Models\ReportLabelSource;
 use App\Models\ReportEntry;
 use League\Csv\Reader;
@@ -35,10 +36,12 @@ class ImportReportsFromCsv extends Command
             $allBusinessAreas = ReportBusinessArea::all()->pluck('name', 'id')->toArray();
             $allReports = Report::all()->pluck('name', 'id')->toArray();
             $allLabelSources = ReportLabelSource::all()->pluck('name', 'id')->toArray();
+            $allDictionaryLabels = ReportDictionaryLabel::all()->pluck('name', 'id')->toArray();
 
             $this->info("Available Business Areas: " . implode(", ", array_values($allBusinessAreas)));
             $this->info("Available Reports: " . implode(", ", array_values($allReports)));
             $this->info("Available Label Sources: " . implode(", ", array_values($allLabelSources)));
+            $this->info("Available Dictionary Labels: " . implode(", ", array_values($allDictionaryLabels)));
         }
 
         foreach ($csv as $rowIndex => $row) {
@@ -46,12 +49,14 @@ class ImportReportsFromCsv extends Command
                 $businessAreaName = trim($row['Business Area']);
                 $reportName = trim($row['Report Name']);
                 $labelSourceName = trim($row['Label Source']);
+                $dictionaryLabelName = trim($row['Dictionary Label']);
 
                 if ($debug) {
                     $this->line("Processing row " . ($rowIndex + 2) . ":");
                     $this->line("  Business Area: '$businessAreaName'");
                     $this->line("  Report Name: '$reportName'");
                     $this->line("  Label Source: '$labelSourceName'");
+                    $this->line("  Dictionary Label: '$dictionaryLabelName'");
                 }
 
                 $businessArea = ReportBusinessArea::where('name', $businessAreaName)->first();
@@ -78,6 +83,15 @@ class ImportReportsFromCsv extends Command
                     $similar = ReportLabelSource::whereRaw("LOWER(name) = ?", [strtolower($labelSourceName)])->first();
                     if ($similar) {
                         $this->info("  > Found similar Label Source: '{$similar->name}'");
+                    }
+                }
+
+                $dictionaryLabel = ReportDictionaryLabel::where('name', $dictionaryLabelName)->first();
+                if ($debug && !$dictionaryLabel) {
+                    $this->warn("  > Dictionary Label not found: '$dictionaryLabelName'");
+                    $similar = ReportDictionaryLabel::whereRaw("LOWER(name) = ?", [strtolower($dictionaryLabelName)])->first();
+                    if ($similar) {
+                        $this->info("  > Found similar Dictionary Label: '{$similar->name}'");
                     }
                 }
 
@@ -114,7 +128,7 @@ class ImportReportsFromCsv extends Command
                     'business_area_id' => $businessArea->id,
                     'report_id' => $report->id,
                     'label_source_id' => $labelSource->id,
-                    'name' => $row['Existing Label'],
+                    'report_dictionary_label_id' => $dictionaryLabel->id,
                     'existing_label' => $row['Existing Label'],
                     'data_field' => $row['Data Field'] ?? null,
                     'icm_data_field_path' => $row['ICM Data Field Path'] ?? null,
