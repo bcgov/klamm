@@ -45,11 +45,11 @@ class ReportsPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Reports/Resources'), for: 'App\\Filament\\Reports\\Resources')
             ->discoverPages(in: app_path('Filament/Reports/Pages'), for: 'App\\Filament\\Reports\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                //Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Reports/Widgets'), for: 'App\\Filament\\Reports\\Widgets')
             ->widgets([
-                ReportsStatsWidget::class,
+                //ReportsStatsWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
