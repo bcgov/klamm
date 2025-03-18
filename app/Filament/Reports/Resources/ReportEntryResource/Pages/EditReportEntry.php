@@ -10,10 +10,11 @@ class EditReportEntry extends EditRecord
 {
     protected static string $resource = ReportEntryResource::class;
 
+    protected static ?string $title = 'Edit Report Dictionary Label';
+
     protected function getHeaderActions(): array
     {
         return [
-            Actions\ViewAction::make(),
             Actions\DeleteAction::make(),
         ];
     }

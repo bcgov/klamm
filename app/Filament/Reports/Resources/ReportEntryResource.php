@@ -4,6 +4,7 @@ namespace App\Filament\Reports\Resources;
 
 use App\Filament\Reports\Resources\ReportEntryResource\Pages;
 use App\Models\ReportEntry;
+use App\Models\ReportLabelSource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,20 +13,21 @@ use Filament\Tables\Table;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\ExportAction;
-use Filament\Tables\Actions\ImportAction;
 use App\Filament\Exports\ReportEntryExporter;
-use App\Filament\Imports\ReportEntryImporter;
+use Filament\Forms\Get;
+
+use Filament\Support\Colors\Color;
+use Filament\Support\Facades\FilamentColor;
 
 class ReportEntryResource extends Resource
 {
     protected static ?string $model = ReportEntry::class;
 
-    protected static ?string $label = 'Report Label';
+    protected static ?string $label = 'Report Dictionary';
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static ?string $navigationLabel = 'Report Labels';
-
+    protected static ?string $navigationLabel = 'Report Label Dictionary';
 
     public static function form(Form $form): Form
     {
@@ -33,26 +35,48 @@ class ReportEntryResource extends Resource
             ->schema([
                 Forms\Components\Select::make('business_area_id')
                     ->relationship('reportBusinessArea', 'name')
-                    ->required(),
+                    ->required()
+                    ->label('Business Area')
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('report_id')
                     ->relationship('report', 'name')
-                    ->required(),
+                    ->required()
+                    ->label('Report Name')
+                    ->columnSpanFull(),
                 Forms\Components\TextInput::make('existing_label')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->label('Existing Label')
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('label_source_id')
-                    ->relationship('labelSource', 'name'),
+                    ->relationship('labelSource', 'name')
+                    ->label('Label Source')
+                    ->reactive()
+                    ->columnSpanFull(),
                 Forms\Components\TextInput::make('data_field')
-                    ->maxLength(255),
+                    ->columnSpanFull()
+                    ->label('Source Data Field')
+                    ->columnSpanFull(),
                 Forms\Components\TextInput::make('icm_data_field_path')
                     ->label('ICM Data Field Path')
-                    ->maxLength(255),
+                    ->visible(function (Get $get) {
+                        $labelSourceId = $get('label_source_id');
+                        if ($labelSourceId) {
+                            $labelSourceName = ReportLabelSource::find($labelSourceId)?->name;
+                            return $labelSourceName === 'ICM';
+                        }
+
+                        return false;
+                    })
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('data_matching_rate')
+                    ->label('Label Match Rating')
                     ->options([
                         'easy' => 'Easy',
                         'medium' => 'Medium',
                         'complex' => 'Complex',
-                    ]),
+                    ])
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('note')
                     ->columnSpanFull(),
             ]);
@@ -62,19 +86,35 @@ class ReportEntryResource extends Resource
     {
         return $table
             ->columns([
+                // todo dictionary label
+                Tables\Columns\TextColumn::make('dictionary_label')
+                    ->searchable()
+                    ->label('Dictionary Label'),
                 Tables\Columns\TextColumn::make('reportBusinessArea.name')
-                    ->searchable(),
+                    ->searchable()
+                    ->label('Business Area'),
                 Tables\Columns\TextColumn::make('report.name')
-                    ->searchable(),
+                    ->searchable()
+                    ->label('Report Name'),
                 Tables\Columns\TextColumn::make('existing_label')
-                    ->searchable(),
+                    ->searchable()
+                    ->label('Existing Label'),
                 Tables\Columns\TextColumn::make('labelSource.name')
-                    ->searchable(),
+                    ->searchable()
+                    ->label('Label Source'),
                 Tables\Columns\TextColumn::make('data_field')
-                    ->searchable(),
+                    ->searchable()
+                    ->label('Source Data Field'),
                 Tables\Columns\TextColumn::make('icm_data_field_path')
-                    ->label('ICM Data Field Path'),
+                    ->label('ICM Data Field Path')
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($record->labelSource && $record->labelSource->name === 'ICM') {
+                            return $state ?? 'N/A';
+                        }
+                        return 'N/A';
+                    }),
                 Tables\Columns\TextColumn::make('data_matching_rate')
+                    ->label('Label Match Rating')
                     ->badge()
                     ->colors([
                         'success' => static fn($state): bool => $state === 'easy',
@@ -109,20 +149,21 @@ class ReportEntryResource extends Resource
                     ->preload()
                     ->label('Last Updated By'),
             ])
-            ->actions([
-                ActionGroup::make([
-                    Tables\Actions\EditAction::make(),
-                    Tables\Actions\ViewAction::make(),
-                    Tables\Actions\DeleteAction::make()
-                        ->requiresConfirmation(),
-                ])->icon('heroicon-m-ellipsis-vertical')
-            ], position: ActionsPosition::BeforeColumns)
-            ->headerActions([
-                ExportAction::make()
-                    ->exporter(ReportEntryExporter::class),
-                ImportAction::make('Import CSV')
-                    ->importer(ReportEntryImporter::class)
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->requiresConfirmation()
+                        ->color(Color::hex('#2D2D2D')),
+                    ExportAction::make()
+                        ->icon('heroicon-o-arrow-down-on-square')
+                        ->label('Download Report Labels')
+                        ->color(Color::hex('#2D2D2D'))
+                        ->exporter(ReportEntryExporter::class),
+                ]),
             ])
+            // ->headerActions([
+            //     //
+            // ])
             ->paginated([
                 10,
                 25,
