@@ -16,6 +16,7 @@ use Filament\Forms\Get;
 use App\Filament\Imports\ReportEntryImporter;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Support\Colors\Color;
+use Illuminate\Support\Facades\Gate;
 
 class ReportEntryResource extends Resource
 {
@@ -166,7 +167,7 @@ class ReportEntryResource extends Resource
                         ->label('Download Report Labels')
                         ->color(Color::hex('#2D2D2D'))
                         ->exporter(ReportEntryExporter::class),
-                ]),
+                ])->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
             ])
             ->headerActions([
                 ImportAction::make('Import CSV')
@@ -174,7 +175,8 @@ class ReportEntryResource extends Resource
                     ->color(Color::hex('#013366'))
                     ->outlined()
                     ->label('Import Label(s)')
-                    ->importer(ReportEntryImporter::class),
+                    ->importer(ReportEntryImporter::class)
+                    ->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
             ])
             ->paginated([
                 10,

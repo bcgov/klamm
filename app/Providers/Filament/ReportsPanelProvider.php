@@ -64,7 +64,7 @@ class ReportsPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                CheckRole::class . ':reports,admin',
+                CheckRole::class . ':reports,reports-view-only,admin',
             ]);
     }
 }
