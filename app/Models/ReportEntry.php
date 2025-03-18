@@ -41,6 +41,11 @@ class ReportEntry extends Model
         return $this->belongsTo(ReportLabelSource::class, 'label_source_id');
     }
 
+    public function reportDictionaryLabel(): BelongsTo
+    {
+        return $this->belongsTo(ReportDictionaryLabel::class);
+    }
+
     public function lastUpdatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'last_updated_by');

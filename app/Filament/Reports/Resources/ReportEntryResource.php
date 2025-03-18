@@ -10,14 +10,12 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Tables\Enums\ActionsPosition;
-use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Actions\ExportAction;
 use App\Filament\Exports\ReportEntryExporter;
 use Filament\Forms\Get;
-
+use App\Filament\Imports\ReportEntryImporter;
+use Filament\Tables\Actions\ImportAction;
 use Filament\Support\Colors\Color;
-use Filament\Support\Facades\FilamentColor;
 
 class ReportEntryResource extends Resource
 {
@@ -36,17 +34,27 @@ class ReportEntryResource extends Resource
                 Forms\Components\Select::make('business_area_id')
                     ->relationship('reportBusinessArea', 'name')
                     ->required()
+                    ->searchable()
+                    ->preload()
                     ->label('Business Area')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('report_id')
                     ->relationship('report', 'name')
                     ->required()
+                    ->searchable()
+                    ->preload()
                     ->label('Report Name')
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('existing_label')
                     ->required()
                     ->maxLength(255)
                     ->label('Existing Label')
+                    ->columnSpanFull(),
+                Forms\Components\Select::make('report_dictionary_label_id')
+                    ->relationship('reportDictionaryLabel', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Dictionary Label')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('label_source_id')
                     ->relationship('labelSource', 'name')
@@ -86,8 +94,7 @@ class ReportEntryResource extends Resource
     {
         return $table
             ->columns([
-                // todo dictionary label
-                Tables\Columns\TextColumn::make('dictionary_label')
+                Tables\Columns\TextColumn::make('reportDictionaryLabel.name')
                     ->searchable()
                     ->label('Dictionary Label'),
                 Tables\Columns\TextColumn::make('reportBusinessArea.name')
@@ -161,9 +168,14 @@ class ReportEntryResource extends Resource
                         ->exporter(ReportEntryExporter::class),
                 ]),
             ])
-            // ->headerActions([
-            //     //
-            // ])
+            ->headerActions([
+                ImportAction::make('Import CSV')
+                    ->icon('heroicon-o-arrow-down-on-square')
+                    ->color(Color::hex('#013366'))
+                    ->outlined()
+                    ->label('Import Label(s)')
+                    ->importer(ReportEntryImporter::class),
+            ])
             ->paginated([
                 10,
                 25,
