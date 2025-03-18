@@ -58,6 +58,9 @@ class ReportSeeder extends Seeder
             'Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01)',
             'Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02)',
             'CASES AUTOCLOSED DURING CHEQUE RUN',
+            'BCEA DEBT REPORT (MI361-01)',
+            'Daily Cancelled Cheque Activity - (MI766-01)',
+            'GAIN Office Table (P012-01)'
         ];
 
         foreach ($reports as $report) {
