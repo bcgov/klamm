@@ -102,9 +102,22 @@ class SiebelFieldResource extends Resource
                 Forms\Components\TextInput::make('join_column')
                     ->maxLength(400)
                     ->nullable(),
-                Forms\Components\TextInput::make('calculated_value')
-                    ->maxLength(400)
+                Forms\Components\Textarea::make('calculated_value')
+                    ->autosize()
+                    ->columnSpanFull()
                     ->nullable(),
+                Forms\Components\Toggle::make('has_field_references')
+                    ->label('Has Field References')
+                    ->disabled()
+                    ->dehydrated(false),
+                Forms\Components\Toggle::make('is_referenced')
+                    ->label('Referenced by Other Fields')
+                    ->disabled()
+                    ->dehydrated(false),
+                Forms\Components\Toggle::make('has_list_of_values')
+                    ->label('Has List of Values')
+                    ->disabled()
+                    ->dehydrated(false),
             ]);
     }
 
@@ -136,6 +149,15 @@ class SiebelFieldResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('calculated_value')
                     ->searchable()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('has_field_references')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('is_referenced')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('has_list_of_values')
+                    ->boolean()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -183,6 +205,59 @@ class SiebelFieldResource extends Resource
                     ->label('Calculated Value')
                     ->multiple()
                     ->searchable(),
+                Tables\Filters\SelectFilter::make('has_field_references')
+                    ->label('Has Field References')
+                    ->options([
+                        'references' => 'Has Field References',
+                        'noReferences' => 'Does not Have Field References',
+
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!isset($data['value'])) {
+                            return $query;
+                        }
+
+                        return match ($data['value']) {
+                            'references' => $query->whereHas('references'),
+                            'noReferences' => $query->whereDoesntHave('references'),
+
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('is_referenced')
+                    ->label('Referenced by Other Fields')
+                    ->options([
+                        'isReferenced' => 'Is referenced by Other Fields',
+                        'isnotReferenced' => 'Is not referenced by Other Fields',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!isset($data['value'])) {
+                            return $query;
+                        }
+
+                        return match ($data['value']) {
+                            'isReferenced' => $query->whereHas('referencedBy'),
+                            'isnotReferenced' => $query->whereDoesntHave('referencedBy'),
+                            default => $query,
+                        };
+                    }),
+                Tables\Filters\SelectFilter::make('has_list_of_values')
+                    ->label('Has List of Values')
+                    ->options([
+                        'values' => 'References Value from List of Values',
+                        'noValues' => 'Does not Reference Value from List of Values',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (!isset($data['value'])) {
+                            return $query;
+                        }
+
+                        return match ($data['value']) {
+                            'values' => $query->whereHas('values'),
+                            'noValues' => $query->whereDoesntHave('values'),
+                            default => $query,
+                        };
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -204,7 +279,9 @@ class SiebelFieldResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\ReferencesRelationManager::class,
+            RelationManagers\ReferencedByRelationManager::class,
+            RelationManagers\ValuesRelationManager::class,
         ];
     }
 

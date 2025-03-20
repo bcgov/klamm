@@ -146,8 +146,8 @@ class FieldResource extends Resource
                         name: 'icmcdwFields',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')->orderBy('field')->orderBy('panel_type')->orderBy('entity')->orderBy('subject_area')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
-                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->id}")
+                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area', 'icm_cdw_fields.id']),
                 Forms\Components\Select::make('siebelBusinessObjectField')
                     ->label('Related Siebel Business Objects:')
                     ->multiple()
@@ -155,8 +155,8 @@ class FieldResource extends Resource
                         name: 'siebelBusinessObjects',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_business_objects.id']),
                 Forms\Components\Select::make('siebelBusinessComponentField')
                     ->label('Related Siebel Business Components:')
                     ->multiple()
@@ -164,8 +164,8 @@ class FieldResource extends Resource
                         name: 'siebelBusinessComponents',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_business_components.id']),
                 Forms\Components\Select::make('siebelAppletField')
                     ->label('Related Siebel Business Applets:')
                     ->multiple()
@@ -173,8 +173,8 @@ class FieldResource extends Resource
                         name: 'siebelApplets',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_applets.id']),
                 Forms\Components\Select::make('siebelTableField')
                     ->label('Related Siebel Business Tables:')
                     ->multiple()
@@ -182,8 +182,8 @@ class FieldResource extends Resource
                         name: 'siebelTables',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_tables.id']),
                 Forms\Components\Select::make('siebelFieldField')
                     ->label('Related Siebel Business Fields:')
                     ->multiple()
@@ -191,8 +191,8 @@ class FieldResource extends Resource
                         name: 'siebelFields',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'multi_value_link', 'join_column', 'calculated_value']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'multi_value_link', 'join_column', 'calculated_value', 'siebel_fields.id']),
             ]);
     }
 
