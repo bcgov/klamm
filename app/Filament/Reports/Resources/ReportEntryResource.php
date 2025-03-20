@@ -162,11 +162,6 @@ class ReportEntryResource extends Resource
                     Tables\Actions\DeleteBulkAction::make()
                         ->requiresConfirmation()
                         ->color(Color::hex('#2D2D2D')),
-                    ExportAction::make()
-                        ->icon('heroicon-o-arrow-down-on-square')
-                        ->label('Download Report Labels')
-                        ->color(Color::hex('#2D2D2D'))
-                        ->exporter(ReportEntryExporter::class),
                 ])->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
             ])
             ->headerActions([
@@ -177,6 +172,11 @@ class ReportEntryResource extends Resource
                     ->label('Import Label(s)')
                     ->importer(ReportEntryImporter::class)
                     ->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
+                ExportAction::make()
+                    ->icon('heroicon-o-arrow-down-on-square')
+                    ->label('Download Report Labels')
+                    ->color(Color::hex('#2D2D2D'))
+                    ->exporter(ReportEntryExporter::class),
             ])
             ->paginated([
                 10,
