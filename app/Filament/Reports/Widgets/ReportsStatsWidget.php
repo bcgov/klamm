@@ -13,9 +13,9 @@ class ReportsStatsWidget extends ChartWidget
     {
         $counts = ReportEntry::query()
             ->selectRaw("
-                COUNT(CASE WHEN data_matching_rate = 'easy' THEN 1 END) as easy,
+                COUNT(CASE WHEN data_matching_rate = 'low' THEN 1 END) as low,
                 COUNT(CASE WHEN data_matching_rate = 'medium' THEN 1 END) as medium,
-                COUNT(CASE WHEN data_matching_rate = 'complex' THEN 1 END) as complex,
+                COUNT(CASE WHEN data_matching_rate = 'high' THEN 1 END) as high,
                 COUNT(CASE WHEN data_matching_rate IS NULL OR data_matching_rate = '' THEN 1 END) as unknown
             ")
             ->first()
@@ -29,7 +29,7 @@ class ReportsStatsWidget extends ChartWidget
                     'backgroundColor' => ['#22C55E', '#EAB308', '#DC2626', '#6B7280'],
                 ],
             ],
-            'labels' => ['Easy', 'Medium', 'Complex', 'Unknown'],
+            'labels' => ['Low', 'Medium', 'High', 'Unknown'],
         ];
     }
 

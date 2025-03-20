@@ -60,7 +60,8 @@ class ReportSeeder extends Seeder
             'CASES AUTOCLOSED DURING CHEQUE RUN',
             'BCEA DEBT REPORT (MI361-01)',
             'Daily Cancelled Cheque Activity - (MI766-01)',
-            'GAIN Office Table (P012-01)'
+            'GAIN Office Table (P012-01)',
+            'Accepted Transactions Report - MI10B-03'
         ];
 
         foreach ($reports as $report) {

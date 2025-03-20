@@ -12,7 +12,7 @@ use League\Csv\Reader;
 
 class ImportReportsFromCsv extends Command
 {
-    protected $signature = 'import:reports {--skip-missing : Skip rows with missing references} {--debug : Show debug information}';
+    protected $signature = 'import:reports {--skip-missing : Skip rows with missing references} {--debug : Show debug information} {--create-labels : Automatically create missing dictionary labels} {--create-reports : Automatically create missing reports}';
     protected $description = 'Import reports from a CSV file';
 
     public function handle()
@@ -29,8 +29,12 @@ class ImportReportsFromCsv extends Command
 
         $skipMissing = $this->option('skip-missing');
         $debug = $this->option('debug');
+        $createLabels = $this->option('create-labels') || true;
+        $createReports = $this->option('create-reports') || true;
         $rowCount = 0;
         $skippedCount = 0;
+        $createdLabelsCount = 0;
+        $createdReportsCount = 0;
 
         if ($debug) {
             $allBusinessAreas = ReportBusinessArea::all()->pluck('name', 'id')->toArray();
@@ -69,7 +73,18 @@ class ImportReportsFromCsv extends Command
                 }
 
                 $report = Report::where('name', $reportName)->first();
-                if ($debug && !$report) {
+
+                if (!$report && $createReports && !empty($reportName)) {
+                    $report = Report::create([
+                        'name' => $reportName,
+                    ]);
+
+                    $createdReportsCount++;
+
+                    if ($debug) {
+                        $this->info("  > Created new Report: '$reportName' (ID: {$report->id})");
+                    }
+                } elseif ($debug && !$report) {
                     $this->warn("  > Report not found: '$reportName'");
                     $similar = Report::whereRaw("LOWER(name) = ?", [strtolower($reportName)])->first();
                     if ($similar) {
@@ -87,7 +102,18 @@ class ImportReportsFromCsv extends Command
                 }
 
                 $dictionaryLabel = ReportDictionaryLabel::where('name', $dictionaryLabelName)->first();
-                if ($debug && !$dictionaryLabel) {
+
+                if (!$dictionaryLabel && $createLabels && !empty($dictionaryLabelName)) {
+                    $dictionaryLabel = ReportDictionaryLabel::create([
+                        'name' => $dictionaryLabelName,
+                    ]);
+
+                    $createdLabelsCount++;
+
+                    if ($debug) {
+                        $this->info("  > Created new Dictionary Label: '$dictionaryLabelName' (ID: {$dictionaryLabel->id})");
+                    }
+                } elseif ($debug && !$dictionaryLabel) {
                     $this->warn("  > Dictionary Label not found: '$dictionaryLabelName'");
                     $similar = ReportDictionaryLabel::whereRaw("LOWER(name) = ?", [strtolower($dictionaryLabelName)])->first();
                     if ($similar) {
@@ -95,11 +121,10 @@ class ImportReportsFromCsv extends Command
                     }
                 }
 
-                if (!$businessArea || !$report || !$labelSource) {
+                if (!$businessArea || !$labelSource) {
                     if ($skipMissing) {
                         $missing = [];
                         if (!$businessArea) $missing[] = "Business Area: '{$businessAreaName}'";
-                        if (!$report) $missing[] = "Report: '{$reportName}'";
                         if (!$labelSource) $missing[] = "Label Source: '{$labelSourceName}'";
 
                         $this->warn("Row " . ($rowIndex + 2) . " skipped: Missing " . implode(', ', $missing));
@@ -110,11 +135,11 @@ class ImportReportsFromCsv extends Command
                     }
                 }
 
+                $dictionaryLabelId = $dictionaryLabel ? $dictionaryLabel->id : null;
+
                 $dataMatchingRate = strtolower(trim($row['Label Match Rating'] ?? ''));
-                if ($dataMatchingRate === 'hard') {
-                    $dataMatchingRate = 'complex';
-                }
-                $validRates = ['easy', 'medium', 'complex'];
+
+                $validRates = ['low', 'medium', 'high'];
                 $dataMatchingRate = in_array($dataMatchingRate, $validRates) ? $dataMatchingRate : null;
 
                 if ($debug) {
@@ -122,13 +147,14 @@ class ImportReportsFromCsv extends Command
                     $this->info("    - Business Area ID: {$businessArea->id} ({$businessArea->name})");
                     $this->info("    - Report ID: {$report->id} ({$report->name})");
                     $this->info("    - Label Source ID: {$labelSource->id} ({$labelSource->name})");
+                    $this->info("    - Dictionary Label ID: " . ($dictionaryLabelId ? "{$dictionaryLabelId} ({$dictionaryLabel->name})" : "null"));
                 }
 
                 $reportEntry = ReportEntry::create([
                     'business_area_id' => $businessArea->id,
                     'report_id' => $report->id,
                     'label_source_id' => $labelSource->id,
-                    'report_dictionary_label_id' => $dictionaryLabel->id,
+                    'report_dictionary_label_id' => $dictionaryLabelId,
                     'existing_label' => $row['Existing Label'],
                     'data_field' => $row['Source Data Field'] ?? null,
                     'icm_data_field_path' => $row['ICM Data Field Path'] ?? null,
@@ -158,5 +184,13 @@ class ImportReportsFromCsv extends Command
         }
 
         $this->info("CSV data imported successfully! Imported $rowCount rows, skipped $skippedCount rows.");
+
+        if ($createdReportsCount > 0) {
+            $this->info("Created $createdReportsCount new reports.");
+        }
+
+        if ($createdLabelsCount > 0) {
+            $this->info("Created $createdLabelsCount new dictionary labels.");
+        }
     }
 }

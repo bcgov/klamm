@@ -60,7 +60,14 @@ class ReportDictionaryLabelSeeder extends Seeder
             'City',
             'Office Type',
             'Closed Code',
-            'Close Reason'
+            'Close Reason',
+            'Cheque Date',
+            'Additional Reason',
+            'Cheque amount',
+            'Manual Admin amount',
+            'Payment Method',
+            'Cheque Number',
+            'Distribution Code',
         ];
 
         foreach ($reportDctionaryLabels as $reportDictionaryLabel) {
