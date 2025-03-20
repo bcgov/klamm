@@ -27,12 +27,15 @@ class ReportEntriesRelationManager extends RelationManager
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('report.name')
+                    ->searchable()
+                    ->label('Report Name'),
                 Tables\Columns\TextColumn::make('data_matching_rate')
                     ->badge()
                     ->colors([
-                        'success' => static fn($state): bool => $state === 'easy',
+                        'success' => static fn($state): bool => $state === 'low',
                         'warning' => static fn($state): bool => $state === 'medium',
-                        'danger' => static fn($state): bool => $state === 'complex',
+                        'danger' => static fn($state): bool => $state === 'high',
                     ]),
                 Tables\Columns\TextColumn::make('reportBusinessArea.name'),
                 Tables\Columns\TextColumn::make('existing_label'),

@@ -81,9 +81,9 @@ class ReportEntryResource extends Resource
                 Forms\Components\Select::make('data_matching_rate')
                     ->label('Label Match Rating')
                     ->options([
-                        'easy' => 'Easy',
+                        'low' => 'Low',
                         'medium' => 'Medium',
-                        'complex' => 'Complex',
+                        'high' => 'High',
                     ])
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('note')
@@ -125,9 +125,9 @@ class ReportEntryResource extends Resource
                     ->label('Label Match Rating')
                     ->badge()
                     ->colors([
-                        'success' => static fn($state): bool => $state === 'easy',
+                        'success' => static fn($state): bool => $state === 'low',
                         'warning' => static fn($state): bool => $state === 'medium',
-                        'danger' => static fn($state): bool => $state === 'complex',
+                        'danger' => static fn($state): bool => $state === 'high',
                     ]),
                 Tables\Columns\TextColumn::make('lastUpdatedBy.name')
                     ->label('Last Updated By'),
@@ -143,9 +143,9 @@ class ReportEntryResource extends Resource
                     ->label('Label Source'),
                 Tables\Filters\SelectFilter::make('data_matching_rate')
                     ->options([
-                        'easy' => 'Easy',
+                        'low' => 'Low',
                         'medium' => 'Medium',
-                        'complex' => 'Complex',
+                        'high' => 'High',
                     ])
                     ->label('Data Matching Rate'),
                 Tables\Filters\SelectFilter::make('report_id')

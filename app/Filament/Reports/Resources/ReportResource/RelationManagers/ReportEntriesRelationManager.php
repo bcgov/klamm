@@ -30,9 +30,9 @@ class ReportEntriesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('data_matching_rate')
                     ->badge()
                     ->colors([
-                        'success' => static fn($state): bool => $state === 'easy',
+                        'success' => static fn($state): bool => $state === 'Low',
                         'warning' => static fn($state): bool => $state === 'medium',
-                        'danger' => static fn($state): bool => $state === 'complex',
+                        'danger' => static fn($state): bool => $state === 'High',
                     ]),
                 Tables\Columns\TextColumn::make('reportBusinessArea.name'),
                 Tables\Columns\TextColumn::make('existing_label'),
