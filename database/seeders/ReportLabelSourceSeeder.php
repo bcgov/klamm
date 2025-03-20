@@ -20,9 +20,5 @@ class ReportLabelSourceSeeder extends Seeder
         $label = new ReportLabelSource();
         $label->name = 'Financial Component';
         $label->save();
-
-        $label = new ReportLabelSource();
-        $label->name = 'MIS';
-        $label->save();
     }
 }

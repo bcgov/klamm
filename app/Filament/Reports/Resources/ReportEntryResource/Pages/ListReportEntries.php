@@ -19,7 +19,7 @@ class ListReportEntries extends ListRecords
             Actions\CreateAction::make()
                 ->icon('heroicon-o-plus')
                 ->color(Color::hex('#013366'))
-                ->label('Create a Label'),
+                ->label('Create Dictionary Entry'),
         ];
     }
 }
