@@ -15,6 +15,11 @@ class SystemMessage extends Model
         'fix',
         'service_desk',
         'limited_data',
+        'error_actor_id',
+        'error_entity_id',
+        'error_data_group_id',
+        'error_integration_state_id',
+        'error_source_id'
     ];
 
     public function errorEntity(): BelongsTo

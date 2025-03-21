@@ -3,15 +3,13 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\SystemMessageResource\Pages;
-use App\Filament\Fodig\Resources\SystemMessageResource\RelationManagers;
+use Filament\Forms\Components\Select;
 use App\Models\SystemMessage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SystemMessageResource extends Resource
 {
@@ -25,27 +23,28 @@ class SystemMessageResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('error_code')
+                Forms\Components\Textarea::make('error_code')
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('error_message')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('error_message')
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('icm_error_solution')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('explanation')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('fix')
-                    ->maxLength(255),
-                Forms\Components\Select::make('error_entity_id')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('icm_error_solution')
+                    ->label('ICM error solution')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('explanation')
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('fix')
+                    ->columnSpanFull(),
+                Select::make('error_entity_id')
                     ->relationship('errorEntity', 'name'),
-                Forms\Components\Select::make('error_data_group_id')
+                Select::make('error_data_group_id')
                     ->relationship('errorDataGroup', 'name'),
-                Forms\Components\Select::make('error_integration_state_id')
+                Select::make('error_integration_state_id')
                     ->relationship('errorIntegrationState', 'name'),
-                Forms\Components\Select::make('error_actor_id')
+                Select::make('error_actor_id')
                     ->relationship('errorActor', 'name'),
-                Forms\Components\Select::make('error_source_id')
+                Select::make('error_source_id')
                     ->relationship('errorSource', 'name'),
                 Forms\Components\Toggle::make('service_desk'),
                 Forms\Components\Toggle::make('limited_data'),
@@ -58,53 +57,64 @@ class SystemMessageResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('error_code')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('error_message')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('icm_error_solution')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('explanation')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('fix')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('errorEntity.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Error Entity')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('errorDataGroup.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Error Data Group')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('errorIntegrationState.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Error Integration State')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('errorActor.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Error Actor')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('errorSource.name')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Error Source')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\IconColumn::make('service_desk')
                     ->boolean(),
                 Tables\Columns\IconColumn::make('limited_data')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('error_entity_id')
+                    ->label('Error Entity')
+                    ->relationship('errorEntity', 'name'),
+                Tables\Filters\SelectFilter::make('error_data_group_id')
+                    ->label('Error Data Group')
+                    ->relationship('errorDataGroup', 'name'),
+                Tables\Filters\SelectFilter::make('error_integration_state_id')
+                    ->label('Error Integration State')
+                    ->relationship('errorIntegrationState', 'name'),
+                Tables\Filters\SelectFilter::make('error_actor_id')
+                    ->label('Error Actor')
+                    ->relationship('errorActor', 'name'),
+                Tables\Filters\SelectFilter::make('error_source_id')
+                    ->label('Error Source')
+                    ->relationship('errorSource', 'name'),
+                Tables\Filters\TernaryFilter::make('service_desk')
+                    ->label('Service Desk'),
+                Tables\Filters\TernaryFilter::make('limited_data')
+                    ->label('Limited Data'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                //
+            ])
+            ->paginated([
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
