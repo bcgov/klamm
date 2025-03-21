@@ -110,6 +110,46 @@ class SystemMessageResource extends Resource
             ->bulkActions([
                 //
             ])
+            ->headerActions([
+                Tables\Actions\Action::make('exportAll')
+                    ->label('Export All')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->action(function () {
+                        $records = SystemMessage::with([
+                            'errorEntity',
+                            'errorDataGroup',
+                            'errorIntegrationState',
+                            'errorActor',
+                            'errorSource'
+                        ])->get();
+
+                        $data = [
+                            'last-updated' => now()->format('F jS, Y'),
+                            'popular-pages' => [],
+                            'errors' => $records->map(function ($record) {
+                                return [
+                                    'Entity' => $record->errorEntity?->name ?? '',
+                                    'Datagroup' => $record->errorDataGroup?->name ?? '',
+                                    'ErrorCode' => $record->error_code,
+                                    'ErrorMessage' => $record->error_message,
+                                    'SourceSystem' => $record->errorSource?->name ?? '',
+                                    'ActionBy' => $record->errorActor?->name ?? '',
+                                    'ICMErrorSolution' => $record->icm_error_solution ?? '',
+                                    'Fix' => $record->fix ?? '',
+                                    'Explanation' => $record->explanation ?? '',
+                                    'ServiceDesk' => (bool) $record->service_desk,
+                                    'LimitedData' => (bool) $record->limited_data,
+                                ];
+                            }),
+                        ];
+
+                        return response()->streamDownload(function () use ($data) {
+                            echo json_encode($data, JSON_PRETTY_PRINT);
+                        }, 'errors.json', [
+                            'Content-Type' => 'application/json',
+                        ]);
+                    })
+            ])
             ->paginated([
                 10,
                 25,
