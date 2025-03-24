@@ -198,6 +198,11 @@ class PermissionsSeeder extends Seeder
             'create SystemMessage',
             'update SystemMessage',
             'delete SystemMessage',
+            'view-any PopularPageSystemMessage',
+            'view PopularPageSystemMessage',
+            'create PopularPageSystemMessage',
+            'update PopularPageSystemMessage',
+            'delete PopularPageSystemMessage',
         ])->where('guard_name', 'web')->get());
 
         // Assign fodig-read-only with read only access to fodig resources
@@ -273,6 +278,8 @@ class PermissionsSeeder extends Seeder
             'view ErrorSource',
             'view-any SystemMessage',
             'view SystemMessage',
+            'view-any PopularPageSystemMessage',
+            'view PopularPageSystemMessage',
         ])->where('guard_name', 'web')->get());
 
         // Assign forms with full access to forms resources
