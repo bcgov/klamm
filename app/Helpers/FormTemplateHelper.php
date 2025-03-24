@@ -2,13 +2,10 @@
 
 namespace App\Helpers;
 
+use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
-use App\Models\SelectOptions;
 use App\Models\FormVersion;
 use App\Models\Form;
-use App\Models\FieldGroupInstance;
-use App\Models\FormInstanceField;
-use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
@@ -24,6 +21,7 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
+            ->with('formField.dataType', 'styleInstances', 'validations', 'conditionals')
             ->get();
 
         foreach ($formFields as $field) {
@@ -197,12 +195,12 @@ class FormTemplateHelper
                     "selectionFeedback" => "top-after-reopen",
                     "direction" => "bottom",
                     "size" => "md",
-                    "listItems" => $field->selectOptions()
+                    "listItems" => $fieldInstance->selectOptionInstances()
                         ->get()
-                        ->map(function ($selectOption) {
+                        ->map(function ($selectOptionInstance) {
                             return [
-                                "text" => $selectOption->label,
-                                "value" => $selectOption->value
+                                "text" => $selectOptionInstance->selectOption->label,
+                                "value" => $selectOptionInstance->selectOption->value
                             ];
                         })
                         ->toArray(),
@@ -213,12 +211,12 @@ class FormTemplateHelper
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "listItems" => $field->selectOptions()
+                    "listItems" => $field->selectOptionInstances()
                         ->get()
-                        ->map(function ($selectOption) {
+                        ->map(function ($selectOptionInstance) {
                             return [
-                                "text" => $selectOption->label,
-                                "value" => $selectOption->value
+                                "text" => $selectOptionInstance->selectOption->label,
+                                "value" => $selectOptionInstance->selectOption->value
                             ];
                         })
                         ->toArray(),
@@ -403,15 +401,10 @@ class FormTemplateHelper
         ]);
     }
 
-    public static function calculateFieldID($state)
+    public static function calculateElementID(): string
     {
-        $numOfComponents = count($state);
-        return 'element' . $numOfComponents;
-    }
-
-    public static function calculateFieldInGroupID($state)
-    {
-        $numOfFormFields = count($state);
-        return 'nestedElement' . $numOfFormFields;
+        $counter = FormVersionResource::getElementCounter();
+        FormVersionResource::incrementElementCounter();
+        return 'element' . $counter;
     }
 }

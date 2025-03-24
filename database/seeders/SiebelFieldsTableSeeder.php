@@ -19,7 +19,6 @@ class SiebelFieldsTableSeeder extends Seeder
         \DB::table('siebel_fields')->delete();
 
         $this->call([
-            // SiebelBusinessComponentsTableSeeder1::class,
             SiebelFieldsTableSeeder1::class,
             SiebelFieldsTableSeeder2::class,
             SiebelFieldsTableSeeder3::class,
