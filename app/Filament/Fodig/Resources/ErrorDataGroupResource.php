@@ -21,6 +21,8 @@ class ErrorDataGroupResource extends Resource
 
     protected static ?string $navigationGroup = 'Error Lookup Tool';
 
+    protected static ?int $navigationSort = 3;
+
     public static function form(Form $form): Form
     {
         return $form

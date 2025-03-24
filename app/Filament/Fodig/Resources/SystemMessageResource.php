@@ -5,6 +5,7 @@ namespace App\Filament\Fodig\Resources;
 use App\Filament\Fodig\Resources\SystemMessageResource\Pages;
 use Filament\Forms\Components\Select;
 use App\Models\SystemMessage;
+use App\Models\PopularPageSystemMessage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -18,6 +19,8 @@ class SystemMessageResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-envelope';
 
     protected static ?string $navigationGroup = 'Error Lookup Tool';
+
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -123,9 +126,16 @@ class SystemMessageResource extends Resource
                             'errorSource'
                         ])->get();
 
+                        $popularPages = PopularPageSystemMessage::all()->map(function ($page) {
+                            return [
+                                'display-text' => $page->display_text,
+                                'path' => $page->path,
+                            ];
+                        });
+
                         $data = [
                             'last-updated' => now()->format('F jS, Y'),
-                            'popular-pages' => [],
+                            'popular-pages' => $popularPages,
                             'errors' => $records->map(function ($record) {
                                 return [
                                     'Entity' => $record->errorEntity?->name ?? '',
