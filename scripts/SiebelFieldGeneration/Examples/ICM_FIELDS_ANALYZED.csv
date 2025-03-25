@@ -1,0 +1,2 @@
+,field_name,business_component,table,table_column,multi_value_link,multi_value_link_field,join,join_column,calculated_value,field_references,list_of_values,functions_used,operators_used,constants,referenced_business_components,expression_type,field_reference_count
+0,Func Area Code,AMS User Func Area,S_FN_APPR,NAME,,,Func Code Area Def,NAME,,,,,,,,Empty,0
