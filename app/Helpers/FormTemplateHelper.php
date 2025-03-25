@@ -198,6 +198,7 @@ class FormTemplateHelper
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
+                                "name" => $selectOptionInstance->selectOption->name,
                                 "text" => $selectOptionInstance->selectOption->label,
                                 "value" => $selectOptionInstance->selectOption->value
                             ];
@@ -214,6 +215,7 @@ class FormTemplateHelper
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
+                                "name" => $selectOptionInstance->selectOption->name,
                                 "text" => $selectOptionInstance->selectOption->label,
                                 "value" => $selectOptionInstance->selectOption->value
                             ];
