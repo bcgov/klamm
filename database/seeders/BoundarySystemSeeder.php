@@ -24,6 +24,7 @@ class BoundarySystemSeeder extends Seeder
             BoundarySystemFileFieldMapSectionSeeder::class,
             BoundarySystemFileFieldTypeSeeder::class,
             BoundarySystemFileSeparatorSeeder::class,
+            BoundarySystemsTableSeeder::class,
         ]);
     }
 }
