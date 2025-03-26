@@ -116,6 +116,10 @@ sail artisan db:seed --class=UserSeeder
 sail artisan db:seed --class=MomusSeeder
 
 # Optionally seed the BRE Data
+# To seed a starting template without policy rules/fields run:
+sail artisan db:seed --class=BREBasicSeeder
+
+# Otherwise, to seed with SDPR policy rules/fields run:
 sail artisan db:seed --class=BRESeeder
 ```
 
