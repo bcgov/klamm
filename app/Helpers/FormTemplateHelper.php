@@ -21,7 +21,7 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with('formField.dataType', 'styleInstances', 'validations', 'conditionals')
+            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
             ->get();
 
         foreach ($formFields as $field) {
@@ -45,7 +45,10 @@ class FormTemplateHelper
             ];
         }
 
-        $containers = $formVersion->containers()->orderBy('order')->get();
+        $containers = $formVersion->containers()
+            ->orderBy('order')
+            ->with(['styleInstances.style'])
+            ->get();
 
         foreach ($containers as $container) {
             $components[] = [
@@ -109,14 +112,14 @@ class FormTemplateHelper
 
         $webStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
@@ -230,18 +233,23 @@ class FormTemplateHelper
     {
         $group = $groupInstance->fieldGroup;
 
-        $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
+        $fieldsInGroup = $groupInstance->formInstanceFields()
+            ->orderBy('order')
+            ->with(['formField.dataType', 'styleInstances' => function ($query) {
+                $query->with('style');
+            }, 'validations', 'conditionals'])
+            ->get();
 
         $webStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
@@ -319,7 +327,10 @@ class FormTemplateHelper
     protected static function formatContainer($container, $index)
     {
         $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
-        $groupsInContainer = $container->fieldGroupInstances()->orderBy('order')->get();
+        $groupsInContainer = $container->fieldGroupInstances()
+            ->orderBy('order')
+            ->with(['fieldGroup', 'styleInstances'])
+            ->get();
 
         $items = [];
         foreach ($fieldsInContainer as $fieldInstance) {
@@ -353,14 +364,14 @@ class FormTemplateHelper
 
         $webStyle = [];
         foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
