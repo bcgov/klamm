@@ -21,7 +21,7 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances', 'validations', 'conditionals'])
+            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
             ->get();
 
         foreach ($formFields as $field) {
@@ -47,7 +47,7 @@ class FormTemplateHelper
 
         $containers = $formVersion->containers()
             ->orderBy('order')
-            ->with(['styleInstances'])
+            ->with(['styleInstances.style'])
             ->get();
 
         foreach ($containers as $container) {
@@ -235,19 +235,21 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances', 'validations', 'conditionals'])
+            ->with(['formField.dataType', 'styleInstances' => function ($query) {
+                $query->with('style');
+            }, 'validations', 'conditionals'])
             ->get();
 
         $webStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
