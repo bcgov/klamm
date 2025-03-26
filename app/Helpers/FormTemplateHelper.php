@@ -112,14 +112,14 @@ class FormTemplateHelper
 
         $webStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
@@ -364,14 +364,14 @@ class FormTemplateHelper
 
         $webStyle = [];
         foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
