@@ -56,7 +56,7 @@ class FormVersionResource extends Resource
                 Tabs::make('Tabs')
                     ->visible(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\CreateRecord))
                     ->columnSpanFull()
-                    ->activeTab(2)
+                    ->activeTab(1)
                     ->reactive()
                     ->tabs([
                         Tab::make('Build')

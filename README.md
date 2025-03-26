@@ -94,14 +94,14 @@ sail down
 Create the APP_KEY, run the migrations and seed the data:
 
 ```
+# Create the .env file
+cp .env.example .env
+
 # Create the APP_KEY
 sail artisan key:generate
 
 # Run the migrations
 sail artisan migrate
-
-# Seed the users data (or create a user in the steps below)
-sail artisan db:seed --class=UserSeeder
 
 # Generate the permissions policies based on the models
 sail artisan permissions:sync
@@ -109,10 +109,17 @@ sail artisan permissions:sync
 # Seed the initial data
 sail artisan db:seed
 
+# Seed the users data (local only, or create a user in the steps below)
+sail artisan db:seed --class=UserSeeder
+
 # Optionally seed the Momus Data
 sail artisan db:seed --class=MomusSeeder
 
 # Optionally seed the BRE Data
+# To seed a starting template without policy rules/fields run:
+sail artisan db:seed --class=BREBasicSeeder
+
+# Otherwise, to seed with SDPR policy rules/fields run:
 sail artisan db:seed --class=BRESeeder
 ```
 
