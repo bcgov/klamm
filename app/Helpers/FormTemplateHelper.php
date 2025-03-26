@@ -199,6 +199,7 @@ class FormTemplateHelper
                     "direction" => "bottom",
                     "size" => "md",
                     "listItems" => $fieldInstance->selectOptionInstances()
+                        ->with('selectOption')
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
@@ -216,6 +217,7 @@ class FormTemplateHelper
             case "radio":
                 return array_merge($base, [
                     "listItems" => $field->selectOptionInstances()
+                        ->with('selectOption')
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
