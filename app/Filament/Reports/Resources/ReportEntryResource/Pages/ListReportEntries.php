@@ -18,8 +18,12 @@ class ListReportEntries extends ListRecords
         return [
             Actions\CreateAction::make()
                 ->icon('heroicon-o-plus')
-                ->color(Color::hex('#013366'))
                 ->label('Create Dictionary Entry'),
         ];
+    }
+
+    public function getBreadcrumbs(): array
+    {
+        return [];
     }
 }
