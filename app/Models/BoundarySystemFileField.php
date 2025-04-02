@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BoundarySystemFileField extends Model
 {
@@ -14,9 +13,4 @@ class BoundarySystemFileField extends Model
         'field_description',
         'validations',
     ];
-
-    public function boundarySystemFileFieldType(): BelongsTo
-    {
-        return $this->belongsTo(BoundarySystemFileFieldType::class);
-    }
 }
