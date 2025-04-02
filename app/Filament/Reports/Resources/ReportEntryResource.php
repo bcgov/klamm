@@ -10,13 +10,13 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\ExportAction;
 use App\Filament\Exports\ReportEntryExporter;
 use Filament\Forms\Get;
 use App\Filament\Imports\ReportEntryImporter;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Gate;
+use Filament\Tables\Actions\ExportBulkAction;
 
 class ReportEntryResource extends Resource
 {
@@ -24,9 +24,12 @@ class ReportEntryResource extends Resource
 
     protected static ?string $label = 'Report Dictionary';
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-
     protected static ?string $navigationLabel = 'Report Label Dictionary';
+
+    public static function getNavigationIcon(): string
+    {
+        return asset('svg/report-dictionary-logo-light.svg');
+    }
 
     public static function form(Form $form): Form
     {
@@ -164,6 +167,11 @@ class ReportEntryResource extends Resource
                         ->color(Color::hex('#2D2D2D'))
                         ->icon('heroicon-o-trash')
                         ->label('Delete'),
+                    ExportBulkAction::make()
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->label('Download Report Labels')
+                        ->color('primary')
+                        ->exporter(ReportEntryExporter::class)
                 ])->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
             ])
             ->headerActions([
@@ -173,11 +181,6 @@ class ReportEntryResource extends Resource
                     ->label('Import Label(s)')
                     ->importer(ReportEntryImporter::class)
                     ->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
-                ExportAction::make()
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->label('Download Report Labels')
-                    ->color('primary')
-                    ->exporter(ReportEntryExporter::class),
             ])
             ->paginated([
                 10,

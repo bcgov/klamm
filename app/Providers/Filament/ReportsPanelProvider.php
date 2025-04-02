@@ -28,8 +28,8 @@ class ReportsPanelProvider extends PanelProvider
         return $panel
             ->id('reports')
             ->path('reports')
-            ->brandLogo(asset('svg/klamm-logo.svg'))
-            ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
+            ->brandLogo(asset('svg/report-dictionary-logo-text-light.svg'))
+            ->darkModeBrandLogo(asset('svg/report-dictionary-logo-text-dark.svg'))
             ->homeUrl('/welcome')
             ->databaseNotifications()
             ->databaseNotificationsPolling('10s')

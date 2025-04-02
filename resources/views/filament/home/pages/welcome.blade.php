@@ -22,7 +22,10 @@
         </a>
 
         <a href="{{ url('/reports') }}" class="block p-6 bg-white dark:bg-gray-800 border rounded-lg shadow hover:bg-gray-100 dark:hover:bg-gray-700">
-            <h3 class="text-xl font-semibold text-black dark:text-white">Report Label Dictionary</h3>
+            <div class="flex items-center space-x-2">
+                <img src="{{ asset('svg/report-dictionary-logo.svg') }}" alt="Report Dictionary Logo" class="h-6 w-6">
+                <h3 class="text-xl font-semibold text-black dark:text-white">Report Label Dictionary</h3>
+            </div>
             <p class="text-gray-500 dark:text-gray-400">Reports labeling and metadata cataloguing</p>
         </a>
     </div>
