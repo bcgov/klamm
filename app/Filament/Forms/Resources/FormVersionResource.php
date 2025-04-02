@@ -166,15 +166,6 @@ class FormVersionResource extends Resource
                             $set('generated_text', $jsonTemplate);
                         })
                         ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
-                    Action::make('Preview Form Template')
-                        ->url(function (Get $get) {
-                            $jsonTemplate = $get('generated_text');
-                            $encodedJson = base64_encode($jsonTemplate);
-                            return route('forms.rendered_forms.preview', ['json' => $encodedJson]);
-                        })
-                        ->openUrlInNewTab()
-                        ->disabled(fn(Get $get) => empty($get('generated_text')))
-                        ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')

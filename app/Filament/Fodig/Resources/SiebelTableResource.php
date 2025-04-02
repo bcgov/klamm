@@ -147,7 +147,18 @@ class SiebelTableResource extends Resource
                     ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('project_id')
+                    ->label('Project')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('project.name')
+                    ->relationship('project', 'name'),
+                Tables\Filters\SelectFilter::make('base_table_id')
+                    ->label('Base Table')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('baseTable.name')
+                    ->relationship('baseTable', 'name'),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

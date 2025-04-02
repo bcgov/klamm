@@ -14,8 +14,6 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     postgresql-client \
-    nodejs \
-    npm \
     && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -45,10 +43,6 @@ COPY . /var/www
 
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
-
-# Install Node.js dependencies and build assets
-RUN npm install \
-    && npm run build
 
 # Set correct permissions for storage, database and logs
 RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \

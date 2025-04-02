@@ -23,14 +23,39 @@ class ViewFormVersion extends ViewRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
+                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
             },
             'fieldGroupInstances' => function ($query) {
-                $query->whereNull('container_id');
+                $query
+                    ->whereNull('container_id')
+                    ->with([
+                        'styleInstances',
+                        'fieldGroup',
+                        'formInstanceFields' => function ($query) {
+                            $query->orderBy('order')
+                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                        }
+                    ]);
             },
-            'formInstanceFields.formInstanceFieldValue',
-            'formInstanceFields.styleInstances',
-            'fieldGroupInstances.styleInstances',
-            'containers',
+            'containers' => function ($query) {
+                $query->with([
+                    'styleInstances',
+                    'formInstanceFields' => function ($query) {
+                        $query->orderBy('order')
+                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                    },
+                    'fieldGroupInstances' => function ($query) {
+                        $query->with([
+                            'styleInstances',
+                            'fieldGroup',
+                            'formInstanceFields' => function ($query) {
+                                $query->orderBy('order')
+                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                            }
+                        ]);
+                    }
+                ]);
+            }
         ]);
 
         $data = array_merge($this->record->toArray(), $data);
@@ -162,8 +187,8 @@ class ViewFormVersion extends ViewRecord
     {
         $components = [];
         foreach ($fieldGroups as $group) {
-            $groupFields = $group->formInstanceFields()->orderBy('order')->get();
-            $formFieldsData = $this->fillFields(($groupFields));
+            $groupFields = $group->formInstanceFields;
+            $formFieldsData = $this->fillFields($groupFields);
 
             $styles = $this->fillStyles($group->styleInstances);
 
