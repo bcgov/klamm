@@ -11,9 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('boundary_system_file_field_types', function (Blueprint $table) {
+        Schema::create('boundary_system_file_fields', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 400);
             $table->timestamps();
         });
     }
@@ -23,6 +22,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('boundary_system_file_field_types');
+        Schema::dropIfExists('boundary_system_file_fields');
     }
 };
