@@ -161,21 +161,22 @@ class ReportEntryResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
                         ->requiresConfirmation()
-                        ->color(Color::hex('#2D2D2D')),
+                        ->color(Color::hex('#2D2D2D'))
+                        ->icon('heroicon-o-trash')
+                        ->label('Delete'),
                 ])->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
             ])
             ->headerActions([
                 ImportAction::make('Import CSV')
-                    ->icon('heroicon-o-arrow-down-on-square')
-                    ->color(Color::hex('#013366'))
+                    ->icon('heroicon-o-folder-arrow-down')
                     ->outlined()
                     ->label('Import Label(s)')
                     ->importer(ReportEntryImporter::class)
                     ->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
                 ExportAction::make()
-                    ->icon('heroicon-o-arrow-down-on-square')
+                    ->icon('heroicon-o-arrow-down-tray')
                     ->label('Download Report Labels')
-                    ->color(Color::hex('#2D2D2D'))
+                    ->color('primary')
                     ->exporter(ReportEntryExporter::class),
             ])
             ->paginated([

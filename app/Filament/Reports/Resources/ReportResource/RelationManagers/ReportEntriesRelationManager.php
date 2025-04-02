@@ -27,6 +27,8 @@ class ReportEntriesRelationManager extends RelationManager
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('reportDictionaryLabel.name')
+                    ->label('Dictionary Label'),
                 Tables\Columns\TextColumn::make('data_matching_rate')
                     ->badge()
                     ->colors([

@@ -10,6 +10,10 @@ class ViewReportEntry extends ViewRecord
 {
     protected static string $resource = ReportEntryResource::class;
 
+    protected static ?bool $disableLabel = true;
+
+
+
     protected function getHeaderActions(): array
     {
         return [
