@@ -14,7 +14,6 @@ class FormVersionPolicy
     public function viewAny(User $user): bool
     {
         return $user->can('view-any FormVersion');
-
     }
 
     /**
@@ -41,7 +40,7 @@ class FormVersionPolicy
         if (in_array($formVersion->status, ['published', 'archived'])) {
             return false;
         }
-        
+
         return $user->can('update FormVersion');
     }
 

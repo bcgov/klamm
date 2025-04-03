@@ -35,7 +35,10 @@ class MomusSeeder extends Seeder
             SiebelBusinessServicesTableSeeder::class,
             SiebelEimInterfaceTablesTableSeeder::class,
             SiebelValuesTableSeeder::class,
-            SiebelWorkflowProcessesTableSeeder::class
+            SiebelWorkflowProcessesTableSeeder::class,
+            SiebelBusinessComponentsTableSeeder1::class,
+            SiebelFieldsTableSeeder::class,
+            SiebelFieldsRelationshipsSeeder::class,
         ]);
     }
 }

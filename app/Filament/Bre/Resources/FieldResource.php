@@ -26,12 +26,63 @@ use App\Filament\Exports\BREFieldExporter;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Actions\Exports\Models\Export;
 use Filament\Support\Colors\Color;
+use Filament\GlobalSearch\Actions\Action;
 
 class FieldResource extends Resource
 {
     protected static ?string $model = BREField::class;
     protected static ?string $navigationLabel = 'BRE Rule Fields';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $recordTitleAttribute = 'name';
+    protected static int $globalSearchResultsLimit = 25;
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'name',
+            'label',
+            'description',
+            'breDataType.name',
+            'breDataValidation.name',
+            'breFieldGroups.name',
+        ];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Label' => $record->label,
+            'Data Type' => $record->breDataType?->name,
+            'Data Validation' => $record->breDataValidation?->name,
+            'Field Groups' => $record->fieldGroupNames,
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(['breDataType', 'breDataValidation', 'breFieldGroups', 'childFields'])
+            ->when(
+                request('search'),
+                fn(Builder $query, $search) => $query->orWhere('help_text', 'ilike', "%{$search}%")
+                    ->orWhere('description', 'ilike', "%{$search}%")
+            );
+    }
+
+    public static function getGlobalSearchResultActions(Model $record): array
+    {
+        return [
+            Action::make('view')
+                ->url(static::getUrl('view', ['record' => $record->name])),
+            Action::make('edit')
+                ->url(static::getUrl('edit', ['record' => $record->name])),
+        ];
+    }
 
     private static string $badgeTemplate = '
         <a href="%s" style="text-decoration: none; display: inline-block; margin: 2px;">
@@ -95,8 +146,8 @@ class FieldResource extends Resource
                         name: 'icmcdwFields',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')->orderBy('field')->orderBy('panel_type')->orderBy('entity')->orderBy('subject_area')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->entity} - {$record->subject_area}")
-                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->field} - {$record->panel_type} - {$record->id}")
+                    ->searchable(['name', 'field', 'panel_type', 'entity', 'subject_area', 'icm_cdw_fields.id']),
                 Forms\Components\Select::make('siebelBusinessObjectField')
                     ->label('Related Siebel Business Objects:')
                     ->multiple()
@@ -104,8 +155,8 @@ class FieldResource extends Resource
                         name: 'siebelBusinessObjects',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments']),
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_business_objects.id']),
                 Forms\Components\Select::make('siebelBusinessComponentField')
                     ->label('Related Siebel Business Components:')
                     ->multiple()
@@ -113,8 +164,35 @@ class FieldResource extends Resource
                         name: 'siebelBusinessComponents',
                         modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
                     )
-                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name}")
-                    ->searchable(['name', 'repository_name', 'comments'])
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_business_components.id']),
+                Forms\Components\Select::make('siebelAppletField')
+                    ->label('Related Siebel Business Applets:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelApplets',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_applets.id']),
+                Forms\Components\Select::make('siebelTableField')
+                    ->label('Related Siebel Business Tables:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelTables',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'repository_name', 'comments', 'siebel_tables.id']),
+                Forms\Components\Select::make('siebelFieldField')
+                    ->label('Related Siebel Business Fields:')
+                    ->multiple()
+                    ->relationship(
+                        name: 'siebelFields',
+                        modifyQueryUsing: fn(Builder $query) => $query->orderBy('name')
+                    )
+                    ->getOptionLabelFromRecordUsing(fn(Model $record) => "{$record->name} - {$record->id}")
+                    ->searchable(['name', 'multi_value_link', 'join_column', 'calculated_value', 'siebel_fields.id']),
             ]);
     }
 
@@ -224,7 +302,46 @@ class FieldResource extends Resource
                         );
                     })
                     ->html()
-                    ->label('Related Siebel Business Components')
+                    ->label('Related Siebel Business Components'),
+                TextEntry::make('siebelApplets.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelApplets->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-applets/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Applets'),
+                TextEntry::make('siebelTables.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelTables->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-tables/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Tables'),
+                TextEntry::make('siebelFields.name')
+                    ->formatStateUsing(function ($state, $record) {
+                        return new HtmlString(
+                            $record->siebelFields->map(function ($field) {
+                                return static::formatBadge(
+                                    "/fodig/siebel-fields/{$field->id}",
+                                    $field->name
+                                );
+                            })->join('')
+                        );
+                    })
+                    ->html()
+                    ->label('Related Siebel Business Fields'),
             ]);
     }
 
@@ -301,6 +418,24 @@ class FieldResource extends Resource
                     ->searchable()
                     ->badge()
                     ->color(Color::hex('#397367'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelApplets.name')
+                    ->label('Related Siebel Business Applets')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#2A9D8F'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelTables.name')
+                    ->label('Related Siebel Business Tables')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#F4A261'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('siebelFields.name')
+                    ->label('Related Siebel Business Fields')
+                    ->searchable()
+                    ->badge()
+                    ->color(Color::hex('#2A9D8F'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()

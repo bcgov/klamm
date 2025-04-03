@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SiebelBusinessComponent extends Model
 {
@@ -89,6 +90,8 @@ class SiebelBusinessComponent extends Model
         'project_id' => 'integer',
         'class_id' => 'integer',
         'table_id' => 'integer',
+        'siebel_fields' => 'array',
+        'siebel_applets' => 'array',
     ];
 
     public function project(): BelongsTo
@@ -104,5 +107,23 @@ class SiebelBusinessComponent extends Model
     public function table(): BelongsTo
     {
         return $this->belongsTo(SiebelTable::class);
+    }
+
+    /**
+     * Get the fields associated with the business component.
+     */
+
+    public function siebelFields(): HasMany
+    {
+        return $this->hasMany(SiebelField::class, 'business_component_id');
+    }
+
+    /**
+     * Get the applets associated with the business component.
+     */
+
+    public function siebelApplets(): HasMany
+    {
+        return $this->hasMany(SiebelApplet::class, 'business_component_id');
     }
 }

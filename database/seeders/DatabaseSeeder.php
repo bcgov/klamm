@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             FormTagSeeder::class,
             FormSeeder::class,
             FormDataSourceSeeder::class,
+            SystemMessageSeeder::class,
         ]);
     }
 }
