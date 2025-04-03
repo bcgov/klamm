@@ -56,6 +56,16 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: DB_PASSWORD
+            - name: MAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MAIL_HOST
+            - name: MAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MAIL_PORT
           resources:
             limits:
               cpu: {{ .Values.resources.limits.cpu }}

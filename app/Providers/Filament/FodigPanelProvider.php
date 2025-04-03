@@ -31,14 +31,15 @@ class FodigPanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->passwordReset()
             ->colors([
                 'primary' => Color::Blue,
             ])
             ->userMenuItems([
                 MenuItem::make()
-                   ->label('Edit Profile')
-                   ->url('/profile')
-                   ->icon('heroicon-o-pencil-square')
+                    ->label('Edit Profile')
+                    ->url('/profile')
+                    ->icon('heroicon-o-pencil-square')
             ])
             ->discoverResources(in: app_path('Filament/Fodig/Resources'), for: 'App\\Filament\\Fodig\\Resources')
             ->discoverPages(in: app_path('Filament/Fodig/Pages'), for: 'App\\Filament\\Fodig\\Pages')
