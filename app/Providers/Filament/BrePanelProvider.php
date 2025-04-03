@@ -32,6 +32,7 @@ class BrePanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->passwordReset()
             ->databaseNotifications()
             ->databaseNotificationsPolling('10s')
             ->colors([
