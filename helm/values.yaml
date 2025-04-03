@@ -1,17 +1,17 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/kiiskila-bcgov/klamm
+  repository: ghcr.io/bcgov/klamm
   pullPolicy: Always
   tag: "dev"
 
 resources:
   limits:
-    cpu: "500m"
-    memory: "512Mi"
+    cpu: "1c"
+    memory: "2Gi"
   requests:
-    cpu: "250m"
-    memory: "256Mi"
+    cpu: "500m"
+    memory: "1Gi"
 
 queueWorker:
   resources:
