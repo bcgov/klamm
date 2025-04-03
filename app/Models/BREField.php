@@ -44,6 +44,9 @@ class BREField extends Model
         'child_fields' => 'array',
         'siebel_business_objects' => 'array',
         'siebel_business_components' => 'array',
+        'siebel_applets' => 'array',
+        'siebel_tables' => 'array',
+        'siebel_fields' => 'array',
     ];
 
     public function getRouteKeyName()
@@ -118,6 +121,21 @@ class BREField extends Model
         return $this->belongsToMany(SiebelBusinessComponent::class, 'bre_field_siebel_business_component', 'bre_field_id', 'siebel_business_component_id')->withTimestamps();
     }
 
+    public function siebelApplets()
+    {
+        return $this->belongsToMany(SiebelApplet::class, 'bre_field_siebel_applet', 'bre_field_id', 'siebel_applet_id')->withTimestamps();
+    }
+
+    public function siebelTables()
+    {
+        return $this->belongsToMany(SiebelTable::class, 'bre_field_siebel_table', 'bre_field_id', 'siebel_table_id')->withTimestamps();
+    }
+
+    public function siebelFields()
+    {
+        return $this->belongsToMany(SiebelField::class, 'bre_field_siebel_field', 'bre_field_id', 'siebel_field_id')->withTimestamps();
+    }
+
     public function getInputOutputType()
     {
         $hasInputs = $this->breInputs()->exists();
@@ -180,6 +198,24 @@ class BREField extends Model
     {
         $siebelComponentFieldIds = collect($siebelBusinessComponents)->pluck('id')->all();
         $this->siebelBusinessComponents()->sync($siebelComponentFieldIds);
+    }
+
+    public function syncSiebelApplets(array $siebelApplets)
+    {
+        $siebelAppletFieldIds = collect($siebelApplets)->pluck('id')->all();
+        $this->siebelApplets()->sync($siebelAppletFieldIds);
+    }
+
+    public function syncSiebelTables(array $siebelTables)
+    {
+        $siebelTableFieldIds = collect($siebelTables)->pluck('id')->all();
+        $this->siebelTables()->sync($siebelTableFieldIds);
+    }
+
+    public function syncSiebelFields(array $siebelFields)
+    {
+        $siebelFieldIds = collect($siebelFields)->pluck('id')->all();
+        $this->siebelFields()->sync($siebelFieldIds);
     }
 
     public function syncChildFields(array $childFields)

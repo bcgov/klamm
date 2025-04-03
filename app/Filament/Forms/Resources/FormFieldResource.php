@@ -12,8 +12,11 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use App\Models\DataType;
 use Filament\Forms\Components\RichEditor;
+use App\Models\DataType;
+use App\Models\SelectOptions;
+use Filament\Forms\Components\Builder;
+use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Textarea;
 use Filament\Support\Enums\Alignment;
 use Filament\Tables\Filters\SelectFilter;
@@ -39,6 +42,10 @@ class FormFieldResource extends Resource
             'phone' => 'Phone Number',
             'javascript' => 'JavaScript',
         ];
+
+        $selectOptions = SelectOptions::all()->keyBy('id');
+        $dataTypes = DataType::all()->keyBy('id');
+
         return $form
             ->columns(6)
             ->schema([
@@ -56,9 +63,9 @@ class FormFieldResource extends Resource
                     ->live(),
                 RichEditor::make('value')
                     ->label('Field Value')
-                    ->visible(function (callable $get) {
-                        $dataType = DataType::find($get('data_type_id'));
-                        return $dataType && $dataType->name === 'text-info';
+                    ->visible(function (callable $get) use ($dataTypes) {
+                        $dataTypeId = $get('data_type_id');
+                        return isset($dataTypes[$dataTypeId]) && $dataTypes[$dataTypeId]->name === 'text-info';
                     })
                     ->toolbarButtons([
                         'bold',
@@ -78,18 +85,38 @@ class FormFieldResource extends Resource
                     ])
                     ->live()
                     ->columnSpanFull(),
-                Select::make('selectOptions')
-                    ->label('Select Options')
-                    ->relationship('selectOptions', 'label')
-                    ->columnSpan(3)
-                    ->multiple()
-                    ->preload()
+                Builder::make('select_option_instances')
+                    ->label('Select Option Instances')
+                    ->columnSpanFull()
+                    ->reorderable()
+                    ->blockNumbers(false)
+                    ->collapsible()
+                    ->collapsed(true)
                     ->live()
-                    ->visible(function ($get) {
-                        $dataTypeId = $get('data_type_id');
-                        $dataType = \App\Models\DataType::find($dataTypeId);
-                        return $dataType && in_array($dataType->name, ['radio', 'dropdown']);
-                    }),
+                    ->reactive()
+                    ->visible(fn($get) => isset($dataTypes[$get('data_type_id')]) && in_array($dataTypes[$get('data_type_id')]->name, ['radio', 'dropdown']))
+                    ->blocks([
+                        Block::make('select_option_instance')
+                            ->label(
+                                fn(?array $state): string =>
+                                isset($state['select_option_id']) && $selectOptions->has($state['select_option_id'])
+                                    ? $selectOptions[$state['select_option_id']]->label
+                                    . ' | ' . $selectOptions[$state['select_option_id']]->name
+                                    . ' | value: ' . $selectOptions[$state['select_option_id']]->value
+                                    : 'New Option'
+                            )
+                            ->schema([
+                                Select::make('select_option_id')
+                                    ->label('Option')
+                                    ->options($selectOptions->map(function ($option) {
+                                        return "{$option->label} | {$option->name} | value: {$option->value}";
+                                    })->toArray())
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->live(),
+                            ])
+                    ]),
                 Select::make('data_binding_path')
                     ->label('Field data source')
                     ->options(FormDataSource::pluck('name', 'name'))
@@ -155,12 +182,15 @@ class FormFieldResource extends Resource
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('dataType.name')
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('data_binding')
+                    ->sortable()
                     ->searchable()
-                    ->sortable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('fieldGroups.name')
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

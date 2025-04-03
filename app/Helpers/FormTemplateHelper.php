@@ -2,13 +2,10 @@
 
 namespace App\Helpers;
 
+use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
-use App\Models\SelectOptions;
 use App\Models\FormVersion;
 use App\Models\Form;
-use App\Models\FieldGroupInstance;
-use App\Models\FormInstanceField;
-use App\Models\FormDataSource;
 
 class FormTemplateHelper
 {
@@ -24,6 +21,7 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
+            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
             ->get();
 
         foreach ($formFields as $field) {
@@ -47,7 +45,10 @@ class FormTemplateHelper
             ];
         }
 
-        $containers = $formVersion->containers()->orderBy('order')->get();
+        $containers = $formVersion->containers()
+            ->orderBy('order')
+            ->with(['styleInstances.style'])
+            ->get();
 
         foreach ($containers as $container) {
             $components[] = [
@@ -111,14 +112,14 @@ class FormTemplateHelper
 
         $webStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
@@ -197,12 +198,12 @@ class FormTemplateHelper
                     "selectionFeedback" => "top-after-reopen",
                     "direction" => "bottom",
                     "size" => "md",
-                    "listItems" => $field->selectOptions()
+                    "listItems" => $fieldInstance->selectOptionInstances()
                         ->get()
-                        ->map(function ($selectOption) {
+                        ->map(function ($selectOptionInstance) {
                             return [
-                                "text" => $selectOption->label,
-                                "value" => $selectOption->value
+                                "text" => $selectOptionInstance->selectOption->label,
+                                "value" => $selectOptionInstance->selectOption->value
                             ];
                         })
                         ->toArray(),
@@ -213,12 +214,12 @@ class FormTemplateHelper
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "listItems" => $field->selectOptions()
+                    "listItems" => $field->selectOptionInstances()
                         ->get()
-                        ->map(function ($selectOption) {
+                        ->map(function ($selectOptionInstance) {
                             return [
-                                "text" => $selectOption->label,
-                                "value" => $selectOption->value
+                                "text" => $selectOptionInstance->selectOption->label,
+                                "value" => $selectOptionInstance->selectOption->value
                             ];
                         })
                         ->toArray(),
@@ -232,18 +233,23 @@ class FormTemplateHelper
     {
         $group = $groupInstance->fieldGroup;
 
-        $fieldsInGroup = $groupInstance->formInstanceFields()->orderBy('order')->get();
+        $fieldsInGroup = $groupInstance->formInstanceFields()
+            ->orderBy('order')
+            ->with(['formField.dataType', 'styleInstances' => function ($query) {
+                $query->with('style');
+            }, 'validations', 'conditionals'])
+            ->get();
 
         $webStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
@@ -321,7 +327,10 @@ class FormTemplateHelper
     protected static function formatContainer($container, $index)
     {
         $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
-        $groupsInContainer = $container->fieldGroupInstances()->orderBy('order')->get();
+        $groupsInContainer = $container->fieldGroupInstances()
+            ->orderBy('order')
+            ->with(['fieldGroup', 'styleInstances'])
+            ->get();
 
         $items = [];
         foreach ($fieldsInContainer as $fieldInstance) {
@@ -355,14 +364,14 @@ class FormTemplateHelper
 
         $webStyle = [];
         foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
+            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
 
         $pdfStyle = [];
         foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf') {
+            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
                 $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
             }
         }
@@ -403,15 +412,10 @@ class FormTemplateHelper
         ]);
     }
 
-    public static function calculateFieldID($state)
+    public static function calculateElementID(): string
     {
-        $numOfComponents = count($state);
-        return 'element' . $numOfComponents;
-    }
-
-    public static function calculateFieldInGroupID($state)
-    {
-        $numOfFormFields = count($state);
-        return 'nestedElement' . $numOfFormFields;
+        $counter = FormVersionResource::getElementCounter();
+        FormVersionResource::incrementElementCounter();
+        return 'element' . $counter;
     }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SelectOptions extends Model
 {
@@ -32,8 +33,8 @@ class SelectOptions extends Model
         'form_field_id' => 'integer',
     ];
 
-    public function formFields(): BelongsToMany
+    public function selectOptionInstances(): HasMany
     {
-        return $this->belongsToMany(FormField::class, 'form_field_select_options', 'select_options_id', 'form_field_id');
+        return $this->hasMany(SelectOptionInstance::class, "select_option_id");
     }
 }

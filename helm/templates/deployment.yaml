@@ -56,6 +56,16 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: DB_PASSWORD
+            - name: MAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MAIL_HOST
+            - name: MAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MAIL_PORT
           resources:
             limits:
               cpu: {{ .Values.resources.limits.cpu }}
@@ -66,60 +76,10 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-        - name: queue-worker
-          image: "{{ .Values.image.tag }}"
-          command: ["php", "/var/www/artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=3600"]
-          envFrom:
-            - secretRef:
-                name: app-secrets
-          env:
-            - name: DB_CONNECTION
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_CONNECTION
-            - name: DB_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_HOST
-            - name: DB_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_PORT
-            - name: DB_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_DATABASE
-            - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_USERNAME
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secrets
-                  key: DB_PASSWORD
-          volumeMounts:
-            - name: storage-volume
-              mountPath: /var/www/storage
-          resources:
-            limits:
-              cpu: {{ .Values.queueWorker.resources.limits.cpu }}
-              memory: {{ .Values.queueWorker.resources.limits.memory }}
-            requests:
-              cpu: {{ .Values.queueWorker.resources.requests.cpu }}
-              memory: {{ .Values.queueWorker.resources.requests.memory }}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
       volumes:
         - name: storage-volume
           persistentVolumeClaim:
-            claimName: storage-pvc
+            claimName: klamm-app-shared-pvc
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst

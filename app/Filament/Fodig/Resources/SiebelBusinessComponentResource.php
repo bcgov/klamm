@@ -4,7 +4,10 @@ namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\Pages;
 use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\RelationManagers;
+use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\RelationManagers\SiebelAppletsRelationManager;
+use App\Filament\Fodig\Resources\SiebelBusinessComponentResource\RelationManagers\SiebelFieldsRelationManager;
 use App\Models\SiebelBusinessComponent;
+use App\Models\SiebelField;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,6 +15,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\GlobalSearch\Actions\Action;
+use Illuminate\Database\Eloquent\Model;
 
 class SiebelBusinessComponentResource extends Resource
 {
@@ -20,6 +25,53 @@ class SiebelBusinessComponentResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationGroup = 'Siebel Tables';
+    protected static ?string $recordTitleAttribute = 'name';
+    protected static int $globalSearchResultsLimit = 25;
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'name',
+            'repository_name',
+            'table.name',
+            'project.name',
+            'class.name',
+        ];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            'Table' => $record->table?->name,
+            'Project' => $record->project?->name,
+            'Class' => $record->class?->name,
+        ];
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(['table', 'project', 'class'])
+            ->when(
+                request('search'),
+                fn(Builder $query, $search) => $query->orWhere('repository_name', 'ilike', "%{$search}%")
+                    ->orWhere('data_source', 'ilike', "%{$search}%")
+                    ->orWhere('comments', 'ilike', "%{$search}%")
+            );
+    }
+
+    public static function getGlobalSearchResultActions(Model $record): array
+    {
+        return [
+            Action::make('view')
+                ->url(static::getUrl('view', ['record' => $record])),
+        ];
+    }
 
     public static function form(Form $form): Form
     {
@@ -28,6 +80,15 @@ class SiebelBusinessComponentResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(400),
+                Forms\Components\Select::make('project_id')
+                    ->relationship('project', 'name')
+                    ->nullable(),
+                Forms\Components\Select::make('class_id')
+                    ->relationship('class', 'name')
+                    ->nullable(),
+                Forms\Components\Select::make('table_id')
+                    ->relationship('table', 'name')
+                    ->nullable(),
                 Forms\Components\Toggle::make('changed')
                     ->required(),
                 Forms\Components\TextInput::make('repository_name')
@@ -89,15 +150,7 @@ class SiebelBusinessComponentResource extends Resource
                 Forms\Components\Toggle::make('object_locked'),
                 Forms\Components\TextInput::make('object_language_locked')
                     ->maxLength(10),
-                Forms\Components\Select::make('project_id')
-                    ->relationship('project', 'name')
-                    ->nullable(),
-                Forms\Components\Select::make('class_id')
-                    ->relationship('class', 'name')
-                    ->nullable(),
-                Forms\Components\Select::make('table_id')
-                    ->relationship('table', 'name')
-                    ->nullable(),
+
             ]);
     }
 
@@ -108,16 +161,24 @@ class SiebelBusinessComponentResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('project.name')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('table.name')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('siebelFields.name')
+                    ->searchable()
+                    ->badge()
+                    ->label('Child Siebel Fields'),
+                Tables\Columns\TextColumn::make('siebelApplets.name')
+                    ->searchable()
+                    ->badge()
+                    ->label('Child Siebel Applets'),
+                Tables\Columns\TextColumn::make('class.name')
+                    ->sortable(),
                 Tables\Columns\BooleanColumn::make('changed')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('repository_name')
                     ->searchable()
-                    ->sortable(),
-                Tables\Columns\BooleanColumn::make('cache_data')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('data_source')
-                    ->sortable(),
-                Tables\Columns\BooleanColumn::make('dirty_reads')
                     ->sortable(),
                 Tables\Columns\BooleanColumn::make('distinct')
                     ->sortable(),
@@ -194,7 +255,36 @@ class SiebelBusinessComponentResource extends Resource
                     ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('project_id')
+                    ->label('Project')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('project.name')
+                    ->relationship('project', 'name'),
+                Tables\Filters\SelectFilter::make('class_id')
+                    ->label('Class')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('class.name')
+                    ->relationship('class', 'name'),
+                Tables\Filters\SelectFilter::make('table_id')
+                    ->label('Table')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('table.name')
+                    ->relationship('table', 'name'),
+                Tables\Filters\SelectFilter::make('siebelFields')
+                    ->label('Fields')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('siebelFields.name')
+                    ->relationship('siebelFields', 'name'),
+                Tables\Filters\SelectFilter::make('siebelApplets')
+                    ->label('Applets')
+                    ->multiple()
+                    ->searchable()
+                    ->attribute('siebelApplets.name')
+                    ->relationship('siebelApplets', 'name'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
@@ -216,7 +306,8 @@ class SiebelBusinessComponentResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            SiebelFieldsRelationManager::class,
+            SiebelAppletsRelationManager::class,
         ];
     }
 

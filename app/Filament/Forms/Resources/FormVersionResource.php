@@ -24,6 +24,7 @@ use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Support\Facades\Session;
 
 class FormVersionResource extends Resource
 {
@@ -33,6 +34,47 @@ class FormVersionResource extends Resource
 
     protected static bool $shouldRegisterNavigation = true;
 
+    // Function to get the current counter value from the session
+    public static function getElementCounter(): int
+    {
+        return Session::get('elementCounter', 1); // Default to 1 if not set
+    }
+
+    // Function to increment the counter in the session
+    public static function incrementElementCounter(): void
+    {
+        $currentCounter = self::getElementCounter();
+        Session::put('elementCounter', $currentCounter + 1);
+    }
+
+    // Function to find highest used instance ID
+    protected static function getHighestID(array $blocks): int
+    {
+        $maxID = 0;
+        foreach ($blocks as $block) {
+            // Check top-level elements
+            if (isset($block['data']['instance_id'])) {
+                $idString = $block['data']['instance_id'];
+                $numericPart = str_replace('element', '', $idString); // Remove the 'element' prefix
+                if (is_numeric($numericPart) && $numericPart > 0) {
+                    $id = (int) $numericPart;
+                    $maxID = max($maxID, $id); // Update the maximum ID
+                }
+            }
+            // Recursively check elements inside of Containers
+            if (isset($block['data']['components']) && is_array($block['data']['components'])) {
+                $nestedMaxID = self::getHighestID($block['data']['components']);
+                $maxID = max($maxID, $nestedMaxID);
+            }
+            // Recursively check elements inside of Groups
+            if (isset($block['data']['form_fields']) && is_array($block['data']['form_fields'])) {
+                $nestedMaxID = self::getHighestID($block['data']['form_fields']);
+                $maxID = max($maxID, $nestedMaxID);
+            }
+        }
+
+        return $maxID;
+    }
 
     public static function form(Form $form): Form
     {
@@ -108,10 +150,13 @@ class FormVersionResource extends Resource
                     ->collapsed(true)
                     ->blockNumbers(false)
                     ->cloneable()
+                    ->afterStateHydrated(function (Set $set, Get $get) {
+                        Session::put('elementCounter', self::getHighestID($get('components')) + 1);
+                    })
                     ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))),
-                        FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))),
-                        ContainerBlock::make(fn($get) => FormTemplateHelper::calculateFieldID($get('../../'))),
+                        FormFieldBlock::make(fn() => FormTemplateHelper::calculateElementID()),
+                        FieldGroupBlock::make(fn() => FormTemplateHelper::calculateElementID()),
+                        ContainerBlock::make(fn() => FormTemplateHelper::calculateElementID()),
                     ]),
                 Actions::make([
                     Action::make('Generate Form Template')
@@ -120,15 +165,6 @@ class FormVersionResource extends Resource
                             $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
                             $set('generated_text', $jsonTemplate);
                         })
-                        ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
-                    Action::make('Preview Form Template')
-                        ->url(function (Get $get) {
-                            $jsonTemplate = $get('generated_text');
-                            $encodedJson = base64_encode($jsonTemplate);
-                            return route('forms.rendered_forms.preview', ['json' => $encodedJson]);
-                        })
-                        ->openUrlInNewTab()
-                        ->disabled(fn(Get $get) => empty($get('generated_text')))
                         ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                 ]),
                 Textarea::make('generated_text')
