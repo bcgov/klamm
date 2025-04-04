@@ -77,6 +77,20 @@ class ImportReportsFromCsv extends Command
 
                 $followUpRequired = $followUpMapping[$followUpRequiredValue] ?? 'tbd';
 
+                $dataField = null;
+                switch ($row['Label Source']) {
+                    case 'ICM':
+                        $dataField = 'ICM';
+                        break;
+                    case 'MIS':
+                    case 'Report':
+                        $dataField = 'Financial Component';
+                        break;
+                    case 'TBD':
+                        $dataField = 'TBD';
+                        break;
+                }
+
                 ReportEntry::create([
                     'business_area_id' => $businessAreaId,
                     'report_id' => $reportId,
@@ -85,6 +99,7 @@ class ImportReportsFromCsv extends Command
                     'report_dictionary_label_id' => $dictionaryLabelId,
                     'data_matching_rate' => $dataMatchingRate,
                     'existing_label' => $row['Existing Label'],
+                    'data_field' => $dataField,
                     'follow_up_required' => $followUpRequired,
                 ]);
             } catch (\Exception $e) {
