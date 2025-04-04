@@ -41,6 +41,7 @@ class ReportLabelSourceResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
             ])
+            ->defaultSort('name', 'asc')
             ->filters([
                 //
             ])

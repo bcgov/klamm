@@ -14,15 +14,14 @@ class ReportBusinessAreaSeeder extends Seeder
     public function run(): void
     {
         $businessAreas = [
-            'Business Intelligence',
+            'Local Offices',
+            'Sponsorship',
             'CS Focus Team',
+            'PLMS',
             'FASB AR & Debt',
             'FASB Banking',
             'FASB Budget',
             'ISD Data Stewards',
-            'Local Offices',
-            'PLMS',
-            'Sponsorship',
         ];
 
         foreach ($businessAreas as $area) {

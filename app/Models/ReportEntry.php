@@ -20,11 +20,13 @@ class ReportEntry extends Model
         'data_field',
         'icm_data_field_path',
         'data_matching_rate',
+        'follow_up_required',
         'note'
     ];
 
     protected $casts = [
         'data_matching_rate' => 'string',
+        'follow_up_required' => 'string',
     ];
 
     public function reportBusinessArea(): BelongsTo

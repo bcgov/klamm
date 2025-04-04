@@ -28,6 +28,8 @@ class ReportResource extends Resource
                     ->required()
                     ->columnSpanFull()
                     ->maxLength(255),
+                Forms\Components\Textarea::make('description')
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -38,6 +40,7 @@ class ReportResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
             ])
+            ->defaultSort('name', 'asc')
             ->filters([
                 //
             ])

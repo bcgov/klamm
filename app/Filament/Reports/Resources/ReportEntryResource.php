@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Gate;
 use Filament\Tables\Actions\ExportBulkAction;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
+use Illuminate\Support\Str;
 
 class ReportEntryResource extends Resource
 {
@@ -51,16 +52,25 @@ class ReportEntryResource extends Resource
                         Infolists\Components\TextEntry::make('labelSource.name')
                             ->label('Label Source'),
 
-                        Infolists\Components\TextEntry::make('data_field')
-                            ->label('Source Data Field'),
+                        // Infolists\Components\TextEntry::make('data_field')
+                        //     ->label('Source Data Field'),
 
                         Infolists\Components\TextEntry::make('icm_data_field_path')
                             ->label('ICM Data Field Path')
                             ->visible(fn($record) => $record->labelSource && $record->labelSource->name === 'ICM'),
 
+                        Infolists\Components\TextEntry::make('follow_up_required')
+                            ->formatStateUsing(fn(string $state) => match ($state) {
+                                'pending_mis' => 'Pending MIS',
+                                'mis/fasb' => 'MIS/FASB',
+                                'no' => 'No',
+                                default => strtoupper($state),
+                            })
+                            ->label('Follow Up Required'),
+
                         Infolists\Components\TextEntry::make('data_matching_rate')
                             ->label('Label Match Rating')
-
+                            ->formatStateUsing(fn(string $state) => $state === 'n/a' ? 'N/A' : Str::title($state))
                             ->badge()
                             ->color(fn(string $state): string => match ($state) {
                                 'low' => 'success',
@@ -113,10 +123,10 @@ class ReportEntryResource extends Resource
                     ->label('Label Source')
                     ->reactive()
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('data_field')
-                    ->columnSpanFull()
-                    ->label('Source Data Field')
-                    ->columnSpanFull(),
+                // Forms\Components\TextInput::make('data_field')
+                //     ->columnSpanFull()
+                //     ->label('Source Data Field')
+                //     ->columnSpanFull(),
                 Forms\Components\TextInput::make('icm_data_field_path')
                     ->label('ICM Data Field Path')
                     ->visible(function (Get $get) {
@@ -135,6 +145,20 @@ class ReportEntryResource extends Resource
                         'low' => 'Low',
                         'medium' => 'Medium',
                         'high' => 'High',
+                        'n/a' => 'N/A',
+                    ])
+                    ->columnSpanFull(),
+                Forms\Components\Select::make('follow_up_required')
+                    ->label('Follow Up Required')
+                    ->options([
+                        'cgi' => 'CGI',
+                        'fasb' => 'FASB',
+                        'mis' => 'MIS',
+                        'mis/fasb' => 'MIS/FASB',
+                        'no' => 'No',
+                        'opc' => 'OPC',
+                        'pending_mis' => 'Pending MIS',
+                        'tbd' => 'TBD',
                     ])
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('note')
@@ -161,9 +185,9 @@ class ReportEntryResource extends Resource
                 Tables\Columns\TextColumn::make('labelSource.name')
                     ->searchable()
                     ->label('Label Source'),
-                Tables\Columns\TextColumn::make('data_field')
-                    ->searchable()
-                    ->label('Source Data Field'),
+                // Tables\Columns\TextColumn::make('data_field')
+                //     ->searchable()
+                //     ->label('Source Data Field'),
                 Tables\Columns\TextColumn::make('icm_data_field_path')
                     ->label('ICM Data Field Path')
                     ->formatStateUsing(function ($state, $record) {
@@ -175,11 +199,21 @@ class ReportEntryResource extends Resource
                 Tables\Columns\TextColumn::make('data_matching_rate')
                     ->label('Label Match Rating')
                     ->badge()
+                    ->formatStateUsing(fn(string $state) => $state === 'n/a' ? 'N/A' : Str::title($state))
                     ->colors([
                         'success' => static fn($state): bool => $state === 'low',
                         'warning' => static fn($state): bool => $state === 'medium',
                         'danger' => static fn($state): bool => $state === 'high',
+                        'gray' => static fn($state): bool => $state === 'n/a',
                     ]),
+                Tables\Columns\TextColumn::make('follow_up_required')
+                    ->label('Follow Up Required')
+                    ->formatStateUsing(fn(string $state) => match ($state) {
+                        'pending_mis' => 'Pending MIS',
+                        'mis/fasb' => 'MIS/FASB',
+                        'no' => 'No',
+                        default => strtoupper($state),
+                    }),
                 Tables\Columns\TextColumn::make('lastUpdatedBy.name')
                     ->label('Last Updated By'),
             ])
@@ -197,6 +231,7 @@ class ReportEntryResource extends Resource
                         'low' => 'Low',
                         'medium' => 'Medium',
                         'high' => 'High',
+                        'n/a' => 'N/A',
                     ])
                     ->label('Data Matching Rate'),
                 Tables\Filters\SelectFilter::make('report_id')
