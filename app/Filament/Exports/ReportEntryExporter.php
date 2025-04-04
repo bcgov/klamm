@@ -30,7 +30,7 @@ class ReportEntryExporter extends Exporter
                 ExportColumn::make('icm_data_field_path')
                     ->label('ICM Data Field Path'),
                 ExportColumn::make('data_matching_rate')
-                    ->label('Data Matching Rate'),
+                    ->label('Data Match Effort'),
                 ExportColumn::make('note')
                     ->label('Note'),
                 ExportColumn::make('created_at')
