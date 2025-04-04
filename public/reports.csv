@@ -1,140 +1,1280 @@
-﻿Business Area,Report Name,Existing Label,Dictionary Label,Source Data Field,ICM Data Field Path,Label Source,Label Match Rating,Note
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,Case view or Contact view?
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),file name,Case Name,Case Name,Case/Case View Screen,ICM,Low,
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),cat,Category,Category Code,Case/More Info/More Info IA,ICM,Low,
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),app warrant ind,O/S Warrant,O/S Warrant checkbox,Contact/SD More Info,ICM,Low,Case view or Contact view?
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),appl alrt msg,Alert Text,Alerts/Alert Text,Contact/Contact Summary/Alerts Applet/Alert Text,ICM,Low,
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),spo warrant ind,O/S Warrant,O/S Warrant checkbox,Case/Contact/Spouse/SD More Info,ICM,Low,Case view or Contact view?
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),spo alrt msg,Alert Text ,Alerts/Type,Contact/Contact Summary/Alerts Applet,ICM,Low,
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ht code,Hardship Code,Hardship Code,Case/More Info/More Info IA/Hardship Code,ICM,Low,
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ht start date,Hardship Start Date,Hardship Start Date,Case/More Info,ICM,Low,
-Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),chq prod,Cheque Production,Cheque Production?,Case/More Infor/Cheque Production?,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,Case view or Contact view?
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),file name,Case Name,Case Name,Case/Case View Screen,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),phone number,Phone,Home Phone #,Contact/Contact View Screen,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),security deposit address,Address,Security Deposit Record List - VBC,Case/More Info/Security Deposit,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),city,City,Security Deposit Record List - VBC,Case/More Info/Security Deposit,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),postal code,Postal Code,Security Deposit Record List - VBC,Case/More Info/Security Deposit,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),security deposit cheque date,Cheque Date,Security Deposit Record List - VBC  YYYY-MM-DD,Case/More Info/Security Deposit,ICM,Low,
-Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),*addl reason,Additional Reason,More info from MIS needed,,ICM,Low,
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),class,Class,Class Code,Case/More Info/More Info IA/Class Code,ICM,Low,ICM pre-sent LOV
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),category,Category,Category Code,Case/More Info/More Info IA,ICM,Low,ICM Pre-set LOV 
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),applicant given name,First Name,First Name + Middle Name,Case/Contact/Case Contacts,ICM,Low,Order Dependent
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),applicant surname,Last Name,Last Name,Contact/Contact Summary View,ICM,Low,Order dependent 
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),alert type,Alert,Alerts/Type,Contact/Contact Summary/Alerts Applet,ICM,Low,Type has pre-set LOV for Alert Type
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),date set,Start Date,Start Date,Contact/Contact Summary/Alerts Applet,ICM,Low,Start Date of Alert Type
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),spouse given name,Spouse First Name,First Name + Middle Name,Case/Contact/Case Contacts,ICM,Low,Condition 'Relationship is Spouse'. End Date Null
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),spouse surname,Spouse Last Name,First Name,Case/Contact/Case Contacts,ICM,Low,Condition 'Relationship is Spouse'. End Date Null
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),alert type,Alert,Alerts/Type,Contact/Contact Summary/Alerts Applet,ICM,Low,"Condition 'Alert set on SPOUSE'
-Alerts have Pre-set LOV"
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),date set,Start Date,Start Date,Contact/Contact Summary/Alerts Applet,ICM,Low,Start Date of Alert Type
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),cheque production on,Cheque Production,Cheque Production?,Case/More Info/More Info IA,ICM,Low,YES/NO flag
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),client cheque amount,Cheque amount,Amount,Case/Plans/MIS Cheque History/MIS Cheques Applet,MIS,Low,does the field need $$$
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),supplier amount,Cheque amount,Amount,Case/Plans/MIS Cheque History/MIS Cheques Applet,MIS,Low,does the field need $$$
-Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),manually administered amount,Manual Admin amount,amount,Case/Plans/MIS Cheque History/MIS Cheques Applet,MIS,Low,does the field need $$$
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),family name,Last Name,Last Name,Contact/Contact View Screen,ICM,Low,Case view or Contact view?
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),given name,First Name,First Name + Middle Name,Contact/Contact View Screen,ICM,Low,Case view or Contact view?
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),sin,SIN,SIN,Case/Contact/SINPHN,ICM,Low,"Case view or Contact view?
-SIN on Contact View is hidden"
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,Case view or Contact view?
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),class,Class,Class Code,Case/More Info,ICM,Low,
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),cat,Category,Category Code,Case/More Info/More Info IA,ICM,Low,
-Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),hard/trans start dt,H/S Start Date,Hardship Start Date,Case/More Info/More Info IA,ICM,Low,
-Local Offices,Computer Cheques and EFTs Issued (MI116-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-Local Offices,Computer Cheques and EFTs Issued (MI116-01),file id ,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-Local Offices,Computer Cheques and EFTs Issued (MI116-01),how issue,Payment Method,Payment Method,,ICM,Low,"As per payment/Order,  will be multiple lines.
-Report sorted by Case then by Case and all payments on case.   "
-Local Offices,Computer Cheques and EFTs Issued (MI116-01),names,Payee,Payee,Case/Plans/MIS chequee History/Payee,ICM,Low,generated from the ORDER? -Populated the 'NAME' the payment issued to - supplier or client
-Local Offices,Computer Cheques and EFTs Issued (MI116-01),address,Address,PAYEE Address,MIS,ICM,Low,generated from the ORDER? Populated the address of Payee- client or supplier
-Local Offices,Computer Cheques and EFTs Issued (MI116-01),postal code,Postal Code ,PAYEE PCD,MIS,ICM,Low,generated from the ORDER? populated the PCD of the Payee
-Local Offices,MSO MONITORING REPORT (MI95W-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-Local Offices,MSO MONITORING REPORT (MI95W-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-Local Offices,MSO MONITORING REPORT (MI95W-01),CAT,Category,Category Code,Case/More Info/More Info IA,ICM,Low,ICM LOV
-Local Offices,MSO MONITORING REPORT (MI95W-01),file name,Case Name,Primary AKA,Contact/AKA/Primary,ICM,Low,"Are KP and SPO both on report by default, or only if both are MSO or SPO MSO
-"
-Local Offices,MSO MONITORING REPORT (MI95W-01),applicant phn,PHN,PHN,Case/Contact/SINPHN/PHN,ICM,Low,key player PHN
-Local Offices,MSO MONITORING REPORT (MI95W-01),spouse phn,PHN,PHN Spouse ,Case/Contact/SINPHN/PHN,ICM,Low,Spouse end date not null
-Local Offices,MSO MONITORING REPORT (MI95W-01),MSO start date,Class Start Date,Class Start Date,Case/More Info/More Info IA,ICM,Low,
-Local Offices,MSO MONITORING REPORT (MI95W-01),*MSO reason,MSO Reason,MSO Reason Code,Case/SD More Info/MSO Reason Code,ICM,Low,
-Local Offices,MSO MONITORING REPORT (MI95W-01),description ,N/A,MSO Reason Code,Case/SD More Info/MSO Reason Code,ICM,Low,
-Local Offices,MSO MONITORING REPORT (MI95W-01),end date,MSO Review Date,MSO Review Date ,Case/SD More Info/MSO Review Date,ICM,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),surname,Last Name,Last Name,Contact/Contact View Screen,ICM,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),given name,First Name,First Name,Contact/Contact View Screen,ICM,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),ongoing cheque dist,Distribution Method,Order Line,Case/Plans/Order,ICM,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),cheque amount,Amount,Order Line,Contact/Plans/MIS cheque history/MIS cheques Line,MIS,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),chequ no,Cheque Number,MIS Cheque Line,Contact/Plans/MIS cheque history/MIS cheques Line,MIS,Low,
-Local Offices,BCEA Computer Cheques Requiring Review (p071-01),current cheque dist,Distribution Code,MIS Cheque Line,Contact/Plans/MIS cheque history/MIS cheques Line,MIS,Low,
-Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),applicant name,Case Name,Primary AKA,Contact/AKA/Primary,ICM,Low,
-Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),cat,Category,Category Code,Case/More Info/More Info IA,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),sponsor name,,"Last Name, First Name concontenated ",Sponsor Contact/Contact View Screen,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),cic number,,IRCC/CPC File Number,Sponsoree Contact/Immigration,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),field id,Legacy ID,Legacy File Number,Sponsor Case/Case View Screen,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),status code,,Case Status ,Sponser Case/Case View Screen,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),assignment receive dt,,IRCC/HR2786 Rcvd Dt,Sponsoree Contact/Immigration,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),sponsorship start date,Sponsorship Start Date,Sponsorship Start Date,Sponsoree Contact/Immigration,ICM,Low,
-Sponsorship,BCEA DEBT REPORT (MI361-01),sponsorship expiry date,Sponsorship Expiry Date,Sponsorship Expiry Date,Sponsoree Contact/Immigration,ICM,Low,
-CS Focus Team,Financial Worker Field Advice (MI137-01),Office,Case Office,Office,Case/Case View Screen,ICM,Low,
-CS Focus Team,Financial Worker Field Advice (MI137-01),Family Name,Last Name,Last Name,Contact/Contact View Screen,ICM,Low,
-CS Focus Team,Financial Worker Field Advice (MI137-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-CS Focus Team,Financial Worker Review Report (MI137-02),Office,Case Office,Office,Case/Case View Screen,ICM,Low,
-CS Focus Team,Financial Worker Review Report (MI137-02),Family Name,Last Name,Last Name,Contact/Contact View Screen,ICM,Low,
-CS Focus Team,Financial Worker Review Report (MI137-02),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-CS Focus Team,CPP Income Load - Case Review List (MI59H-01),OFF,Case Office,Office,Case/Case View Screen,ICM,Low,
-CS Focus Team,CPP Income Load - Case Review List (MI59H-01),File Name,Case Name,"Last Name, First Name concontenated ",Case/Case View Screen,ICM,Low,
-CS Focus Team,CPP Income Load - Case Review List (MI59H-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-CS Focus Team,CPP Income Load - Case Review List (MI59H-01),Class ,Class,Class Code,Case/More Info/More Info IA,ICM,Low,
-CS Focus Team,CPP Income Load - Case Review List (MI59H-01),CAT,Category,Category Code,Case/More Info/More Info IA,ICM,Low,
-CS Focus Team,CPP Income Load - Case Review List (MI59H-01),Cheque Prod,Cheque Production,Cheque Production?,Case/More Info/Cheque Production?,ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Office,Case Office,Office,Case/Case View Screen,ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Name,,"Last Name, First Name concontenated ",Contact/Last Name ,ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Sex,Gender,Gender,Contact/Gender,ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Birth,Date of Birth,Date of Birth,Contact/Birthday,ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Relationship,Relationship,Relationship,"Case/Contact/Contacts/Case Contacts/
-Contact end date not NULL/ Relationship = KP or SPO",ICM,Low,
-CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),File At,Owner Office,Owner Office,Case/Case View Screen/More,ICM,Low,
-PLMS,UnsubmittedChartReport (OPC001-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-PLMS,UnsubmittedChartReport (OPC001-01),date opened,Open Date,Open Date,Case/Case View Screen,ICM,Low,
-PLMS,UnsubmittedChartReport (OPC001-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),name/address/tel,Name/Address/Phone,Address,Case/Contact/Case Address,ICM,Low,
-FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),birthdate,Date of Birth,Date of Birth,Contact/Birthday,ICM,Low,
-FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),account no,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),birthdate,Date of Birth,Date of Birth,Contact/Birthday,ICM,Low,
-FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),sin,SIN,SIN,Case/Contact/SINPHN,ICM,Low,
-FASB AR & Debt,Daily Unallocated Payments - MI766-02,file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB AR & Debt,Daily Unallocated Payments - MI766-02,user id,MIS User ID,NO ,MIS,MIS,Low,
-FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),file status,Case Status,Case Status ,Case/Case View Screen,ICM,Low,
-FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Accepted Transactions Report - MI10B-03,filed id,Legacy ID,Legacy File Number,,MIS,Low,
-FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),office,Case Office,Office,Case/Case View Screen,ICM,Low,
-FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),off,Case Office,Office Code ,Office,ICM,Low,
-FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),files id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,GAIN Office Table (P012-01),office code,Ministry Office,Office Code ,Office,ICM,Low,
-FASB Banking,GAIN Office Table (P012-01),name,Office Name,Office Name,Office,ICM,Low,
-FASB Banking,GAIN Office Table (P012-01),address,Street Address ,Street Address ,Office,ICM,Low,
-FASB Banking,GAIN Office Table (P012-01),city,City,City,Office,ICM,Low,
-FASB Banking,GAIN Office Table (P012-01),postal code,Postal Code,Postal Code,Office,ICM,Low,
-FASB Banking,GAIN Office Table (P012-01),off type,Office Type,Office Type,Office,ICM,Low,
-FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,file id,Legacy ID,Legacy File Number,Case/Case View Screen,ICM,Low,
-ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,closed date,Closed Date,Closed Date,Case/Case View Screen,ICM,Low,
-ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,closed code,Closed Code,Closed Date,Case/Case View Screen,ICM,Low,
-ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,description ,Close Reason,Close Reason,Case/Case View Screen,ICM,Low,
+Business Area,Report Name,Label Source,Dictionary Label,Label Match Rating,Existing Label,ICM Data Field Path,Follow Up Required
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Stub Received,High,stub received,No,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Hardship/Signal,High,hardship/signal,No,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Caseload,High,caseload number,Case/Work Queue,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),ICM,Payment Method,Low,How Issued,Case/Plans/MIS chequee History,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),ICM,Payee Name,Low,Name,Case/Plans/MIS chequee History/Payee,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),ICM,Address,Low,Address,Case/Plans/MIS chequee History,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),ICM,Postal Code,Low,Postal Code,Case/Plans/MIS chequee History,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Account Type,High,acct type,No,MIS
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Cost Type,High,cost type,No,MIS
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Earned Income,High,earned,No,MIS
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Unearned Income,High,unearned,No,MIS
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Type Line,High,type line,No,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Amount,High,amount,No,No
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),MIS,Cheque Number,Low,Cheque Number,Case/Plans/MIS chequee History,MIS
+Local Offices,Computer Cheques and EFTs Issued (MI116-01),Report,Total,Medium,office total,No,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),MIS,Region,Medium,region,NA,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,Case Office,Low,Office,Case/Case View Screen,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,Legacy ID,Low,File ID,Case/Case View Screen,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,Category,Low,CAT,Case/More Info/More Info IA,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,Case Name,Low,file name,Contact/AKA/Primary,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,PHN,Low,applicant phn,Case/Contact/SINPHN/PHN,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,PHN,Low,spouse phn,Case/Contact/SINPHN/PHN,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,Open Date,Medium,file open date,"Case/Case View Screen
+",No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,Class Start Date,Low,MSO start date,Case/More Info/More Info IA,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),MIS,MSO Reason,Low,*MSO reason,Case/SD More Info/MSO Reason Code,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,N/A,Low,description,Case/SD More Info/MSO Reason Code,No
+Local Offices,MSO MONITORING REPORT (MI95W-01),ICM,MSO Review Date,Low,end date,Case/SD More Info/MSO Review Date,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),ICM,Last Name,Low,surname,Contact/Contact View Screen,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),ICM,First Name,Low,given name,Contact/Contact View Screen,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),ICM,Distribution Method,Low,ongoing cheque dist,Case/Plans/Order,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),MIS,Amount,Low,cheque amount,Contact/Plans/MIS cheque history/MIS cheques Line,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),MIS,Cheque Number,Low,chequ no,Contact/Plans/MIS cheque history/MIS cheques Line,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),MIS,Distribution Code,Low,current cheque dist,Contact/Plans/MIS cheque history/MIS cheques Line,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),MIS,Caseload,High,caseload,Case/Work Queue,No
+Local Offices,BCEA Computer Cheques Requiring Review (p071-01),MIS,Reason for Review,High,reason for review,No,MIS
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),MIS,Caseload,High,CSLD,Case/Work Queue,No
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),ICM,Case Name,Low,applicant name,Contact/AKA/Primary,No
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),ICM,Category,Low,cat,Case/More Info/More Info IA,No
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),Report,Total Dependants on Case,Medium,child count mismatch Gain,NO,No
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),MIS,Total Dependents from SC file,High,child count mismatch FB,Contact/CCB-FB Income,MIS
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),MIS,FB Maximum Top Up Benefit amount,High,fb *01 in pay,formula,MIS
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),MIS,Benefit cancellation date,High,cancellation date,No,MIS
+Local Offices,Gain-Family Bonus (FB) Discrepancies (MI08U-01),MIS,Family Bonus eligible amount,Medium,available maximum,No,MIS
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,Sponsor Name,Low,sponsor name,Sponsor Contact/Contact View Screen,No
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,CIC Number,Low,cic number,Sponsoree Contact/Immigration,No
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,Legacy ID,Low,field id,Sponsor Case/Case View Screen,No
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,Status Codes,Low,status code,Sponser Case/Case View Screen,No
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,Assignment Received Date,Low,assignment receive dt,Sponsoree Contact/Immigration,No
+Sponsorship,BCEA DEBT REPORT (MI361-01),MIS,Date Debt Added,Medium,rar debt date added,Sponsor Case/More Info/Debt Agreements,MIS
+Sponsorship,BCEA DEBT REPORT (MI361-01),MIS,Debt Type,Medium,rar debt type,Sponsor Case/More Info/Debt Agreements,MIS
+Sponsorship,BCEA DEBT REPORT (MI361-01),MIS,Debt Amount,Medium,rar debt amount,Sponsor Case/More Info/Debt Agreements,MIS
+Sponsorship,BCEA DEBT REPORT (MI361-01),MIS,Debt Payments to Date,Medium,debt payments to date,Sponsor Case/More Info/Debt Agreements,MIS
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,Sponsorship Start Date,Low,sponsorship start date,Sponsoree Contact/Immigration,No
+Sponsorship,BCEA DEBT REPORT (MI361-01),ICM,Sponsorship Expiry Date,Low,sponsorship expiry date,Sponsoree Contact/Immigration,No
+Sponsorship,MI37F-01 - Sponsorship Receivables Collectio Details of Debt Calculation (By Person),TBD,TBD,High,NEED SAMPLE OF REPORT,No,CGI
+Sponsorship,MI37F-02 - Sponsorship Receivables Collectio Summary of Debt Calculation (By Person),TBD,TBD,High,NEED SAMPLE OF REPORT,No,CGI
+CS Focus Team,Financial Worker Field Advice (MI137-01),ICM,Case Office,Low,Office,Case/Case View Screen,No
+CS Focus Team,Financial Worker Field Advice (MI137-01),MIS,Caseload,High,csld,Case/Work Queue,No
+CS Focus Team,Financial Worker Field Advice (MI137-01),ICM,Last Name,Low,Family Name,Contact/Contact View Screen,No
+CS Focus Team,Financial Worker Field Advice (MI137-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+CS Focus Team,Financial Worker Field Advice (MI137-01),MIS,Filed Advice Message,High,Field Advice Message,No,Pending MIS
+CS Focus Team,Financial Worker Review Report (MI137-02),ICM,Case Office,Low,Office,Case/Case View Screen,Pending MIS
+CS Focus Team,Financial Worker Review Report (MI137-02),MIS,Caseload,High,csld,Case/Work Queue,No
+CS Focus Team,Financial Worker Review Report (MI137-02),ICM,Last Name,Low,Family Name,Contact/Contact View Screen,No
+CS Focus Team,Financial Worker Review Report (MI137-02),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+CS Focus Team,Financial Worker Review Report (MI137-02),MIS,Case Review message,High,Case Review Message,No,MIS
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),ICM,Case Office,Low,OFF,Case/Case View Screen,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),MIS,Caseload,High,csld,Case/Work Queue,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),ICM,Case Name,Low,File Name,Case/Case View Screen,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),ICM,Class,Low,Class,Case/More Info/More Info IA,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),ICM,Category,Low,CAT,Case/More Info/More Info IA,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),MIS,New CPP Income,High,New CPP Income,Case/Contact/CPP Income/CPP Month Summary,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),MIS,Prev CPP Income,High,Prev CPP Income,Case/Contact/CPP Income/CPP Month Summary,MIS
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),ICM,Cheque Production,Low,Cheque Prod,Case/More Info/Cheque Production?,No
+CS Focus Team,CPP Income Load - Case Review List (MI59H-01),MIS,Review Message,High,Review Message,No,MIS
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Case Office,Low,Office,Case/Case View Screen,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Name,Low,Name,Contact/Last Name,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Gender,Low,Sex,Contact/Gender,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Date of Birth,Low,Birth,Contact/Birthday,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),MIS,Missing Days,High,missing(days),formula,FASB
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Relationship,Low,Relationship,"Case/Contact/Contacts/Case Contacts/
+Contact end date not NULL/ Relationship = KP or SPO",No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),ICM,Owner Office,Low,File At,Case/Case View Screen/More,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Report,Total for Caseload XXX,Medium,Total for Caseload EMP,No,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Report,Total for Caseload XXX,Medium,Total for Caseload PWD,No,No
+CS Focus Team,Open GAIN Clients Missing SINs Report (MI579-02),Report,Total for Office,Medium,Total for Office,No,No
+CS Focus Team,SINMultiplePersonsReport,ICM,NIL,NA,sin,No,No
+CS Focus Team,SINMultiplePersonsReport,ICM,Person ID ICM,Low,person id icm,No,No
+CS Focus Team,SINMultiplePersonsReport,ICM,Case Number,Low,case number,No,No
+PLMS,UnsubmittedChartReport (OPC001-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+PLMS,UnsubmittedChartReport (OPC001-01),ICM,Open Date,Low,date opened,Case/Case View Screen,No
+PLMS,UnsubmittedChartReport (OPC001-01),MIS,Date Modified,High,date modified,No,OPC
+PLMS,UnsubmittedChartReport (OPC001-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+PLMS,UnsubmittedChartReport (OPC001-01),MIS,Chart,High,chart,No,MIS
+PLMS,UnsubmittedChartReport (OPC001-01),MIS,Version,High,version,No,MIS
+PLMS,UnsubmittedChartReport (OPC001-01),MIS,Caseload,High,caseload,Case/Work Queue,No
+PLMS,UnsubmittedChartReport (OPC001-01),MIS,Last Updated,High,last updated,No,OPC
+PLMS,UnsubmittedChartReport (OPC001-01),MIS,Overpayment Amount,High,overpay amount,No,OPC
+FASB AR & Debt,AR Collections - Accounts Sent to BCMail (MI94K-03),MIS,Total Files Sent to BC Mail,Medium,total accounts sent,No,MIS
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),ICM,Legacy ID,Low,acct no,Case/Case View Screen,No
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),ICM,Name/Address/Phone,Low,name/address/tel,Case/Contact/Case Address,No
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),ICM,Date of Birth,Low,birthdate,Contact/Birthday,No
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),MIS,Source,Medium,srce,No,FASB
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),MIS,Event/Type,High,event/type,No,FASB
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),MIS,Effective Date,High,eff date,No,No
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),MIS,Amount,High,amount,No,No
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),MIS,BOA,High,boa,No,FASB
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),Report,Total Accounts Lised,Medium,total accounts listed,No,No
+FASB AR & Debt,AR Collections - Data Rejected for Transfer to Collection (MI94K-02),MIS,Total Transaction Listed,Medium,total transactions listed,No,FASB
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),ICM,Legacy ID,Low,account no,Case/Case View Screen,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),MIS,Name/Address/Phone,Low,name/address/tel,No,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),ICM,Date of Birth,Low,birthdate,Contact/Birthday,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),ICM,SIN,Low,sin,Case/Contact/SINPHN,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),MIS,Source,Medium,srce,No,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),MIS,Event/Type,High,event/type,No,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),MIS,Effective Date,High,eff date,No,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),MIS,Amount,High,amount,No,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),MIS,BOA,High,boa,No,FASB
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),Report,Total Accounts Lised,Medium,total accounts listed,No,No
+FASB AR & Debt,AR Collections - Data Sent for Collection (MI94K-01),Report,Total Transaction Listed,Medium,total transactions listed,No,No
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,Cheque Number,Low,cheque number,Case/Contact/Case Address,No
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,Transaction Date,Medium,transaction date,Case/Contact/Case Address,FASB
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,Transaction Time,Medium,transaction time,No,FASB
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,Increase Amount,Medium,increase amount,No,FASB
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,Decrease Amount,Medium,decrease amount,No,FASB
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,MIS User ID,Low,user id,No,No
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,MIS,Description,Medium,description,No,FASB
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,Report,Total,Medium,total,No,No
+FASB AR & Debt,Daily Unallocated Payments - MI766-02,Report,Net Payments,Medium,net,No,No
+FASB AR & Debt,MI212-01 - HISTORY REPORT,MIS,TBD,High,NEED SAMPLE OF REPORT,No,FASB
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),ICM,File Name,Low,file name,No,No
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),ICM,Case Status,Low,file status,Case/Case View Screen,No
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Current Balance,Low,current balance,No,No
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Event/Type,Medium,event type,No,FASB
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Payment Amount,Low,payment amt,No,No
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Payment Date,Low,payment date,No,No
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Overpayment Amount,Medium,overpayment amount,No,FASB
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Overpayment Date,Medium,overpayment date,No,FASB
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Refund/Adjustment Amount,Medium,refund/adjustment amount,No,FASB
+FASB AR & Debt,Overpayment Monitoring Report (MI54K-01),MIS,Refund/Adjustment Date,Medium,refund/adjustment date,No,FASB
+FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),MIS,Event/Type,Medium,event type,No,FASB
+FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),MIS,Item Date,Low,item date,No,No
+FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),MIS,Increase Amount,Medium,increase amount,No,FASB
+FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),MIS,Decrease Amount,Medium,decrease,No,FASB
+FASB AR & Debt,RMS To Gain Repayment Upload Error Report (MI10B-01),MIS,Description,Medium,description,No,FASB
+FASB AR & Debt,GL Summary For Daily FMIS To MIS Data Transfer (MI07H-01),MIS,Account Number,Medium,account number,No,MIS
+FASB AR & Debt,GL Summary For Daily FMIS To MIS Data Transfer (MI07H-01),MIS,Account Description,Medium,account decription,No,FASB
+FASB AR & Debt,GL Summary For Daily FMIS To MIS Data Transfer (MI07H-01),MIS,Debit Amount,High,debit amount,No,FASB
+FASB AR & Debt,GL Summary For Daily FMIS To MIS Data Transfer (MI07H-01),MIS,Credit Amount,High,credit amount,No,FASB
+FASB AR & Debt,GL Summary For Daily FMIS To MIS Data Transfer (MI07H-01),Report,Subtotal,Medium,Sub total,No,No
+FASB AR & Debt,MIS Debt Select-Extract Control Totals (MI26K-99),MIS,Total,Medium,Input Totals: BCEA File IDs Read,No,MIS
+FASB AR & Debt,MIS Debt Select-Extract Control Totals (MI26K-99),MIS,Output totals by Debt Type XX,High,Output totals. Total for debt type 02,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Control Totals (MI26K-99),MIS,Review with FASB if field needed and naming convention,High,Output totals. Total for debt type,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Control Totals (MI26K-99),Report,Grand Total Sent,Medium,grand total sent,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Run Request Date,Low,run request date,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Run Request Version,Low,run request version,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,"Age of Debt (From, To)",High,"age of debt (from, to)",No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,"Dollar Range (Lower, Uppoer)",High,"dollar range (lower, upper)",No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Participant Date of Birth,High,participant date of bith (range),No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Debty Type Action Codes (1-8),High,debt type action codes (1-8),No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,debt type action codes (9-16),High,debt type action codes (9-16),No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,debt type action codes (17-24),High,debt type action codes (17-24),No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,debt type action codes (25-32),High,debt type action codes (25-32),No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Verified Data Only,Medium,verified data only,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,job used repayment table as input,High,job used repayment table as input,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Maximum accounts extracted limit,High,Maximum accounts extracted limit,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Job Selection Criteria (MI20V-01),MIS,Reporting only option Y/N,Medium,Reporting only option Y/N,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),ICM,Legacy ID,Low,No Actual report label,Case/Case View Screen,No
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),MIS,Name,Low,name,No,No
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),MIS,Address,Medium,address,No,No
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),MIS,Case Close Date,Medium,case close date,No,No
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),MIS,Total Outsanding,High,grand total o/s,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),MIS,RA=X,High,RA=X,No,FASB
+FASB AR & Debt,MIS Debt Select-Extract Outstanding Balances By Type (MI26K-01),MIS,STAT=X,High,STAT=X,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Debt Reason,Medium,debt reas,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,New Debt Count,High,new debt count,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,New Debt Amount,High,new debt amount,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Old Debt Open Count,High,old debt open cnt,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Old Debt Open Amt,High,old debt open amt,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Old Debt Closed Count,High,old debt clds cnt,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Old Debt Closed Amount,High,old debt clsd amt,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Total Count,High,total count,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),MIS,Total Debt Amount,High,total debt amount,No,FASB
+FASB AR & Debt,Total Debt Statistics for Province (MI59D-03),Report,Total,Medium,Total,No,FASB
+FASB AR & Debt,GAIN AR General Ledger Journal Voucher Summary (MI07K-01),MIS,Account Number,High,account number,No,FASB
+FASB AR & Debt,GAIN AR General Ledger Journal Voucher Summary (MI07K-01),MIS,Account Description,High,account decription,No,FASB
+FASB AR & Debt,GAIN AR General Ledger Journal Voucher Summary (MI07K-01),MIS,Debit Amount,High,debit amount,No,FASB
+FASB AR & Debt,GAIN AR General Ledger Journal Voucher Summary (MI07K-01),MIS,Credit Amount,High,credit amount,No,FASB
+FASB AR & Debt,GAIN AR General Ledger Journal Voucher Summary (MI07K-01),Report,Subtotal,Medium,sub total,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Member Name,High,Member Name,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Due Date,High,Due Date,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Account Number,High,Account Number (our) REFNO,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Amount,High,Amount,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Received Date,High,Received Date,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Posting Date,High,Posting Date,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Return BK Routing,High,Return BK Routing,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Original Bank User ID,High,Orig Bank User ID,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Return Bank Address,High,Return Bank Address,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Origninator,High,Origninator,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Sundry Info,High,Sundry Info,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Account NO Returns,High,Account NO Returns,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Item Trace NO,High,Item Trace NO,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Tran Type,High,Tran Type,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,Cross reference NO,High,Cross reference NO,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),Report,Total No. Debt items,High,Total No. Debt items,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),Report,Total Debt Amount,High,total debt,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),Report,Total No Credit Items,High,Total No Credit Items,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),Report,Total Credits,High,Total Credits,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summary Due Date,High,File Summary Due Date,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summary Debit Items,High,File Summary Debit Items,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summarty Debit Amout,High,File Summarty Debit Amout,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summary Credit Items,High,File Summary Credit Items,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summary Credit Amt,High,File Summary Credit Amt,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summary Settlement Date,High,File Summary Settlement Date,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summary Net Items,High,File Summary Net Items,No,FASB
+FASB Banking,BCCCU - EXRD (AMP),MIS,File Summarty Net Amt,High,File Summarty Net Amt,No,FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Branch,High,Branch,No,MIS
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Date,High,Date,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Debit,High,Debits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Debit,High,Debits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Credit,High,Credits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Credit,High,Credits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Credit Balance Forward,High,Credits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Balance,High,Balance,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),Report,Total CH DB,Medium,Total CH DB,No,FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),Report,Total CH CR,Medium,Total CH CR,No,FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Banking Previous Balance,High,Banking Previous Balance,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Banking Debits,High,Banking Debits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Banking Credits,High,Banking Credits,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Banking Net,High,Banking Net,No,MIS/FASB
+FASB Banking,ODP BCCCU/BCCCU Monthly Charges For Canadian Account (AMP),MIS,Banking Current balance,High,Banking Current Balance,No,MIS/FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),MIS,Date,High,date,No,FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),MIS,Previous Amount,High,prev amt,No,FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),MIS,Changes,High,changed,No,FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),MIS,Outstanding,High,outstanding,No,FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),MIS,MIS User Office,Low,user office,No,FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),MIS,MIS User ID,Low,user id,No,No
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),Report,Total for Day,Medium,Total for Day,No,FASB
+FASB Banking,LIST OF REPAYMENT ADJUSTMENT (MI07J-02),Report,Total for User,Medium,Total For User,No,FASB
+FASB Banking,Control Totals Report (MI94J-99),MIS,Control Total - debt adjustment records read,High,debt adjustment records read,No,FASB
+FASB Banking,Control Totals Report (MI94J-99),MIS,Control Total - debt adjustment closed files bypassed,High,debt adjustment closed files bypassed,No,FASB
+FASB Banking,Control Totals Report (MI94J-99),MIS,Control Total - file reopen/reversal records read,High,file reopen/reversal records read,No,FASB
+FASB Banking,Control Totals Report (MI94J-99),MIS,Control Total - debt adjustment extract records written,High,debt adjustment extract records written,No,FASB
+FASB Banking,Control Totals Report (MI94J-99),MIS,Control Total - file reopend extract records written,High,file reopend extract records written,No,FASB
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Cheque Number,Low,cheque number,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Transaction Date,Low,transaction date,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Transaction Name,Low,transaction name,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Transaction Time,Low,transaction time,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Increase Amount,Low,increase amount,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Decrease Amount,Low,decrease amount,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,User ID,Low,user id,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),MIS,Description,Low,description,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),Report,Total,Medium,total,No,No
+FASB Banking,Daily Cancelled Cheque Activity - (MI766-01),Report,New Increase/Decrease,Medium,net (Increase - Decrease),No,No
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),MIS,Bank Account,High,bank acct,No,MIS
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),MIS,Cash Count,High,cash count,No,MIS
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),MIS,Cheque Issued Amount,High,cheque issued amount,No,MIS
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),MIS,Actual Cleared Amount,High,actual cleared amount,No,MIS
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),MIS,Exception,High,exception,No,MIS
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),MIS,Difference,High,difference,No,MIS
+FASB Banking,Cheque Reconciliation - Cashed Summary Report (MI55U-01),Report,Total,Medium,Total,No,No
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Cheque Date,Low,chq date,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Cheque Number,Low,chqnumber,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),ICM,Case Office,Low,office,Office,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Issue Amount,Low,issue amount,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Cashed Amount,High,cashed amount,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Bank Location,High,bank location,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Cashed Date,High,cashed date,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Mismatch,High,mismatch,No,MIS
+FASB Banking,Cheque Reconciliation Daily Cash Mismatch (MI92T-01),MIS,Comments,High,comments,No,MIS
+FASB Banking,Daily CUCBC Cashed Cheques Endlist Report (MI55U-02),MIS,Serial number,High,serial number,No,MIS
+FASB Banking,Daily CUCBC Cashed Cheques Endlist Report (MI55U-02),MIS,Amount Paid,High,amount paid,No,FASB
+FASB Banking,Daily CUCBC Cashed Cheques Endlist Report (MI55U-02),MIS,Date Paid,High,date paid,No,FASB
+FASB Banking,Daily CUCBC Cashed Cheques Endlist Report (MI55U-02),MIS,Sequencenumber,High,sequencenumber,No,FASB
+FASB Banking,Daily CUCBC Cashed Cheques Endlist Report (MI55U-02),Report,Total Count,Medium,total count,No,FASB
+FASB Banking,Daily CUCBC Cashed Cheques Endlist Report (MI55U-02),Report,Total Amount,Medium,total amount,No,FASB
+FASB Banking,BCCCU - EXRD,MIS,clear date,High,clear date,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Rec Type,High,rec type,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Transit,High,transit,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Account Number,High,account number,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Amount,High,amount,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Cheque Number,High,cheque number,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Trace Number,High,trace number,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Return Codes,High,return codes,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Return Transit,High,return transit,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Reinstate Account,High,reinstate account,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Reinstate Transit,High,reinstate transit,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Reinstate Cheque number,High,reinstate cheque number,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Account,High,account,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Amount,High,amount,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Trace Number,High,trace number,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Out Of Province Summary,High,out of province summary,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Out Of Region Summary,High,out of region summary,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,In Province Summary,High,in province summary,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Charter-Branch,High,charter-branch,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Creation number,High,creation number,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Date,High,date,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Credit Total,High,credit total,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Credit Items,High,credit items,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Debit Total,High,debit total,No,MIS
+FASB Banking,BCCCU - EXRD,MIS,Debit Items,High,debit items,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Branch,High,Branch,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Date,High,Date,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Debit,High,Debits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Debit,High,Debits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Credit,High,Credits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Credit,High,Credits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Credit,High,Credits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Balance,High,Balance,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,Report,Total CH DB,Medium,Total CH DB,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,Report,Total CH CR,Medium,Total CH CR,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Banking Previous Balance,High,Banking Previous Balance,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Banking Debits,High,Banking Debits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Banking Credits,High,Banking Credits,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Banking Net,High,Banking Net,No,MIS
+FASB Banking,BCCCU Monthly Charges For Canadian Account,MIS,Banking Current Balance,High,Banking Current Balance,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Charter,High,charter,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Previous Balance,High,previous balance,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Opening Balance,High,opening balance,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Net Activity,High,net activity,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Closing Balance,High,closing balance,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Ch/Br,High,ch/br,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Effective Date,High,eff date,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Debit,High,debit,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Debit,High,debit,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Credit,High,credit,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Credit,High,credit,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Ch/Br,High,ch/br,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Debit,High,debit,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Credit,High,credit,No,MIS
+FASB Banking,BCCCU Account Activity And Balances,MIS,Net,High,net,No,MIS
+FASB Banking,Accepted Transactions Report - MI10B-03,MIS,Legacy ID,Low,filed id,No,No
+FASB Banking,Accepted Transactions Report - MI10B-03,MIS,Event/Type,Medium,event type,No,No
+FASB Banking,Accepted Transactions Report - MI10B-03,MIS,Transaction Date,Medium,item date,No,No
+FASB Banking,Accepted Transactions Report - MI10B-03,MIS,Debt Increase,Medium,increase,No,No
+FASB Banking,Accepted Transactions Report - MI10B-03,MIS,Debt Decrease,Medium,decrease,No,No
+FASB Banking,Accepted Transactions Report - MI10B-03,MIS,New Balance,Medium,new balance,No,No
+FASB Banking,Control Report - MI10B-02,MIS,Input Records Read,High,input records read,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Dollar Incerases Read,High,total dollar incerases read,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Number Of Repayment Rows,High,total number of repayment rows,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Amount Of Increases Added,High,total amount of increases added,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Amount Of Decreases Added,High,total amount of decreases added,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Number Of Errors Reported,High,total number of errors reported,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Amount Of Error Increases,High,total amount of error increases,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Total Amount Of Error Decreases,High,total amount of error decreases,No,FASB
+FASB Banking,Control Report - MI10B-02,MIS,Number Of P$$$Pmt Errorrs Reported,High,number of p$$$pmt errorrs reported,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,Batch Total,High,batch total,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,Batch Jv Count,High,batch jv count,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,Journal Amt Posted,High,journal amt posted,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,numberJv's In Error,High,numberjv's in error,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),MIS,Total Amount In Error,High,total amount in error,No,FASB
+FASB Banking,CAS-CGI Interface - Summary (FMPH8-01),Report,Total,Medium,totals,No,FASB
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,System ID,High,system id,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Batch Number,Low,batch number,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Due Date,High,due date,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),Report,No Details,High,no details,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),Report,Value,High,value,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Cross Ref No,High,cross ref no,No,FASB
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Payee Name,Low,payee,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Payee Bank No,Low,bank,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Payee Branch No,Low,branch,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Payee Account No,Low,account,No,No
+FASB Banking,AFT Payment Release System - Payment Release Control Report (F08AFT10-01),MIS,Cheque Amount,Low,amount,No,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),ICM,Payee Name,Low,payee name,Case/Benefit Plan/MIS cheque History,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),MIS,Cheque Amount,Low,pymt amount,Case/Benefit Plan/Order,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),MIS,Payment Number,Low,pymt number,Case/Benefit Plan/Order,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),MIS,Distribution Method,Low,requested distribution,Case/Benefit Plan/Order,No
+FASB Banking,BCEA COMPUTER PAYMENTS OVER (MI98C-01),MIS,Current Distribution Method,Medium,current distribution,Case/Benefit Plan/Order,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),MIS,Cheque Number,Low,cheque number,Case/Benefit Plan/Order,FASB
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),MIS,Cheque Date,Low,cheque date,No,FASB
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),ICM,Case Office,Low,off,Office,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),ICM,Legacy ID,Low,files id,Case/Case View Screen,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),MIS,Cheque Amount,Low,amount,No,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),MIS,Stop Pay Request Date,Low,stop pay req date,No,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),MIS,Status,Medium,STA,No,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),Report,Total Outstanding Cheques,Medium,Outstanding Cheques,No,No
+FASB Banking,Cheque Reconciliation Outstanding List (MI04E-01),Report,Total Stop Payments,Medium,Stop Payment,No,No
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Batch Date,Low,batch dt,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Batch Number,Low,batch no,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Ministry,Medium,ministry,No,MIS
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Batch Description,High,batch desc,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Additional Description,High,addnl desc,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Batch Amount,High,batch amt,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Form,High,form,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Post?,High,post?,No,FASB
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Create Job,NA,Create Job,No,No
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,Feeder Job,NA,Feeder Job,No,No
+FASB Banking,GENERAL LEDGER JV REPORT (MI96H-01),MIS,File Name,NA,File Name,No,No
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Description,High,desc,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Mac,High,mac,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,All Cd,High,all cd,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Comp Chq,High,comp chq,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Impr Chq,High,impr chq,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Comp Rvsl,High,comp rvsl,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Imp Rvsl,High,imp rvsl,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,Band,High,band,No,FASB
+FASB Banking,CHEQUE ALLOWANCE BANDING TOTALS SPREADSHEET (MI588-01),MIS,As Of,High,as of,No,FASB
+FASB Banking,Cheque Reconciliation Control Totals By Account (MI04A-01),MIS,Bank Account,High,Bank Account,No,FASB
+FASB Banking,Cheque Reconciliation Control Totals By Account (MI04A-01),MIS,Cheque Status,Medium,cheque status,No,FASB
+FASB Banking,Cheque Reconciliation Control Totals By Account (MI04A-01),MIS,Count,High,count,No,FASB
+FASB Banking,Cheque Reconciliation Control Totals By Account (MI04A-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,Cheque Totals By Allowance Codes (MI37Z-02),MIS,Allowance Code,Medium,allowance code,NO,FASB
+FASB Banking,Cheque Totals By Allowance Codes (MI37Z-02),MIS,Computer Cheque Amount,High,computer cheque amount,NO,FASB
+FASB Banking,Cheque Totals By Allowance Codes (MI37Z-02),MIS,Imprest Cheque Amount,High,imprest cheque amount,NO,FASB
+FASB Banking,Cheque Totals By Allowance Codes (MI37Z-02),MIS,Computer Reversal Amount,High,computer reversal amount,NO,FASB
+FASB Banking,Cheque Totals By Allowance Codes (MI37Z-02),MIS,Imprest Reversal Amount,High,imprest reversal amount,NO,FASB
+FASB Banking,Cheque Totals By Allowance Codes (MI37Z-02),Report,Total,Medium,total,NO,No
+FASB Banking,MI97I-02 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES,MIS,Allowance Code,Medium,allowance code,No,No
+FASB Banking,MI97I-02 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES,MIS,Immediate Eft Amount,High,immediate eft amount,No,No
+FASB Banking,MI97I-02 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES,MIS,Imm Eft Reversal Amount,High,imm eft reversal amount,No,No
+FASB Banking,MI97I-02 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES,MIS,Total,High,total,No,No
+FASB Banking,MI97I-02 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES,Report,Total,Medium,Total,No,No
+FASB Banking,MI97I-01 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES - EXPENDITURES,MIS,Allowance Code,Medium,allowance code,No,No
+FASB Banking,MI97I-01 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES - EXPENDITURES,MIS,Immediate Eft Amount,Medium,immediate eft amount,No,No
+FASB Banking,MI97I-01 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES - EXPENDITURES,MIS,Imm Eft Reversal Amount,Medium,imm eft reversal amount,No,No
+FASB Banking,MI97I-01 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES - EXPENDITURES,Report,Total,High,Total,No,No
+FASB Banking,MI97I-01 - IMMEDIATE EFT TOTALS BY ALLOWANCE CODES - EXPENDITURES,Report,Total,Medium,Total,No,No
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,No Match With Fb,High,no match with fb,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Fewer Children On Ia File Than Fb,High,fewer children on ia file than fb,No,MIS
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Children On Ia Match Children On Fb,High,children on ia match children on fb,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,More Children On Ia File Than Fb,High,more children on ia file than fb,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Case %,High,case %,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Children On Fb,High,children on fb,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Children On Ia Match Children On Fb,High,children on ia match children on fb,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Automatic Topup 40,High,automatic topup 40,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Maunual Top Up 01,High,maunual top up 01,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Excess Fb Income,High,excess fb income,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Case With CIHR Children,High,case with cihr children,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Number Of CIHR Children,High,number of cihr children,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Exempted Fb For Cihr Children,High,exempted fb for cihr children,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Case That Received Code 23,High,case that received code 23,No,FASB
+FASB Banking,Family Bonus Analysis - Hardship (MI10Q-01),MIS,Amount Of Code 23,High,amount of code 23,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,card type,High,card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Ministry Number,High,ministry number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Office Code,Low,resp code,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),Report,Total,Medium,Total,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Batch Number,Low,batch no,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Batch Type,High,batch type,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Batch Amount,High,batch amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Description,High,description,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Document Control,High,document control,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ7 (P220-01),MIS,Fiscal Year,Low,fiscal year,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Gsa Imprest,High,gsa imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Imprest Chq,High,imprest chq,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Rev Imprest,High,rev imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),Report,Total Imprest For G/L,Medium,total imprest for g/l,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Computer Cheque,High,computer cheque,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Rev Computer,High,rev computer,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),Report,Total All Cheques For G/L,Medium,total all cheques for g/l,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Non-Shareable,High,non-shareable,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Offset,High,offset,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),Report,New Shareable Amount For G/L Control,Medium,new shareable amount for g/l control,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ7 (P210-99),MIS,Amount Of G-Docs Not Processed,High,amount of g-docs not processed,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Card Type,High,card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Ministry Number,High,ministry number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Office Code,Low,resp code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),Report,Total,Medium,Total,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Batch Type,High,batch type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Batch Amount,High,batch amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Description,High,description,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Document Control,High,document control,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J7 (P220-01),MIS,Fiscal Year,Low,fiscal year,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,gsa imprfor,High,gsa imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Imprest Chq,High,imprest chq,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Rev Imprest,High,rev imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),Report,Total Imprest For G/L,Medium,total imprest for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Computer Cheque,High,computer cheque,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Rev Computer,High,rev computer,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),Report,Total All Cheques For G/L,Medium,total all cheques for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Non-Shareable,High,non-shareable,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Offset,High,offset,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,New Shareable Amount For G/L Control,Medium,new shareable amount for g/l control,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J7 (P210-99),MIS,Amount Of G-Docs Not Processed,High,amount of g-docs not processed,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,TBD,Medium,delivery standard,No,MIS
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Postal Code,Low,post code,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,City,Low,city,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Document Count,High,document count,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Cheques Count,High,cheques count,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Cheques Amount,High,cheques amount,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Eft Notices Count,High,eft notices count,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Eft Notices Amount,High,eft notices amount,No,FASB
+FASB Banking,MI29S-01 - POSTAL CODE DISTRIBUTION BY DELIVERY STANDARD,MIS,Messages Count,High,messages count,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Cheques Amount,High,cheques amount,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Cheques numberPayments,High,cheques numberpayments,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Cheques numberDocuments,High,cheques numberdocuments,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Cheques numberEfts Bypassed,High,cheques numberefts bypassed,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Cheques First Sequence,High,cheques first sequence,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Cheques Last Sequence,High,cheques last sequence,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total Cheques,Medium,total cheques,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Efts Amount,High,efts amount,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Efts numberPayments,High,efts numberpayments,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Efts numberDocuments,High,efts numberdocuments,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Efts numberEfts Bypassed,High,efts numberefts bypassed,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total Client Non-Mail EFT,Medium,total clients non-mail efts,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total Supplier Mail EFTs,Medium,total supplier mail efts,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total Supplier Non-Mail EFTs,Medium,total supplier non-mail efts,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total Suplier EFT,Medium,Total Supplier EFTs,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total Client Non-Mail & Supplier EFTs,Medium,"Total Client non-mail, suppler efts",No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Youthworks,Low,Youthworks,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total EFT Payments,Medium,Total EFT Payments,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",MIS,Messages,Medium,Messages,No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,"Cheques, Client Mail EFTs, Messages",Medium,"Cheques, Client Mail EFTs, Messages",No,FASB
+FASB Banking,"SUMMARY OF CHEQUES, EFT PAYMENTS AND MESSAGES (MI97C-01)",Report,Total,Medium,Total Payments,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Client Non-Mail Efts,High,client non-mail efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Distribution Email,High,distribution email,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Distribution Portal,High,distribution portal,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Distribution None,High,distribution none,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),Report,Total Client Non-Mail EFT,Medium,total client non mail efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Supplier Mail Efts,High,supplier mail efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Multi Payment Suppliers,High,multi payment suppliers,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Single Payment Suppliets,High,single payment suppliets,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),Report,Total Supplier Mail EFTs,Medium,total supplier mail efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Supplier Non-Mail Efts,High,supplier non-mail efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Multi Payment,High,multi payment,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Distribution Email,High,distribution email,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Single Payment Distribution Email,High,single payment distribution email,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Single Payment Distribution Portal,High,single payment distribution portal,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),MIS,Single Payment Distribution None,High,single payment distribution none,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),Report,Total Supplier Non-Mail EFTs,Medium,total supplier non mail efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),Report,Total Suplier EFT,Medium,total supplier efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT PAYMENT SUMMARY (MI56J-04),Report,Total Client non mail and Supplier EFT,Medium,total client non mail and supplier efts,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Payee Name,Low,Payee Name,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Cas Vendornumber,Low,CAS Vendornumber,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Reference Number,Medium,Ref Num,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Total Amount,Medium,Total Amount,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Total Number Payments,Medium,Total numberPMTS,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,First Payment Number,Medium,First PMTnumber,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Last Payment Number,Medium,Last PMTnumber,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Distribution Type,High,Distrib Type,No,FASB
+FASB Banking,CLIENT NON-MAIL SUPPLIER EFT NOTIFICATIONS BYPASSED (MI56J-03),MIS,Bypass Reason,High,Bypass Reason,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Payee Name,Low,payee name,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Reference Number,Medium,ref num,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Total Amount,Medium,tot amount,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Total Number Payments,Medium,total numberpmts,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,First Payment Number,Medium,first pmtnumber,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Last Payment Number,Medium,last pmtnumber,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Distribution Code,High,distrib,No,FASB
+FASB Banking,MULTI-PAYMENT SUPPLIER EFT NOTIFICATION LISTING (MI56J-02),MIS,Email Address,Low,email address,No,FASB
+FASB Banking,Electronic Deposit Benefit Payments By Bank (MI13E-01),MIS,Bank Number,Low,bank number,No,FASB
+FASB Banking,Electronic Deposit Benefit Payments By Bank (MI13E-01),MIS,Deposit Count,Medium,deposit count,No,FASB
+FASB Banking,Electronic Deposit Benefit Payments By Bank (MI13E-01),MIS,Deposit Amount,Medium,deposit amount,No,FASB
+FASB Banking,Electronic Deposit Benefit Payments By Bank (MI13E-01),MIS,Bank Name,Low,bank name,No,FASB
+FASB Banking,Electronic Deposit Benefit Payments By Bank (MI13E-01),Report,Total,Low,Total,No,FASB
+FASB Banking,EFT Transmittal Report (MI08D-01),MIS,Legacy ID,High,file num,No,MIS
+FASB Banking,EFT Transmittal Report (MI08D-01),MIS,Batch Number,Low,batch num,No,FASB
+FASB Banking,EFT Transmittal Report (MI08D-01),MIS,Issue Date,Low,issue date,No,FASB
+FASB Banking,EFT Transmittal Report (MI08D-01),MIS,Cross Referrence Range,High,cross referrence range,No,FASB
+FASB Banking,EFT Transmittal Report (MI08D-01),MIS,Detail Amount,High,detail amount,No,FASB
+FASB Banking,EFT Transmittal Report (MI08D-01),MIS,Detail Count,High,detail count,No,FASB
+FASB Banking,EFT Transmittal Report (MI08D-01),Report,Total EFT Details Written,Medium,Total EFT details written,No,No
+FASB Banking,EFT Transmittal Report (MI08D-01),Report,Total EFT Details Read,Medium,total eft details read,No,No
+FASB Banking,P030 Control Card Report (MI08C-01),MIS,Input Cards Were,High,input cards were,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Card Type,High,Card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Ministry Number,High,ministry number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Office Code,Low,RESP code,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),Report,Total,Medium,Total,No,No
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Batch Number,Low,batch no,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Batch Type,High,batch type,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Batch Amount,High,batch amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Description,High,description,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Document Control,High,document control,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ3 (P220-01),MIS,Fiscal Year,Low,fiscal year,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Card Type,High,card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Gsa Imprest,High,gsa imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Imprest Chq,High,imprest chq,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Rev Imprest,High,rev imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),Report,Total Imprest For G/L,High,total imprest for g/l,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Computer Cheque,High,computer cheque,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Rev Computer,High,rev computer,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),Report,Total All Cheques For G/L,Medium,total all cheques for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Non-Shareable,High,non-shareable,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Offset,High,offset,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),Report,New Shareable Amount For G/L Control,Medium,new shareable amount for g/l control,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J3 (P210-99),MIS,Amount Of G-Docs Not Processed,High,amount of g-docs not processed,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Monthly Allowances,Medium,monthly allowances,No,No
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Amount Spent,Medium,amount spent,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,"Amount Spent, Bc Benefits/Yw-Eft (Mhr)",Medium,"amount spent, bc benefits/yw-eft (MHR)",No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Imprest To Clients,Medium,imprest to clients,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Imprest To Suppliers,Medium,imprest to suppliers,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Imprest To Suppliers/Gsa,Medium,imprest to suppliers/gsa,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Imprest To Trustees,Medium,imprest to trustees,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Govt Agent To Clients,Medium,govt agent to clients,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Govt Agent To Suppliers,Medium,govt agent to suppliers,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Govt Agent To Suppliers/Gsa,Medium,govt agent to suppliers/gsa,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Govt Agent To Trustees,Medium,govt agent to trustees,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Computer To Clients,Medium,computer to clients,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Computer To Suppliers,Medium,computer to suppliers,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Computer To Suppliers/Gsa,Medium,computer to suppliers/gsa,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,Computer To Trustees,Medium,computer to trustees,No,FASB
+FASB Banking,Financial Transaction By Office - BC Benefits YW-EFT (MHR) 02J1 (MI210-02),MIS,All Cheques Total,Medium,all cheques total,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Card Type,High,card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Ministry Number,High,ministry number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),ICM,Office Code,Low,RESP code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),Report,Total,Medium,Total,No,No
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Batch Number,Low,batch no,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Batch Type,High,batch type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Batch Amount,High,batch amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Description,High,description,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Document Control,High,document control,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J3 (P220-01),MIS,Fiscal Year,Low,fiscal year,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Card Type,High,card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Ministry Number,High,ministry number,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Office Code,Low,resp code,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),Report,Total,Medium,Total,No,No
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Batch Number,Low,batch no,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Batch Type,High,batch type,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Batch Amount,High,batch amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Description,High,description,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Document Control,High,document control,No,FASB
+FASB Banking,F.I.C.S. Account Listing EFT 02J1 (P220-01),MIS,Fiscal Year,Low,fiscal year,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,GSA Imprest,High,gsa imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Imprest Chq,High,imprest chq,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Rev Imprest,High,rev imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),Report,Total Imprest For G/L,Medium,total imprest for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Computer Cheque,High,computer cheque,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Rev Computer,High,rev computer,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),Report,Total All Cheques For G/L,Medium,total all cheques for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Non-Shareable,High,non-shareable,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Offset,High,offset,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),Report,New Shareable Amount For G/L Control,Medium,new shareable amount for g/l control,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ3 (P210-99),MIS,Amount Of G-Docs Not Processed,High,amount of g-docs not processed,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Gsa Imprest,High,gsa imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Imprest Chq,High,imprest chq,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Rev Imprest,High,rev imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),Report,Total Imprest For G/L,Medium,total imprest for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Computer Cheque,High,computer cheque,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Rev Computer,High,rev computer,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),Report,Total All Cheques For G/L,Medium,total all cheques for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Non-Shareable,High,non-shareable,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Offset,High,offset,No,FASB
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),Report,New Shareable Amount For G/L Control,Medium,new shareable amount for g/l control,No,No
+FASB Banking,Control Totals for GL Journal Entries EFT 02J1 (P210-99),MIS,Amount Of G-Docs Not Processed,High,amount of g-docs not processed,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,card typ Com,High,card type,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Batch Number,Low,batch number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Control Number,High,control number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Supplier Number,High,supplier number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Project Number,High,project number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Account Number,High,account number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Object Code,High,object code,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Amount,High,amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Vote,High,vote,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Class,High,class,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Ministry Number,High,ministry number,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Office Code,Low,resp code,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),Report,Total,Medium,Total,No,No
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Batch Number,Low,batch no,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Batch Type,High,batch type,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Batch Date,Low,batch date,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Batch Amount,High,batch amount,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Description,High,description,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Document Control,High,document control,No,FASB
+FASB Banking,F.I.C.S. Account Listing JPJ1 (P220-01),MIS,Fiscal Year,Low,fiscal year,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,GSA Imprest,High,gsa imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Imprest Chq,High,imprest chq,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Rev Imprest,High,rev imprest,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),Report,Total Imprest For G/L,Medium,total imprest for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Computer Cheque,High,computer cheque,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Rev Computer,High,rev computer,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),Report,Total All Cheques For G/L,Medium,total all cheques for g/l,No,No
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Non-Shareable,High,non-shareable,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Offset,High,offset,No,FASB
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),Report,New Shareable Amount For G/L Control,Medium,new shareable amount for g/l control,No,No
+FASB Banking,Control Totals for GL Journal Entries JPJ1 (P210-99),MIS,Amount Of G-Docs Not Processed,High,amount of g-docs not processed,No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,No Of Logs Processed,High,no of logs processed,No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,No Of Detail Records Processed,High,no of detail records processed,No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Curr Yr Gl (Gain),High,curr yr gl (gain),No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Prior Yr Gl (Gain),High,prior yr gl (gain),No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Curr Year Gl (Non-Gain),High,curr year gl (non-gain),No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Prior Yr Gl (Non-Gain),High,prior yr gl (non-gain),No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Reversal Report,High,reversal report,No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Reversing Chq Hist Recs,High,reversing chq hist recs,No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Reversing Repayments,High,reversing repayments,No,FASB
+FASB Banking,Exception Report - ODCHQ (MI03S-01),MIS,Other,High,other,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Cheque Number,Low,cheque number,No,No
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Cheque Date,Low,cheque date,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Case Office,Low,off,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Amount,Low,amount,No,No
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Reversal Reason,Medium,reversal rsn,No,No
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Reversal Type,Medium,reversal type,No,No
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Reversal Off,Medium,reversal off,No,No
+FASB Banking,Cheque Reconciliation Reversals - ODCHQ (MI04R-01),MIS,Reversal Log,High,reversal log,No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,No Of Logs Processed,High,no of logs processed,No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,No Of Detail Records Processed,High,no of detail records processed,No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Curr Yr Gl (Gain),High,curr yr gl (gain),No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Prior Yr Gl (Gain),High,prior yr gl (gain),No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Curr Year Gl (Non-Gain),High,curr year gl (non-gain),No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Prior Yr Gl (Non-Gain),High,prior yr gl (non-gain),No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Reversal Report,High,reversal report,No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Reversing Chq Hist Recs,High,reversing chq hist recs,No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Reversing Repayments,High,reversing repayments,No,FASB
+FASB Banking,Exception Report - EFT (MI03S-01),MIS,Other,High,other,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Cheque Number,Low,cheque number,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Cheque Date,Low,cheque date,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Off,Low,off,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Amount,Low,amount,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Reversal Reason,Medium,reversal rsn,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Reversal Type,Medium,reversal type,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Reversal Off,Medium,reversal off,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - EFT (MI04R-01),MIS,Reversal Log,High,reversal log,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Log Number,Medium,log number,No,No
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Cheque Number,Low,cheque number,No,No
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Cheque Date,Low,cheque date,No,No
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Amount,Low,cheque amount,No,No
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Exception Message,High,exception message,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,No Of Logs Processed,High,no of logs processed,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,No Of Detail Records Processed,High,no of detail records processed,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Curr Yr Gl (Gain),High,curr yr gl (gain),No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Prior Yr Gl (Gain),High,prior yr gl (gain),No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Curr Year Gl (Non-Gain),High,curr year gl (non-gain),No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Prior Yr Gl (Non-Gain),High,prior yr gl (non-gain),No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Reversal Report,High,reversal report,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Reversing Chq Hist Recs,High,reversing chq hist recs,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Reversing Repayments,High,reversing repayments,No,FASB
+FASB Banking,Exception Report - COMP (MI03S-01),MIS,Other,High,other,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Cheque Number,Low,cheque number,No,MIS
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Cheque Date,Low,cheque date,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Case Office,Low,off,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Legacy ID,Low,file id,Case/Case View Screen,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Amount,Low,amount,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Reversal Reason,Medium,reversal rsn,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Reversal Type,Medium,reversal type,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Reversal Off,Medium,reversal off,No,FASB
+FASB Banking,Cheque Reconciliation Reversals - COMP (MI04R-01),MIS,Reversal Log,High,reversal log,No,FASB
+FASB Banking,GAIN Office Table (P012-01),ICM,Ministry Office,Low,office code,Office,No
+FASB Banking,GAIN Office Table (P012-01),ICM,Office Name,Low,name,Office,No
+FASB Banking,GAIN Office Table (P012-01),ICM,Street Address,Low,address,Office,No
+FASB Banking,GAIN Office Table (P012-01),ICM,City,Low,city,Office,No
+FASB Banking,GAIN Office Table (P012-01),ICM,Postal Code,Low,postal code,Office,No
+FASB Banking,GAIN Office Table (P012-01),ICM,Office Type,Low,off type,Office,No
+FASB Banking,GAIN Office Table (P012-01),MIS,Bank Account,Medium,bank account number,No,No
+FASB Banking,GAIN Office Table (P012-01),MIS,Cost Center,Medium,cost center,No,FASB
+FASB Banking,GAIN Office Table (P012-01),MIS,Start Date,Medium,effective date,No,No
+FASB Banking,GAIN Office Table (P012-01),MIS,Term Date,Medium,term date,No,No
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Posting Date,Medium,posting date,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Settlement Date,Medium,settlement date,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Source Account,Medium,source account,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Reference Number,Medium,referrence,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Posting Narrative,Medium,posting narrative,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Debit,Medium,debit,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Credit,Medium,credit,No,FASB
+FASB Banking,BCCCU MONTHLY STATEMENT (AMP),MIS,Balance,Medium,balance,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Bank Account,Medium,bank account nunber,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Cheque Date,Low,cheque date,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Cheque Number,Low,cheque number,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Case Office,Low,off,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Cheque Amount,Low,issued amount,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Cashed Amount,Medium,cashed amnount,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Bank Location,Medium,bank location,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Cashed Date,Medium,cashed date,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Mismatch,High,mismatch,No,FASB
+FASB Banking,Cheque Reconciliation Monthly Cashed Mismatch (MI24N-02),MIS,Comments,High,comments,No,FASB
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Cheque Number,Low,cheque number,No,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Cheque Date,Low,cheque date,No,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),ICM,Payee Name,Low,payee name,Case/Plans/MIS Cheque History/MIS Cheque Details,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Amount,Low,amount,Case/Plans/MIS Cheque History/ MIS Cheque Details,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Stop Req Date,Low,stop req date,No,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Current Status Of Cheque,Low,current status of cheque,No,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Last Update Date,Medium,last updt date,No,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),MIS,Replacement Cheque Number,Low,replacement chq no,No,No
+FASB Banking,Monthly Report of All Lost or Stolen Cheques - (MI04F-01),Report,Total,Medium,total lost/stolen chques,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),MIS,Cheque Number,Low,cheque number,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),MIS,Cheque Date,Low,cheque date,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),ICM,Case Office,Low,off,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),MIS,Cheque Amount,Low,amount,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),MIS,Stop Pay Request Date,Low,stop pay req date,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),MIS,Status,Medium,sta,No,MIS
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued As of Month End (MI93T-01),Report,Outstanding Cheques,Medium,outstanding cheques,No,FASB
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),MIS,Cheque Number,Low,cheque number,No,FASB
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),MIS,Cheque Date,Low,cheque date,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),MIS,Case office,Low,off,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),MIS,Cheque Amount,Low,amount,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),MIS,Stop Pay Request Date,Low,stop pay req date,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),MIS,Status,Medium,sta,No,FASB
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),Report,Outstanding Cheques,Medium,outstanding cheques,No,No
+FASB Banking,Cheque Reconciliation - Outstanding List for Cheques Issued Over 210 Days Ago (MI93S-02),Report,Stop Payments,Medium,stop payments,No,No
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,Bank Account,Medium,bank account,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,0-30,High,0-30,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,31-60,High,31-60,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,61-90,High,61-90,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,91-120,High,91-120,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,121-150,High,121-150,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,151-180,High,151-180,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,181-210,High,181-210,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),MIS,Over 210,High,over 210,No,FASB
+FASB Banking,MIS Report of Uncleared Cheques (MI93S-01),Report,Total,Medium,total,No,No
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),MIS,Cheque Number,Low,cheque number,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),MIS,Cheque Date,Low,cheque date,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),ICM,Case office,Low,off,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),ICM,Legacy ID,Low,file id,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),MIS,Cheque Amount,Low,amount,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),MIS,Stop Pay Request Date,Low,stop pay req date,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),MIS,Status,Medium,sta,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),Report,Outstanding Cheques,Medium,outstanding cheques,No,FASB
+FASB Banking,Cheque Reconciliation - List of Imprest Cheques Issued (MI93R-01),Report,Stop Payments,Medium,stop payments,No,FASB
+FASB Banking,Cheque Reconciliation Reversal Cross Reference Control Report (MI04O-99),MIS,Input Totals,High,input totals,No,FASB
+FASB Banking,Cheque Reconciliation Reversal Cross Reference Control Report (MI04O-99),MIS,Input File Count,High,input file count,No,FASB
+FASB Banking,Cheque Reconciliation Reversal Cross Reference Control Report (MI04O-99),MIS,Output Totals,High,output totals,No,FASB
+FASB Banking,Cheque Reconciliation Reversal Cross Reference Control Report (MI04O-99),MIS,Output File Count,High,output file count,No,FASB
+FASB Banking,Cheque Reconciliation Reversal Cross Reference Control Report (MI04O-99),MIS,Records Sent To Vm,High,records sent to vm,No,FASB
+ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,ICM,Closed Date,Low,closed date,Case/Case View Screen,No
+ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,ICM,Closed Code,Medium,closed code,Case/Case View Screen,No
+ISD Data Stewards,CASES AUTOCLOSED DURING CHEQUE RUN,ICM,Close Reason,Low,description,Case/Case View Screen,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Monthly Allowances,High,monthly allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,Medium,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Director Authorized Allowances (List Of Benefits),High,director authorized allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,One-Time Allowance,High,one-time allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Confirmed Job Grant Allowances (List Of Benefits),High,confirmed job grant allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Hardship Supplement,High,Hardship Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Crisis Supplments (List Of Benefits),High,crisis Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Direct Purchase (List Of Benefits),High,direct purchase (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Total,Medium,Total Allowances,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Less Deductions (List Of Product Codes),High,Less deductions (list of product codes),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Net Payments,High,net payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Less Cap Deductions,High,Less Cap deductions,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,Medium,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Net Payments,Medium,Net Shareable Payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Imprest To Clients,High,imprest to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Imprest To Suppliers,High,imprest to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Imprest To Suppliers/Gsa,High,imprest to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Imprest To Trustees,High,imprest to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Govt Agent To Clients,High,govt agent to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Govt Agent To Suppliers,High,govt agent to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Govt Agent To Suppliers/Gsa,High,govt agent to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Govt Agent To Trustees,High,govt agent to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Computer To Clients,High,computer to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Computer To Suppliers,High,computer to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Computer To Suppliers/Gsa,High,computer to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Computer To Trustees,High,computer to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,Medium,sub total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),MIS,Less Reversed Chqs,High,Less reversed chqs,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ7 (MI210-03),Report,All Cheques Total,Medium,all cheques total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,monthly of,High,monthly allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Director Authorized Allowances (List Of Benefits),High,director authorized allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,One-Time Allowance,High,one-time allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Confirmed Job Grant Allowances (List Of Benefits),High,confirmed job grant allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Hardship Supplement,High,Hardship Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Crisis Supplments (List Of Benefits),High,crisis Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Direct Purchase (List Of Benefits),High,direct purchase (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Total,High,Total Allowances,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Less Deductions (List Of Product Codes),High,Less deductions (list of product codes),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Net Payments,High,net payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Less Cap Deductions,High,Less Cap deductions,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Net Payments,High,Net Shareable Payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Imprest To Clients,High,imprest to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Imprest To Suppliers,High,imprest to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Imprest To Suppliers/Gsa,High,imprest to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Imprest To Trustees,High,imprest to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Govt Agent To Clients,High,govt agent to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Govt Agent To Suppliers,High,govt agent to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Govt Agent To Suppliers/Gsa,High,govt agent to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Govt Agent To Trustees,High,govt agent to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Computer To Clients,High,computer to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Computer To Suppliers,High,computer to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Computer To Suppliers/Gsa,High,computer to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Computer To Trustees,High,computer to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),MIS,Less Reversed Chqs,High,Less reversed chqs,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J7 (MI210-03),Report,All Cheques Total,High,all cheques total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Monthly Allowances,High,monthly allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Director Authorized Allowances (List Of Benefits),High,director authorized allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,One-Time Allowance,High,one-time allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Confirmed Job Grant Allowances (List Of Benefits),High,confirmed job grant allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Hardship Supplement,High,Hardship Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Crisis Supplments (List Of Benefits),High,crisis Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Direct Purchase (List Of Benefits),High,direct purchase (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Net Payments,High,net payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Less Cap Deductions,High,Less Cap deductions,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Net Payments,Medium,Net Shareable Payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Imprest To Clients,High,imprest to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Imprest To Suppliers,High,imprest to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Imprest To Suppliers/Gsa,High,imprest to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Imprest To Trustees,High,imprest to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Govt Agent To Clients,High,govt agent to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Govt Agent To Suppliers,High,govt agent to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Govt Agent To Suppliers/Gsa,High,govt agent to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Govt Agent To Trustees,High,govt agent to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Computer To Clients,High,computer to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Computer To Suppliers,High,computer to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Computer To Suppliers/Gsa,High,computer to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Computer To Trustees,High,computer to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),MIS,Less Reversed Chqs,High,Less reversed chqs,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,Subtotal,High,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J3 (MI210-03),Report,All Cheques Total,Medium,all cheques total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Monthly Allowances,Medium,monthly allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,NA,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Director Authorized Allowances,Medium,director authorized allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,One-Time Allowance,Medium,one-time allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Confirmed Job Grant Allowances,Medium,confirmed job grant allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Hardship Supplement,Medium,Hardship Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Crisis Supplements,Medium,crisis Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Direct Purchase,Medium,direct purchase (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Total,Medium,Total Allowances,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Less Deductions,Medium,Less deductions (list of product codes),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Net Payments,Medium,net payments,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Less Cap Deductions,High,Less Cap deductions,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,sub total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Net Payments,Medium,Net Shareable Payments,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Imprest To Clients,High,imprest to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Imprest To Suppliers,High,imprest to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Imprest To Suppliers/Gsa,High,imprest to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Imprest To Trustees,High,imprest to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Govt Agent To Clients,High,govt agent to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Govt Agent To Suppliers,High,govt agent to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Govt Agent To Suppliers/Gsa,High,govt agent to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Govt Agent To Trustees,High,govt agent to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Computer To Clients,High,computer to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Computer To Suppliers,High,computer to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Computer To Suppliers/Gsa,High,computer to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Computer To Trustees,High,computer to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,sub total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),MIS,Less Reversed Chqs,High,Less reversed chqs,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ3 (MI210-03),Report,All Cheques Total,Medium,all cheques total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Monthly Allowances,Medium,monthly allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Director Authorized Allowances,Medium,director authorized allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,One-Time Allowance,Medium,one-time allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Confirmed Job Grant Allowances,Medium,confirmed job grant allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Hardship Supplement,Medium,Hardship Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Crisis Supplements,Medium,crisis Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Direct Purchase,Medium,direct purchase (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Total,Medium,Total Allowances,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Less Deductions,Medium,Less deductions (list of product codes),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Net Payments,Medium,net payments,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Less Cap Deductions,High,Less Cap deductions,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,sub total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Net Payments,Medium,Net Shareable Payments,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Imprest To Clients,High,imprest to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Imprest To Suppliers,High,imprest to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Imprest To Suppliers/Gsa,High,imprest to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Imprest To Trustees,High,imprest to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Govt Agent To Clients,High,govt agent to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Govt Agent To Suppliers,High,govt agent to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Govt Agent To Suppliers/Gsa,High,govt agent to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Govt Agent To Trustees,High,govt agent to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Computer To Clients,High,computer to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Computer To Suppliers,High,computer to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Computer To Suppliers/Gsa,High,computer to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Computer To Trustees,High,computer to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,sub total,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),MIS,Less Reversed Chqs,High,Less reversed chqs,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,No
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits YW-EFT (MHR) 02J1 (MI210-03),Report,All Cheques Total,Medium,all cheques total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Monthly Allowances,Medium,monthly allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Director Authorized Allowances,Medium,director authorized allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,One-Time Allowance,Medium,one-time allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Confirmed Job Grant Allowances,Medium,confirmed job grant allowances (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Hardship Supplement,Medium,Hardship Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Crisis Supplements,Medium,crisis Supplments (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Direct Purchase,Medium,direct purchase (list of benefits),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Total Allowances,Medium,Total Allowances,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Less Deductions,Medium,Less deductions (list of product codes),Back End Data,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Amount Spent,High,amount spent,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,BC Benefits/Gain,High,bc benefits/gain (MHR),No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Net Payments,Medium,net payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Less Cap Deductions,High,Less Cap deductions,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Net Shareable Payments,Medium,Net Shareable Payments,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Imprest To Clients,High,imprest to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Imprest To Suppliers,High,imprest to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Imprest To Suppliers/Gsa,High,imprest to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Imprest To Trustees,High,imprest to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Govt Agent To Clients,High,govt agent to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Govt Agent To Suppliers,High,govt agent to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Govt Agent To Suppliers/Gsa,High,govt agent to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Govt Agent To Trustees,High,govt agent to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Computer To Clients,High,computer to clients,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Computer To Suppliers,High,computer to suppliers,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Computer To Suppliers/Gsa,High,computer to suppliers/gsa,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Computer To Trustees,High,computer to trustees,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,sub total,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),MIS,Less Reversed Chqs,High,Less reversed chqs,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,Subtotal,Medium,Subtotal,No,FASB
+FASB-Budget,Financial Transaction Provincial Summary - BC Benefits GAIN (MHR) JPJ1 (MI210-03),Report,All Cheques Total,Medium,all cheques total,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Charter,High,charter,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Previous Balance,High,previous balance,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Opening Balance,High,opening balance,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Net Activity,High,net activity,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Closing Balance,High,closing balance,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Ch/Br,High,ch/br,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Effective Date,High,eff date,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Debit,High,debit,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Debit,High,debit,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Credit,High,credit,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Credit,High,credit,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Ch/Br,High,ch/br,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Debit,High,debit,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Credit,High,credit,No,FASB
+FASB Banking,BCCCU Account Activity And Balances (AMP),MIS,Net,High,net,No,FASB
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Casload,High,caseload,MIS generated Value only,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Legacy ID,High,file id,Case/Case View Screen,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Case Name,Low,file name,Case/Case View Screen,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Category,Low,cat,Case/More Info/More Info IA,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,O/S Warrant,Low,app warrant ind,Contact/SD More Info,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Alert,Low,appl alrt msg,Contact/Contact Summary/Alerts Applet/Alert Text,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,O/S Warrant,Low,spo warrant ind,Case/Contact/Spouse/SD More Info,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Alert,Low,spo alrt msg,Contact/Contact Summary/Alerts Applet,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Hardship Code,Low,ht code,Case/More Info/More Info IA/Hardship Code,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Hardship Start Date,Low,ht start date,Case/More Info,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),ICM,Cheque Production,Low,chq prod,Case/More Infor/Cheque Production?,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 41 amt,Case/Plans/Line Items,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 42 amt,Case/Plans/Line Items,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Sanction,Low,sanc cd supp,MIS,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Sanction,Low,sanc cd shel,MIS,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,sanc amt,Case/Plans/Line Items,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 15 amt,Case/Plans/Line Items,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 15 start dt,No,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 70 amt,Case/Plans/Line Items,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 71 amt,Case/Plans/Line Items,No
+Local Offices,OUTSTANDING WARRANTS MONITORING REPORT (MI95G-01),MIS,Review,Medium,all 25 amt,Case/Plans/Line Items,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Class,Low,class,Case/More Info/More Info IA/Class Code,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Category,Low,category,Case/More Info/More Info IA,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,First Name,Low,applicant given name,Case/Contact/Case Contacts,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Last Name,Low,applicant surname,Case/Contact,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Alert,Low,alert type,Contact/Contact Summary/Alerts Applet,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Start Date,Low,date set,Contact/Contact Summary/Alerts Applet,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Spouse First Name,Low,spouse given name,Case/Contact/Case Contacts,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Spouse Last Name,Low,spouse surname,Case/Contact/Case Contacts,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Alert,Low,alert type,Contact/Contact Summary/Alerts Applet,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Start Date,Low,date set,Contact/Contact Summary/Alerts Applet,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),ICM,Cheque Production,Low,cheque production on,Case/More Info/More Info IA,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),MIS,Client Cheque Amount,High,client cheque amount,Case/Plans/MIS Cheque History/MIS Cheques Applet,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),MIS,Supplier Amount,High,supplier amount,Case/Plans/MIS Cheque History/MIS Cheques Applet,No
+Local Offices,FLEEING ABUSE CASE REPORT (MI56F-01),MIS,Manual Admin Amount,High,manually administered amount,Case/Plans/MIS Cheque History/MIS Cheques Applet,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),MIS,Caseload,High,csld,Case/Work Queue,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Last Name,Low,family name,Contact/Contact View Screen,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,First Name,Low,given name,Contact/Contact View Screen,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,SIN,Low,sin,Case/Contact/SINPHN,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Class,Low,class,Case/More Info,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Category,Low,cat,Case/More Info/More Info IA,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Calculated,High,No. dep,Case/Contacts,TBD
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Hardship Start Date,Low,hard/trans start dt,Case/More Info/More Info IA,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),MIS,Calculated,Medium,hard/trans mths,formula,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Distribution Code,Medium,payment information typ,Case/Plans/Orders,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Payment Number,Medium,payment information number,Case/Plans/Orders/More Info,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Amount,Medium,payment information amount,Case/Plans/Orders/More Info,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Start Period,Medium,payment information date,Case/Plans,No
+Local Offices,Hardship and Transition Monitoring By Worker (MI177-01),ICM,Calculated,Medium,allowance breakdown,Case/Plans,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),ICM,Case Office,Low,office,Case/Case View Screen,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),MIS,Caseload,High,caseload,Case/Work Queue,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),ICM,Legacy ID,Low,file id,Case/Case View Screen,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),ICM,Case Name,Low,file name,Case/Case View Screen,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),ICM,Phone,Low,phone number,Contact/Contact View Screen,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),MIS,Address,Medium,security deposit address,Case/More Info/Security Deposit,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),MIS,City,Low,city,Case/More Info/Security Deposit,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),MIS,Postal Code,Low,postal code,Case/More Info/Security Deposit,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),MIS,Cheque Date,Low,security deposit cheque date,Case/More Info/Security Deposit,No
+Local Offices,GA Files with 3rd Unresolved Security Deposit (MI33A-01),MIS,Additional Reason,Medium,*addl reason,No,No

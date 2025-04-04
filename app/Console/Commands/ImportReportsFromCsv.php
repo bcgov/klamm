@@ -45,15 +45,29 @@ class ImportReportsFromCsv extends Command
                 $labelSourceName = trim($row['Label Source']);
                 $dictionaryLabelName = trim($row['Dictionary Label']);
 
-                $businessArea = ReportBusinessArea::where('name', $businessAreaName)->first();
+                $businessArea = ReportBusinessArea::firstOrCreate(
+                    ['name' => $businessAreaName],
+                    ['name' => $businessAreaName]
+                );
+                $businessAreaId = $businessArea->id;
 
-                $report = Report::where('name', $reportName)->first();
+                $report = Report::firstOrCreate(
+                    ['name' => $reportName],
+                    ['name' => $reportName]
+                );
+                $reportId = $report->id;
 
-                $labelSource = ReportLabelSource::where('name', $labelSourceName)->first();
+                $labelSource = ReportLabelSource::firstOrCreate(
+                    ['name' => $labelSourceName],
+                    ['name' => $labelSourceName]
+                );
+                $labelSourceId = $labelSource->id;
 
-                $dictionaryLabel = ReportDictionaryLabel::where('name', $dictionaryLabelName)->first();
-
-                $dictionaryLabelId = $dictionaryLabel ? $dictionaryLabel->id : null;
+                $dictionaryLabel = ReportDictionaryLabel::firstOrCreate(
+                    ['name' => $dictionaryLabelName],
+                    ['name' => $dictionaryLabelName]
+                );
+                $dictionaryLabelId = $dictionaryLabel->id;
 
                 $dataMatchingRate = strtolower(trim($row['Label Match Rating'] ?? ''));
                 $validRates = ['low', 'medium', 'high', 'n/a'];
@@ -64,9 +78,9 @@ class ImportReportsFromCsv extends Command
                 $followUpRequired = $followUpMapping[$followUpRequiredValue] ?? 'tbd';
 
                 ReportEntry::create([
-                    'business_area_id' => $businessArea->id,
-                    'report_id' => $report->id ?? null,
-                    'label_source_id' => $labelSource->id ?? null,
+                    'business_area_id' => $businessAreaId,
+                    'report_id' => $reportId,
+                    'label_source_id' => $labelSourceId,
                     'icm_data_field_path' => $row['ICM Data Field Path'] ?? null,
                     'report_dictionary_label_id' => $dictionaryLabelId,
                     'data_matching_rate' => $dataMatchingRate,

@@ -52,8 +52,8 @@ class ReportEntryResource extends Resource
                         Infolists\Components\TextEntry::make('labelSource.name')
                             ->label('Label Source'),
 
-                        Infolists\Components\TextEntry::make('data_field')
-                            ->label('Source Data Field'),
+                        // Infolists\Components\TextEntry::make('data_field')
+                        //     ->label('Source Data Field'),
 
                         Infolists\Components\TextEntry::make('icm_data_field_path')
                             ->label('ICM Data Field Path')
@@ -123,10 +123,10 @@ class ReportEntryResource extends Resource
                     ->label('Label Source')
                     ->reactive()
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('data_field')
-                    ->columnSpanFull()
-                    ->label('Source Data Field')
-                    ->columnSpanFull(),
+                // Forms\Components\TextInput::make('data_field')
+                //     ->columnSpanFull()
+                //     ->label('Source Data Field')
+                //     ->columnSpanFull(),
                 Forms\Components\TextInput::make('icm_data_field_path')
                     ->label('ICM Data Field Path')
                     ->visible(function (Get $get) {
@@ -185,9 +185,9 @@ class ReportEntryResource extends Resource
                 Tables\Columns\TextColumn::make('labelSource.name')
                     ->searchable()
                     ->label('Label Source'),
-                Tables\Columns\TextColumn::make('data_field')
-                    ->searchable()
-                    ->label('Source Data Field'),
+                // Tables\Columns\TextColumn::make('data_field')
+                //     ->searchable()
+                //     ->label('Source Data Field'),
                 Tables\Columns\TextColumn::make('icm_data_field_path')
                     ->label('ICM Data Field Path')
                     ->formatStateUsing(function ($state, $record) {
@@ -213,8 +213,7 @@ class ReportEntryResource extends Resource
                         'mis/fasb' => 'MIS/FASB',
                         'no' => 'No',
                         default => strtoupper($state),
-                    })
-                    ->badge(),
+                    }),
                 Tables\Columns\TextColumn::make('lastUpdatedBy.name')
                     ->label('Last Updated By'),
             ])
