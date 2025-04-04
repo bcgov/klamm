@@ -28,11 +28,7 @@ class ReportEntryResource extends Resource
 
     protected static ?string $navigationLabel = 'Report Label Dictionary';
 
-    public static function getNavigationIcon(): string
-    {
-        return asset('svg/report-dictionary-logo-light.svg');
-    }
-
+    protected static ?string $navigationIcon = 'icon-report-dictionary';
 
     public static function infolist(Infolist $infolist): Infolist
     {
@@ -212,6 +208,7 @@ class ReportEntryResource extends Resource
                     ->preload()
                     ->label('Last Updated By'),
             ])
+            ->defaultSort('updated_at', 'desc')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
