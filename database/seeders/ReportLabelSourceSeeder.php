@@ -13,12 +13,15 @@ class ReportLabelSourceSeeder extends Seeder
      */
     public function run(): void
     {
-        $label = new ReportLabelSource();
-        $label->name = 'ICM';
-        $label->save();
+        $reportDctionaryLabels = [
+            'ICM',
+            'MIS',
+            'Report',
+            'TBD'
+        ];
 
-        $label = new ReportLabelSource();
-        $label->name = 'Financial Component';
-        $label->save();
+        foreach ($reportDctionaryLabels as $reportDictionaryLabel) {
+            ReportLabelSource::create(['name' => $reportDictionaryLabel]);
+        }
     }
 }
