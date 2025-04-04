@@ -72,7 +72,7 @@ class ReportEntryResource extends Resource
                             ->label('Follow Up Required'),
 
                         Infolists\Components\TextEntry::make('data_matching_rate')
-                            ->label('Label Match Rating')
+                            ->label('Data Match Effort')
                             ->formatStateUsing(fn(string $state) => $state === 'n/a' ? 'N/A' : Str::title($state))
                             ->badge()
                             ->color(fn(string $state): string => match ($state) {
@@ -140,7 +140,7 @@ class ReportEntryResource extends Resource
                     })
                     ->columnSpanFull(),
                 Forms\Components\Select::make('data_matching_rate')
-                    ->label('Label Match Rating')
+                    ->label('Data Match Effort')
                     ->options([
                         'low' => 'Low',
                         'medium' => 'Medium',
@@ -197,7 +197,7 @@ class ReportEntryResource extends Resource
                         return 'N/A';
                     }),
                 Tables\Columns\TextColumn::make('data_matching_rate')
-                    ->label('Label Match Rating')
+                    ->label('Data Match Effort')
                     ->badge()
                     ->formatStateUsing(fn(string $state) => $state === 'n/a' ? 'N/A' : Str::title($state))
                     ->colors([
@@ -233,7 +233,14 @@ class ReportEntryResource extends Resource
                         'high' => 'High',
                         'n/a' => 'N/A',
                     ])
-                    ->label('Data Matching Rate'),
+                    ->label('Data Match Effort'),
+                Tables\Filters\SelectFilter::make('data_field')
+                    ->options([
+                        'ICM' => 'ICM',
+                        'Financial Component' => 'Financial Component',
+                        'TBD' => 'TBD',
+                    ])
+                    ->label('Source Data Field'),
                 Tables\Filters\SelectFilter::make('report_id')
                     ->relationship('report', 'name')
                     ->preload()
@@ -253,7 +260,7 @@ class ReportEntryResource extends Resource
                         ->label('Delete'),
                     ExportBulkAction::make()
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->label('Download Report Labels')
+                        ->label('Download')
                         ->color('primary')
                         ->exporter(ReportEntryExporter::class)
                 ])->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
