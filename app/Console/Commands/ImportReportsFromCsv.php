@@ -27,6 +27,17 @@ class ImportReportsFromCsv extends Command
         $csv = Reader::createFromPath($filePath, 'r');
         $csv->setHeaderOffset(0);
 
+        $followUpMapping = [
+            'CGI' => 'cgi',
+            'FASB' => 'fasb',
+            'MIS' => 'mis',
+            'MIS/FASB' => 'mis/fasb',
+            'No' => 'no',
+            'OPC' => 'opc',
+            'Pending MIS' => 'pending_mis',
+            'TBD' => 'tbd',
+        ];
+
         foreach ($csv as $rowIndex => $row) {
             try {
                 $businessAreaName = trim($row['Business Area']);
@@ -44,23 +55,26 @@ class ImportReportsFromCsv extends Command
 
                 $dictionaryLabelId = $dictionaryLabel ? $dictionaryLabel->id : null;
 
-                //$dataMatchingRate = strtolower(trim($row['Label Match Rating'] ?? ''));
-                //$validRates = ['low', 'medium', 'high', 'NA'];
-                //$dataMatchingRate = in_array($dataMatchingRate, $validRates) ? $dataMatchingRate : null;
+                $dataMatchingRate = strtolower(trim($row['Label Match Rating'] ?? ''));
+                $validRates = ['low', 'medium', 'high', 'n/a'];
+                $dataMatchingRate = in_array($dataMatchingRate, $validRates) ? $dataMatchingRate : 'n/a';
+
+                $followUpRequiredValue = trim($row['Follow Up Required'] ?? '');
+
+                $followUpRequired = $followUpMapping[$followUpRequiredValue] ?? 'tbd';
 
                 ReportEntry::create([
                     'business_area_id' => $businessArea->id,
-                    'report_id' => $report->id,
-                    'label_source_id' => $labelSource->id,
+                    'report_id' => $report->id ?? null,
+                    'label_source_id' => $labelSource->id ?? null,
+                    'icm_data_field_path' => $row['ICM Data Field Path'] ?? null,
                     'report_dictionary_label_id' => $dictionaryLabelId,
+                    'data_matching_rate' => $dataMatchingRate,
                     'existing_label' => $row['Existing Label'],
-                    //'data_field' => $row['Source Data Field'] ?? null, // MAYBE MISSING
-                    //'icm_data_field_path' => $row['ICM Data Field Path'] ?? null,
-                    //'data_matching_rate' => $dataMatchingRate,
-                    //'follow_up_required' => $followUpRequired,
+                    'follow_up_required' => $followUpRequired,
                 ]);
             } catch (\Exception $e) {
-                $this->error($e->getMessage());
+                $this->error($rowIndex . $e->getMessage());
             }
         }
 
