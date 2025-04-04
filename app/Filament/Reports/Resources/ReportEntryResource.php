@@ -17,6 +17,8 @@ use Filament\Tables\Actions\ImportAction;
 use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Gate;
 use Filament\Tables\Actions\ExportBulkAction;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 
 class ReportEntryResource extends Resource
 {
@@ -29,6 +31,56 @@ class ReportEntryResource extends Resource
     public static function getNavigationIcon(): string
     {
         return asset('svg/report-dictionary-logo-light.svg');
+    }
+
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make()
+                    ->schema([
+                        Infolists\Components\TextEntry::make('reportBusinessArea.name')
+                            ->label('Business Area'),
+
+                        Infolists\Components\TextEntry::make('report.name')
+                            ->label('Report Name'),
+
+                        Infolists\Components\TextEntry::make('existing_label')
+                            ->label('Existing Label'),
+
+                        Infolists\Components\TextEntry::make('reportDictionaryLabel.name')
+                            ->label('Dictionary Label'),
+
+                        Infolists\Components\TextEntry::make('labelSource.name')
+                            ->label('Label Source'),
+
+                        Infolists\Components\TextEntry::make('data_field')
+                            ->label('Source Data Field'),
+
+                        Infolists\Components\TextEntry::make('icm_data_field_path')
+                            ->label('ICM Data Field Path')
+                            ->visible(fn($record) => $record->labelSource && $record->labelSource->name === 'ICM'),
+
+                        Infolists\Components\TextEntry::make('data_matching_rate')
+                            ->label('Label Match Rating')
+
+                            ->badge()
+                            ->color(fn(string $state): string => match ($state) {
+                                'low' => 'success',
+                                'medium' => 'warning',
+                                'high' => 'danger',
+                                default => 'gray',
+                            }),
+
+                        Infolists\Components\TextEntry::make('note')
+                            ->label('Note'),
+
+                        Infolists\Components\TextEntry::make('lastUpdatedBy.name')
+                            ->label('Last Updated By'),
+                    ])
+                    ->columns(1)
+            ]);
     }
 
     public static function form(Form $form): Form
