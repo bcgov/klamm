@@ -19,6 +19,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
+use Filament\Navigation\NavigationGroup;
 
 class FodigPanelProvider extends PanelProvider
 {
@@ -40,6 +41,14 @@ class FodigPanelProvider extends PanelProvider
                     ->label('Edit Profile')
                     ->url('/profile')
                     ->icon('heroicon-o-pencil-square')
+            ])
+            ->navigationGroups([
+                NavigationGroup::make()
+                    ->label('Error Lookup Tool')
+                    ->collapsed(),
+                NavigationGroup::make()
+                    ->label('Siebel Tables')
+                    ->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Fodig/Resources'), for: 'App\\Filament\\Fodig\\Resources')
             ->discoverPages(in: app_path('Filament/Fodig/Pages'), for: 'App\\Filament\\Fodig\\Pages')
