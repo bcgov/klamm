@@ -3,6 +3,7 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormTemplateHelper;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
 use App\Models\Style;
@@ -121,6 +122,8 @@ class FieldGroupBlock
                                             ->alphanum()
                                             ->reactive()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Fieldset::make('Group Label')
