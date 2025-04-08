@@ -58,6 +58,22 @@ class ReportEntry extends Model
     {
         static::saving(function ($report) {
             $report->last_updated_by = Auth::id();;
+
+            if (is_null($report->data_matching_rate)) {
+                $report->data_matching_rate = 'n/a';
+            }
+            if (is_null($report->follow_up_required)) {
+                $report->follow_up_required = 'tbd';
+            }
+        });
+
+        static::creating(function ($report) {
+            if (is_null($report->data_matching_rate)) {
+                $report->data_matching_rate = 'n/a';
+            }
+            if (is_null($report->follow_up_required)) {
+                $report->follow_up_required = 'tbd';
+            }
         });
     }
 }
