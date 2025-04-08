@@ -261,7 +261,7 @@ class ReportEntryResource extends Resource
                     ExportBulkAction::make()
                         ->icon('heroicon-o-arrow-down-tray')
                         ->label('Download')
-                        ->color('primary')
+                        ->color(Color::hex('#2D2D2D'))
                         ->exporter(ReportEntryExporter::class)
                 ])->visible(fn() => Gate::allows('reports') || Gate::allows('admin')),
             ])
