@@ -21,7 +21,14 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'styleInstances.style',
+                'validations',
+                'conditionals',
+                'formInstanceFieldValue',
+            ])
             ->get();
 
         foreach ($formFields as $field) {
