@@ -21,7 +21,14 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'styleInstances.style',
+                'validations',
+                'conditionals',
+                'formInstanceFieldValue',
+            ])
             ->get();
 
         foreach ($formFields as $field) {
@@ -140,8 +147,8 @@ class FormTemplateHelper
         })->toArray();
 
         $databindings = [
-            "source" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
-            "path" => $fieldInstance->custom_data_binding ?? $field->data_binding,
+            "source" => $fieldInstance->custom_data_binding ?? $field->data_binding,
+            "path" => $fieldInstance->custom_data_binding_path ?? $field->data_binding_path,
         ];
 
         // Construct $label for $base
@@ -199,9 +206,11 @@ class FormTemplateHelper
                     "direction" => "bottom",
                     "size" => "md",
                     "listItems" => $fieldInstance->selectOptionInstances()
+                        ->with('selectOption')
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
+                                "name" => $selectOptionInstance->selectOption->name,
                                 "text" => $selectOptionInstance->selectOption->label,
                                 "value" => $selectOptionInstance->selectOption->value
                             ];
@@ -215,9 +224,11 @@ class FormTemplateHelper
             case "radio":
                 return array_merge($base, [
                     "listItems" => $field->selectOptionInstances()
+                        ->with('selectOption')
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
+                                "name" => $selectOptionInstance->selectOption->name,
                                 "text" => $selectOptionInstance->selectOption->label,
                                 "value" => $selectOptionInstance->selectOption->value
                             ];
@@ -269,17 +280,17 @@ class FormTemplateHelper
         })->values()->all();
 
         $databindings = [
-            "source" => $groupInstance->custom_data_binding_path ?? $group->data_binding_path,
-            "path" => $groupInstance->custom_data_binding ?? $group->data_binding,
+            "source" => $groupInstance->custom_data_binding ?? $group->data_binding,
+            "path" => $groupInstance->custom_data_binding_path ?? $group->data_binding_path,
         ];
 
         // Construct $label for $base
         $label = null;
-        if ($groupInstance->customize_label == 'default') {
+        if ($groupInstance->customize_group_label == 'default') {
             $label = $group->label;
-        } elseif ($groupInstance->customize_label == 'customize') {
-            $label = $groupInstance->label;
-        } elseif ($groupInstance->customize_label == 'hide') {
+        } elseif ($groupInstance->customize_group_label == 'customize') {
+            $label = $groupInstance->custom_group_label;
+        } elseif ($groupInstance->customize_group_label == 'hide') {
             $label = null;
         }
 
