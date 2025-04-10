@@ -3,10 +3,12 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
@@ -24,6 +26,9 @@ class EditFormVersion extends EditRecord
         $user = Auth::user();
         $data['updater_name'] = $user->name;
         $data['updater_email'] = $user->email;
+
+        // Put all instance IDs into the session so that each block can check them against its duplicate ID rule
+        Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components']));
 
         unset($data['components']);
 
@@ -226,8 +231,8 @@ class EditFormVersion extends EditRecord
             'container_id' => $containerID,
             'order' => $order,
             'repeater' => $component['repeater'] ?? false,
-            'label' => $component['customize_group_label'] == 'customize' ? $component['custom_group_label'] : null,
-            'customize_label' => $component['customize_group_label'] ?? null,
+            'custom_group_label' => $component['customize_group_label'] === 'customize' ? $component['custom_group_label'] : null,
+            'customize_group_label' => $component['customize_group_label'] ?? null,
             'custom_repeater_item_label' => $component['customize_repeater_item_label'] ? $component['custom_repeater_item_label'] : null,
             'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
             'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
@@ -381,8 +386,8 @@ class EditFormVersion extends EditRecord
                 'data' => [
                     'field_group_id' => $group->field_group_id,
                     'repeater' => $group->repeater,
-                    'custom_group_label' => $group->label ?? null,
-                    'customize_group_label' => $group->customize_label ?? null,
+                    'custom_group_label' => $group->custom_group_label ?? null,
+                    'customize_group_label' => $group->customize_group_label ?? null,
                     'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
                     'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
                     'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,

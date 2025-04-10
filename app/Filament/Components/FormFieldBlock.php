@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Style;
 use App\Models\FormField;
 use App\Models\FormDataSource;
@@ -134,6 +135,8 @@ class FormFieldBlock
                                             ->alphanum()
                                             ->reactive()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Fieldset::make('Label')
@@ -200,22 +203,7 @@ class FormFieldBlock
                                                 'redo',
                                             ]),
                                     ]),
-                                Fieldset::make('Data Binding')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Binding')
-                                            ->inline()
-                                            ->live(),
-                                        Textarea::make('custom_data_binding')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding')),
-                                    ]),
-                                Fieldset::make('Data Source')
+                                Fieldset::make('Data Binding Path')
                                     ->columns(1)
                                     ->columnSpan(1)
                                     ->schema([
@@ -223,13 +211,28 @@ class FormFieldBlock
                                             ->label("Default")
                                             ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
+                                            ->label('Customize Data Binding Path')
+                                            ->inline()
+                                            ->live(),
+                                        Textarea::make('custom_data_binding_path')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                    ]),
+                                Fieldset::make('Data Source')
+                                    ->columns(1)
+                                    ->columnSpan(1)
+                                    ->schema([
+                                        Placeholder::make('data_binding')
+                                            ->label("Default")
+                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
+                                        Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
                                             ->live(),
-                                        Select::make('custom_data_binding_path')
+                                        Select::make('custom_data_binding')
                                             ->label(false)
                                             ->options(FormDataSource::pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
                                 Fieldset::make('Mask')
                                     ->columns(1)

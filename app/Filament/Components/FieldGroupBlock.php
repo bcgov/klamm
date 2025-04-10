@@ -3,6 +3,7 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormTemplateHelper;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
 use App\Models\Style;
@@ -121,6 +122,8 @@ class FieldGroupBlock
                                             ->alphanum()
                                             ->reactive()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Fieldset::make('Group Label')
@@ -168,22 +171,7 @@ class FieldGroupBlock
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_repeater_item_label')),
                                     ]),
-                                Fieldset::make('Data Binding')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Binding')
-                                            ->inline()
-                                            ->live(),
-                                        TextInput::make('custom_data_binding')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding')),
-                                    ]),
-                                Fieldset::make('Data Source')
+                                Fieldset::make('Data Binding Path')
                                     ->columns(1)
                                     ->columnSpan(1)
                                     ->schema([
@@ -191,13 +179,28 @@ class FieldGroupBlock
                                             ->label("Default")
                                             ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
+                                            ->label('Customize Data Binding Path')
+                                            ->inline()
+                                            ->live(),
+                                        TextInput::make('custom_data_binding_path')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                    ]),
+                                Fieldset::make('Data Source')
+                                    ->columns(1)
+                                    ->columnSpan(1)
+                                    ->schema([
+                                        Placeholder::make('data_binding')
+                                            ->label("Default")
+                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding ?? 'null'),
+                                        Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
                                             ->live(),
-                                        Select::make('custom_data_binding_path')
+                                        Select::make('custom_data_binding')
                                             ->label(false)
                                             ->options(FormDataSource::pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
                                 TextInput::make('visibility')
                                     ->columnSpanFull()

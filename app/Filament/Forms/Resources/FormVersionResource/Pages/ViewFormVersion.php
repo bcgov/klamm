@@ -197,8 +197,8 @@ class ViewFormVersion extends ViewRecord
                 'type' => 'field_group',
                 'data' => [
                     'field_group_id' => $group->field_group_id,
-                    'custom_group_label' => $group->label,
-                    'customize_group_label' => $group->customize_label,
+                    'custom_group_label' => $group->custom_group_label,
+                    'customize_group_label' => $group->customize_group_label,
                     'repeater' => $group->repeater,
                     'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
                     'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
