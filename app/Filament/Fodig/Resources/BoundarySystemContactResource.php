@@ -11,6 +11,8 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Actions\Action;
+
 
 class BoundarySystemContactResource extends Resource
 {
@@ -50,7 +52,10 @@ class BoundarySystemContactResource extends Resource
                             ->required()
                             ->maxLength(255),
                     ])
-                    ->addActionLabel('Add Email'),
+                    ->addAction(fn(Action $action) => $action
+                        ->icon('heroicon-o-plus')
+                        ->iconButton())
+
             ]);
     }
 

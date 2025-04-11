@@ -16,4 +16,11 @@ class ListBoundarySystems extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            //
+        ];
+    }
 }
