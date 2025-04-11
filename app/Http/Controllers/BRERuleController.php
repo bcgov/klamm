@@ -12,6 +12,43 @@ class BRERuleController extends Controller
     public function index(Request $request)
     {
         $query = BRERule::query();
+        $query->with([
+            'breInputs.breDataType.breValueType',
+            'breInputs.breDataValidation.breValidationType',
+            'breInputs.breFieldGroups',
+            'breInputs.childFields',
+            'breInputs.icmcdwFields',
+            'breInputs.siebelBusinessObjects',
+            'breInputs.siebelBusinessComponents',
+            'breInputs.siebelApplets',
+            'breInputs.siebelTables',
+            'breInputs.siebelFields',
+
+            'breOutputs.breDataType.breValueType',
+            'breOutputs.breDataValidation.breValidationType',
+            'breOutputs.breFieldGroups',
+            'breOutputs.childFields',
+            'breOutputs.icmcdwFields',
+            'breOutputs.siebelBusinessObjects',
+            'breOutputs.siebelBusinessComponents',
+            'breOutputs.siebelApplets',
+            'breOutputs.siebelTables',
+            'breOutputs.siebelFields',
+
+            'parentRules.breInputs.breDataType.breValueType',
+            'parentRules.breInputs.breDataValidation.breValidationType',
+            'parentRules.breOutputs.breDataType.breValueType',
+            'parentRules.breOutputs.breDataValidation.breValidationType',
+
+            'childRules.breInputs.breDataType.breValueType',
+            'childRules.breInputs.breDataValidation.breValidationType',
+            'childRules.breOutputs.breDataType.breValueType',
+            'childRules.breOutputs.breDataValidation.breValidationType',
+
+            'icmcdwFields',
+            'siebelBusinessObjects',
+            'siebelBusinessComponents',
+        ]);
 
         if ($request->has('name')) {
             $query->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->name) . '%']);
@@ -169,7 +206,50 @@ class BRERuleController extends Controller
 
     public function show($id)
     {
-        $breRule = BRERule::findOrFail($id);
+        $query = BRERule::with([
+            'breInputs.breDataType.breValueType',
+            'breInputs.breDataValidation.breValidationType',
+            'breInputs.breFieldGroups',
+            'breInputs.childFields',
+            'breInputs.icmcdwFields',
+            'breInputs.siebelBusinessObjects',
+            'breInputs.siebelBusinessComponents',
+            'breInputs.siebelApplets',
+            'breInputs.siebelTables',
+            'breInputs.siebelFields',
+
+            'breOutputs.breDataType.breValueType',
+            'breOutputs.breDataValidation.breValidationType',
+            'breOutputs.breFieldGroups',
+            'breOutputs.childFields',
+            'breOutputs.icmcdwFields',
+            'breOutputs.siebelBusinessObjects',
+            'breOutputs.siebelBusinessComponents',
+            'breOutputs.siebelApplets',
+            'breOutputs.siebelTables',
+            'breOutputs.siebelFields',
+
+            'parentRules.breInputs.breDataType.breValueType',
+            'parentRules.breInputs.breDataValidation.breValidationType',
+            'parentRules.breOutputs.breDataType.breValueType',
+            'parentRules.breOutputs.breDataValidation.breValidationType',
+
+            'childRules.breInputs.breDataType.breValueType',
+            'childRules.breInputs.breDataValidation.breValidationType',
+            'childRules.breOutputs.breDataType.breValueType',
+            'childRules.breOutputs.breDataValidation.breValidationType',
+
+            'icmcdwFields',
+            'siebelBusinessObjects',
+            'siebelBusinessComponents',
+        ]);
+
+        if (is_numeric($id)) {
+            $breRule = $query->findOrFail($id);
+        } else {
+            $breRule = $query->where('name', $id)->firstOrFail();
+        }
+
         return new BRERuleResource($breRule);
     }
 

@@ -2,57 +2,38 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BoundarySystem extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'interface_name',
-        'interface_description',
-        'source_system',
-        'target_system',
-        'mode_of_transfer',
-        'file_format',
-        'boundary_system_frequency_id',
-        'date_time',
-        'source_point_of_contact',
-        'target_point_of_contact',
+        'name',
+        'description',
+        'contact_id',
+        'is_external',
     ];
 
-    public function boundarySystemFrequency(): BelongsTo
+    protected $casts = [
+        'is_external' => 'boolean',
+    ];
+
+    public function contact(): BelongsTo
     {
-        return $this->belongsTo(BoundarySystemFrequency::class);
+        return $this->belongsTo(BoundarySystemContact::class, 'contact_id');
     }
 
-    public function boundarySystemFileFormat(): BelongsTo
+    public function sourceInterfaces(): HasMany
     {
-        return $this->belongsTo(BoundarySystemFileFormat::class);
+        return $this->hasMany(BoundarySystemInterface::class, 'source_system_id');
     }
 
-    public function boundarySystemModeOfTransfer(): BelongsTo
+    public function targetInterfaces(): HasMany
     {
-        return $this->belongsTo(BoundarySystemModeOfTransfer::class);
-    }
-
-    public function boundarySystemSystem(): BelongsTo
-    {
-        return $this->belongsTo(BoundarySystemSystem::class);
-    }
-
-    public function sourceSystem()
-    {
-        return $this->belongsTo(BoundarySystemSystem::class, 'boundary_system_source_system_id');
-    }
-
-    public function targetSystem()
-    {
-        return $this->belongsTo(BoundarySystemSystem::class, 'boundary_system_target_system_id');
-    }
-
-    public function boundarySystemProcess(): BelongsToMany
-    {
-        return $this->belongsToMany(BoundarySystemProcess::class);
+        return $this->hasMany(BoundarySystemInterface::class, 'target_system_id');
     }
 }

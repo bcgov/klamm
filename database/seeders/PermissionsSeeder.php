@@ -148,6 +148,26 @@ class PermissionsSeeder extends Seeder
             'create PopularPageSystemMessage',
             'update PopularPageSystemMessage',
             'delete PopularPageSystemMessage',
+            'view-any BoundarySystemTag',
+            'view BoundarySystemTag',
+            'create BoundarySystemTag',
+            'update BoundarySystemTag',
+            'delete BoundarySystemTag',
+            'view-any BoundarySystemInterface',
+            'view BoundarySystemInterface',
+            'create BoundarySystemInterface',
+            'update BoundarySystemInterface',
+            'delete BoundarySystemInterface',
+            'view-any BoundarySystemContact',
+            'view BoundarySystemContact',
+            'create BoundarySystemContact',
+            'update BoundarySystemContact',
+            'delete BoundarySystemContact',
+            'view-any BoundarySystem',
+            'view BoundarySystem',
+            'create BoundarySystem',
+            'update BoundarySystem',
+            'delete BoundarySystem',
         ])->where('guard_name', 'web')->get());
 
         // Assign fodig-read-only with read only access to fodig resources
@@ -203,6 +223,14 @@ class PermissionsSeeder extends Seeder
             'view SystemMessage',
             'view-any PopularPageSystemMessage',
             'view PopularPageSystemMessage',
+            'view-any BoundarySystemTag',
+            'view BoundarySystemTag',
+            'view-any BoundarySystemInterface',
+            'view BoundarySystemInterface',
+            'view-any BoundarySystemContact',
+            'view BoundarySystemContact',
+            'view-any BoundarySystem',
+            'view BoundarySystem',
         ])->where('guard_name', 'web')->get());
 
         // Assign forms with full access to forms resources

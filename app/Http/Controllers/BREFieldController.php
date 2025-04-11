@@ -12,6 +12,22 @@ class BREFieldController extends Controller
     public function index(Request $request)
     {
         $query = BREField::query();
+        $query->with([
+            'breDataType',
+            'breDataType.breValueType',
+            'breDataValidation',
+            'breDataValidation.breValidationType',
+            'breFieldGroups',
+            'breInputs',
+            'breOutputs',
+            'icmcdwFields',
+            'childFields',
+            'siebelBusinessObjects',
+            'siebelBusinessComponents',
+            'siebelApplets',
+            'siebelTables',
+            'siebelFields'
+        ]);
 
         if ($request->has('name')) {
             $query->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->name) . '%']);
@@ -166,7 +182,29 @@ class BREFieldController extends Controller
 
     public function show($id)
     {
-        $breField = BREField::findOrFail($id);
+        $query = BREField::with([
+            'breDataType',
+            'breDataType.breValueType',
+            'breDataValidation',
+            'breDataValidation.breValidationType',
+            'breFieldGroups',
+            'breInputs',
+            'breOutputs',
+            'icmcdwFields',
+            'childFields',
+            'siebelBusinessObjects',
+            'siebelBusinessComponents',
+            'siebelApplets',
+            'siebelTables',
+            'siebelFields'
+        ]);
+
+        if (is_numeric($id)) {
+            $breField = $query->findOrFail($id);
+        } else {
+            $breField = $query->where('name', $id)->firstOrFail();
+        }
+
         return new BREFieldResource($breField);
     }
 
