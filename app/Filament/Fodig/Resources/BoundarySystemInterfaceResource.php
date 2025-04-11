@@ -9,8 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Forms\Get;
-
+use Filament\Tables\Columns\TextColumn;
 
 class BoundarySystemInterfaceResource extends Resource
 {
@@ -31,7 +30,8 @@ class BoundarySystemInterfaceResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255)
-                    ->label('Interface Name'),
+                    ->label('Interface Name')
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('short_description')
                     ->label('Short Description')
                     ->required()
@@ -40,26 +40,31 @@ class BoundarySystemInterfaceResource extends Resource
                 Forms\Components\Select::make('source_system_id')
                     ->label('Source System')
                     ->relationship('sourceSystem', 'name')
-                    ->required(),
+                    ->required()
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('target_system_id')
                     ->label('Target System')
                     ->relationship('targetSystem', 'name')
                     ->different('source_system_id')
-                    ->required(),
+                    ->required()
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('transaction_frequency')
                     ->label('Transaction Frequency')
                     ->options(BoundarySystemInterface::getTransactionFrequencyOptions())
                     ->nullable()
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->columnSpanFull(),
                 Forms\Components\TextInput::make('transaction_schedule')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->columnSpanFull(),
                 Forms\Components\Select::make('tags')
                     ->label('Tags')
                     ->relationship('tags', 'name')
                     ->multiple()
                     ->preload()
                     ->searchable()
+                    ->columnSpanFull()
                     ->createOptionForm([
                         Forms\Components\TextInput::make('name')->required()->label('Tag Name'),
                     ]),
@@ -123,7 +128,15 @@ class BoundarySystemInterfaceResource extends Resource
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('short_description')
-                    ->searchable(),
+                    ->limit(50)
+                    ->searchable()
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= $column->getCharacterLimit()) {
+                            return null;
+                        }
+                        return $state;
+                    })
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('transaction_frequency')

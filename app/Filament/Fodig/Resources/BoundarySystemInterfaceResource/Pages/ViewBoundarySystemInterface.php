@@ -48,7 +48,6 @@ class ViewBoundarySystemInterface extends ViewRecord
                             ->label('Tags')
                             ->bulleted()
                             ->listWithLineBreaks()
-                            ->limit(10)
                             ->getStateUsing(fn($record) => $record->tags->pluck('name')->toArray()),
                     ])
                     ->columns(2)

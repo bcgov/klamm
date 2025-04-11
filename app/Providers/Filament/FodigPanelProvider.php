@@ -31,6 +31,7 @@ class FodigPanelProvider extends PanelProvider
             ->brandLogo(asset('svg/klamm-logo.svg'))
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
+            ->sidebarWidth('15rem')
             ->login()
             ->passwordReset()
             ->colors([
@@ -40,7 +41,12 @@ class FodigPanelProvider extends PanelProvider
                 MenuItem::make()
                     ->label('Edit Profile')
                     ->url('/profile')
-                    ->icon('heroicon-o-pencil-square')
+                    ->icon('heroicon-o-pencil-square'),
+                MenuItem::make()
+                    ->label('Admin Settings')
+                    ->url('/admin')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->visible(fn() => CheckRole::class . ':admin'),
             ])
             ->navigationGroups([
                 NavigationGroup::make()
@@ -53,7 +59,7 @@ class FodigPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Fodig/Resources'), for: 'App\\Filament\\Fodig\\Resources')
             ->discoverPages(in: app_path('Filament/Fodig/Pages'), for: 'App\\Filament\\Fodig\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                //
             ])
             ->discoverWidgets(in: app_path('Filament/Fodig/Widgets'), for: 'App\\Filament\\Fodig\\Widgets')
             ->widgets([
