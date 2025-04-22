@@ -1,27 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: klamm-app
+  name: klamm-queue-worker
   labels:
-    app.kubernetes.io/name: klamm-app
+    app.kubernetes.io/name: klamm-queue-worker
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.queueWorker.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: klamm-app
+      app.kubernetes.io/name: klamm-queue-worker
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: klamm-app
+        app.kubernetes.io/name: klamm-queue-worker
     spec:
       containers:
-        - name: klamm-app
+        - name: queue-worker
           image: "{{ .Values.image.tag }}"
-          ports:
-            - containerPort: 8080
-          volumeMounts:
-            - name: storage-volume
-              mountPath: /var/www/storage
+          command: ["php", "/var/www/artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=3600"]
           envFrom:
             - secretRef:
                 name: app-secrets
@@ -66,13 +62,16 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: MAIL_PORT
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /var/www/storage
           resources:
             limits:
-              cpu: {{ .Values.resources.limits.cpu }}
-              memory: {{ .Values.resources.limits.memory }}
+              cpu: {{ .Values.queueWorker.resources.limits.cpu }}
+              memory: {{ .Values.queueWorker.resources.limits.memory }}
             requests:
-              cpu: {{ .Values.resources.requests.cpu }}
-              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.queueWorker.resources.requests.cpu }}
+              memory: {{ .Values.queueWorker.resources.requests.memory }}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           imagePullPolicy: {{ .Values.image.pullPolicy }}

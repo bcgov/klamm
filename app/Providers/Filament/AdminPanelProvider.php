@@ -5,7 +5,6 @@ namespace App\Providers\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -33,14 +32,20 @@ class AdminPanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->passwordReset()
             ->colors([
                 'primary' => Color::Blue,
             ])
             ->userMenuItems([
                 MenuItem::make()
-                   ->label('Edit Profile')
-                   ->url('/profile')
-                   ->icon('heroicon-o-pencil-square')
+                    ->label('Edit Profile')
+                    ->url('/profile')
+                    ->icon('heroicon-o-pencil-square'),
+                MenuItem::make()
+                    ->label('Admin Settings')
+                    ->url('/admin')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->visible(fn() => CheckRole::class . ':admin'),
             ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')

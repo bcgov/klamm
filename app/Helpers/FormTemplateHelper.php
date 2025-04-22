@@ -42,6 +42,7 @@ class FormTemplateHelper
         $fieldGroups = $formVersion->fieldGroupInstances()
             ->whereNull('container_id')
             ->orderBy('order')
+            ->with(['styleInstances.style'])
             ->get();
 
         foreach ($fieldGroups as $group) {
