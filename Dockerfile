@@ -20,6 +20,9 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
 
+# Overwrite default 128mb memory limit to 1gb
+RUN echo "memory_limit = 1024M" > /usr/local/etc/php/conf.d/memory-limit.ini
+
 # Set working directory
 WORKDIR /var/www
 
