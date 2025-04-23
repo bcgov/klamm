@@ -215,7 +215,7 @@ class FormTemplateHelper
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "listItems" => $field->selectOptionInstances()
+                    "listItems" => $fieldInstance->selectOptionInstances()
                         ->get()
                         ->map(function ($selectOptionInstance) {
                             return [
