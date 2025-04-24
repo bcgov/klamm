@@ -30,7 +30,7 @@ class FieldGroupBlock
                 }
                 $group = FieldGroup::find($state['field_group_id']);
                 if ($group) {
-                    $label = ($state['group_label'] ?? $group->label ?? '(no label)')
+                    $label = ($state['custom_group_label'] ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
                     return $label;
