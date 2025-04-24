@@ -32,6 +32,7 @@ class BrePanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->passwordReset()
             ->databaseNotifications()
             ->databaseNotificationsPolling('10s')
             ->colors([
@@ -41,7 +42,12 @@ class BrePanelProvider extends PanelProvider
                 MenuItem::make()
                     ->label('Edit Profile')
                     ->url('/profile')
-                    ->icon('heroicon-o-pencil-square')
+                    ->icon('heroicon-o-pencil-square'),
+                MenuItem::make()
+                    ->label('Admin Settings')
+                    ->url('/admin')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->visible(fn() => CheckRole::class . ':admin'),
             ])
             ->discoverResources(in: app_path('Filament/Bre/Resources'), for: 'App\\Filament\\Bre\\Resources')
             ->discoverPages(in: app_path('Filament/Bre/Pages'), for: 'App\\Filament\\Bre\\Pages')
