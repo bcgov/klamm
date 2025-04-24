@@ -119,7 +119,7 @@ class FieldGroupBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
@@ -147,6 +147,7 @@ class FieldGroupBlock
                                             }),
                                         TextInput::make('custom_group_label')
                                             ->label(false)
+                                            ->lazy()
                                             ->visible(fn($get) => $get('customize_group_label') == 'customize'),
                                     ]),
                                 Toggle::make('repeater')
