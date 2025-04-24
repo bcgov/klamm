@@ -30,7 +30,7 @@ class FieldGroupBlock
                 }
                 $group = FieldGroup::find($state['field_group_id']);
                 if ($group) {
-                    $label = ($state['group_label'] ?? $group->label ?? '(no label)')
+                    $label = ($state['custom_group_label'] ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
                     return $label;
@@ -119,7 +119,7 @@ class FieldGroupBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
@@ -147,6 +147,7 @@ class FieldGroupBlock
                                             }),
                                         TextInput::make('custom_group_label')
                                             ->label(false)
+                                            ->lazy()
                                             ->visible(fn($get) => $get('customize_group_label') == 'customize'),
                                     ]),
                                 Toggle::make('repeater')
