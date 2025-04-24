@@ -325,7 +325,7 @@ class FormFieldBlock
                             ->options($validationOptions)
                             ->reactive()
                             ->required(),
-                        TextInput::make('value')
+                        Textarea::make('value')
                             ->label('Value'),
                         TextInput::make('error_message')
                             ->label('Error Message'),
@@ -343,7 +343,7 @@ class FormFieldBlock
                             ->options($conditionalOptions)
                             ->reactive()
                             ->required(),
-                        TextInput::make('value')
+                        Textarea::make('value')
                             ->label('Value'),
                     ]),
             ]);
