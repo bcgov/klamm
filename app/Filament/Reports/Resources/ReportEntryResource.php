@@ -31,64 +31,6 @@ class ReportEntryResource extends Resource
 
     protected static ?string $navigationIcon = 'icon-report-dictionary';
 
-    public static function infolist(Infolist $infolist): Infolist
-    {
-        return $infolist
-            ->schema([
-                Infolists\Components\Section::make()
-                    ->schema([
-                        Infolists\Components\TextEntry::make('reportBusinessArea.name')
-                            ->label('Business Area'),
-
-                        Infolists\Components\TextEntry::make('report.name')
-                            ->label('Report Name'),
-
-                        Infolists\Components\TextEntry::make('report.description')
-                            ->label('Report Description'),
-
-                        Infolists\Components\TextEntry::make('existing_label')
-                            ->label('Existing Label'),
-
-                        Infolists\Components\TextEntry::make('reportDictionaryLabel.name')
-                            ->label('Dictionary Label'),
-
-                        Infolists\Components\TextEntry::make('labelSource.name')
-                            ->label('Label Source'),
-
-                        Infolists\Components\TextEntry::make('data_field')
-                            ->label('Source Data Field'),
-
-                        Infolists\Components\TextEntry::make('icm_data_field_path')
-                            ->label('ICM Data Field Path')
-                            ->visible(fn($record) => $record->labelSource && $record->labelSource->name === 'ICM'),
-
-                        Infolists\Components\TextEntry::make('follow_up_required')
-                            ->formatStateUsing(fn(string $state) => match ($state) {
-                                'pending_mis' => 'Pending MIS',
-                                'mis/fasb' => 'MIS/FASB',
-                                'no' => 'No',
-                                default => strtoupper($state),
-                            })
-                            ->label('Follow Up Required'),
-
-                        Infolists\Components\TextEntry::make('data_matching_rate')
-                            ->label('Data Match Effort')
-                            ->formatStateUsing(fn(string $state) => $state === 'n/a' ? 'N/A' : Str::title($state))
-                            ->badge()
-                            ->color(fn(string $state): string => match ($state) {
-                                'low' => 'success',
-                                'medium' => 'warning',
-                                'high' => 'danger',
-                                default => 'gray',
-                            }),
-
-                        Infolists\Components\TextEntry::make('lastUpdatedBy.name')
-                            ->label('Last Updated By'),
-                    ])
-                    ->columns(1)
-            ]);
-    }
-
     public static function form(Form $form): Form
     {
         return $form

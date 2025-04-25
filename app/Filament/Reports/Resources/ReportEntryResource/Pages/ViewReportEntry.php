@@ -15,6 +15,8 @@ class ViewReportEntry extends ViewRecord
 
     protected static string $resource = ReportEntryResource::class;
 
+    protected static string $view = 'filament.reports.resources.report-entry-resource.pages.view-report-entry';
+
     protected function getHeaderActions(): array
     {
         return [
