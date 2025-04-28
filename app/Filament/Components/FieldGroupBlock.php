@@ -16,6 +16,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 
@@ -200,7 +201,7 @@ class FieldGroupBlock
                                             ->options(FormDataSource::pluck('name', 'name'))
                                             ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
-                                TextInput::make('visibility')
+                                Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
                             ]),
