@@ -27,6 +27,12 @@ jobs:
             memory_limit=-1
           coverage: none
 
+      # Fix missing from ondrej/php
+      - name: Remove PHP PPAs if they exist
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/ondrej-*.list
+          sudo rm -f /etc/apt/sources.list.d/ondrej-*.list.save
+
       - name: Install system dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y \
