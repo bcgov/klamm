@@ -13,6 +13,8 @@ class ListReportEntries extends ListRecords
 
     protected static ?string $title = 'Report Label Dictionary';
 
+    protected static string $view = 'filament.reports.resources.report-entry-resource.pages.list-report-entries';
+
     protected function getHeaderActions(): array
     {
         return [
