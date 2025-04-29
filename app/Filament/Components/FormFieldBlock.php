@@ -57,7 +57,8 @@ class FormFieldBlock
                 if ($field) {
                     $label = '';
                     if ($state['customize_label'] !== 'hide') {
-                        $label .= ($state['custom_label'] ?? $field->label ?? 'null') . ' | ';
+                        $customLabel = strlen($state['custom_label']) > 50 ? substr($state['custom_label'], 0, 50) . ' ...' : $state['custom_label'];
+                        $label .= ($customLabel ?? $field->label ?? 'null') . ' | ';
                     } else {
                         $label .= '(label hidden) | ';
                     }
@@ -133,7 +134,7 @@ class FormFieldBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->alphaNum()
                                             ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
@@ -163,7 +164,7 @@ class FormFieldBlock
                                             }),
                                         TextInput::make('custom_label')
                                             ->label(false)
-                                            ->reactive()
+                                            ->lazy()
                                             ->visible(fn($get) => $get('customize_label') == 'customize'),
                                     ]),
                                 Fieldset::make('Field Value')
@@ -328,7 +329,7 @@ class FormFieldBlock
                             ->options($validationOptions)
                             ->reactive()
                             ->required(),
-                        TextInput::make('value')
+                        Textarea::make('value')
                             ->label('Value'),
                         TextInput::make('error_message')
                             ->label('Error Message'),
@@ -346,7 +347,7 @@ class FormFieldBlock
                             ->options($conditionalOptions)
                             ->reactive()
                             ->required(),
-                        TextInput::make('value')
+                        Textarea::make('value')
                             ->label('Value'),
                     ]),
             ]);

@@ -17,6 +17,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 
@@ -31,7 +32,8 @@ class FieldGroupBlock
                 }
                 $group = FieldGroup::find($state['field_group_id']);
                 if ($group) {
-                    $label = ($state['group_label'] ?? $group->label ?? '(no label)')
+                    $customLabel = strlen($state['custom_group_label']) > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
+                    $label = ($customLabel ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
                     return $label;
@@ -120,7 +122,7 @@ class FieldGroupBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->alphaNum()
                                             ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
@@ -150,6 +152,7 @@ class FieldGroupBlock
                                             }),
                                         TextInput::make('custom_group_label')
                                             ->label(false)
+                                            ->lazy()
                                             ->visible(fn($get) => $get('customize_group_label') == 'customize'),
                                     ]),
                                 Toggle::make('repeater')
@@ -202,7 +205,7 @@ class FieldGroupBlock
                                             ->options(FormDataSource::pluck('name', 'name'))
                                             ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
-                                TextInput::make('visibility')
+                                Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
                             ]),
