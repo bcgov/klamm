@@ -16,6 +16,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 
@@ -30,7 +31,8 @@ class FieldGroupBlock
                 }
                 $group = FieldGroup::find($state['field_group_id']);
                 if ($group) {
-                    $label = ($state['group_label'] ?? $group->label ?? '(no label)')
+                    $customLabel = strlen($state['custom_group_label']) > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
+                    $label = ($customLabel ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
                     return $label;
@@ -119,7 +121,7 @@ class FieldGroupBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
@@ -147,6 +149,7 @@ class FieldGroupBlock
                                             }),
                                         TextInput::make('custom_group_label')
                                             ->label(false)
+                                            ->lazy()
                                             ->visible(fn($get) => $get('customize_group_label') == 'customize'),
                                     ]),
                                 Toggle::make('repeater')
@@ -168,22 +171,7 @@ class FieldGroupBlock
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_repeater_item_label')),
                                     ]),
-                                Fieldset::make('Data Binding')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Binding')
-                                            ->inline()
-                                            ->live(),
-                                        TextInput::make('custom_data_binding')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding')),
-                                    ]),
-                                Fieldset::make('Data Source')
+                                Fieldset::make('Data Binding Path')
                                     ->columns(1)
                                     ->columnSpan(1)
                                     ->schema([
@@ -191,15 +179,30 @@ class FieldGroupBlock
                                             ->label("Default")
                                             ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
+                                            ->label('Customize Data Binding Path')
+                                            ->inline()
+                                            ->live(),
+                                        TextInput::make('custom_data_binding_path')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                    ]),
+                                Fieldset::make('Data Source')
+                                    ->columns(1)
+                                    ->columnSpan(1)
+                                    ->schema([
+                                        Placeholder::make('data_binding')
+                                            ->label("Default")
+                                            ->content(fn($get) => FieldGroup::find($get('field_group_id'))->data_binding ?? 'null'),
+                                        Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
                                             ->live(),
-                                        Select::make('custom_data_binding_path')
+                                        Select::make('custom_data_binding')
                                             ->label(false)
                                             ->options(FormDataSource::pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
-                                TextInput::make('visibility')
+                                Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
                             ]),

@@ -56,7 +56,8 @@ class FormFieldBlock
                 if ($field) {
                     $label = '';
                     if ($state['customize_label'] !== 'hide') {
-                        $label .= ($state['custom_label'] ?? $field->label ?? 'null') . ' | ';
+                        $customLabel = strlen($state['custom_label']) > 50 ? substr($state['custom_label'], 0, 50) . ' ...' : $state['custom_label'];
+                        $label .= ($customLabel ?? $field->label ?? 'null') . ' | ';
                     } else {
                         $label .= '(label hidden) | ';
                     }
@@ -132,7 +133,7 @@ class FormFieldBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
@@ -160,7 +161,7 @@ class FormFieldBlock
                                             }),
                                         TextInput::make('custom_label')
                                             ->label(false)
-                                            ->reactive()
+                                            ->lazy()
                                             ->visible(fn($get) => $get('customize_label') == 'customize'),
                                     ]),
                                 Fieldset::make('Field Value')
@@ -200,22 +201,7 @@ class FormFieldBlock
                                                 'redo',
                                             ]),
                                     ]),
-                                Fieldset::make('Data Binding')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Binding')
-                                            ->inline()
-                                            ->live(),
-                                        Textarea::make('custom_data_binding')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding')),
-                                    ]),
-                                Fieldset::make('Data Source')
+                                Fieldset::make('Data Binding Path')
                                     ->columns(1)
                                     ->columnSpan(1)
                                     ->schema([
@@ -223,13 +209,28 @@ class FormFieldBlock
                                             ->label("Default")
                                             ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
+                                            ->label('Customize Data Binding Path')
+                                            ->inline()
+                                            ->live(),
+                                        Textarea::make('custom_data_binding_path')
+                                            ->label(false)
+                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                    ]),
+                                Fieldset::make('Data Source')
+                                    ->columns(1)
+                                    ->columnSpan(1)
+                                    ->schema([
+                                        Placeholder::make('data_binding')
+                                            ->label("Default")
+                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
+                                        Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
                                             ->live(),
-                                        Select::make('custom_data_binding_path')
+                                        Select::make('custom_data_binding')
                                             ->label(false)
                                             ->options(FormDataSource::pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
                                 Fieldset::make('Mask')
                                     ->columns(1)
@@ -325,7 +326,7 @@ class FormFieldBlock
                             ->options($validationOptions)
                             ->reactive()
                             ->required(),
-                        TextInput::make('value')
+                        Textarea::make('value')
                             ->label('Value'),
                         TextInput::make('error_message')
                             ->label('Error Message'),
@@ -343,7 +344,7 @@ class FormFieldBlock
                             ->options($conditionalOptions)
                             ->reactive()
                             ->required(),
-                        TextInput::make('value')
+                        Textarea::make('value')
                             ->label('Value'),
                     ]),
             ]);

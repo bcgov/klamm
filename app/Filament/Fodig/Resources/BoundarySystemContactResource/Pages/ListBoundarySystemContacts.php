@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\BoundarySystemResource\Pages;
+namespace App\Filament\Fodig\Resources\BoundarySystemContactResource\Pages;
 
-use App\Filament\Fodig\Resources\BoundarySystemResource;
+use App\Filament\Fodig\Resources\BoundarySystemContactResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
-class ListBoundarySystems extends ListRecords
+class ListBoundarySystemContacts extends ListRecords
 {
-    protected static string $resource = BoundarySystemResource::class;
+    protected static string $resource = BoundarySystemContactResource::class;
 
     protected function getHeaderActions(): array
     {

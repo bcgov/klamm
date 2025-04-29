@@ -13,6 +13,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 
@@ -52,7 +53,7 @@ class ContainerBlock
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
-                                            ->reactive()
+                                            ->lazy()
                                             ->distinct()
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
@@ -72,7 +73,7 @@ class ContainerBlock
                                     ->columnSpan(1)
                                     ->live()
                                     ->reactive(),
-                                TextInput::make('visibility')
+                                Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
                             ]),
