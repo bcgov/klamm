@@ -25,4 +25,9 @@ class BusinessArea extends Model
     {
         return $this->belongsToMany(Form::class, 'form_business_area');
     }
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class);
+    }
 }
