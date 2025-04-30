@@ -61,13 +61,4 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->belongsToMany(BusinessArea::class);
     }
-
-    protected static function booted()
-    {
-        static::created(function (User $user) {
-            if (!app()->runningInConsole()) {
-                $user->notify(new \App\Notifications\AccountCreatedNotification());
-            }
-        });
-    }
 }

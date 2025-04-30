@@ -61,21 +61,20 @@ class BusinessAreaResource extends Resource
                                     Forms\Components\TextInput::make('email')
                                         ->email()
                                         ->required(),
-                                    Forms\Components\TextInput::make('password')
-                                        ->password()
-                                        ->required()
-                                        ->confirmed(),
-                                    Forms\Components\TextInput::make('password_confirmation')
-                                        ->password()
-                                        ->required(),
                                 ]
                             )->createOptionUsing(function (array $data) {
+                                $password = \Illuminate\Support\Str::password(20);
+
                                 $user = User::create([
                                     'name' => $data['name'],
                                     'email' => $data['email'],
-                                    'password' => bcrypt($data['password']),
+                                    'password' => bcrypt($password),
+                                    'created_via_business_area' => true,
                                 ]);
+                                $user->assignRole('forms-view-only');
+
                                 $user->notify(new \App\Notifications\FormAccountCreatedNotification());
+
                                 return $user->id;
                             }),
                     ]),
