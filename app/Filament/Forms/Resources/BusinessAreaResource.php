@@ -54,20 +54,30 @@ class BusinessAreaResource extends Resource
                                 fn(Forms\Components\Actions\Action $action) => $action
                                     ->visible(fn() => Gate::allows('admin'))
                             )
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->required(),
-                                Forms\Components\TextInput::make('email')
-                                    ->email()
-                                    ->required(),
-                                Forms\Components\TextInput::make('password')
-                                    ->password()
-                                    ->required()
-                                    ->confirmed(),
-                                Forms\Components\TextInput::make('password_confirmation')
-                                    ->password()
-                                    ->required(),
-                            ]),
+                            ->createOptionForm(
+                                [
+                                    Forms\Components\TextInput::make('name')
+                                        ->required(),
+                                    Forms\Components\TextInput::make('email')
+                                        ->email()
+                                        ->required(),
+                                    Forms\Components\TextInput::make('password')
+                                        ->password()
+                                        ->required()
+                                        ->confirmed(),
+                                    Forms\Components\TextInput::make('password_confirmation')
+                                        ->password()
+                                        ->required(),
+                                ]
+                            )->createOptionUsing(function (array $data) {
+                                $user = User::create([
+                                    'name' => $data['name'],
+                                    'email' => $data['email'],
+                                    'password' => bcrypt($data['password']),
+                                ]);
+                                $user->notify(new \App\Notifications\FormAccountCreatedNotification());
+                                return $user->id;
+                            }),
                     ]),
             ]);
     }
