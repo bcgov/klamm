@@ -3,15 +3,14 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\BusinessAreaResource\Pages;
-use App\Filament\Forms\Resources\BusinessAreaResource\RelationManagers;
 use App\Models\BusinessArea;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Gate;
 
 class BusinessAreaResource extends Resource
 {
@@ -28,21 +27,64 @@ class BusinessAreaResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-                Forms\Components\TextInput::make('short_name'),
-                Forms\Components\Textarea::make('description')
-                    ->columnSpanFull(),
-                Forms\Components\Select::make('ministry_id')
-                    ->multiple()
-                    ->preload()
-                    ->relationship('ministries', 'name'),
+                Forms\Components\Section::make('Basic Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('name')
+                            ->required(),
+                        Forms\Components\TextInput::make('short_name'),
+                        Forms\Components\Textarea::make('description')
+                            ->columnSpanFull(),
+                    ]),
+
+                Forms\Components\Section::make('Relationships')
+                    ->schema([
+                        Forms\Components\Select::make('ministries')
+                            ->multiple()
+                            ->preload()
+                            ->relationship('ministries', 'name'),
+
+                        Forms\Components\Select::make('users')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->relationship('users', 'name')
+                            ->label('Contacts')
+                            ->getOptionLabelFromRecordUsing(fn(User $user) => "{$user->name} ({$user->email})")
+                            ->createOptionAction(
+                                fn(Forms\Components\Actions\Action $action) => $action
+                                    ->visible(fn() => Gate::allows('admin'))
+                            )
+                            ->createOptionForm(
+                                [
+                                    Forms\Components\TextInput::make('name')
+                                        ->required(),
+                                    Forms\Components\TextInput::make('email')
+                                        ->email()
+                                        ->required(),
+                                ]
+                            )->createOptionUsing(function (array $data) {
+                                $password = \Illuminate\Support\Str::password(20);
+
+                                $user = User::create([
+                                    'name' => $data['name'],
+                                    'email' => $data['email'],
+                                    'password' => bcrypt($password),
+                                    'created_via_business_area' => true,
+                                ]);
+                                $user->assignRole('forms-view-only');
+
+                                $user->notify(new \App\Notifications\FormAccountCreatedNotification());
+
+                                return $user->id;
+                            }),
+                    ]),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->query(BusinessArea::query()->with('users'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
@@ -50,6 +92,15 @@ class BusinessAreaResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('ministries.name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('users')
+                    ->label('Contacts')
+                    ->listWithLineBreaks()
+                    ->limitList(2)
+                    ->expandableLimitedList()
+                    ->formatStateUsing(function ($state) {
+                        $state = $state->name . ' (' . $state->email . ')';
+                        return $state;
+                    })
             ])
             ->filters([
                 //
@@ -61,7 +112,10 @@ class BusinessAreaResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
