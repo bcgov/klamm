@@ -33,7 +33,7 @@ class YourFormsWidget extends TableWidget
                 Tables\Columns\TextColumn::make('form_id')
                     ->searchable()
                     ->sortable()
-                    ->limit(25)
+                    ->limit(30)
                     ->tooltip(function (TextColumn $column): ?string {
                         $state = $column->getState();
                         if (strlen($state) <= $column->getCharacterLimit()) {
@@ -45,7 +45,7 @@ class YourFormsWidget extends TableWidget
                 Tables\Columns\TextColumn::make('form_title')
                     ->searchable()
                     ->sortable()
-                    ->limit(25)
+                    ->limit(30)
                     ->tooltip(function (TextColumn $column): ?string {
                         $state = $column->getState();
                         if (strlen($state) <= $column->getCharacterLimit()) {
@@ -61,7 +61,7 @@ class YourFormsWidget extends TableWidget
                     ->boolean()
                     ->getStateUsing(fn(Form $record): bool => (bool) !$record->decommissioned),
             ])
-            ->paginated([10, 25, 50, 100]);
+            ->paginated(10);
     }
 
     public static function canView(): bool
