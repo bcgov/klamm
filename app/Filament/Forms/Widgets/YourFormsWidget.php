@@ -7,6 +7,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Support\Facades\Auth;
+use Filament\Tables\Columns\TextColumn;
 
 class YourFormsWidget extends TableWidget
 {
@@ -32,10 +33,26 @@ class YourFormsWidget extends TableWidget
                 Tables\Columns\TextColumn::make('form_id')
                     ->searchable()
                     ->sortable()
+                    ->limit(25)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= $column->getCharacterLimit()) {
+                            return null;
+                        }
+                        return $state;
+                    })
                     ->url(fn(Form $record): string => route('filament.forms.resources.forms.view', ['record' => $record])),
                 Tables\Columns\TextColumn::make('form_title')
                     ->searchable()
                     ->sortable()
+                    ->limit(25)
+                    ->tooltip(function (TextColumn $column): ?string {
+                        $state = $column->getState();
+                        if (strlen($state) <= $column->getCharacterLimit()) {
+                            return null;
+                        }
+                        return $state;
+                    })
                     ->url(fn(Form $record): string => route('filament.forms.resources.forms.view', ['record' => $record])),
                 Tables\Columns\TextColumn::make('ministry.short_name'),
                 Tables\Columns\TagsColumn::make('businessAreas.name'),
