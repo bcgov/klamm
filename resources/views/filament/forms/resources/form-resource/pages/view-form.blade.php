@@ -1,24 +1,24 @@
 <x-filament-panels::page>
-    <div class="p-6 bg-white rounded-lg shadow">
+    <div class="p-6 bg-white rounded-lg shadow dark:bg-gray-800">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-6">
                 <div>
                     <span class="block text-lg font-bold mb-2">Form ID</span>
-                    <span class="text-gray-800 block">
+                    <span class="text-gray-800 dark:text-gray-200 block">
                         {{ $record->form_id }}
                     </span>
                 </div>
 
                 <div>
                     <span class="block text-lg font-bold mb-2">Form Title</span>
-                    <span class="text-gray-800 block">
+                    <span class="text-gray-800 dark:text-gray-200 block">
                         {{ $record->form_title }}
                     </span>
                 </div>
 
                 <div>
                     <span class="block text-lg font-bold mb-2">Ministry</span>
-                    <span class="text-gray-800 block">
+                    <span class="text-gray-800 dark:text-gray-200 block">
                         {{ $record->ministry->name ?? 'N/A' }}
                     </span>
                 </div>
@@ -31,14 +31,14 @@
                             {{ $businessArea->name }}
                         </x-filament::badge>
                         @empty
-                        <span class="text-gray-500">N/A</span>
+                        <span class="text-gray-500 dark:text-gray-400">N/A</span>
                         @endforelse
                     </div>
                 </div>
 
                 <div>
                     <span class="block text-lg font-bold mb-2">Program</span>
-                    <span class="text-gray-800 block">
+                    <span class="text-gray-800 dark:text-gray-200 block">
                         {{ $record->program ?? 'N/A' }}
                     </span>
                 </div>
@@ -47,7 +47,7 @@
             <div class="space-y-6">
                 <div>
                     <span class="block text-lg font-bold mb-2">Status</span>
-                    <span class="text-gray-800 mt-1 inline-block">
+                    <span class="text-gray-800 dark:text-gray-200 mt-1 inline-block">
                         <x-filament::badge
                             :color="$record->decommissioned ? 'danger' : 'success'"
                             class="!inline-flex">
@@ -60,7 +60,7 @@
                     <span class="block text-lg font-bold mb-2">ICM Status</span>
                     <div class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-800">Generated:</span>
+                            <span class="text-gray-800 dark:text-gray-200">Generated:</span>
                             <x-filament::badge
                                 :color="$record->icm_generated ? 'success' : 'gray'"
                                 class="!inline-flex">
@@ -68,7 +68,7 @@
                             </x-filament::badge>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-gray-800">Non-Interactive:</span>
+                            <span class="text-gray-800 dark:text-gray-200">Non-Interactive:</span>
                             <x-filament::badge
                                 :color="$record->icm_non_interactive ? 'warning' : 'gray'"
                                 class="!inline-flex">
@@ -82,20 +82,20 @@
                     <span class="block text-lg font-bold mb-2">Form Type</span>
                     <div class="space-y-2">
                         <div>
-                            <span class="text-gray-800">Fill Type:</span>
-                            <span class="text-gray-800 ml-2">
+                            <span class="text-gray-800 dark:text-gray-200">Fill Type:</span>
+                            <span class="text-gray-800 dark:text-gray-200 ml-2">
                                 {{ $record->fillType->name ?? 'N/A' }}
                             </span>
                         </div>
                         <div>
-                            <span class="text-gray-800">Frequency:</span>
-                            <span class="text-gray-800 ml-2">
+                            <span class="text-gray-800 dark:text-gray-200">Frequency:</span>
+                            <span class="text-gray-800 dark:text-gray-200 ml-2">
                                 {{ $record->formFrequency->name ?? 'N/A' }}
                             </span>
                         </div>
                         <div>
-                            <span class="text-gray-800">Reach:</span>
-                            <span class="text-gray-800 ml-2">
+                            <span class="text-gray-800 dark:text-gray-200">Reach:</span>
+                            <span class="text-gray-800 dark:text-gray-200 ml-2">
                                 {{ $record->formReach->name ?? 'N/A' }}
                             </span>
                         </div>
@@ -104,16 +104,16 @@
             </div>
         </div>
 
-        <hr class="my-6 border-gray-200 mt-3">
+        <hr class="my-6 border-gray-200 dark:border-gray-700 mt-3">
 
         <div>
             <span class="block text-lg font-bold mb-2 pt-3">Form Purpose</span>
-            <div class="text-gray-800 mt-2 prose max-w-none">
+            <div class="text-gray-800 dark:text-gray-200 mt-2 prose max-w-none dark:prose-invert">
                 {{ $record->form_purpose ?? 'No purpose provided.' }}
             </div>
         </div>
 
-        <hr class="my-6 border-gray-200 mt-3">
+        <hr class="my-6 border-gray-200 dark:border-gray-700 mt-3">
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-6">
@@ -125,7 +125,7 @@
                             {{ $source->name }}
                         </x-filament::badge>
                         @empty
-                        <span class="text-gray-500">N/A</span>
+                        <span class="text-gray-500 dark:text-gray-400">N/A</span>
                         @endforelse
                     </div>
                 </div>
@@ -138,7 +138,7 @@
                             {{ $location->name }}
                         </x-filament::badge>
                         @empty
-                        <span class="text-gray-500">N/A</span>
+                        <span class="text-gray-500 dark:text-gray-400">N/A</span>
                         @endforelse
                     </div>
                 </div>
@@ -151,7 +151,7 @@
                             {{ $repo->name }}
                         </x-filament::badge>
                         @empty
-                        <span class="text-gray-500">N/A</span>
+                        <span class="text-gray-500 dark:text-gray-400">N/A</span>
                         @endforelse
                     </div>
                 </div>
@@ -166,7 +166,7 @@
                             {{ $tag->name }}
                         </x-filament::badge>
                         @empty
-                        <span class="text-gray-500">N/A</span>
+                        <span class="text-gray-500 dark:text-gray-400">N/A</span>
                         @endforelse
                     </div>
                 </div>
@@ -179,21 +179,21 @@
                             {{ $type->name }}
                         </x-filament::badge>
                         @empty
-                        <span class="text-gray-500">N/A</span>
+                        <span class="text-gray-500 dark:text-gray-400">N/A</span>
                         @endforelse
                     </div>
                 </div>
 
                 <div>
                     <span class="block text-lg font-bold mb-2">Retention Needs</span>
-                    <span class="text-gray-800 block">
+                    <span class="text-gray-800 dark:text-gray-200 block">
                         {{ $record->retention_needs ? $record->retention_needs.' years' : 'N/A' }}
                     </span>
                 </div>
             </div>
         </div>
 
-        <hr class="my-6 border-gray-200 mt-3">
+        <hr class="my-6 border-gray-200 dark:border-gray-700 mt-3">
 
         <div>
             <span class="block text-lg font-bold mb-2 pt-3">Links</span>
@@ -201,22 +201,22 @@
             <div class="space-y-2 mt-2">
                 @foreach($record->links as $link)
                 <div class="flex items-center">
-                    <a href="{{ $link->link }}" target="_blank" class="text-primary-600 hover:text-primary-800">
+                    <a href="{{ $link->link }}" target="_blank" class="text-primary-600 hover:text-primary-800 dark:text-primary-500 dark:hover:text-primary-400">
                         {{ $link->link }}
                     </a>
                 </div>
                 @endforeach
             </div>
             @else
-            <span class="text-gray-500">No links provided.</span>
+            <span class="text-gray-500 dark:text-gray-400">No links provided.</span>
             @endif
         </div>
 
-        <hr class="my-6 border-gray-200 mt-3">
+        <hr class="my-6 border-gray-200 dark:border-gray-700 mt-3">
 
         <div>
             <span class="block text-lg font-bold mb-2 pt-3">Notes</span>
-            <div class="text-gray-800 mt-2 prose max-w-none">
+            <div class="text-gray-800 dark:text-gray-200 mt-2 prose max-w-none dark:prose-invert">
                 {{ $record->notes ?? 'No notes provided.' }}
             </div>
         </div>
