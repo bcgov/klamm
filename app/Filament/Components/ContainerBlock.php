@@ -2,8 +2,8 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\FormDataHelper;
 use App\Helpers\FormTemplateHelper;
-use App\Models\Style;
 use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -21,6 +21,8 @@ class ContainerBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
+        $styles = FormDataHelper::get('styles');
+
         return Block::make('container')
             ->label(function (?array $state): string {
                 if ($state === null) {
@@ -59,7 +61,7 @@ class ContainerBlock
                                     ]),
                                 Select::make('webStyles')
                                     ->label('Web Styles')
-                                    ->options(Style::pluck('name', 'id'))
+                                    ->options($styles->pluck('name', 'id'))
                                     ->multiple()
                                     ->preload()
                                     ->columnSpan(1)
@@ -67,7 +69,7 @@ class ContainerBlock
                                     ->reactive(),
                                 Select::make('pdfStyles')
                                     ->label('PDF Styles')
-                                    ->options(Style::pluck('name', 'id'))
+                                    ->options($styles->pluck('name', 'id'))
                                     ->multiple()
                                     ->preload()
                                     ->columnSpan(1)

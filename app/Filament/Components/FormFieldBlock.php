@@ -2,10 +2,7 @@
 
 namespace App\Filament\Components;
 
-use App\Models\Style;
-use App\Models\FormField;
-use App\Models\FormDataSource;
-use App\Models\SelectOptions;
+use App\Helpers\FormDataHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -27,6 +24,11 @@ class FormFieldBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
+        $fields = FormDataHelper::get('fields');
+        $dataSources = FormDataHelper::get('dataSources');
+        $selectOptions = FormDataHelper::get('selectOptions');
+        $styles = FormDataHelper::get('styles');
+
         $validationOptions = [
             'minValue' => 'Minimum Value',
             'maxValue' => 'Maximum Value',
@@ -45,14 +47,13 @@ class FormFieldBlock
             'readOnly' => 'Read Only',
         ];
 
-        $selectOptions = fn() => SelectOptions::all()->keyBy('id');
 
         return Block::make('form_field')
-            ->label(function (?array $state): string {
+            ->label(function (?array $state) use ($fields): string {
                 if ($state === null) {
                     return 'Field';
                 }
-                $field = FormField::find($state['form_field_id']) ?: null;
+                $field = $fields->get($state['form_field_id']);
                 if ($field) {
                     $label = '';
                     if ($state['customize_label'] !== 'hide') {
@@ -77,15 +78,15 @@ class FormFieldBlock
                 Select::make('form_field_id')
                     ->label('Form Field')
                     ->live()
-                    ->options(fn() => FormField::with('dataType')->get()->mapWithKeys(fn($field) => [
+                    ->options(fn() => $fields->mapWithKeys(fn($field) => [
                         $field->id => "{$field->label} | {$field->dataType?->name} | name: {$field->name}"
                     ]))
                     ->searchable()
                     ->required()
                     ->reactive()
                     ->columnSpan(2)
-                    ->afterStateUpdated(function ($state, callable $set) {
-                        $field = FormField::with(['webStyles', 'pdfStyles', 'validations', 'selectOptionInstances'])->find($state);
+                    ->afterStateUpdated(function ($state, callable $set) use ($fields) {
+                        $field = $fields->get($state);
                         if ($field) {
                             $set('webStyles', $field->webStyles->pluck('id')->toArray());
                             $set('pdfStyles', $field->pdfStyles->pluck('id')->toArray());
@@ -143,7 +144,7 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('label')
                                             ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->label ?? 'null'),
+                                            ->content(fn($get) => $fields->get($get('form_field_id'))->label ?? 'null'),
                                         Radio::make('customize_label')
                                             ->options([
                                                 'default' => 'Use Default',
@@ -165,7 +166,7 @@ class FormFieldBlock
                                             ->visible(fn($get) => $get('customize_label') == 'customize'),
                                     ]),
                                 Fieldset::make('Field Value')
-                                    ->visible(fn($get) => FormField::find($get('form_field_id'))?->isValueInputNeededForField() ?? false)
+                                    ->visible(fn($get) => $fields->get($get('form_field_id'))?->isValueInputNeededForField() ?? false)
                                     ->columns(1)
                                     ->columnSpanFull()
                                     ->schema([
@@ -173,8 +174,8 @@ class FormFieldBlock
                                             ->label("Default")
                                             ->toolbarButtons([])
                                             ->disabled()
-                                            ->afterStateHydrated(function ($state, callable $set, callable $get) {
-                                                $value = FormField::find($get('form_field_id'))?->formFieldValue?->value ?? '';
+                                            ->afterStateHydrated(function ($state, callable $set, callable $get) use ($fields) {
+                                                $value = $fields->get($get('form_field_id'))->formFieldValue?->value ?? '';
                                                 $set('field_value', $value);
                                             }),
                                         Toggle::make('customize_field_value')
@@ -207,7 +208,7 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('data_binding_path')
                                             ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
+                                            ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
                                             ->label('Customize Data Binding Path')
                                             ->inline()
@@ -222,14 +223,14 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('data_binding')
                                             ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
+                                            ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding ?? 'null'),
                                         Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
                                             ->live(),
                                         Select::make('custom_data_binding')
                                             ->label(false)
-                                            ->options(FormDataSource::pluck('name', 'name'))
+                                            ->options($dataSources->pluck('name', 'name'))
                                             ->visible(fn($get) => $get('customize_data_binding')),
                                     ]),
                                 Fieldset::make('Mask')
@@ -238,7 +239,7 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('mask')
                                             ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->mask ?? 'null'),
+                                            ->content(fn($get) => $fields->get($get('form_field_id'))->mask ?? 'null'),
                                         Toggle::make('customize_mask')
                                             ->label('Customize Mask')
                                             ->inline()
@@ -253,7 +254,7 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('help_text')
                                             ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->help_text ?? 'null'),
+                                            ->content(fn($get) => $fields->get($get('form_field_id'))->help_text ?? 'null'),
                                         Toggle::make('customize_help_text')
                                             ->label('Customize Help text')
                                             ->inline()
@@ -273,15 +274,15 @@ class FormFieldBlock
                     ->collapsed(true)
                     ->live()
                     ->reactive()
-                    ->visible(fn($get) => in_array(FormField::find($get('form_field_id'))?->dataType?->name, ['radio', 'dropdown']))
+                    ->visible(fn($get) => in_array($fields->get($get('form_field_id'))?->dataType?->name, ['radio', 'dropdown']))
                     ->blocks([
                         Block::make('select_option_instance')
                             ->label(
                                 fn(?array $state): string =>
-                                isset($state['select_option_id']) && $selectOptions()->has($state['select_option_id'])
-                                    ? $selectOptions()[$state['select_option_id']]->label
-                                    . ' | ' . $selectOptions()[$state['select_option_id']]->name
-                                    . ' | value: ' . $selectOptions()[$state['select_option_id']]->value
+                                isset($state['select_option_id']) && $selectOptions->has($state['select_option_id'])
+                                    ? $selectOptions[$state['select_option_id']]->label
+                                    . ' | ' . $selectOptions[$state['select_option_id']]->name
+                                    . ' | value: ' . $selectOptions[$state['select_option_id']]->value
                                     : 'New Option'
                             )
                             ->schema([
@@ -291,7 +292,7 @@ class FormFieldBlock
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->options($selectOptions()->map(function ($option) {
+                                    ->options($selectOptions->map(function ($option) {
                                         return "{$option->label} | {$option->name} | value: {$option->value}";
                                     })->toArray()),
                             ])
@@ -299,7 +300,7 @@ class FormFieldBlock
 
                 Select::make('webStyles')
                     ->label('Web Styles')
-                    ->options(Style::pluck('name', 'id'))
+                    ->options($styles->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
                     ->columnSpan(1)
@@ -307,7 +308,7 @@ class FormFieldBlock
                     ->reactive(),
                 Select::make('pdfStyles')
                     ->label('PDF Styles')
-                    ->options(Style::pluck('name', 'id'))
+                    ->options($styles->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
                     ->columnSpan(1)
