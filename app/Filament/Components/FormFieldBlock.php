@@ -57,7 +57,7 @@ class FormFieldBlock
                 if ($field) {
                     $label = '';
                     if ($state['customize_label'] !== 'hide') {
-                        $customLabel = strlen($state['custom_label']) > 50 ? substr($state['custom_label'], 0, 50) . ' ...' : $state['custom_label'];
+                        $customLabel = strlen($state['custom_label'] ?? null) > 50 ? substr($state['custom_label'] ?? null, 0, 50) . ' ...' : $state['custom_label'] ?? null;
                         $label .= ($customLabel ?? $field->label ?? 'null') . ' | ';
                     } else {
                         $label .= '(label hidden) | ';

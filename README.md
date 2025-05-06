@@ -235,7 +235,7 @@ sail artisan queue:work
 ### Using the mail provider
 Mailhog is setup locally so you can test email features. Make sure the queue is running and features such as email password reset will work locally.
 
-You can go to `http://localhost/8025` to see the Mailhog GUI which will capture emails being sent.
+You can go to `http://localhost:8025` to see the Mailhog GUI which will capture emails being sent.
 
 ## Learning Laravel
 
