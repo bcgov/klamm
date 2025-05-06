@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Style;
 use App\Models\FormField;
 use App\Models\FormDataSource;
@@ -135,6 +136,8 @@ class FormFieldBlock
                                             ->alphanum()
                                             ->lazy()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Fieldset::make('Label')

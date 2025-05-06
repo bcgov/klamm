@@ -3,6 +3,7 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormTemplateHelper;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Style;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -55,6 +56,8 @@ class ContainerBlock
                                             ->alphanum()
                                             ->lazy()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Select::make('webStyles')
