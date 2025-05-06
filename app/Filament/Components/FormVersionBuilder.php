@@ -16,10 +16,12 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
+use App\Models\FormVersion;
 
 class FormVersionBuilder
 {
@@ -37,12 +39,7 @@ class FormVersionBuilder
                     ->searchable()
                     ->default(request()->query('form_id_title')),
                 Select::make('status')
-                    ->options([
-                        'draft' => 'Draft',
-                        'testing' => 'Testing',
-                        'archived' => 'Archived',
-                        'published' => 'Published',
-                    ])
+                    ->options(FormVersion::getStatusOptions())
                     ->required(),
                 Section::make('Form Properties')
                     ->collapsible()
@@ -107,6 +104,10 @@ class FormVersionBuilder
                         FieldGroupBlock::make(fn() => FormTemplateHelper::calculateElementID()),
                         ContainerBlock::make(fn() => FormTemplateHelper::calculateElementID()),
                     ]),
+                // Used by the Create and Edit pages to store IDs in session, so that Blocks can validate their rules.
+                Hidden::make('all_instance_ids')
+                    ->default(fn(Get $get) => $get('all_instance_ids') ?? [])
+                    ->dehydrated(fn() => true),
                 // Components for view View page
                 Actions::make([
                     Action::make('Generate Form Template')

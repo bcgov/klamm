@@ -4,6 +4,7 @@ namespace App\Filament\Components;
 
 use App\Helpers\FormDataHelper;
 use App\Helpers\FormTemplateHelper;
+use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -127,6 +128,8 @@ class FieldGroupBlock
                                             ->alphanum()
                                             ->lazy()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Fieldset::make('Group Label')

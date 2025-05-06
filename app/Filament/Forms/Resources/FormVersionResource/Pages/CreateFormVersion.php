@@ -3,10 +3,12 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldConditionals;
@@ -29,6 +31,9 @@ class CreateFormVersion extends CreateRecord
         $user = Auth::user();
         $data['updater_name'] = $user->name;
         $data['updater_email'] = $user->email;
+
+        // Put all instance IDs into the session so that each block can check them against its duplicate ID rule
+        Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components']));
 
         unset($data['components']);
 

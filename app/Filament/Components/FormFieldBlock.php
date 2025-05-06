@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\UniqueIDsHelper;
 use App\Helpers\FormDataHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -138,6 +139,8 @@ class FormFieldBlock
                                             ->alphanum()
                                             ->lazy()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Fieldset::make('Label')
