@@ -42,6 +42,7 @@ class ImportReportsFromCsv extends Command
             try {
                 $businessAreaName = trim($row['Business Area']);
                 $reportName = trim($row['Report Name']);
+                $reportDescription = trim($row['Report Description']);
                 $labelSourceName = trim($row['Label Source']);
                 $dictionaryLabelName = trim($row['Dictionary Label']);
 
@@ -56,6 +57,7 @@ class ImportReportsFromCsv extends Command
                     ['name' => $reportName]
                 );
                 $reportId = $report->id;
+                $report->description = $reportDescription;
 
                 $labelSource = ReportLabelSource::firstOrCreate(
                     ['name' => $labelSourceName],
