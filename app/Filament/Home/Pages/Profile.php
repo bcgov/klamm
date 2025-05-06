@@ -42,8 +42,6 @@ class Profile extends Page
 
     protected function getFormSchema(): array
     {
-        $user = Auth::user();
-
         $schema = [
             Section::make('Profile Information')
                 ->schema([

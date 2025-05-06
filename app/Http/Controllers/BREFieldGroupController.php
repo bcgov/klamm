@@ -11,9 +11,16 @@ use Illuminate\Support\Facades\Validator;
 class BREFieldGroupController extends Controller
 {
     public function index(Request $request)
-
     {
         $query = BREFieldGroup::query();
+
+        $query->with([
+            'breFields',
+            'breFields.breDataType.breValueType',
+            'breFields.breDataValidation.breValidationType',
+            'breFields.breInputs',
+            'breFields.breOutputs'
+        ]);
 
         if ($request->has('name')) {
             $query->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->name) . '%']);
@@ -39,7 +46,7 @@ class BREFieldGroupController extends Controller
             $query->whereHas('breFields', function ($query) use ($request) {
                 $query->where('name', $request->bre_fields_name);
             });
-        }        
+        }
 
         if ($request->has('order_by')) {
             $orderDirection = $request->input('order_direction', 'asc');
@@ -71,7 +78,20 @@ class BREFieldGroupController extends Controller
 
     public function show($id)
     {
-        $breFieldGroup = BREFieldGroup::findOrFail($id);
+        $query = BREFieldGroup::with([
+            'breFields',
+            'breFields.breDataType.breValueType',
+            'breFields.breDataValidation.breValidationType',
+            'breFields.breInputs',
+            'breFields.breOutputs'
+        ]);
+
+        if (is_numeric($id)) {
+            $breFieldGroup = $query->findOrFail($id);
+        } else {
+            $breFieldGroup = $query->where('name', $id)->firstOrFail();
+        }
+
         return new BREFieldGroupResource($breFieldGroup);
     }
 

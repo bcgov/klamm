@@ -13,6 +13,13 @@ class ICMCDWFieldController extends Controller
     {
         $query = ICMCDWField::query();
 
+        $query->with([
+            'breFields',
+            'breFields.breDataType',
+            'breFields.breDataValidation',
+            'breFields.breFieldGroups',
+        ]);
+
         if ($request->has('name')) {
             $query->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->name) . '%']);
         }
@@ -77,7 +84,19 @@ class ICMCDWFieldController extends Controller
 
     public function show($id)
     {
-        $icmCDWField = ICMCDWField::findOrFail($id);
+        $query = ICMCDWField::with([
+            'breFields',
+            'breFields.breDataType',
+            'breFields.breDataValidation',
+            'breFields.breFieldGroups',
+        ]);
+
+        if (is_numeric($id)) {
+            $icmCDWField = $query->findOrFail($id);
+        } else {
+            $icmCDWField = $query->where('name', $id)->firstOrFail();
+        }
+
         return new ICMCDWFieldResource($icmCDWField);
     }
 

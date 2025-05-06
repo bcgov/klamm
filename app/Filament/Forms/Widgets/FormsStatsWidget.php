@@ -7,6 +7,7 @@ use App\Models\Form;
 use App\Models\Ministry;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Card;
+use Illuminate\Support\Facades\Auth;
 
 class FormsStatsWidget extends BaseWidget
 {
@@ -31,10 +32,11 @@ class FormsStatsWidget extends BaseWidget
             $statWidgetOutput[] = Card::make($ministry->name . ' Forms', $ministry->forms_count);
         }
 
-        foreach ($businessAreas as $businessArea) {
-            $statWidgetOutput[] = Card::make($businessArea->name . ' Forms', $businessArea->forms_count);
-        }
-
         return $statWidgetOutput;
+    }
+
+    public static function canView(): bool
+    {
+        return Auth::user()->hasRole('admin');
     }
 }

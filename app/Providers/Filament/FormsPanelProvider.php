@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Forms\Widgets\FormsStatsWidget;
+use App\Filament\Forms\Widgets\YourFormsWidget;
+use App\Filament\Forms\Widgets\FormsDescriptionWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -10,7 +12,6 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -32,6 +33,7 @@ class FormsPanelProvider extends PanelProvider
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
             ->login()
+            ->passwordReset()
             ->databaseNotifications()
             ->databaseNotificationsPolling('10s')
             ->colors([
@@ -39,18 +41,22 @@ class FormsPanelProvider extends PanelProvider
             ])
             ->userMenuItems([
                 MenuItem::make()
-                   ->label('Edit Profile')
-                   ->url('/profile')
-                   ->icon('heroicon-o-pencil-square')
+                    ->label('Edit Profile')
+                    ->url('/profile')
+                    ->icon('heroicon-o-pencil-square'),
+                MenuItem::make()
+                    ->label('Admin Settings')
+                    ->url('/admin')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->visible(fn() => CheckRole::class . ':admin'),
             ])
             ->discoverResources(in: app_path('Filament/Forms/Resources'), for: 'App\\Filament\\Forms\\Resources')
-            ->discoverPages(in: app_path('Filament/Forms/Pages'), for: 'App\\Filament\\Forms\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                \App\Filament\Forms\Pages\FormsDashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Forms/Widgets'), for: 'App\\Filament\\Forms\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
+                FormsDescriptionWidget::class,
+                YourFormsWidget::class,
                 FormsStatsWidget::class,
             ])
             ->middleware([

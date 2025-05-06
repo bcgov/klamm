@@ -19,6 +19,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
+use Filament\Navigation\NavigationGroup;
 
 class FodigPanelProvider extends PanelProvider
 {
@@ -30,20 +31,35 @@ class FodigPanelProvider extends PanelProvider
             ->brandLogo(asset('svg/klamm-logo.svg'))
             ->darkModeBrandLogo(asset('svg/klamm-logo-dark.svg'))
             ->homeUrl('/welcome')
+            ->sidebarWidth('15rem')
             ->login()
+            ->passwordReset()
             ->colors([
                 'primary' => Color::Blue,
             ])
             ->userMenuItems([
                 MenuItem::make()
-                   ->label('Edit Profile')
-                   ->url('/profile')
-                   ->icon('heroicon-o-pencil-square')
+                    ->label('Edit Profile')
+                    ->url('/profile')
+                    ->icon('heroicon-o-pencil-square'),
+                MenuItem::make()
+                    ->label('Admin Settings')
+                    ->url('/admin')
+                    ->icon('heroicon-o-cog-6-tooth')
+                    ->visible(fn() => CheckRole::class . ':admin'),
+            ])
+            ->navigationGroups([
+                NavigationGroup::make()
+                    ->label('Error Lookup Tool')
+                    ->collapsed(),
+                NavigationGroup::make()
+                    ->label('Siebel Tables')
+                    ->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Fodig/Resources'), for: 'App\\Filament\\Fodig\\Resources')
             ->discoverPages(in: app_path('Filament/Fodig/Pages'), for: 'App\\Filament\\Fodig\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                //
             ])
             ->discoverWidgets(in: app_path('Filament/Fodig/Widgets'), for: 'App\\Filament\\Fodig\\Widgets')
             ->widgets([

@@ -232,6 +232,11 @@ Certain views offer the ability to export a list of entries in the form of a CSV
 sail artisan queue:work
 ```
 
+### Using the mail provider
+Mailhog is setup locally so you can test email features. Make sure the queue is running and features such as email password reset will work locally.
+
+You can go to `http://localhost:8025` to see the Mailhog GUI which will capture emails being sent.
+
 ## Learning Laravel
 
 Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.

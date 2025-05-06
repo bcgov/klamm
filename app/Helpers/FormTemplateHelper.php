@@ -35,6 +35,7 @@ class FormTemplateHelper
         $fieldGroups = $formVersion->fieldGroupInstances()
             ->whereNull('container_id')
             ->orderBy('order')
+            ->with(['styleInstances.style'])
             ->get();
 
         foreach ($fieldGroups as $group) {
@@ -216,7 +217,7 @@ class FormTemplateHelper
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "listItems" => $field->selectOptionInstances()
+                    "listItems" => $fieldInstance->selectOptionInstances()
                         ->with('selectOption')
                         ->get()
                         ->map(function ($selectOptionInstance) {

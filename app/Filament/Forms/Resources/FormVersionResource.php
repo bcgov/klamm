@@ -115,8 +115,10 @@ class FormVersionResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('version_number')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('status')
-                    ->searchable(),
+                Tables\Columns\TextColumn::make('formatted_status')
+                    ->label('Status')
+                    ->searchable()
+                    ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
                 Tables\Columns\TextColumn::make('deployed_to')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('deployed_at')
