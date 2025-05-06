@@ -19,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
+use App\Models\FormVersion;
 
 class FormVersionBuilder
 {
@@ -34,12 +35,7 @@ class FormVersionBuilder
                     ->searchable()
                     ->default(request()->query('form_id_title')),
                 Select::make('status')
-                    ->options([
-                        'draft' => 'Draft',
-                        'testing' => 'Testing',
-                        'archived' => 'Archived',
-                        'published' => 'Published',
-                    ])
+                    ->options(FormVersion::getStatusOptions())
                     ->required(),
                 Section::make('Form Properties')
                     ->collapsible()
