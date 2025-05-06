@@ -59,6 +59,22 @@ class FormVersion extends Model
         return 'form_versions';
     }
 
+    public static function getStatusOptions(): array
+    {
+        return [
+            'draft' => 'Draft',
+            'under_review' => 'Under Review',
+            'approved' => 'Approved',
+            'published' => 'Published',
+            'archived' => 'Archived',
+        ];
+    }
+
+    public function getFormattedStatusName(): string
+    {
+        return self::getStatusOptions()[$this->status] ?? $this->status;
+    }
+
     public function form()
     {
         return $this->belongsTo(Form::class);
