@@ -101,6 +101,7 @@ class FieldGroupBlock
                     }),
                 Section::make('Group Properties')
                     ->collapsible()
+                    ->collapsed(true)
                     ->compact()
                     ->columnSpan(2)
                     ->schema([
@@ -112,6 +113,7 @@ class FieldGroupBlock
                                     ->schema([
                                         Placeholder::make('instance_id_placeholder') // used to view value in builder
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
                                         Hidden::make('instance_id') // used to populate value in template 
                                             ->hidden()
@@ -119,7 +121,7 @@ class FieldGroupBlock
                                         Toggle::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
@@ -133,6 +135,7 @@ class FieldGroupBlock
                                     ->schema([
                                         Placeholder::make('group_label')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $groups->get($get('field_group_id'))->label ?? 'null'),
                                         Radio::make('customize_group_label')
                                             ->options([
@@ -143,7 +146,7 @@ class FieldGroupBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
-                                            ->live()
+                                            ->lazy()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {
                                                     $set('custom_group_label', null);
@@ -157,18 +160,19 @@ class FieldGroupBlock
                                 Toggle::make('repeater')
                                     ->label('Repeater')
                                     ->columnSpanFull()
-                                    ->live(),
+                                    ->lazy(),
                                 Fieldset::make('Repeater Item Label')
                                     ->columns(1)
                                     ->visible(fn($get) => $get('repeater'))
                                     ->schema([
                                         Placeholder::make('repeater_item_label')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $groups->get($get('field_group_id'))->repeater_item_label ?? 'null'),
                                         Toggle::make('customize_repeater_item_label')
                                             ->label('Customize Repeater Item Label')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_repeater_item_label')
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_repeater_item_label')),
@@ -179,11 +183,12 @@ class FieldGroupBlock
                                     ->schema([
                                         Placeholder::make('data_binding_path')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $groups->get($get('field_group_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
                                             ->label('Customize Data Binding Path')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_data_binding_path')
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_data_binding_path')),
@@ -194,11 +199,12 @@ class FieldGroupBlock
                                     ->schema([
                                         Placeholder::make('data_binding')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $groups->get($get('field_group_id'))->data_binding ?? 'null'),
                                         Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         Select::make('custom_data_binding')
                                             ->label(false)
                                             ->options($dataSources->pluck('name', 'name'))
@@ -214,17 +220,13 @@ class FieldGroupBlock
                     ->options($styles->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->columnSpan(1)
-                    ->live()
-                    ->reactive(),
+                    ->columnSpan(1),
                 Select::make('pdfStyles')
                     ->label('PDF Styles')
                     ->options($styles->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->columnSpan(1)
-                    ->live()
-                    ->reactive(),
+                    ->columnSpan(1),
                 Builder::make('form_fields')
                     ->label('Form Fields in Group')
                     ->addBetweenActionLabel('Insert between fields')
@@ -232,7 +234,6 @@ class FieldGroupBlock
                     ->collapsed(true)
                     ->blockNumbers(false)
                     ->columnSpan(2)
-                    ->cloneable()
                     ->blocks([
                         FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
                     ]),

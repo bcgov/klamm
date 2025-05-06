@@ -112,6 +112,7 @@ class FormFieldBlock
                     }),
                 Section::make('Field Properties')
                     ->collapsible()
+                    ->collapsed(true)
                     ->compact()
                     ->columnSpan(2)
                     ->schema([
@@ -123,6 +124,7 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('instance_id_placeholder') // used to view value in builder
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
                                         Hidden::make('instance_id') // used to populate value in template 
                                             ->hidden()
@@ -130,7 +132,7 @@ class FormFieldBlock
                                         Toggle::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
@@ -144,6 +146,7 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('label')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $fields->get($get('form_field_id'))->label ?? 'null'),
                                         Radio::make('customize_label')
                                             ->options([
@@ -181,7 +184,7 @@ class FormFieldBlock
                                         Toggle::make('customize_field_value')
                                             ->label('Customize Field Value')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         RichEditor::make('custom_field_value')
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_field_value'))
@@ -208,11 +211,12 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('data_binding_path')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding_path ?? 'null'),
                                         Toggle::make('customize_data_binding_path')
                                             ->label('Customize Data Binding Path')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         Textarea::make('custom_data_binding_path')
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_data_binding_path')),
@@ -223,11 +227,12 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('data_binding')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding ?? 'null'),
                                         Toggle::make('customize_data_binding')
                                             ->label('Customize Data Source')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         Select::make('custom_data_binding')
                                             ->label(false)
                                             ->options($dataSources->pluck('name', 'name'))
@@ -239,11 +244,12 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('mask')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $fields->get($get('form_field_id'))->mask ?? 'null'),
                                         Toggle::make('customize_mask')
                                             ->label('Customize Mask')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_mask')
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_mask')),
@@ -254,11 +260,12 @@ class FormFieldBlock
                                     ->schema([
                                         Placeholder::make('help_text')
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $fields->get($get('form_field_id'))->help_text ?? 'null'),
                                         Toggle::make('customize_help_text')
                                             ->label('Customize Help text')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         Textarea::make('custom_help_text')
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_help_text')),
@@ -303,17 +310,13 @@ class FormFieldBlock
                     ->options($styles->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->columnSpan(1)
-                    ->live()
-                    ->reactive(),
+                    ->columnSpan(1),
                 Select::make('pdfStyles')
                     ->label('PDF Styles')
                     ->options($styles->pluck('name', 'id'))
                     ->multiple()
                     ->preload()
-                    ->columnSpan(1)
-                    ->live()
-                    ->reactive(),
+                    ->columnSpan(1),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
