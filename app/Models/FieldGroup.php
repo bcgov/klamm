@@ -25,6 +25,7 @@ class FieldGroup extends Model
         'data_binding_path',
         'data_binding',
         'repeater',
+        'clear_button',
     ];
 
     /**
@@ -35,6 +36,7 @@ class FieldGroup extends Model
     protected $casts = [
         'id' => 'integer',
         'repeater' => 'boolean',
+        'clear_button' => 'boolean',
     ];
 
     protected static function booted()

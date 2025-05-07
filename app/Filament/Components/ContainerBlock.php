@@ -57,6 +57,10 @@ class ContainerBlock
                                             ->distinct()
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
+                                Toggle::make('clear_button')
+                                    ->label('Clear Button')  
+                                    ->live()
+                                    ->columnSpanFull(),
                                 Select::make('webStyles')
                                     ->label('Web Styles')
                                     ->options(Style::pluck('name', 'id'))
