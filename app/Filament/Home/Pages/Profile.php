@@ -12,9 +12,15 @@ use Filament\Notifications\Notification;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Illuminate\Support\Str;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use App\Filament\Resources\CustomActivitylogResource;
 
-class Profile extends Page
+class Profile extends Page implements HasTable
 {
+    use InteractsWithTable;
+
     protected static ?string $navigationGroup = 'My Account';
     protected static ?string $navigationLabel = 'Profile';
     protected static ?string $navigationIcon = 'heroicon-o-user';
@@ -175,5 +181,19 @@ class Profile extends Page
             ->title("API Token updated successfully!")
             ->success()
             ->send();
+    }
+
+    public function table(Table $table): Table
+    {
+        $baseTable = CustomActivitylogResource::table($table);
+
+        return $table
+            ->query(
+                \Spatie\Activitylog\Models\Activity::query()
+                    ->where('causer_id', Auth::user()->id)
+            )
+            ->heading('My Activity Log')
+            ->columns($baseTable->getColumns())
+            ->defaultSort('activity_log.created_at', 'desc');
     }
 }
