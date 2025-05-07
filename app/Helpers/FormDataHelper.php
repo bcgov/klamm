@@ -5,7 +5,6 @@ namespace App\Helpers;
 use App\Models\FormField;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
-use App\Models\FormFieldValue;
 use App\Models\SelectOptions;
 use App\Models\Style;
 
@@ -24,11 +23,7 @@ class FormDataHelper
                 'selectOptionInstances',
                 'formFieldValue'
             ])->get()->keyBy('id'),
-            'groups' => FieldGroup::with([
-                'formFields',
-                'webStyles',
-                'pdfStyles'
-            ])->get()->keyBy('id'),
+            'groups' => FieldGroup::with([])->get()->keyBy('id'),
             'styles' => Style::all()->keyBy('id'),
             'dataSources' => FormDataSource::all()->keyBy('id'),
             'selectOptions' => SelectOptions::all()->keyBy('id'),
