@@ -422,7 +422,6 @@ class EditFormVersion extends EditRecord
                     'instance_id' => $field->instance_id,
                     'custom_instance_id' => $field->custom_instance_id,
                     'customize_instance_id' => $field->custom_instance_id ?? null,
-                    'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
                     'webStyles' => $styles['webStyles'],

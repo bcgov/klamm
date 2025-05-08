@@ -226,7 +226,6 @@ class ViewFormVersion extends ViewRecord
                     'instance_id' => $field->instance_id,
                     'custom_instance_id' => $field->custom_instance_id,
                     'customize_instance_id' => $field->custom_instance_id,
-                    'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'webStyles' => $styles['webStyles'],
