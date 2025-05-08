@@ -23,7 +23,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
 use Rmsramos\Activitylog\ActivitylogPlugin;
-use App\Filament\Resources\CustomActivitylogResource;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 
 class FormsPanelProvider extends PanelProvider
 {

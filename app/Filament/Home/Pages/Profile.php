@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use App\Filament\Resources\CustomActivitylogResource;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 
 class Profile extends Page implements HasTable
 {

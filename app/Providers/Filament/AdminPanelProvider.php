@@ -20,7 +20,7 @@ use Althinect\FilamentSpatieRolesPermissions\FilamentSpatieRolesPermissionsPlugi
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
 use Rmsramos\Activitylog\ActivitylogPlugin;
-use App\Filament\Resources\CustomActivitylogResource;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 
 class AdminPanelProvider extends PanelProvider
 {

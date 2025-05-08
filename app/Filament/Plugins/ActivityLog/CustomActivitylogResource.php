@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources;
+namespace App\Filament\Plugins\ActivityLog;
 
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;

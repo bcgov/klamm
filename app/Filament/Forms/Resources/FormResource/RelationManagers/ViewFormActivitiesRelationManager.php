@@ -2,7 +2,7 @@
 
 namespace App\Filament\Forms\Resources\FormResource\RelationManagers;
 
-use App\Filament\Resources\CustomActivitylogResource;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Actions\ViewAction;

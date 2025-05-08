@@ -10,7 +10,7 @@ use Filament\Widgets\TableWidget;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Models\Activity;
-use App\Filament\Resources\CustomActivitylogResource;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 use Illuminate\Support\Str;
 use App\Traits\HasBusinessAreaAccess;
 
