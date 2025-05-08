@@ -26,6 +26,7 @@ class ViewFormVersion extends ViewRecord
                 $query->with([
                     'formField' => function ($query) {
                         $query->with([
+                            'dataType',
                             'formFieldValue',
                             'formFieldDateFormat',
                         ]);
@@ -49,6 +50,7 @@ class ViewFormVersion extends ViewRecord
                                 ->with([
                                     'formField' => function ($query) {
                                         $query->with([
+                                            'dataType',
                                             'formFieldValue',
                                             'formFieldDateFormat',
                                         ]);
@@ -71,6 +73,7 @@ class ViewFormVersion extends ViewRecord
                             ->with([
                                 'formField' => function ($query) {
                                     $query->with([
+                                        'dataType',
                                         'formFieldValue',
                                         'formFieldDateFormat',
                                     ]);
@@ -92,6 +95,7 @@ class ViewFormVersion extends ViewRecord
                                     ->with([
                                         'formField' => function ($query) {
                                             $query->with([
+                                                'dataType',
                                                 'formFieldValue',
                                                 'formFieldDateFormat',
                                             ]);
