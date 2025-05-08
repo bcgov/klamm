@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\DateFormatHelper;
 use App\Helpers\UniqueIDsHelper;
 use App\Models\Style;
 use App\Models\FormField;
@@ -47,6 +48,7 @@ class FormFieldBlock
         ];
 
         $selectOptions = fn() => SelectOptions::all()->keyBy('id');
+        $isDate = fn($get) => FormField::find($get('form_field_id'))?->dataType->name === 'date';
 
         return Block::make('form_field')
             ->label(function (?array $state): string {
@@ -204,36 +206,57 @@ class FormFieldBlock
                                                 'redo',
                                             ]),
                                     ]),
-                                Fieldset::make('Data Binding Path')
-                                    ->columns(1)
-                                    ->columnSpan(1)
+                                Fieldset::make(('Data Bindings'))
+                                    ->columns(6)
                                     ->schema([
-                                        Placeholder::make('data_binding_path')
-                                            ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
-                                        Toggle::make('customize_data_binding_path')
-                                            ->label('Customize Data Binding Path')
-                                            ->inline()
-                                            ->live(),
-                                        Textarea::make('custom_data_binding_path')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
-                                    ]),
-                                Fieldset::make('Data Source')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Source')
-                                            ->inline()
-                                            ->live(),
-                                        Select::make('custom_data_binding')
-                                            ->label(false)
-                                            ->options(FormDataSource::pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding')),
+                                        Fieldset::make('Data Source')
+                                            ->columns(1)
+                                            ->columnSpan(fn($get) => $isDate($get) ? 2 : 3)
+                                            ->schema([
+                                                Placeholder::make('data_binding')
+                                                    ->label("Default")
+                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding ?? 'null'),
+                                                Toggle::make('customize_data_binding')
+                                                    ->label('Customize Data Source')
+                                                    ->inline()
+                                                    ->live(),
+                                                Select::make('custom_data_binding')
+                                                    ->label(false)
+                                                    ->options(FormDataSource::pluck('name', 'name'))
+                                                    ->visible(fn($get) => $get('customize_data_binding')),
+                                            ]),
+                                        Fieldset::make('Data Binding Path')
+                                            ->columns(1)
+                                            ->columnSpan(fn($get) => $isDate($get) ? 2 : 3)
+                                            ->schema([
+                                                Placeholder::make('data_binding_path')
+                                                    ->label("Default")
+                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->data_binding_path ?? 'null'),
+                                                Toggle::make('customize_data_binding_path')
+                                                    ->label('Customize Data Binding Path')
+                                                    ->inline()
+                                                    ->live(),
+                                                Textarea::make('custom_data_binding_path')
+                                                    ->label(false)
+                                                    ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ]),
+                                        Fieldset::make('Date Format')
+                                            ->columns(1)
+                                            ->columnSpan(2)
+                                            ->visible($isDate)
+                                            ->schema([
+                                                Placeholder::make('date_format')
+                                                    ->label("Default")
+                                                    ->content(fn($get) => FormField::find($get('form_field_id'))->formFieldDateFormat?->date_format ?? 'null'),
+                                                Toggle::make('customize_date_format')
+                                                    ->label('Customize Data Source')
+                                                    ->inline()
+                                                    ->live(),
+                                                Select::make('custom_date_format')
+                                                    ->label(false)
+                                                    ->options(DateFormatHelper::dateFormats())
+                                                    ->visible(fn($get) => $get('customize_date_format')),
+                                            ]),
                                     ]),
                                 Fieldset::make('Mask')
                                     ->columns(1)

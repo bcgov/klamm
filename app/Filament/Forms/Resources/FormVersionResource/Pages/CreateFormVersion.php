@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldConditionals;
+use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
@@ -135,6 +136,16 @@ class CreateFormVersion extends CreateRecord
         }
     }
 
+    private function createFieldDateFormat($component, $formInstanceField)
+    {
+        if (!empty($component['customize_date_format'])) {
+            FormInstanceFieldDateFormat::create([
+                'form_instance_field_id' => $formInstanceField->id,
+                'custom_date_format' => $component['custom_date_format'] ?? null,
+            ]);
+        }
+    }
+
     private function createSelectOptionInstance($component, $formInstanceField)
     {
         if (!empty($component['select_option_instances'])) {
@@ -175,6 +186,7 @@ class CreateFormVersion extends CreateRecord
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
+        $this->createFieldDateFormat($component, $formInstanceField);
         $this->createSelectOptionInstance($component, $formInstanceField);
     }
 

@@ -24,10 +24,12 @@ class FormTemplateHelper
             ->with([
                 'formField.dataType',
                 'formField.formFieldValue',
+                'formField.formFieldDateFormat',
                 'styleInstances.style',
                 'validations',
                 'conditionals',
                 'formInstanceFieldValue',
+                'formInstanceFieldDateFormat',
             ])
             ->get();
 
@@ -221,6 +223,10 @@ class FormTemplateHelper
             case "text-info":
                 return array_merge($base, [
                     "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
+                ]);
+            case "date":
+                return array_merge($base, [
+                    "inputFormat" => $fieldInstance->formInstanceFieldDateFormat?->custom_date_format ?? $field->formFieldDateFormat?->date_format,
                 ]);
             case "radio":
                 return array_merge($base, [

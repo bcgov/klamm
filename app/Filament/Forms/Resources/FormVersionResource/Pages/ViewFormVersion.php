@@ -23,7 +23,20 @@ class ViewFormVersion extends ViewRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
-                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                $query->with([
+                    'formField' => function ($query) {
+                        $query->with([
+                            'formFieldValue',
+                            'formFieldDateFormat',
+                        ]);
+                    },
+                    'selectOptionInstances',
+                    'validations',
+                    'conditionals',
+                    'styleInstances',
+                    'formInstanceFieldValue',
+                    'formInstanceFieldDateFormat',
+                ]);
             },
             'fieldGroupInstances' => function ($query) {
                 $query
@@ -33,7 +46,20 @@ class ViewFormVersion extends ViewRecord
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
-                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                ->with([
+                                    'formField' => function ($query) {
+                                        $query->with([
+                                            'formFieldValue',
+                                            'formFieldDateFormat',
+                                        ]);
+                                    },
+                                    'selectOptionInstances',
+                                    'validations',
+                                    'conditionals',
+                                    'styleInstances',
+                                    'formInstanceFieldValue',
+                                    'formInstanceFieldDateFormat',
+                                ]);
                         }
                     ]);
             },
@@ -42,7 +68,20 @@ class ViewFormVersion extends ViewRecord
                     'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
-                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                            ->with([
+                                'formField' => function ($query) {
+                                    $query->with([
+                                        'formFieldValue',
+                                        'formFieldDateFormat',
+                                    ]);
+                                },
+                                'selectOptionInstances',
+                                'validations',
+                                'conditionals',
+                                'styleInstances',
+                                'formInstanceFieldValue',
+                                'formInstanceFieldDateFormat',
+                            ]);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
@@ -50,7 +89,20 @@ class ViewFormVersion extends ViewRecord
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
-                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                    ->with([
+                                        'formField' => function ($query) {
+                                            $query->with([
+                                                'formFieldValue',
+                                                'formFieldDateFormat',
+                                            ]);
+                                        },
+                                        'selectOptionInstances',
+                                        'validations',
+                                        'conditionals',
+                                        'styleInstances',
+                                        'formInstanceFieldValue',
+                                        'formInstanceFieldDateFormat',
+                                    ]);
                             }
                         ]);
                     }
@@ -159,6 +211,8 @@ class ViewFormVersion extends ViewRecord
                     'data_binding' => $field->data_binding,
                     'custom_data_binding' => $field->custom_data_binding,
                     'customize_data_binding' => $field->custom_data_binding,
+                    'custom_date_format' => $field->formInstanceFieldDateFormat?->custom_date_format ?? $formField->formFieldDateFormat?->date_format,
+                    'customize_date_format' => $field->formInstanceFieldDateFormat?->custom_date_format ?? false,
                     'help_text' => $field->help_text,
                     'custom_help_text' => $field->custom_help_text,
                     'customize_help_text' => $field->custom_help_text,

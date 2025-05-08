@@ -13,6 +13,7 @@ use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldConditionals;
+use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
 use App\Models\StyleInstance;
@@ -76,7 +77,20 @@ class EditFormVersion extends EditRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
-                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                $query->with([
+                    'formField' => function ($query) {
+                        $query->with([
+                            'formFieldValue',
+                            'formFieldDateFormat',
+                        ]);
+                    },
+                    'selectOptionInstances',
+                    'validations',
+                    'conditionals',
+                    'styleInstances',
+                    'formInstanceFieldValue',
+                    'formInstanceFieldDateFormat',
+                ]);
             },
             'fieldGroupInstances' => function ($query) {
                 $query
@@ -86,7 +100,20 @@ class EditFormVersion extends EditRecord
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
-                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                ->with([
+                                    'formField' => function ($query) {
+                                        $query->with([
+                                            'formFieldValue',
+                                            'formFieldDateFormat',
+                                        ]);
+                                    },
+                                    'selectOptionInstances',
+                                    'validations',
+                                    'conditionals',
+                                    'styleInstances',
+                                    'formInstanceFieldValue',
+                                    'formInstanceFieldDateFormat',
+                                ]);
                         }
                     ]);
             },
@@ -95,7 +122,20 @@ class EditFormVersion extends EditRecord
                     'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
-                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                            ->with([
+                                'formField' => function ($query) {
+                                    $query->with([
+                                        'formFieldValue',
+                                        'formFieldDateFormat',
+                                    ]);
+                                },
+                                'selectOptionInstances',
+                                'validations',
+                                'conditionals',
+                                'styleInstances',
+                                'formInstanceFieldValue',
+                                'formInstanceFieldDateFormat',
+                            ]);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
@@ -103,7 +143,20 @@ class EditFormVersion extends EditRecord
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
-                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                    ->with([
+                                        'formField' => function ($query) {
+                                            $query->with([
+                                                'formFieldValue',
+                                                'formFieldDateFormat',
+                                            ]);
+                                        },
+                                        'selectOptionInstances',
+                                        'validations',
+                                        'conditionals',
+                                        'styleInstances',
+                                        'formInstanceFieldValue',
+                                        'formInstanceFieldDateFormat',
+                                    ]);
                             }
                         ]);
                     }
@@ -185,6 +238,16 @@ class EditFormVersion extends EditRecord
         }
     }
 
+    private function createFieldDateFormat($component, $formInstanceField)
+    {
+        if (!empty($component['customize_date_format'])) {
+            FormInstanceFieldDateFormat::create([
+                'form_instance_field_id' => $formInstanceField->id,
+                'custom_date_format' => $component['custom_date_format'] ?? null,
+            ]);
+        }
+    }
+
     private function createSelectOptionInstance($component, $formInstanceField)
     {
         if (!empty($component['select_option_instances'])) {
@@ -220,6 +283,7 @@ class EditFormVersion extends EditRecord
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
+        $this->createFieldDateFormat($component, $formInstanceField);
         $this->createSelectOptionInstance($component, $formInstanceField);
     }
 
@@ -349,6 +413,8 @@ class EditFormVersion extends EditRecord
                     'customize_data_binding_path' => $field->custom_data_binding_path ?? null,
                     'custom_data_binding' => $field->custom_data_binding ?? $formField->data_binding,
                     'customize_data_binding' => $field->custom_data_binding ?? null,
+                    'custom_date_format' => $field->formInstanceFieldDateFormat?->custom_date_format ?? $formField->formFieldDateFormat?->date_format,
+                    'customize_date_format' => $field->formInstanceFieldDateFormat?->custom_date_format ?? false,
                     'custom_help_text' => $field->custom_help_text ?? $formField->help_text,
                     'customize_help_text' => $field->custom_help_text ?? null,
                     'custom_mask' => $field->custom_mask ?? $formField->mask,

@@ -72,4 +72,9 @@ class FormInstanceField extends Model
     {
         return $this->hasOne(FormInstanceFieldValue::class);
     }
+
+    public function formInstanceFieldDateFormat(): HasOne
+    {
+        return $this->hasOne(FormInstanceFieldDateFormat::class);
+    }
 }
