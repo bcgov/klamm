@@ -162,6 +162,7 @@ class FormFieldBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
+                                            ->label(false)
                                             ->live()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {

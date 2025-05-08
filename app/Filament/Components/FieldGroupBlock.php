@@ -149,6 +149,7 @@ class FieldGroupBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
+                                            ->label(false)
                                             ->lazy()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {
