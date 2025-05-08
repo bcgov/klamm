@@ -3,6 +3,7 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormTemplateHelper;
+use App\Helpers\FormDataHelper;
 use App\Filament\Components\ContainerBlock;
 use App\Filament\Components\FieldGroupBlock;
 use App\Filament\Components\FormFieldBlock;
@@ -26,6 +27,8 @@ class FormVersionBuilder
 {
     public static function schema()
     {
+        FormDataHelper::load();
+
         return Grid::make()
             ->schema([
                 Select::make('form_id')

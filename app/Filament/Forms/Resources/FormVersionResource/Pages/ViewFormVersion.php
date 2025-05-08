@@ -23,7 +23,7 @@ class ViewFormVersion extends ViewRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
-                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
             },
             'fieldGroupInstances' => function ($query) {
                 $query
@@ -33,7 +33,7 @@ class ViewFormVersion extends ViewRecord
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
-                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
                         }
                     ]);
             },
@@ -42,7 +42,7 @@ class ViewFormVersion extends ViewRecord
                     'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
-                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
@@ -50,7 +50,7 @@ class ViewFormVersion extends ViewRecord
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
-                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
                             }
                         ]);
                     }
