@@ -2,8 +2,9 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\FormDataHelper;
 use App\Helpers\FormTemplateHelper;
-use App\Models\Style;
+use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -21,6 +22,8 @@ class ContainerBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
+        $styles = FormDataHelper::get('styles');
+
         return Block::make('container')
             ->label(function (?array $state): string {
                 if ($state === null) {
@@ -32,6 +35,7 @@ class ContainerBlock
             ->schema([
                 Section::make('Container Properties')
                     ->collapsible()
+                    ->collapsed(true)
                     ->compact()
                     ->schema([
                         Grid::make(2)
@@ -42,19 +46,23 @@ class ContainerBlock
                                     ->schema([
                                         Placeholder::make('instance_id_placeholder') // used to view value in builder
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
                                         Hidden::make('instance_id') // used to populate value in template 
                                             ->hidden()
+                                            ->dehydrated(false)
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
                                             ->lazy()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
                                 Toggle::make('clear_button')
@@ -63,20 +71,18 @@ class ContainerBlock
                                     ->columnSpanFull(),
                                 Select::make('webStyles')
                                     ->label('Web Styles')
-                                    ->options(Style::pluck('name', 'id'))
+                                    ->options($styles->pluck('name', 'id'))
                                     ->multiple()
                                     ->preload()
                                     ->columnSpan(1)
-                                    ->live()
-                                    ->reactive(),
+                                    ->lazy(),
                                 Select::make('pdfStyles')
                                     ->label('PDF Styles')
-                                    ->options(Style::pluck('name', 'id'))
+                                    ->options($styles->pluck('name', 'id'))
                                     ->multiple()
                                     ->preload()
                                     ->columnSpan(1)
-                                    ->live()
-                                    ->reactive(),
+                                    ->lazy(),
                                 Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
@@ -89,7 +95,6 @@ class ContainerBlock
                     ->collapsed(true)
                     ->blockNumbers(false)
                     ->columnSpan(2)
-                    ->cloneable()
                     ->blocks([
                         FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
                         FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
