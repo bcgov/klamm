@@ -245,6 +245,7 @@ class FormFieldBlock
                                                     ->lazy(),
                                                 Textarea::make('custom_data_binding_path')
                                                     ->label(false)
+                                                    ->rows(1)
                                                     ->visible(fn($get) => $get('customize_data_binding_path')),
                                             ]),
                                         Fieldset::make('Date Format')
@@ -296,6 +297,7 @@ class FormFieldBlock
                                             ->lazy(),
                                         Textarea::make('custom_help_text')
                                             ->label(false)
+                                            ->rows(1)
                                             ->visible(fn($get) => $get('customize_help_text')),
                                     ]),
                             ]),
