@@ -32,11 +32,13 @@ class ContainerBlock
                 return 'Container | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
             })
             ->icon('heroicon-o-square-3-stack-3d')
+            ->columns(2)
             ->schema([
                 Section::make('Container Properties')
                     ->collapsible()
                     ->collapsed(true)
                     ->compact()
+                    ->columnSpan(2)
                     ->schema([
                         Grid::make(2)
                             ->schema([
@@ -65,36 +67,44 @@ class ContainerBlock
                                             ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
-                                Select::make('webStyles')
-                                    ->label('Web Styles')
-                                    ->options($styles->pluck('name', 'id'))
-                                    ->multiple()
-                                    ->preload()
-                                    ->columnSpan(1)
-                                    ->lazy(),
-                                Select::make('pdfStyles')
-                                    ->label('PDF Styles')
-                                    ->options($styles->pluck('name', 'id'))
-                                    ->multiple()
-                                    ->preload()
-                                    ->columnSpan(1)
-                                    ->lazy(),
                                 Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
                             ]),
                     ]),
-                Builder::make('components')
-                    ->label('Container Elements')
-                    ->addBetweenActionLabel('Insert between elements')
+                Select::make('webStyles')
+                    ->label('Web Styles')
+                    ->options($styles->pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(1)
+                    ->lazy(),
+                Select::make('pdfStyles')
+                    ->label('PDF Styles')
+                    ->options($styles->pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(1)
+                    ->lazy(),
+                Section::make('Container Elements')
                     ->collapsible()
                     ->collapsed(true)
-                    ->blockNumbers(false)
+                    ->compact()
                     ->columnSpan(2)
-                    ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
-                        FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
-                    ]),
+                    ->schema([
+                        Builder::make('components')
+                            ->label(false)
+                            ->addActionLabel('Add to Container Elements')
+                            ->addBetweenActionLabel('Insert between elements')
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->blockNumbers(false)
+                            ->columnSpan(2)
+                            ->blocks([
+                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                                FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                            ]),
+                    ])
             ]);
     }
 }
