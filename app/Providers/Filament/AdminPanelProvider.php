@@ -68,6 +68,7 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationIcon('heroicon-o-shield-check')
                     ->navigationSort(2)
                     ->resource(CustomActivitylogResource::class)
+                    ->authorize(fn() => CheckRole::hasRole(request(), 'admin'))
             ])
             ->middleware([
                 EncryptCookies::class,

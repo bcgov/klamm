@@ -6,9 +6,11 @@ use App\Filament\Forms\Resources\FormResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use App\Filament\Forms\Resources\FormResource\Pages;
-use App\Filament\Admin\Resources\CustomActivitylogRelationManager;
 use App\Filament\Forms\Resources\FormResource\RelationManagers\FormVersionRelationManager;
 use Illuminate\Support\Facades\Gate;
+
+use Illuminate\Support\Facades\Auth;
+use App\Filament\Forms\Resources\FormResource\RelationManagers\ViewFormActivitiesRelationManager;
 
 class ViewForm extends ViewRecord
 {
@@ -18,14 +20,37 @@ class ViewForm extends ViewRecord
 
     public function getRelationManagers(): array
     {
+
+
         if (Gate::allows('admin') || Gate::allows('form-developer')) {
             return [
                 FormVersionRelationManager::class,
-                CustomActivitylogRelationManager::class
+                // ViewFormActivitiesRelationManager::make(),
+                ViewFormActivitiesRelationManager::class,
+
             ];
-        } else {
-            return [];
         }
+
+        // Check business area access
+        $user = Auth::user();
+        $businessAreaIds = $user->businessAreas->pluck('id')->toArray();
+
+        if (!empty($businessAreaIds)) {
+            $form = $this->getRecord();
+            $hasAccess = $form->businessAreas()
+                ->whereIn('business_areas.id', $businessAreaIds)
+                ->exists();
+
+            if ($hasAccess) {
+                return [
+                    FormVersionRelationManager::class,
+                    // CustomActivitylogRelationManager::make(),
+                    ViewFormActivitiesRelationManager::class,
+
+                ];
+            }
+        }
+        return [];
     }
 
     protected function getHeaderActions(): array

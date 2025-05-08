@@ -6,6 +6,7 @@ use Filament\Pages\Dashboard as BaseDashboard;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
+use App\Filament\Forms\Widgets\YourFormsLogsWidget;
 
 class FormsDashboard extends BaseDashboard
 {
@@ -25,6 +26,7 @@ class FormsDashboard extends BaseDashboard
         return [
             FormsDescriptionWidget::class,
             YourFormsWidget::class,
+            YourFormsLogsWidget::class,
             FormsStatsWidget::class,
         ];
     }

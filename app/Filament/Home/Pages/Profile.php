@@ -185,15 +185,28 @@ class Profile extends Page implements HasTable
 
     public function table(Table $table): Table
     {
-        $baseTable = CustomActivitylogResource::table($table);
+        CustomActivitylogResource::resetConfiguration();
+        CustomActivitylogResource::withColumns([
+            'log_name',
+            'event',
+            'description',
+            'subject_type',
+            'properties',
+            'created_at'
+        ]);
+        CustomActivitylogResource::withFilters([
+            'date',
+            'event',
+            'log_name',
+        ]);
+        $configuredTable = CustomActivitylogResource::configureStandardTable($table);
 
-        return $table
+        return $configuredTable
             ->query(
                 \Spatie\Activitylog\Models\Activity::query()
                     ->where('causer_id', Auth::user()->id)
             )
             ->heading('My Activity Log')
-            ->columns($baseTable->getColumns())
             ->defaultSort('activity_log.created_at', 'desc');
     }
 }

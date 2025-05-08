@@ -9,7 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use App\Filament\Admin\Resources\CustomActivitylogRelationManager;
+use App\Filament\Admin\Resources\UserResource\RelationManagers\UserLogRelationManager;
 
 class UserResource extends Resource
 {
@@ -62,7 +62,7 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            CustomActivitylogRelationManager::class,
+            UserLogRelationManager::class,
         ];
     }
 
