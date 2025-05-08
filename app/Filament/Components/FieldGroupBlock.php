@@ -235,16 +235,25 @@ class FieldGroupBlock
                     ->multiple()
                     ->preload()
                     ->columnSpan(1),
-                Builder::make('form_fields')
-                    ->label('Form Fields in Group')
-                    ->addBetweenActionLabel('Insert between fields')
+                Section::make('Group Elements')
                     ->collapsible()
                     ->collapsed(true)
-                    ->blockNumbers(false)
+                    ->compact()
                     ->columnSpan(2)
-                    ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                    ->schema([
+                        Builder::make('form_fields')
+                            ->label(false)
+                            ->addActionLabel('Add to Group Elements')
+                            ->addBetweenActionLabel('Insert between fields')
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->blockNumbers(false)
+                            ->columnSpan(2)
+                            ->blocks([
+                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                            ]),
                     ]),
+
             ]);
     }
 }

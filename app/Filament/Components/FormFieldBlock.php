@@ -347,40 +347,52 @@ class FormFieldBlock
                     ->multiple()
                     ->preload()
                     ->columnSpan(1),
-                Repeater::make('validations')
-                    ->label('Validations')
-                    ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
+                Section::make('Validations & Conditionals')
                     ->collapsible()
-                    ->collapsed()
-                    ->defaultItems(0)
-                    ->addActionAlignment(Alignment::Start)
+                    ->collapsed(true)
+                    ->compact()
+                    ->columns(2)
+                    ->columnSpan(2)
                     ->schema([
-                        Select::make('type')
-                            ->label('Validation Type')
-                            ->options($validationOptions)
-                            ->reactive()
-                            ->required(),
-                        Textarea::make('value')
-                            ->label('Value'),
-                        TextInput::make('error_message')
-                            ->label('Error Message'),
-                    ]),
-                Repeater::make('conditionals')
-                    ->label('Conditionals')
-                    ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
-                    ->collapsible()
-                    ->collapsed()
-                    ->defaultItems(0)
-                    ->addActionAlignment(Alignment::Start)
-                    ->schema([
-                        Select::make('type')
-                            ->label('Conditional Type')
-                            ->options($conditionalOptions)
-                            ->reactive()
-                            ->required(),
-                        Textarea::make('value')
-                            ->label('Value'),
-                    ]),
+                        Repeater::make('validations')
+                            ->label('Validations')
+                            ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
+                            ->collapsible()
+                            ->collapsed()
+                            ->defaultItems(0)
+                            ->columns(1)
+                            ->columnSpan(1)
+                            ->addActionAlignment(Alignment::Start)
+                            ->schema([
+                                Select::make('type')
+                                    ->label('Validation Type')
+                                    ->options($validationOptions)
+                                    ->reactive()
+                                    ->required(),
+                                Textarea::make('value')
+                                    ->label('Value'),
+                                TextInput::make('error_message')
+                                    ->label('Error Message'),
+                            ]),
+                        Repeater::make('conditionals')
+                            ->label('Conditionals')
+                            ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
+                            ->collapsible()
+                            ->collapsed()
+                            ->defaultItems(0)
+                            ->columns(1)
+                            ->columnSpan(1)
+                            ->addActionAlignment(Alignment::Start)
+                            ->schema([
+                                Select::make('type')
+                                    ->label('Conditional Type')
+                                    ->options($conditionalOptions)
+                                    ->reactive()
+                                    ->required(),
+                                Textarea::make('value')
+                                    ->label('Value'),
+                            ]),
+                    ])
             ]);
     }
 }
