@@ -25,13 +25,19 @@ use Illuminate\Support\Facades\Session;
 use App\Models\FormVersion;
 use App\Jobs\GenerateFormTemplateJob;
 use Illuminate\Support\Facades\Cache;
-
+use Illuminate\Support\Facades\DB;
 use Filament\Notifications\Notification;
 
 class FormVersionBuilder
 {
+    const CACHE_TTL = 3600;
+
+    const CHUNK_SIZE = 10;
+
     public static function schema()
     {
+        gc_collect_cycles();
+
         FormDataHelper::load();
 
         return Grid::make()
@@ -42,9 +48,26 @@ class FormVersionBuilder
                     ->reactive()
                     ->preload()
                     ->searchable()
-                    ->default(request()->query('form_id_title')),
+                    ->default(request()->query('form_id_title'))
+                    // Cache form relationship data to avoid repeated queries
+                    ->getSearchResultsUsing(function (string $search) {
+                        $cacheKey = "form_search_results:" . md5($search);
+                        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($search) {
+                            return DB::table('forms')
+                                ->where('form_id_title', 'like', "%{$search}%")
+                                ->select('id', 'form_id_title')
+                                ->limit(50)
+                                ->get()
+                                ->mapWithKeys(fn($row) => [$row->id => $row->form_id_title])
+                                ->toArray();
+                        });
+                    }),
                 Select::make('status')
-                    ->options(FormVersion::getStatusOptions())
+                    ->options(function () {
+                        return Cache::remember('form_status_options', self::CACHE_TTL, function () {
+                            return FormVersion::getStatusOptions();
+                        });
+                    })
                     ->default('draft')
                     ->disabled()
                     ->required(),
@@ -89,7 +112,23 @@ class FormVersionBuilder
                             ->multiple()
                             ->preload()
                             ->columnSpan(1)
-                            ->relationship('formDataSources', 'name'),
+                            ->relationship('formDataSources', 'name')
+                            ->getOptionLabelUsing(
+                                fn($value) =>
+                                Cache::remember("form_data_source:{$value}", self::CACHE_TTL, function () use ($value) {
+                                    return DB::table('form_data_sources')->where('id', $value)->value('name');
+                                })
+                            )
+                            ->options(function () {
+                                return Cache::remember('form_data_sources_options', self::CACHE_TTL, function () {
+                                    return DB::table('form_data_sources')
+                                        ->select('id', 'name')
+                                        ->orderBy('name')
+                                        ->get()
+                                        ->mapWithKeys(fn($row) => [$row->id => $row->name])
+                                        ->toArray();
+                                });
+                            }),
                         TextInput::make('footer')
                             ->columnSpanFull(),
                         Textarea::make('comments')
@@ -160,7 +199,24 @@ class FormVersionBuilder
                             })
                     )
                     ->afterStateHydrated(function (Set $set, Get $get) {
-                        Session::put('elementCounter', self::getHighestID($get('components')) + 1);
+                        // Get components data and cache it to avoid repeated processing
+                        $components = $get('components') ?? [];
+                        $formVersionId = $get('id');
+
+                        // Calculate highest ID efficiently with memory optimization
+                        if ($formVersionId) {
+                            $highestId = Cache::remember("form_version:{$formVersionId}:highest_id", self::CACHE_TTL, function () use ($components) {
+                                // Process in chunks to avoid memory issues with large forms
+                                return self::getHighestIDChunked($components) + 1;
+                            });
+                        } else {
+                            $highestId = self::getHighestIDChunked($components) + 1;
+                        }
+
+                        Session::put('elementCounter', $highestId);
+
+                        // Clean up after processing
+                        gc_collect_cycles();
                         FormDataHelper::ensureFullyLoaded();
                     })
                     ->blocks([
@@ -237,31 +293,158 @@ class FormVersionBuilder
             ]);
     }
 
-    // Function to find highest used instance ID
+    /**
+     * Function to find highest used instance ID with chunked processing
+     * Optimized to use memoization and chunk processing to avoid memory issues
+     */
+    protected static function getHighestIDChunked(array $blocks): int
+    {
+        if (empty($blocks)) {
+            return 0;
+        }
+
+        // Process only 20 blocks at a time to manage memory usage
+        $maxID = 0;
+        $chunks = array_chunk($blocks, 20);
+
+        foreach ($chunks as $chunkIndex => $chunk) {
+            // Release memory periodically
+            if ($chunkIndex > 0 && $chunkIndex % 5 === 0) {
+                gc_collect_cycles();
+            }
+
+            $chunkMax = self::processBlockChunk($chunk);
+            $maxID = max($maxID, $chunkMax);
+        }
+
+        return $maxID;
+    }
+
+    /**
+     * Process a chunk of blocks to find the highest ID
+     */
+    protected static function processBlockChunk(array $blockChunk): int
+    {
+        static $memoizedResults = [];
+        $maxID = 0;
+
+        foreach ($blockChunk as $block) {
+            // Check top-level elements
+            if (isset($block['data']['instance_id'])) {
+                $idString = $block['data']['instance_id'];
+                // More efficient string processing
+                if (strpos($idString, 'element') === 0) {
+                    $numericPart = substr($idString, 7); // Skip 'element' prefix
+                    if (is_numeric($numericPart) && $numericPart > 0) {
+                        $id = (int) $numericPart;
+                        $maxID = max($maxID, $id);
+                    }
+                }
+            }
+
+            // Handle memory-efficient nested component processing
+            if (isset($block['data']['components']) && is_array($block['data']['components']) && !empty($block['data']['components'])) {
+                // Use cache for previously processed component groups to save memory
+                $componentsHash = md5(serialize($block['data']['components']));
+
+                if (isset($memoizedResults[$componentsHash])) {
+                    $componentMax = $memoizedResults[$componentsHash];
+                } else {
+                    // Process in smaller chunks for very large nested components
+                    if (count($block['data']['components']) > 50) {
+                        $componentMax = self::getHighestIDChunked($block['data']['components']);
+                    } else {
+                        $componentMax = self::getHighestID($block['data']['components']);
+                    }
+
+                    // Cache result to avoid reprocessing
+                    $memoizedResults[$componentsHash] = $componentMax;
+
+                    // Limit the size of the memoization cache
+                    if (count($memoizedResults) > 100) {
+                        // Remove oldest entries when cache gets too large
+                        $memoizedResults = array_slice($memoizedResults, -50, 50, true);
+                    }
+                }
+
+                $maxID = max($maxID, $componentMax);
+            }
+
+            // Memory-efficient process for form fields
+            if (isset($block['data']['form_fields']) && is_array($block['data']['form_fields']) && !empty($block['data']['form_fields'])) {
+                // Process form fields similarly to components
+                $fieldsHash = md5(serialize($block['data']['form_fields']));
+
+                if (isset($memoizedResults[$fieldsHash])) {
+                    $fieldsMax = $memoizedResults[$fieldsHash];
+                } else {
+                    // Process in smaller chunks for very large field groups
+                    if (count($block['data']['form_fields']) > 50) {
+                        $fieldsMax = self::getHighestIDChunked($block['data']['form_fields']);
+                    } else {
+                        $fieldsMax = self::getHighestID($block['data']['form_fields']);
+                    }
+
+                    // Cache result
+                    $memoizedResults[$fieldsHash] = $fieldsMax;
+                }
+
+                $maxID = max($maxID, $fieldsMax);
+            }
+        }
+
+        return $maxID;
+    }
+
+    /**
+     * Original function to find highest used instance ID
+     * Optimized to use memoization to avoid recalculating
+     */
     protected static function getHighestID(array $blocks): int
     {
+        static $memoizedResults = [];
+
+        // Use a unique hash as the cache key
+        $cacheKey = md5(serialize($blocks));
+
+        // Return memoized result if available
+        if (isset($memoizedResults[$cacheKey])) {
+            return $memoizedResults[$cacheKey];
+        }
+
         $maxID = 0;
+
+        if (empty($blocks)) {
+            return $maxID;
+        }
+
         foreach ($blocks as $block) {
             // Check top-level elements
             if (isset($block['data']['instance_id'])) {
                 $idString = $block['data']['instance_id'];
-                $numericPart = str_replace('element', '', $idString); // Remove the 'element' prefix
-                if (is_numeric($numericPart) && $numericPart > 0) {
-                    $id = (int) $numericPart;
-                    $maxID = max($maxID, $id); // Update the maximum ID
+                // More efficient string processing
+                if (strpos($idString, 'element') === 0) {
+                    $numericPart = substr($idString, 7); // Skip 'element' prefix
+                    if (is_numeric($numericPart) && $numericPart > 0) {
+                        $id = (int) $numericPart;
+                        $maxID = max($maxID, $id);
+                    }
                 }
             }
-            // Recursively check elements inside of Containers
-            if (isset($block['data']['components']) && is_array($block['data']['components'])) {
-                $nestedMaxID = self::getHighestID($block['data']['components']);
-                $maxID = max($maxID, $nestedMaxID);
+
+            // Process nested components
+            if (isset($block['data']['components']) && is_array($block['data']['components']) && !empty($block['data']['components'])) {
+                $maxID = max($maxID, self::getHighestID($block['data']['components']));
             }
-            // Recursively check elements inside of Groups
-            if (isset($block['data']['form_fields']) && is_array($block['data']['form_fields'])) {
-                $nestedMaxID = self::getHighestID($block['data']['form_fields']);
-                $maxID = max($maxID, $nestedMaxID);
+
+            // Process form fields
+            if (isset($block['data']['form_fields']) && is_array($block['data']['form_fields']) && !empty($block['data']['form_fields'])) {
+                $maxID = max($maxID, self::getHighestID($block['data']['form_fields']));
             }
         }
+
+        // Store result in memoization cache
+        $memoizedResults[$cacheKey] = $maxID;
 
         return $maxID;
     }

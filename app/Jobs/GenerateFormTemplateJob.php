@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Models\FormVersion;
 
 class GenerateFormTemplateJob implements ShouldQueue, \Illuminate\Contracts\Queue\ShouldBeUnique
 {
@@ -40,15 +41,13 @@ class GenerateFormTemplateJob implements ShouldQueue, \Illuminate\Contracts\Queu
     // generate and store the form template in the cache
     public function handle()
     {
+        FormTemplateHelper::clearFormTemplateCache($this->formVersionId);
         // If newer job is requested, abort early
         $latest = Cache::get($this->cacheRequestKey());
-        if ($latest !== null && (int)$latest !== (int)$this->requestedAt) {
-            Log::info("Job for version={$this->formVersionId} aborted - newer job requested", [
-                'current' => $this->requestedAt,
-                'latest' => $latest
-            ]);
-            return;
-        }
+        if ($latest !== null && (int)$latest !== (int)$this->requestedAt) return;
+
+        $formVersion = FormVersion::find($this->formVersionId);
+        if (!$formVersion) return;
 
         Cache::put(
             $this->cacheStatusKey(),
