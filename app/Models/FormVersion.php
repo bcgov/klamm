@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class FormVersion extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'form_id',
@@ -40,6 +42,37 @@ class FormVersion extends Model
 
             $formVersion->version_number = $latestVersion ? $latestVersion->version_number + 1 : 1;
         });
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['status', 'form_id', 'version_number'])
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(function (string $eventName) {
+                return "Form version metadata was {$eventName}";
+            });
+    }
+
+    public function getLogNameToUse(): string
+    {
+        return 'form_versions';
+    }
+
+    public static function getStatusOptions(): array
+    {
+        return [
+            'draft' => 'Draft',
+            'under_review' => 'Under Review',
+            'approved' => 'Approved',
+            'published' => 'Published',
+            'archived' => 'Archived',
+        ];
+    }
+
+    public function getFormattedStatusName(): string
+    {
+        return self::getStatusOptions()[$this->status] ?? $this->status;
     }
 
     public function form()

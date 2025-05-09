@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\SelectOptionsResource\RelationManagers;
+namespace App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers;
 
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;

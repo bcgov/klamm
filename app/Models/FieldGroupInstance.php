@@ -25,6 +25,7 @@ class FieldGroupInstance extends Model
         'order',
         'instance_id',
         'custom_instance_id',
+        'clear_button',
 
     ];
 

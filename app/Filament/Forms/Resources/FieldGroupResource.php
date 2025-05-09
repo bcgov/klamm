@@ -66,6 +66,7 @@ class FieldGroupResource extends Resource
                 Textarea::make('internal_description')
                     ->columnSpanFull(),
                 Toggle::make('repeater')
+                    ->label('Repeater')
                     ->columnSpan(1)
                     ->live()
                     ->afterStateUpdated(function ($state, callable $set) {
@@ -77,6 +78,11 @@ class FieldGroupResource extends Resource
                     ->columnSpan(5)
                     ->live()
                     ->visible(fn($get) => $get('repeater')),
+                Toggle::make('clear_button')
+                    ->label('Clear Button')
+                    ->live()
+                    ->visible(fn($get) => !$get('repeater')),
+
             ]);
     }
 
@@ -87,6 +93,7 @@ class FieldGroupResource extends Resource
                 Tables\Columns\TextColumn::make('name')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('label')->sortable()->searchable(),
                 Tables\Columns\IconColumn::make('repeater')->boolean(),
+                Tables\Columns\IconColumn::make('clear_button')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])

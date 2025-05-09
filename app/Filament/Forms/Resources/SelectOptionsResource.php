@@ -4,8 +4,8 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\SelectOptionsResource\Pages;
 use App\Filament\Imports\SelectOptionsImporter;
-use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormFieldsRelationManager;
-use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
+use App\Filament\Forms\Resources\FormFieldsRelationManagerResource\RelationManagers\FormFieldsRelationManager;
+use App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
 use App\Models\SelectOptions;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;

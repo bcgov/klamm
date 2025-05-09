@@ -3,10 +3,12 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldValidation;
@@ -24,6 +26,9 @@ class EditFormVersion extends EditRecord
         $user = Auth::user();
         $data['updater_name'] = $user->name;
         $data['updater_email'] = $user->email;
+
+        // Put all instance IDs into the session so that each block can check them against its duplicate ID rule
+        Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components']));
 
         unset($data['components']);
 
@@ -226,6 +231,7 @@ class EditFormVersion extends EditRecord
             'container_id' => $containerID,
             'order' => $order,
             'repeater' => $component['repeater'] ?? false,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_group_label' => $component['customize_group_label'] === 'customize' ? $component['custom_group_label'] : null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
             'custom_repeater_item_label' => $component['customize_repeater_item_label'] ? $component['custom_repeater_item_label'] : null,
@@ -250,6 +256,7 @@ class EditFormVersion extends EditRecord
             'form_version_id' => $formVersion->id,
             'order' => $order,
             'instance_id' => $component['instance_id'] ?? null,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
         ]);
@@ -380,7 +387,8 @@ class EditFormVersion extends EditRecord
                 'type' => 'field_group',
                 'data' => [
                     'field_group_id' => $group->field_group_id,
-                    'repeater' => $group->repeater,
+                    'repeater' => $group->repeater ?? $fieldGroup->repeater,
+                    'clear_button' => $group->clear_button ?? $fieldGroup->clear_button,
                     'custom_group_label' => $group->custom_group_label ?? null,
                     'customize_group_label' => $group->customize_group_label ?? null,
                     'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
@@ -424,6 +432,7 @@ class EditFormVersion extends EditRecord
                     'instance_id' => $container->instance_id,
                     'custom_instance_id' => $container->custom_instance_id,
                     'customize_instance_id' => $container->custom_instance_id ?? null,
+                    'clear_button' => $container->clear_button ?? false,
                     'components' => $blocks,
                     'webStyles' => $styles['webStyles'],
                     'pdfStyles' => $styles['pdfStyles'],

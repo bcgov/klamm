@@ -23,7 +23,7 @@ class ViewFormVersion extends ViewRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
-                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
             },
             'fieldGroupInstances' => function ($query) {
                 $query
@@ -33,7 +33,7 @@ class ViewFormVersion extends ViewRecord
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
-                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
                         }
                     ]);
             },
@@ -42,7 +42,7 @@ class ViewFormVersion extends ViewRecord
                     'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
-                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
@@ -50,7 +50,7 @@ class ViewFormVersion extends ViewRecord
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
-                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formField.dataType', 'formInstanceFieldValue']);
                             }
                         ]);
                     }
@@ -199,7 +199,8 @@ class ViewFormVersion extends ViewRecord
                     'field_group_id' => $group->field_group_id,
                     'custom_group_label' => $group->custom_group_label,
                     'customize_group_label' => $group->customize_group_label,
-                    'repeater' => $group->repeater,
+                    'repeater' => $group->repeater ?? false,
+                    'clear_button' => $group->clear_button ?? false,
                     'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
                     'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
                     'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
@@ -241,6 +242,7 @@ class ViewFormVersion extends ViewRecord
                     'instance_id' => $container->instance_id,
                     'custom_instance_id' => $container->custom_instance_id,
                     'customize_instance_id' => $container->custom_instance_id ?? null,
+                    'clear_button' => $container->clear_button ?? false,
                     'components' => $blocks,
                     'webStyles' => $styles['webStyles'],
                     'pdfStyles' => $styles['pdfStyles'],
