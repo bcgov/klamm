@@ -6,105 +6,165 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
 use App\Models\FormVersion;
 use App\Models\Form;
+use Illuminate\Support\Facades\Cache;
 
 class FormTemplateHelper
 {
 
-    public static function generateJsonTemplate($formVersionId)
+    public static function generateJsonTemplate(int $formVersionId): string
     {
-        $formVersion = FormVersion::find($formVersionId);
-        $form = Form::find($formVersion->form_id);
+        $formVersion = FormVersion::findOrFail($formVersionId);
 
-        $components = [];
+        // timestamp for cache invalidation
+        $cacheKey = sprintf(
+            'formtemplate.%d.v%s',
+            $formVersion->id,
+            $formVersion->updated_at->timestamp,
+        );
 
-        $formFields = $formVersion->formInstanceFields()
-            ->whereNull('field_group_instance_id')
-            ->whereNull('container_id')
-            ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
-            ->get();
+        // Backup unique identifier, force cache invalidation if needed
+        $uniqueIdentifier = $formVersion->updated_at->timestamp . '-' . uniqid();
+        $cacheKey .= '.' . $uniqueIdentifier;
 
-        foreach ($formFields as $field) {
-            $components[] = [
-                'component_type' => 'form_field',
-                'data' => $field,
-                'order' => $field->order,
-            ];
-        }
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($formVersion) {
+            $form = $formVersion->form;
+            $components = [];
 
-        $fieldGroups = $formVersion->fieldGroupInstances()
-            ->whereNull('container_id')
-            ->orderBy('order')
-            ->with(['styleInstances.style'])
-            ->get();
+            $formFields = $formVersion->formInstanceFields()
+                ->whereNull('field_group_instance_id')
+                ->whereNull('container_id')
+                ->orderBy('order')
+                ->with([
+                    'formField.dataType',
+                    'formField.formFieldValue',
+                    'styleInstances.style',
+                    'validations',
+                    'conditionals',
+                    'formInstanceFieldValue',
+                    'selectOptionInstances.selectOption'
+                ])
+                ->get();
 
-        foreach ($fieldGroups as $group) {
-            $components[] = [
-                'component_type' => 'field_group',
-                'data' => $group,
-                'order' => $group->order,
-            ];
-        }
-
-        $containers = $formVersion->containers()
-            ->orderBy('order')
-            ->with(['styleInstances.style'])
-            ->get();
-
-        foreach ($containers as $container) {
-            $components[] = [
-                'component_type' => 'container',
-                'data' => $container,
-                'order' => $container->order,
-            ];
-        }
-
-        usort($components, function ($a, $b) {
-            return $a['order'] <=> $b['order'];
-        });
-
-        $items = [];
-        $index = 1;
-
-        foreach ($components as $component) {
-            if ($component['component_type'] === 'form_field') {
-                $field = $component['data'];
-                $items[] = self::formatField($field, $index);
-                $index++;
-            } elseif ($component['component_type'] === 'field_group') {
-                $group = $component['data'];
-                $items[] = self::formatGroup($group, $index);
-                $index++;
-            } elseif ($component['component_type'] === 'container') {
-                $container = $component['data'];
-                $items[] = self::formatContainer($container, $index);
-                $index++;
-            }
-        }
-
-        return json_encode([
-            "version" => $formVersion->version_number,
-            "ministry_id" => $form->ministry_id,
-            "id" => (string) Str::uuid(),
-            "lastModified" => $formVersion->updated_at->toIso8601String(),
-            "title" => $formVersion->form->form_title,
-            "form_id" => $form->form_id,
-            "deployed_to" => $formVersion->deployed_to,
-            "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
-                return [
-                    'name' => $dataSource->name,
-                    'type' => $dataSource->type,
-                    'endpoint' => $dataSource->endpoint,
-                    'params' => json_decode($dataSource->params, true),
-                    'body' => json_decode($dataSource->body, true),
-                    'headers' => json_decode($dataSource->headers, true),
-                    'host' => $dataSource->host,
+            foreach ($formFields as $field) {
+                $components[] = [
+                    'component_type' => 'form_field',
+                    'data' => $field,
+                    'order' => $field->order,
                 ];
-            })->toArray(),
-            "data" => [
-                "items" => $items,
-            ],
-        ], JSON_PRETTY_PRINT);
+            }
+
+            $fieldGroups = $formVersion->fieldGroupInstances()
+                ->whereNull('container_id')
+                ->orderBy('order')
+                ->with([
+                    'fieldGroup',
+                    'styleInstances.style',
+                    'formInstanceFields' => function ($query) {
+                        $query->orderBy('order')->with([
+                            'formField.dataType',
+                            'formField.formFieldValue',
+                            'formInstanceFieldValue',
+                            'styleInstances.style',
+                            'validations',
+                            'conditionals'
+                        ]);
+                    }
+                ])
+                ->get();
+
+            foreach ($fieldGroups as $group) {
+                $components[] = [
+                    'component_type' => 'field_group',
+                    'data' => $group,
+                    'order' => $group->order,
+                ];
+            }
+
+            $containers = $formVersion->containers()
+                ->orderBy('order')
+                ->with([
+                    'styleInstances.style',
+                    'formInstanceFields.formField.dataType',
+                    'formInstanceFields.formField.formFieldValue',
+                    'formInstanceFields.styleInstances.style',
+                    'formInstanceFields.validations',
+                    'formInstanceFields.conditionals',
+                    'formInstanceFields.formInstanceFieldValue',
+                    'formInstanceFields.selectOptionInstances.selectOption',
+                    'fieldGroupInstances' => function ($query) {
+                        $query->orderBy('order')->with([
+                            'fieldGroup',
+                            'styleInstances.style',
+                            'formInstanceFields' => function ($query) {
+                                $query->orderBy('order')->with([
+                                    'formField.dataType',
+                                    'formField.formFieldValue',
+                                    'formInstanceFieldValue',
+                                    'styleInstances.style',
+                                    'validations',
+                                    'conditionals'
+                                ]);
+                            }
+                        ]);
+                    }
+                ])
+                ->get();
+
+            foreach ($containers as $container) {
+                $components[] = [
+                    'component_type' => 'container',
+                    'data' => $container,
+                    'order' => $container->order,
+                ];
+            }
+
+            usort($components, function ($a, $b) {
+                return $a['order'] <=> $b['order'];
+            });
+
+            $items = [];
+            $index = 1;
+
+            foreach ($components as $component) {
+                if ($component['component_type'] === 'form_field') {
+                    $field = $component['data'];
+                    $items[] = self::formatField($field, $index);
+                    $index++;
+                } elseif ($component['component_type'] === 'field_group') {
+                    $group = $component['data'];
+                    $items[] = self::formatGroup($group, $index);
+                    $index++;
+                } elseif ($component['component_type'] === 'container') {
+                    $container = $component['data'];
+                    $items[] = self::formatContainer($container, $index);
+                    $index++;
+                }
+            }
+
+            return json_encode([
+                "version" => $formVersion->version_number,
+                "ministry_id" => $form->ministry_id,
+                "id" => (string) Str::uuid(),
+                "lastModified" => $formVersion->updated_at->toIso8601String(),
+                "title" => $formVersion->form->form_title,
+                "form_id" => $form->form_id,
+                "deployed_to" => $formVersion->deployed_to,
+                "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
+                    return [
+                        'name' => $dataSource->name,
+                        'type' => $dataSource->type,
+                        'endpoint' => $dataSource->endpoint,
+                        'params' => json_decode($dataSource->params, true),
+                        'body' => json_decode($dataSource->body, true),
+                        'headers' => json_decode($dataSource->headers, true),
+                        'host' => $dataSource->host,
+                    ];
+                })->toArray(),
+                "data" => [
+                    "items" => $items,
+                ],
+            ], JSON_PRETTY_PRINT);
+        });
     }
 
     protected static function formatField($fieldInstance, $index)
@@ -240,9 +300,14 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances' => function ($query) {
-                $query->with('style');
-            }, 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'formInstanceFieldValue',
+                'styleInstances.style',
+                'validations',
+                'conditionals'
+            ])
             ->get();
 
         $webStyle = [];
@@ -331,10 +396,34 @@ class FormTemplateHelper
 
     protected static function formatContainer($container, $index)
     {
-        $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
+        $fieldsInContainer = $container->formInstanceFields()
+            ->orderBy('order')
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'formInstanceFieldValue',
+                'styleInstances.style',
+                'validations',
+                'conditionals'
+            ])
+            ->get();
+
         $groupsInContainer = $container->fieldGroupInstances()
             ->orderBy('order')
-            ->with(['fieldGroup', 'styleInstances'])
+            ->with([
+                'fieldGroup',
+                'styleInstances',
+                'formInstanceFields' => function ($query) {
+                    $query->orderBy('order')->with([
+                        'formField.dataType',
+                        'formField.formFieldValue',
+                        'formInstanceFieldValue',
+                        'styleInstances.style',
+                        'validations',
+                        'conditionals'
+                    ]);
+                }
+            ])
             ->get();
 
         $items = [];
