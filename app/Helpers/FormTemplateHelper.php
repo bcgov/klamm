@@ -5,16 +5,29 @@ namespace App\Helpers;
 use Illuminate\Support\Str;
 use App\Models\FormVersion;
 use App\Models\Form;
+use Illuminate\Support\Facades\Cache;
 
 class FormTemplateHelper
 {
 
-    public static function generateJsonTemplate($formVersionId)
+    public static function generateJsonTemplate(int $formVersionId): string
     {
-        $formVersion = FormVersion::find($formVersionId);
-        $form = Form::find($formVersion->form_id);
+        $formVersion = FormVersion::findOrFail($formVersionId);
 
-        $components = [];
+        // timestamp for cache invalidation
+        $cacheKey = sprintf(
+            'formtemplate.%d.v%s',
+            $formVersion->id,
+            $formVersion->updated_at->timestamp,
+        );
+
+        // Backup unique identifier, force cache invalidation if needed
+        $uniqueIdentifier = $formVersion->updated_at->timestamp . '-' . uniqid();
+        $cacheKey .= '.' . $uniqueIdentifier;
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($formVersion) {
+            $form = $formVersion->form;
+            $components = [];
 
         $formFields = $formVersion->formInstanceFields()
             ->whereNull('field_group_instance_id')
@@ -32,13 +45,13 @@ class FormTemplateHelper
             ])
             ->get();
 
-        foreach ($formFields as $field) {
-            $components[] = [
-                'component_type' => 'form_field',
-                'data' => $field,
-                'order' => $field->order,
-            ];
-        }
+            foreach ($formFields as $field) {
+                $components[] = [
+                    'component_type' => 'form_field',
+                    'data' => $field,
+                    'order' => $field->order,
+                ];
+            }
 
         $fieldGroups = $formVersion->fieldGroupInstances()
             ->whereNull('container_id')
@@ -46,49 +59,74 @@ class FormTemplateHelper
             ->with(['fieldGroup', 'styleInstances.style'])
             ->get();
 
-        foreach ($fieldGroups as $group) {
-            $components[] = [
-                'component_type' => 'field_group',
-                'data' => $group,
-                'order' => $group->order,
-            ];
-        }
-
-        $containers = $formVersion->containers()
-            ->orderBy('order')
-            ->with(['styleInstances.style'])
-            ->get();
-
-        foreach ($containers as $container) {
-            $components[] = [
-                'component_type' => 'container',
-                'data' => $container,
-                'order' => $container->order,
-            ];
-        }
-
-        usort($components, function ($a, $b) {
-            return $a['order'] <=> $b['order'];
-        });
-
-        $items = [];
-        $index = 1;
-
-        foreach ($components as $component) {
-            if ($component['component_type'] === 'form_field') {
-                $field = $component['data'];
-                $items[] = self::formatField($field, $index);
-                $index++;
-            } elseif ($component['component_type'] === 'field_group') {
-                $group = $component['data'];
-                $items[] = self::formatGroup($group, $index);
-                $index++;
-            } elseif ($component['component_type'] === 'container') {
-                $container = $component['data'];
-                $items[] = self::formatContainer($container, $index);
-                $index++;
+            foreach ($fieldGroups as $group) {
+                $components[] = [
+                    'component_type' => 'field_group',
+                    'data' => $group,
+                    'order' => $group->order,
+                ];
             }
-        }
+
+            $containers = $formVersion->containers()
+                ->orderBy('order')
+                ->with([
+                    'styleInstances.style',
+                    'formInstanceFields.formField.dataType',
+                    'formInstanceFields.formField.formFieldValue',
+                    'formInstanceFields.styleInstances.style',
+                    'formInstanceFields.validations',
+                    'formInstanceFields.conditionals',
+                    'formInstanceFields.formInstanceFieldValue',
+                    'formInstanceFields.selectOptionInstances.selectOption',
+                    'fieldGroupInstances' => function ($query) {
+                        $query->orderBy('order')->with([
+                            'fieldGroup',
+                            'styleInstances.style',
+                            'formInstanceFields' => function ($query) {
+                                $query->orderBy('order')->with([
+                                    'formField.dataType',
+                                    'formField.formFieldValue',
+                                    'formInstanceFieldValue',
+                                    'styleInstances.style',
+                                    'validations',
+                                    'conditionals'
+                                ]);
+                            }
+                        ]);
+                    }
+                ])
+                ->get();
+
+            foreach ($containers as $container) {
+                $components[] = [
+                    'component_type' => 'container',
+                    'data' => $container,
+                    'order' => $container->order,
+                ];
+            }
+
+            usort($components, function ($a, $b) {
+                return $a['order'] <=> $b['order'];
+            });
+
+            $items = [];
+            $index = 1;
+
+            foreach ($components as $component) {
+                if ($component['component_type'] === 'form_field') {
+                    $field = $component['data'];
+                    $items[] = self::formatField($field, $index);
+                    $index++;
+                } elseif ($component['component_type'] === 'field_group') {
+                    $group = $component['data'];
+                    $items[] = self::formatGroup($group, $index);
+                    $index++;
+                } elseif ($component['component_type'] === 'container') {
+                    $container = $component['data'];
+                    $items[] = self::formatContainer($container, $index);
+                    $index++;
+                }
+            }
 
         return json_encode([
             "version" => $formVersion->version_number,
@@ -363,7 +401,20 @@ class FormTemplateHelper
             ->get();
         $groupsInContainer = $container->fieldGroupInstances()
             ->orderBy('order')
-            ->with(['fieldGroup', 'styleInstances'])
+            ->with([
+                'fieldGroup',
+                'styleInstances',
+                'formInstanceFields' => function ($query) {
+                    $query->orderBy('order')->with([
+                        'formField.dataType',
+                        'formField.formFieldValue',
+                        'formInstanceFieldValue',
+                        'styleInstances.style',
+                        'validations',
+                        'conditionals'
+                    ]);
+                }
+            ])
             ->get();
 
         $items = [];
