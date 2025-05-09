@@ -342,11 +342,13 @@ class ScanTemplateHelper
             $errors[] = "❌ #{$labelNum}: Missing key `name` in `codeContext`.";
         } else {
             // Check if template field exists
-            if (!FormField::where('name', $field['codeContext']['name'])->first()) {
+            $field = FormField::with('dataType')->where('name', $field['codeContext']['name'])->first();
+            if (!$field) {
                 $warnings[] = "⚠️ #{$labelNum}: `{$field['codeContext']['name']}` does not match any existing field; a custom field of type `{$field['type']}` will be created.";
                 // Check if generic field of that type exists
                 $type = str_replace('-', '_', $field['type']);
-                if (!FormField::where('name', "generic_{$type}")->first()) {
+                $generic = FormField::with('dataType')->where('name', "generic_{$type}")->first();
+                if (!$generic) {
                     $errors[] = "❌ #{$labelNum}: Cannot create `{$field['codeContext']['name']}` as no `generic_{$type}` field exists.";
                 }
             }
