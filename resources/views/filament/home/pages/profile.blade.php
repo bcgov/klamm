@@ -1,8 +1,7 @@
-<div class="mt-6">
-    <div class="mb-5 text-center">
-        <h1 class="text-3xl font-bold">My Profile</h1>
-    </div>
-    <form wire:submit.prevent="updateProfile" class="mb-5">
+<x-filament-panels::page>
+    <x-filament-panels::form wire:submit="save">
         {{ $this->form }}
-    </form>
-</div>
+    </x-filament-panels::form>
+
+    {{ $this->table }}
+</x-filament-panels::page>

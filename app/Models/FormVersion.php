@@ -31,6 +31,25 @@ class FormVersion extends Model
         'components'
     ];
 
+    protected $casts = [
+        'deployed_at' => 'datetime',
+    ];
+
+    protected static $logAttributes = [
+        'form_id',
+        'version_number',
+        'status',
+        'form_requester_name',
+        'form_requester_email',
+        'form_developer_name',
+        'form_developer_email',
+        'form_approver_name',
+        'form_approver_email',
+        'comments',
+        'deployed_to',
+        'deployed_at',
+    ];
+
     public static function boot()
     {
         parent::boot();
@@ -47,10 +66,35 @@ class FormVersion extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'form_id', 'version_number'])
+            ->logOnly(self::$logAttributes)
+            ->dontSubmitEmptyLogs()
             ->logOnlyDirty()
             ->setDescriptionForEvent(function (string $eventName) {
-                return "Form version metadata was {$eventName}";
+                if ($eventName === 'created') {
+                    return "Form version {$this->version_number} was created";
+                }
+
+                $changes = array_keys($this->getDirty());
+
+                // Filter out unnecessary fields from changes description
+                $changes = array_filter($changes, function ($change) {
+                    return !in_array($change, ['updated_at', 'updater_name', 'updater_email']);
+                });
+
+                if (!empty($changes)) {
+                    $changes = array_map(function ($change) {
+                        $change = str_replace('_', ' ', $change);
+                        $change = str_replace('form requester', 'requester', $change);
+                        $change = str_replace('form approver', 'approver', $change);
+                        $change = str_replace('form developer', 'developer', $change);
+                        return $change;
+                    }, $changes);
+
+                    $changesStr = implode(', ', array_unique($changes));
+                    return "Form version {$this->version_number} had changes to: {$changesStr}";
+                }
+
+                return "Form version {$this->version_number} was {$eventName}";
             });
     }
 

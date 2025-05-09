@@ -32,4 +32,14 @@ class CheckRole
 
         return $next($request);
     }
+
+    public static function hasRole(Request $request, string ...$roles): bool
+    {
+        foreach ($roles as $role) {
+            if (Gate::allows($role)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use App\Filament\Admin\Resources\UserResource\RelationManagers\UserLogRelationManager;
 
 class UserResource extends Resource
 {
@@ -56,6 +57,13 @@ class UserResource extends Resource
             ->actions([])
             ->bulkActions([])
             ->paginated([10, 25, 50, 100]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            UserLogRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

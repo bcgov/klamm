@@ -13,6 +13,11 @@ class ViewFormVersion extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+
+            Actions\ViewAction::make('view')
+                ->url(fn($record) => route('filament.forms.resources.forms.view', ['record' => $record->form_id]))
+                ->icon('heroicon-o-eye')
+                ->label('View Form Metadata'),
             Actions\EditAction::make(),
         ];
     }
