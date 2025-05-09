@@ -94,6 +94,9 @@ class FieldGroupBlock
                             $set('form_fields', $formFields);
                             $set('webStyles', $fieldGroup->webStyles()->pluck('styles.id')->toArray());
                             $set('pdfStyles', $fieldGroup->pdfStyles()->pluck('styles.id')->toArray());
+                            $set('repeater', $fieldGroup->repeater);
+                            $set('clear_button', $fieldGroup->clear_button);
+                            $set('custom_repeater_item_label', $fieldGroup->repeater_item_label);
                         } else {
                             $set('form_fields', []);
                             $set('webStyles', []);
@@ -162,8 +165,16 @@ class FieldGroupBlock
                                     ]),
                                 Toggle::make('repeater')
                                     ->label('Repeater')
-                                    ->columnSpanFull()
-                                    ->lazy(),
+                                    ->lazy()
+                                    ->live()
+                                    ->columnSpan(fn($get) => $get('repeater') ? 'full' : 1)
+                                    ->afterStateUpdated(fn(bool $state, callable $set) => $state && $set('clear_button', false)),
+                                Toggle::make('clear_button')
+                                    ->label('Clear Button')
+                                    ->lazy()
+                                    ->live()
+                                    ->visible(fn($get) => !$get('repeater'))
+                                    ->afterStateUpdated(fn(bool $state, callable $set) => $state && $set('repeater', false)),
                                 Fieldset::make('Repeater Item Label')
                                     ->columns(1)
                                     ->visible(fn($get) => $get('repeater'))

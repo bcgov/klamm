@@ -35,7 +35,7 @@ class FormTemplateHelper
         $fieldGroups = $formVersion->fieldGroupInstances()
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['styleInstances.style'])
+            ->with(['fieldGroup', 'styleInstances.style'])
             ->get();
 
         foreach ($fieldGroups as $group) {
@@ -240,9 +240,14 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances' => function ($query) {
-                $query->with('style');
-            }, 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'styleInstances' => function ($query) {
+                    $query->with('style');
+                },
+                'validations',
+                'conditionals'
+            ])
             ->get();
 
         $webStyle = [];
@@ -294,6 +299,7 @@ class FormTemplateHelper
             "id" => $groupInstance->custom_instance_id ?? $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
+            "clear_button" => $groupInstance->clear_button,
             "codeContext" => [
                 "name" => $group->name,
             ],
@@ -395,6 +401,7 @@ class FormTemplateHelper
             "type" => "container",
             "id" => $container->custom_instance_id ?? $container->instance_id,
             "containerId" => (string) $container->id,
+            "clear_button" => $container->clear_button,
             "codeContext" => [
                 "name" => 'container',
             ],
