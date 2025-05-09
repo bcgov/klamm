@@ -17,6 +17,8 @@ use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
 use App\Models\StyleInstance;
+use App\Jobs\GenerateFormTemplateJob;
+use Illuminate\Support\Facades\Cache;
 
 class EditFormVersion extends EditRecord
 {
@@ -69,6 +71,18 @@ class EditFormVersion extends EditRecord
                 $this->createContainer($formVersion, $order, $block['data']);
             }
         }
+
+        // Explicitly update the `updated_at` timestamp to ensure cache invalidation
+        $formVersion->touch();
+
+        // Invalidate the cache for both edit and view pages
+        Cache::forget("edit_form_version:{$formVersion->id}:components");
+        Cache::forget("view_form_version:{$formVersion->id}:components");
+
+        // Trigger the GenerateFormTemplateJob after saving
+        $requestedAt = now()->unix();
+        Cache::put("formtemplate:{$formVersion->id}:requested_at", $requestedAt, now()->addHours(1));
+        GenerateFormTemplateJob::dispatch($formVersion->id, $requestedAt);
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
