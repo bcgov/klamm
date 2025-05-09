@@ -244,8 +244,8 @@ class ImportTemplateHelper
     {
         $validID = self::isValidIdFormat($field['id']);
         $type = str_replace('-', '_', $field['type']);
-        $generic = FormField::where('name', "generic_{$type}")->first();
-        $template = FormField::where('name', $field['codeContext']['name'])->first();
+        $generic = FormField::with('dataType')->where('name', "generic_{$type}")->first();
+        $template = FormField::with('dataType')->where('name', $field['codeContext']['name'])->first();
 
         ['customize' => $customizeFieldLabel, 'custom' => $customFieldLabel] = self::composeLabel($field, $template, $generic);
 
