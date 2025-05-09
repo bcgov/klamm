@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\FormTemplateHelper;
 use App\Helpers\FormDataHelper;
 use App\Filament\Components\ContainerBlock;
 use App\Filament\Components\FieldGroupBlock;
@@ -22,6 +23,9 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
 use App\Models\FormVersion;
+use App\Jobs\GenerateFormTemplateJob;
+use Illuminate\Support\Facades\Cache;
+
 use Filament\Notifications\Notification;
 
 class FormVersionBuilder
@@ -100,6 +104,30 @@ class FormVersionBuilder
                     ->columnSpan(2)
                     ->blockNumbers(false)
                     ->cloneable()
+                    ->afterStateUpdated(function (Get $get) {
+                        $formVersionId = $get('id');
+                        // handle when form version ID is not yet set
+                        if (!$formVersionId) return;
+
+                        // Free memory before template generation
+                        gc_collect_cycles();
+
+                        $requestedAt = now()->unix();
+
+                        // Throttle template generation to avoid excessive processing
+                        $lastRequestedAt = Cache::get("formtemplate:{$formVersionId}:requested_at", 0);
+                        if ($requestedAt - $lastRequestedAt < 5) return;
+
+                        // remember the latest request timestamp
+                        Cache::put(
+                            "formtemplate:{$formVersionId}:requested_at",
+                            $requestedAt,
+                            now()->addHours(1)
+                        );
+
+                        // dispatch form generation job in the background
+                        GenerateFormTemplateJob::dispatch($formVersionId, $requestedAt);
+                    })
                     ->blockPreviews()
                     ->editAction(
                         fn(Action $action) => $action
@@ -146,11 +174,29 @@ class FormVersionBuilder
                     ->dehydrated(fn() => true),
                 // Components for view View page
                 Actions::make([
+                    // Checks if form template is generated in cache, otherwise generates it
                     Action::make('Generate Form Template')
                         ->action(function (Get $get, Set $set, $livewire) {
-                            $formId = $get('id');
-                            $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
-                            $set('generated_text', $jsonTemplate);
+                            $formVersionId = $get('id');
+                            if (!$formVersionId) {
+                                $set('generated_text', 'Please save the form version first before generating template.');
+                                return;
+                            }
+
+                            $cacheKey = "formtemplate:{$formVersionId}:cached_json";
+                            $json = Cache::get($cacheKey);
+                            if (!$json) {
+                                try {
+                                    $set('generated_text', 'Generating template...');
+                                    $json = FormTemplateHelper::generateJsonTemplate($formVersionId);
+                                    $set('generated_text', $json);
+                                    Cache::put($cacheKey, $json, now()->addHours(6));
+                                } catch (\Exception $e) {
+                                    $set('generated_text', 'Error generating template: ' . $e->getMessage());
+                                }
+                            } else {
+                                $set('generated_text', $json);
+                            }
                             $livewire->js('
                                 setTimeout(() => {
                                     const textarea = document.getElementById("data.generated_text");
