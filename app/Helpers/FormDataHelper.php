@@ -21,7 +21,8 @@ class FormDataHelper
                 'pdfStyles',
                 'validations',
                 'selectOptionInstances',
-                'formFieldValue'
+                'formFieldValue',
+                'formFieldDateFormat',
             ])->get()->keyBy('id'),
             'groups' => FieldGroup::with([])->get()->keyBy('id'),
             'styles' => Style::all()->keyBy('id'),

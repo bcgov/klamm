@@ -74,6 +74,11 @@ class FormField extends Model
         return $this->hasOne(FormFieldValue::class);
     }
 
+    public function formFieldDateFormat(): HasOne
+    {
+        return $this->hasOne(FormFieldDateFormat::class);
+    }
+
     public function isValueInputNeededForField()
     {
         return $this->dataType && $this->dataType->name === 'text-info';

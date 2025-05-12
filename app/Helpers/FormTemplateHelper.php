@@ -21,7 +21,16 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'formField.formFieldDateFormat',
+                'styleInstances.style',
+                'validations',
+                'conditionals',
+                'formInstanceFieldValue',
+                'formInstanceFieldDateFormat',
+            ])
             ->get();
 
         foreach ($formFields as $field) {
@@ -214,6 +223,10 @@ class FormTemplateHelper
             case "text-info":
                 return array_merge($base, [
                     "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
+                ]);
+            case "date":
+                return array_merge($base, [
+                    "inputFormat" => $fieldInstance->formInstanceFieldDateFormat?->custom_date_format ?? $field->formFieldDateFormat?->date_format,
                 ]);
             case "radio":
                 return array_merge($base, [

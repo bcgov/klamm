@@ -3,6 +3,8 @@
 namespace App\Filament\Forms\Resources\FormFieldResource\Pages;
 
 use App\Filament\Forms\Resources\FormFieldResource;
+use App\Helpers\DateFormatHelper;
+use App\Models\FormFieldDateFormat;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\FormFieldValue;
 use App\Models\SelectOptionInstance;
@@ -17,6 +19,7 @@ class CreateFormField extends CreateRecord
 
         $this->createFormFieldValue($formField);
         $this->createSelectOptionInstance($formField);
+        $this->createFormFieldDateFormat($formField);
     }
 
     private function createFormFieldValue($formField)
@@ -46,6 +49,21 @@ class CreateFormField extends CreateRecord
                 'form_field_id' => $formField->id,
                 'select_option_id' => $instance['data']['select_option_id'],
                 'order' => $index + 1,
+            ]);
+        }
+    }
+
+    private function createFormFieldDateFormat($formField)
+    {
+        if (method_exists($this, 'getRecord')) {
+            $formField->formFieldDateFormat()->delete();
+        }
+
+        $dateFormat = $this->form->getState()['date_format'] ?? null;
+        if ($dateFormat) {
+            FormFieldDateFormat::create([
+                'form_field_id' => $formField->id,
+                'date_format' => $dateFormat ?? null,
             ]);
         }
     }

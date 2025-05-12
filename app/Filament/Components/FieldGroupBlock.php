@@ -152,6 +152,7 @@ class FieldGroupBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
+                                            ->label(false)
                                             ->lazy()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {
@@ -191,38 +192,42 @@ class FieldGroupBlock
                                             ->label(false)
                                             ->visible(fn($get) => $get('customize_repeater_item_label')),
                                     ]),
-                                Fieldset::make('Data Binding Path')
-                                    ->columns(1)
-                                    ->columnSpan(1)
+                                Fieldset::make('Data Bindings')
                                     ->schema([
-                                        Placeholder::make('data_binding_path')
-                                            ->label("Default")
-                                            ->dehydrated(false)
-                                            ->content(fn($get) => $groups->get($get('field_group_id'))->data_binding_path ?? 'null'),
-                                        Toggle::make('customize_data_binding_path')
-                                            ->label('Customize Data Binding Path')
-                                            ->inline()
-                                            ->lazy(),
-                                        TextInput::make('custom_data_binding_path')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
-                                    ]),
-                                Fieldset::make('Data Source')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->dehydrated(false)
-                                            ->content(fn($get) => $groups->get($get('field_group_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Source')
-                                            ->inline()
-                                            ->lazy(),
-                                        Select::make('custom_data_binding')
-                                            ->label(false)
-                                            ->options($dataSources->pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding')),
+                                        Fieldset::make('Data Source')
+                                            ->columns(1)
+                                            ->columnSpan(1)
+                                            ->schema([
+                                                Placeholder::make('data_binding')
+                                                    ->label("Default")
+                                                    ->dehydrated(false)
+                                                    ->content(fn($get) => $groups->get($get('field_group_id'))->data_binding ?? 'null'),
+                                                Toggle::make('customize_data_binding')
+                                                    ->label('Customize Data Source')
+                                                    ->inline()
+                                                    ->lazy(),
+                                                Select::make('custom_data_binding')
+                                                    ->label(false)
+                                                    ->options($dataSources->pluck('name', 'name'))
+                                                    ->visible(fn($get) => $get('customize_data_binding')),
+                                            ]),
+                                        Fieldset::make('Data Binding Path')
+                                            ->columns(1)
+                                            ->columnSpan(1)
+                                            ->schema([
+                                                Placeholder::make('data_binding_path')
+                                                    ->label("Default")
+                                                    ->dehydrated(false)
+                                                    ->content(fn($get) => $groups->get($get('field_group_id'))->data_binding_path ?? 'null'),
+                                                Toggle::make('customize_data_binding_path')
+                                                    ->label('Customize Data Binding Path')
+                                                    ->inline()
+                                                    ->lazy(),
+                                                Textarea::make('custom_data_binding_path')
+                                                    ->label(false)
+                                                    ->rows(1)
+                                                    ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ]),
                                     ]),
                                 Textarea::make('visibility')
                                     ->columnSpanFull()
@@ -241,16 +246,25 @@ class FieldGroupBlock
                     ->multiple()
                     ->preload()
                     ->columnSpan(1),
-                Builder::make('form_fields')
-                    ->label('Form Fields in Group')
-                    ->addBetweenActionLabel('Insert between fields')
+                Section::make('Group Elements')
                     ->collapsible()
                     ->collapsed(true)
-                    ->blockNumbers(false)
+                    ->compact()
                     ->columnSpan(2)
-                    ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                    ->schema([
+                        Builder::make('form_fields')
+                            ->label(false)
+                            ->addActionLabel('Add to Group Elements')
+                            ->addBetweenActionLabel('Insert between fields')
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->blockNumbers(false)
+                            ->columnSpan(2)
+                            ->blocks([
+                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                            ]),
                     ]),
+
             ]);
     }
 }

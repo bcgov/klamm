@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormFieldResource\Pages;
+use App\Helpers\DateFormatHelper;
 use App\Models\FormField;
 use App\Models\FormDataSource;
 use Filament\Forms\Form;
@@ -17,6 +18,7 @@ use App\Models\DataType;
 use App\Models\SelectOptions;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
+use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Textarea;
 use Filament\Support\Enums\Alignment;
 use Filament\Tables\Filters\SelectFilter;
@@ -45,6 +47,7 @@ class FormFieldResource extends Resource
 
         $selectOptions = SelectOptions::all()->keyBy('id');
         $dataTypes = DataType::all()->keyBy('id');
+        $isDate = fn($get) => isset($dataTypes[$get('data_type_id')]) && $dataTypes[$get('data_type_id')]->name === 'date';
 
         return $form
             ->columns(6)
@@ -117,12 +120,22 @@ class FormFieldResource extends Resource
                                     ->live(),
                             ])
                     ]),
-                Select::make('data_binding_path')
-                    ->label('Field data source')
-                    ->options(FormDataSource::pluck('name', 'name'))
-                    ->columnSpan(3),
-                Textarea::make('data_binding')
-                    ->columnSpan(3),
+                Fieldset::make('Data Bindings')
+                    ->columnSpanFull()
+                    ->columns(6)
+                    ->schema(([
+                        Select::make('data_binding')
+                            ->label('Source')
+                            ->options(FormDataSource::pluck('name', 'name'))
+                            ->columnSpan(fn($get) => $isDate($get) ? 2 : 3),
+                        TextInput::make('data_binding_path')
+                            ->label('Path')
+                            ->columnSpan(fn($get) => $isDate($get) ? 2 : 3),
+                        Select::make('date_format')
+                            ->visible($isDate)
+                            ->columnSpan(2)
+                            ->options(DateFormatHelper::dateFormats()),
+                    ])),
                 TextInput::make('mask')
                     ->columnSpan(3),
                 Select::make('field_group_id')

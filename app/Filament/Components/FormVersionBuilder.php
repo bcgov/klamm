@@ -90,6 +90,7 @@ class FormVersionBuilder
                     ]),
                 Builder::make('components')
                     ->label('Form Elements')
+                    ->addActionLabel('Add to Form Elements')
                     ->addBetweenActionLabel('Insert between elements')
                     ->columnSpan(2)
                     ->collapsible()

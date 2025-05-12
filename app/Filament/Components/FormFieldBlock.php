@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use App\Helpers\DateFormatHelper;
 use App\Helpers\UniqueIDsHelper;
 use App\Helpers\FormDataHelper;
 use Closure;
@@ -30,6 +31,8 @@ class FormFieldBlock
         $selectOptions = FormDataHelper::get('selectOptions');
         $styles = FormDataHelper::get('styles');
 
+        $isDate = fn($get) => $fields->get($get('form_field_id'))?->dataType->name === 'date';
+
         $validationOptions = [
             'minValue' => 'Minimum Value',
             'maxValue' => 'Maximum Value',
@@ -47,7 +50,6 @@ class FormFieldBlock
             'saveOnSubmit' => 'Save on Submit',
             'readOnly' => 'Read Only',
         ];
-
 
         return Block::make('form_field')
             ->label(function (?array $state) use ($fields): string {
@@ -160,6 +162,7 @@ class FormFieldBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
+                                            ->label(false)
                                             ->live()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {
@@ -208,38 +211,61 @@ class FormFieldBlock
                                                 'redo',
                                             ]),
                                     ]),
-                                Fieldset::make('Data Binding Path')
-                                    ->columns(1)
-                                    ->columnSpan(1)
+                                Fieldset::make('Data Bindings')
+                                    ->columns(6)
                                     ->schema([
-                                        Placeholder::make('data_binding_path')
-                                            ->label("Default")
-                                            ->dehydrated(false)
-                                            ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding_path ?? 'null'),
-                                        Toggle::make('customize_data_binding_path')
-                                            ->label('Customize Data Binding Path')
-                                            ->inline()
-                                            ->lazy(),
-                                        Textarea::make('custom_data_binding_path')
-                                            ->label(false)
-                                            ->visible(fn($get) => $get('customize_data_binding_path')),
-                                    ]),
-                                Fieldset::make('Data Source')
-                                    ->columns(1)
-                                    ->columnSpan(1)
-                                    ->schema([
-                                        Placeholder::make('data_binding')
-                                            ->label("Default")
-                                            ->dehydrated(false)
-                                            ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding ?? 'null'),
-                                        Toggle::make('customize_data_binding')
-                                            ->label('Customize Data Source')
-                                            ->inline()
-                                            ->lazy(),
-                                        Select::make('custom_data_binding')
-                                            ->label(false)
-                                            ->options($dataSources->pluck('name', 'name'))
-                                            ->visible(fn($get) => $get('customize_data_binding')),
+                                        Fieldset::make('Data Source')
+                                            ->columns(1)
+                                            ->columnSpan(fn($get) => $isDate($get) ? 2 : 3)
+                                            ->schema([
+                                                Placeholder::make('data_binding')
+                                                    ->label("Default")
+                                                    ->dehydrated(false)
+                                                    ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding ?? 'null'),
+                                                Toggle::make('customize_data_binding')
+                                                    ->label('Customize Data Source')
+                                                    ->inline()
+                                                    ->lazy(),
+                                                Select::make('custom_data_binding')
+                                                    ->label(false)
+                                                    ->options($dataSources->pluck('name', 'name'))
+                                                    ->visible(fn($get) => $get('customize_data_binding')),
+                                            ]),
+                                        Fieldset::make('Data Binding Path')
+                                            ->columns(1)
+                                            ->columnSpan(fn($get) => $isDate($get) ? 2 : 3)
+                                            ->schema([
+                                                Placeholder::make('data_binding_path')
+                                                    ->label("Default")
+                                                    ->dehydrated(false)
+                                                    ->content(fn($get) => $fields->get($get('form_field_id'))->data_binding_path ?? 'null'),
+                                                Toggle::make('customize_data_binding_path')
+                                                    ->label('Customize Data Binding Path')
+                                                    ->inline()
+                                                    ->lazy(),
+                                                Textarea::make('custom_data_binding_path')
+                                                    ->label(false)
+                                                    ->rows(1)
+                                                    ->visible(fn($get) => $get('customize_data_binding_path')),
+                                            ]),
+                                        Fieldset::make('Date Format')
+                                            ->columns(1)
+                                            ->columnSpan(2)
+                                            ->visible($isDate)
+                                            ->schema([
+                                                Placeholder::make('date_format')
+                                                    ->label("Default")
+                                                    ->dehydrated(false)
+                                                    ->content(fn($get) => $fields->get($get('form_field_id'))->formFieldDateFormat?->date_format ?? 'null'),
+                                                Toggle::make('customize_date_format')
+                                                    ->label('Customize Data Source')
+                                                    ->inline()
+                                                    ->lazy(),
+                                                Select::make('custom_date_format')
+                                                    ->label(false)
+                                                    ->options(DateFormatHelper::dateFormats())
+                                                    ->visible(fn($get) => $get('customize_date_format')),
+                                            ]),
                                     ]),
                                 Fieldset::make('Mask')
                                     ->columns(1)
@@ -271,6 +297,7 @@ class FormFieldBlock
                                             ->lazy(),
                                         Textarea::make('custom_help_text')
                                             ->label(false)
+                                            ->rows(1)
                                             ->visible(fn($get) => $get('customize_help_text')),
                                     ]),
                             ]),
@@ -320,40 +347,52 @@ class FormFieldBlock
                     ->multiple()
                     ->preload()
                     ->columnSpan(1),
-                Repeater::make('validations')
-                    ->label('Validations')
-                    ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
+                Section::make('Validations & Conditionals')
                     ->collapsible()
-                    ->collapsed()
-                    ->defaultItems(0)
-                    ->addActionAlignment(Alignment::Start)
+                    ->collapsed(true)
+                    ->compact()
+                    ->columns(2)
+                    ->columnSpan(2)
                     ->schema([
-                        Select::make('type')
-                            ->label('Validation Type')
-                            ->options($validationOptions)
-                            ->reactive()
-                            ->required(),
-                        Textarea::make('value')
-                            ->label('Value'),
-                        TextInput::make('error_message')
-                            ->label('Error Message'),
-                    ]),
-                Repeater::make('conditionals')
-                    ->label('Conditionals')
-                    ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
-                    ->collapsible()
-                    ->collapsed()
-                    ->defaultItems(0)
-                    ->addActionAlignment(Alignment::Start)
-                    ->schema([
-                        Select::make('type')
-                            ->label('Conditional Type')
-                            ->options($conditionalOptions)
-                            ->reactive()
-                            ->required(),
-                        Textarea::make('value')
-                            ->label('Value'),
-                    ]),
+                        Repeater::make('validations')
+                            ->label('Validations')
+                            ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
+                            ->collapsible()
+                            ->collapsed()
+                            ->defaultItems(0)
+                            ->columns(1)
+                            ->columnSpan(1)
+                            ->addActionAlignment(Alignment::Start)
+                            ->schema([
+                                Select::make('type')
+                                    ->label('Validation Type')
+                                    ->options($validationOptions)
+                                    ->reactive()
+                                    ->required(),
+                                Textarea::make('value')
+                                    ->label('Value'),
+                                TextInput::make('error_message')
+                                    ->label('Error Message'),
+                            ]),
+                        Repeater::make('conditionals')
+                            ->label('Conditionals')
+                            ->itemLabel(fn($state): ?string => $conditionalOptions[$state['type']] ?? 'New Conditional')
+                            ->collapsible()
+                            ->collapsed()
+                            ->defaultItems(0)
+                            ->columns(1)
+                            ->columnSpan(1)
+                            ->addActionAlignment(Alignment::Start)
+                            ->schema([
+                                Select::make('type')
+                                    ->label('Conditional Type')
+                                    ->options($conditionalOptions)
+                                    ->reactive()
+                                    ->required(),
+                                Textarea::make('value')
+                                    ->label('Value'),
+                            ]),
+                    ])
             ]);
     }
 }

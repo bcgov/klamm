@@ -3,6 +3,8 @@
 namespace App\Filament\Forms\Resources\FormFieldResource\Pages;
 
 use App\Filament\Forms\Resources\FormFieldResource;
+use App\Helpers\DateFormatHelper;
+use App\Models\FormFieldDateFormat;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
@@ -53,6 +55,9 @@ class EditFormField extends EditRecord
         $formFieldValueObj = $this->record->formFieldValue()->first();
         $data['value'] = $formFieldValueObj?->value;
 
+        $dateFormatObj = $this->record->formFieldDateFormat()->first();
+        $data['date_format'] = array_search($dateFormatObj?->date_format, DateFormatHelper::dateFormats());
+
         $data['select_option_instances'] = $this->record->selectOptionInstances->map(fn($instance) => [
             'type' => 'select_option_instance',
             'data' => [
@@ -70,6 +75,7 @@ class EditFormField extends EditRecord
 
         $this->createFormFieldValue($formField);
         $this->createSelectOptionInstance($formField);
+        $this->createFormFieldDateFormat($formField);
     }
 
     private function createFormFieldValue($formField)
@@ -99,6 +105,21 @@ class EditFormField extends EditRecord
                 'form_field_id' => $formField->id,
                 'select_option_id' => $instance['data']['select_option_id'],
                 'order' => $index + 1,
+            ]);
+        }
+    }
+
+    private function createFormFieldDateFormat($formField)
+    {
+        if (method_exists($this, 'getRecord')) {
+            $formField->formFieldDateFormat()->delete();
+        }
+
+        $dateFormat = $this->form->getState()['date_format'] ?? null;
+        if ($dateFormat) {
+            FormFieldDateFormat::create([
+                'form_field_id' => $formField->id,
+                'date_format' => $dateFormat ?? null,
             ]);
         }
     }
