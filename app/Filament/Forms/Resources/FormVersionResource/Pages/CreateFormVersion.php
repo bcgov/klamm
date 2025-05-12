@@ -199,7 +199,8 @@ class CreateFormVersion extends CreateRecord
             'order' => $order,
             'custom_group_label' => $component['custom_group_label'] ?? null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
-            'repeater' => $component['repeater'] ?? false,
+            'repeater' => $component['repeater'] ?? false,    
+            'clear_button' => $component['clear_button'] ?? false,          
             'custom_repeater_item_label' => $component['custom_repeater_item_label'],
             'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
             'custom_data_binding' => $component['custom_data_binding'] ?? null,
@@ -222,6 +223,7 @@ class CreateFormVersion extends CreateRecord
             'form_version_id' => $formVersion->id,
             'order' => $order,
             'instance_id' => $component['instance_id'] ?? null,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
         ]);

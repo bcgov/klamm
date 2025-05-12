@@ -67,6 +67,10 @@ class ContainerBlock
                                             ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
+                                Toggle::make('clear_button')
+                                    ->label('Clear Button')
+                                    ->live()
+                                    ->columnSpanFull(),
                                 Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
