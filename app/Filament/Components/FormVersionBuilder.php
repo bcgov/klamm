@@ -25,6 +25,7 @@ use App\Models\FormVersion;
 use App\Jobs\GenerateFormTemplateJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Filament\Notifications\Notification;
 
 class FormVersionBuilder
 {
@@ -195,7 +196,7 @@ class FormVersionBuilder
                 Actions::make([
                     // Checks if form template is generated in cache, otherwise generates it
                     Action::make('Generate Form Template')
-                        ->action(function (Get $get, Set $set) {
+                        ->action(function (Get $get, Set $set, $livewire) {
                             $formVersionId = $get('id');
                             if (!$formVersionId) {
                                 $set('generated_text', 'Please save the form version first before generating template.');
@@ -210,17 +211,49 @@ class FormVersionBuilder
                                     $json = FormTemplateHelper::generateJsonTemplate($formVersionId);
                                     $set('generated_text', $json);
                                     Cache::tags(['form-template'])->put($cacheKey, $json, now()->addDay());
+
+                                    Notification::make()
+                                        ->title('Template Generated!')
+                                        ->body('Form template generated successfully and copied to clipboard.')
+                                        ->success()
+                                        ->send();
                                 } catch (\Exception $e) {
                                     $set('generated_text', 'Error generating template: ' . $e->getMessage());
+                                    return;
                                 }
                             } else {
                                 $set('generated_text', $json);
                             }
+                            $livewire->js('
+                                setTimeout(() => {
+                                    const textarea = document.getElementById("data.generated_text");
+                                    if (!textarea || !textarea.value) {
+                                        console.error("Could not find textarea or it has no value");
+                                        return;
+                                    }
+                                    const textToCopy = textarea.value;
+                                    if (navigator.clipboard) {
+                                        navigator.clipboard.writeText(textToCopy)
+                                            .catch(err => {
+                                                console.error("Failed to copy: ", err);
+                                            });
+                                    } else {
+                                        // Fallback
+                                        try {
+                                            textarea.select();
+                                            document.execCommand("copy");
+                                        } catch (err) {
+                                            console.error("Fallback copy failed: ", err);
+                                        }
+                                    }
+                                }, 500);
+                            ');
                         })
                         ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')
+                    ->id('data.generated_text')
                     ->columnSpan(2)
                     ->rows(15)
                     ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
