@@ -158,10 +158,10 @@ class FormVersionBuilder
                         if ($requestedAt - $lastRequestedAt < 5) return;
 
                         // remember the latest request timestamp
-                        Cache::put(
+                        Cache::tags(['form-template'])->put(
                             "formtemplate:{$formVersionId}:requested_at",
                             $requestedAt,
-                            now()->addHours(1)
+                            now()->addDay()
                         );
 
                         // dispatch form generation job in the background
@@ -246,7 +246,7 @@ class FormVersionBuilder
                                     $set('generated_text', 'Generating template...');
                                     $json = FormTemplateHelper::generateJsonTemplate($formVersionId);
                                     $set('generated_text', $json);
-                                    Cache::put($cacheKey, $json, now()->addHours(6));
+                                    Cache::tags(['form-template'])->put($cacheKey, $json, now()->addDay());
                                 } catch (\Exception $e) {
                                     $set('generated_text', 'Error generating template: ' . $e->getMessage());
                                 }

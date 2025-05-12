@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
 use App\Models\FormVersion;
 use App\Models\Form;
@@ -12,17 +13,11 @@ class FormTemplateHelper
 {
     public static function clearFormTemplateCache(int $formVersionId): void
     {
-        $standardKey = "formtemplate:{$formVersionId}:cached_json";
         $formVersion = FormVersion::find($formVersionId);
         if ($formVersion) {
-            $versionedKey = $standardKey . ":" . $formVersion->updated_at->timestamp;
-            Cache::forget($versionedKey);
+            Cache::forget("formtemplate:{$formVersionId}:cached_json");
+            Log::info("Cleared form template cache for form version {$formVersionId}");
         }
-
-        Cache::forget($standardKey);
-        Cache::forget("formtemplate:{$formVersionId}:status");
-        Cache::forget("edit_form_version:{$formVersionId}:components");
-        Cache::forget("view_form_version:{$formVersionId}:components");
     }
 
     public static function generateJsonTemplate(int $formVersionId): string
@@ -158,7 +153,7 @@ class FormTemplateHelper
             ],
         ], JSON_PRETTY_PRINT);
 
-        Cache::put($cacheKey, $result, now()->addHours(6));
+        Cache::tags(['form-template'])->put($cacheKey, $result, now()->addDay());
 
         return $result;
     }
@@ -505,5 +500,21 @@ class FormTemplateHelper
         return array_merge($base, [
             "containerItems" => $containerItems,
         ]);
+    }
+
+    public static function calculateElementID(): string
+    {
+        $counter = FormVersionResource::getElementCounter();
+        FormVersionResource::incrementElementCounter();
+        return 'element' . $counter;
+    }
+
+    /**
+     * Clear all form template caches
+     */
+    public static function clearAllFormTemplateCaches(): void
+    {
+        Log::info("Clearing cache now.");
+        Cache::tags(['form-template'])->flush();
     }
 }

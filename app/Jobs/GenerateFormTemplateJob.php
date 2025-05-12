@@ -49,7 +49,7 @@ class GenerateFormTemplateJob implements ShouldQueue, \Illuminate\Contracts\Queu
         $formVersion = FormVersion::find($this->formVersionId);
         if (!$formVersion) return;
 
-        Cache::put(
+        Cache::tags(['status'])->put(
             $this->cacheStatusKey(),
             'generating',
             now()->addHours(1)
@@ -57,10 +57,10 @@ class GenerateFormTemplateJob implements ShouldQueue, \Illuminate\Contracts\Queu
 
         try {
             $json = FormTemplateHelper::generateJsonTemplate($this->formVersionId);
-            Cache::put($this->cacheTemplateKey(), $json, now()->addHours(6));
-            Cache::put($this->cacheStatusKey(), 'completed', now()->addHours(1));
+            Cache::tags(['form-template'])->put($this->cacheTemplateKey(), $json, now()->addDay());
+            Cache::tags(['status'])->put($this->cacheStatusKey(), 'completed', now()->addHours(1));
         } catch (\Exception $e) {
-            Cache::put($this->cacheStatusKey(), 'failed', now()->addHours(1));
+            Cache::tags(['status'])->put($this->cacheStatusKey(), 'failed', now()->addHours(1));
             throw $e;
         }
     }
@@ -82,7 +82,7 @@ class GenerateFormTemplateJob implements ShouldQueue, \Illuminate\Contracts\Queu
 
     public function failed(\Throwable $exception)
     {
-        Cache::put($this->cacheStatusKey(), 'failed', now()->addHours(1));
+        Cache::tags(['status'])->put($this->cacheStatusKey(), 'failed', now()->addHours(1));
         app(\Illuminate\Contracts\Cache\Repository::class)->forget('laravel_unique_job:' . $this->uniqueId());
     }
 }

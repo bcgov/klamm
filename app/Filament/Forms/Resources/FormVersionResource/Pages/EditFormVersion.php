@@ -82,7 +82,7 @@ class EditFormVersion extends EditRecord
 
         // Trigger the GenerateFormTemplateJob with high priority after saving
         $requestedAt = now()->unix();
-        Cache::put("formtemplate:{$formVersion->id}:requested_at", $requestedAt, now()->addHours(1));
+        Cache::tags(['form-template'])->put("formtemplate:{$formVersion->id}:requested_at", $requestedAt, now()->addHours(1));
         GenerateFormTemplateJob::dispatch($formVersion->id, $requestedAt)->onQueue('high');
 
         Log::info("Form version {$formVersion->id} saved and template generation triggered");

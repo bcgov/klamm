@@ -9,3 +9,5 @@ Route::get('/user', function (Request $request) {
 
 // BRE routes
 require __DIR__ . '/bre_routes.php';
+// Form routes
+require __DIR__ . '/form_routes.php';
