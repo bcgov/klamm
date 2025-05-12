@@ -31,4 +31,17 @@ trait HasBusinessAreaAccess
             $query->whereIn('business_areas.id', $businessAreaIds);
         })->get();
     }
+
+    protected function hasAccessToForm($form): bool
+    {
+        $businessAreaIds = $this->getUserBusinessAreaIds();
+
+        if (empty($businessAreaIds)) {
+            return false;
+        }
+
+        return $form->businessAreas()
+            ->whereIn('business_areas.id', $businessAreaIds)
+            ->exists();
+    }
 }

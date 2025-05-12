@@ -70,8 +70,10 @@ class FormVersion extends Model
             ->dontSubmitEmptyLogs()
             ->logOnlyDirty()
             ->setDescriptionForEvent(function (string $eventName) {
+                $formTitle = $this->form ? "'{$this->form->form_title}'" : '';
+
                 if ($eventName === 'created') {
-                    return "Form version {$this->version_number} was created";
+                    return "Form {$formTitle} version {$this->version_number} was created";
                 }
 
                 $changes = array_keys($this->getDirty());
@@ -91,10 +93,10 @@ class FormVersion extends Model
                     }, $changes);
 
                     $changesStr = implode(', ', array_unique($changes));
-                    return "Form version {$this->version_number} had changes to: {$changesStr}";
+                    return "Form {$formTitle} version {$this->version_number} had changes to: {$changesStr}";
                 }
 
-                return "Form version {$this->version_number} was {$eventName}";
+                return "Form {$formTitle} version {$this->version_number} was {$eventName}";
             });
     }
 

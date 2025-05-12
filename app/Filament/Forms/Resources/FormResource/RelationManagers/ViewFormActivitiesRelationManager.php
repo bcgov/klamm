@@ -17,14 +17,6 @@ class ViewFormActivitiesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'description';
 
-    public static function getTitle(Model $ownerRecord, string $pageClass): string
-    {
-        return static::$title ?? (string) str(ActivitylogPlugin::get()->getPluralLabel())
-            ->kebab()
-            ->replace('-', ' ')
-            ->headline();
-    }
-
     public function form(Form $form): Form
     {
         return ActivitylogResource::form($form);

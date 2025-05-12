@@ -164,12 +164,9 @@ class CustomActivitylogResource extends ActivitylogResource
             $columns[] = ActivitylogResource::getCauserNameColumnComponent()
                 ->label('User')
                 ->formatStateUsing(function ($state, Activity $record) {
-                    if (!$record->causer_id) {
-                        return '-';
-                    }
-
-                    $user = User::find($record->causer_id);
-                    return $user ? $user->name : '-';
+                    return $record->causer_id
+                        ? User::find($record->causer_id)?->name ?? '-'
+                        : '-';
                 })
                 ->toggleable()
                 ->searchable(['users.name'])
@@ -244,16 +241,19 @@ class CustomActivitylogResource extends ActivitylogResource
     // Add additional columns and filters to the table
     public static function table(Table $table): Table
     {
-        $parentTable = parent::table($table);
-        $columns = $parentTable->getColumns();
-        $newColumns = collect($columns)->splice(0, 2)
-            ->merge(collect($columns)->splice(2))
-            ->toArray();
-
-        return $parentTable
-            ->columns($newColumns)
+        return $table
+            ->columns(static::getStandardColumns())
             ->searchable()
             ->filters(static::getStandardFilters())
             ->defaultSort('activity_log.created_at', 'desc');
+    }
+
+    // Add custom views
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\CustomListActivitylog::route('/'),
+            'view' => Pages\CustomViewActivitylog::route('/{record}'),
+        ];
     }
 }

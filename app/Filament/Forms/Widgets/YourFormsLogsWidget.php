@@ -33,17 +33,10 @@ class YourFormsLogsWidget extends TableWidget
             return $table->query(Activity::whereNull('id'));
         }
 
-        $activityIds = collect();
-
-        foreach ($forms as $form) {
-            $activityIds = $activityIds->merge(
-                $form->activities()
-                    ->pluck('activity_log.id')
-            );
-        }
-
         $baseQuery = Activity::query()
-            ->whereIn('id', $activityIds)
+            ->whereHas('subject.form', function ($query) use ($forms) {
+                $query->whereIn('forms.id', $forms->pluck('id'));
+            })
             ->select('activity_log.*')
             ->with(['subject.form', 'causer'])
             ->orderBy('created_at', 'desc');
@@ -64,8 +57,20 @@ class YourFormsLogsWidget extends TableWidget
         $configuredTable = CustomActivitylogResource::configureStandardTable($table);
         $configuredTable->searchable(false);
 
-        // Add form-specific columns
-        $formColumns = [
+        return $configuredTable
+            ->query($baseQuery)
+            ->columns($this->getFormColumns())
+            ->filters([
+                $this->getFormSearchFilter(),
+                ...CustomActivitylogResource::getStandardFilters()
+            ])
+            ->defaultSort('activity_log.created_at', 'desc')
+            ->paginated(10);
+    }
+
+    protected function getFormColumns(): array
+    {
+        return [
             Tables\Columns\TextColumn::make('subject.form.form_id')
                 ->label('Form ID')
                 ->url(fn($record): string => $record->subject && $record->subject->form ?
@@ -84,9 +89,11 @@ class YourFormsLogsWidget extends TableWidget
                 ->sortable(false),
             ...array_slice(CustomActivitylogResource::getStandardColumns(), 0)
         ];
+    }
 
-        // Add form-specific filters
-        $formSearchFilter = Tables\Filters\Filter::make('form_search')
+    protected function getFormSearchFilter(): Tables\Filters\Filter
+    {
+        return Tables\Filters\Filter::make('form_search')
             ->form([
                 \Filament\Forms\Components\TextInput::make('search')
                     ->label('Search by Form')
@@ -106,15 +113,5 @@ class YourFormsLogsWidget extends TableWidget
                 return $query->whereIn('subject_id', $formVersionIds)
                     ->where('subject_type', FormVersion::class);
             });
-
-        return $configuredTable
-            ->query($baseQuery)
-            ->columns($formColumns)
-            ->filters([
-                $formSearchFilter,
-                ...CustomActivitylogResource::getStandardFilters()
-            ])
-            ->defaultSort('activity_log.created_at', 'desc')
-            ->paginated(10);
     }
 }
