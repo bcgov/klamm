@@ -247,8 +247,15 @@ class FormVersionBuilder
                                     $json = FormTemplateHelper::generateJsonTemplate($formVersionId);
                                     $set('generated_text', $json);
                                     Cache::tags(['form-template'])->put($cacheKey, $json, now()->addDay());
+
+                                    Notification::make()
+                                        ->title('Template Generated!')
+                                        ->body('Form template generated successfully and copied to clipboard.')
+                                        ->success()
+                                        ->send();
                                 } catch (\Exception $e) {
                                     $set('generated_text', 'Error generating template: ' . $e->getMessage());
+                                    return;
                                 }
                             } else {
                                 $set('generated_text', $json);
@@ -287,6 +294,7 @@ class FormVersionBuilder
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')
+                    ->id('data.generated_text')
                     ->columnSpan(2)
                     ->rows(15)
                     ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
