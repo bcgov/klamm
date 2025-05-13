@@ -19,6 +19,8 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Althinect\FilamentSpatieRolesPermissions\FilamentSpatieRolesPermissionsPlugin;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
+use Rmsramos\Activitylog\ActivitylogPlugin;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -56,7 +58,18 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 Widgets\AccountWidget::class,
             ])
-            ->plugin(FilamentSpatieRolesPermissionsPlugin::make())
+            ->plugins([
+                FilamentSpatieRolesPermissionsPlugin::make(),
+                ActivitylogPlugin::make()
+                    ->label('Log')
+                    ->pluralLabel('Logs')
+                    ->navigationItem(true)
+                    ->navigationGroup('Activity Log')
+                    ->navigationIcon('heroicon-o-shield-check')
+                    ->navigationSort(2)
+                    ->resource(CustomActivitylogResource::class)
+                    ->authorize(fn() => CheckRole::hasRole(request(), 'admin'))
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;
+use App\Filament\Forms\Widgets\YourFormsLogsWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -21,6 +22,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
+use Rmsramos\Activitylog\ActivitylogPlugin;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 
 class FormsPanelProvider extends PanelProvider
 {
@@ -57,7 +60,19 @@ class FormsPanelProvider extends PanelProvider
             ->widgets([
                 FormsDescriptionWidget::class,
                 YourFormsWidget::class,
+                YourFormsLogsWidget::class,
                 FormsStatsWidget::class,
+            ])
+            ->plugins([
+                ActivitylogPlugin::make()
+                    ->label('Log')
+                    ->pluralLabel('Logs')
+                    ->navigationItem(false)
+                    ->navigationGroup('Activity Log')
+                    ->navigationIcon('heroicon-o-shield-check')
+                    ->navigationSort(2)
+                    ->resource(CustomActivitylogResource::class)
+                    ->authorize(fn() => CheckRole::hasRole(request(), 'admin'))
             ])
             ->middleware([
                 EncryptCookies::class,
