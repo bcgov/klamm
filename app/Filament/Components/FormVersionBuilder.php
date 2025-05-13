@@ -291,6 +291,25 @@ class FormVersionBuilder
                                 ->send();
                         })
                         ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
+
+                    Action::make('Preview Form Template')
+                        ->label('Preview Form')
+                        ->icon('heroicon-o-eye')
+                        ->action(function (Get $get, $livewire) {
+                            $formVersionId = $get('id');
+                            if (!$formVersionId) {
+                                Notification::make()
+                                    ->title('Cannot Preview')
+                                    ->body('Please save the form version first before previewing.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+                            $previewBaseUrl = env('FORM_PREVIEW_URL', '');
+                            $previewUrl = rtrim($previewBaseUrl, '/') . '/external-preview?id=' . $formVersionId;
+                            $livewire->js("window.open('$previewUrl', '_blank')");
+                        })
+                        ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')

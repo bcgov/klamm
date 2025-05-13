@@ -6,3 +6,11 @@ use App\Http\Controllers\FormVersionController;
 // Form Version Preview
 Route::get('/form-versions/{id}/preview', [FormVersionController::class, 'getFormTemplate'])
     ->middleware(['auth:sanctum', 'ability:admin, form-developer']);
+
+// Form Version Logs
+Route::get('/form-versions/{id}/logs', [FormVersionController::class, 'getFormVersionLogs'])
+    ->middleware(['auth:sanctum', 'ability:admin, form-developer']);
+
+// Form Version Data
+Route::get('/form-versions/{id}/data', [FormVersionController::class, 'getFormData'])
+    ->middleware(['auth:sanctum', 'ability:admin, form-developer']);
