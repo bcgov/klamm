@@ -23,7 +23,7 @@ class ViewForm extends ViewRecord
 
     protected static string $resource = FormResource::class;
 
-    protected static string $view = 'filament.forms.resources.form-resource.pages.view-form';
+    // protected static string $view = 'filament.forms.resources.form-resource.pages.view-form';
 
     public function getRelationManagers(): array
     {
