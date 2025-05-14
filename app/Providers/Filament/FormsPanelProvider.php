@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;
+use App\Filament\Forms\Widgets\MinistryGraphWidget;
 use App\Filament\Forms\Widgets\YourFormsLogsWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -62,6 +63,7 @@ class FormsPanelProvider extends PanelProvider
                 YourFormsWidget::class,
                 YourFormsLogsWidget::class,
                 FormsStatsWidget::class,
+                MinistryGraphWidget::class,
             ])
             ->plugins([
                 ActivitylogPlugin::make()
