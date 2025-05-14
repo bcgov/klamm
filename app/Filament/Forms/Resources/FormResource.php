@@ -31,6 +31,8 @@ use App\Models\FormFrequency;
 use App\Models\FormRepository;
 use App\Models\UserType;
 use Illuminate\Support\Str;
+use Illuminate\Support\HtmlString;
+use Filament\Support\Enums\Alignment;
 
 
 class FormResource extends Resource
@@ -38,6 +40,11 @@ class FormResource extends Resource
     protected static ?string $model = Form::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
+
+    protected static function formatLabel(string $text): string
+    {
+        return '<span class="block text-lg font-bold mb-2">' . $text . '</span>';
+    }
 
     public static function infolist(Infolist $infolist): Infolist
     {
@@ -47,35 +54,33 @@ class FormResource extends Resource
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
-
                                 TextEntry::make('form_id')
                                     ->columnSpanFull()
-                                    ->label('Form ID'),
+                                    ->label(new HtmlString(self::formatLabel('Form ID'))),
                                 TextEntry::make('form_title')
                                     ->columnSpanFull()
-
-                                    ->label('Form Title'),
+                                    ->label(new HtmlString(self::formatLabel('Form Title'))),
                                 TextEntry::make('decommissioned')
                                     ->formatStateUsing(fn(bool $state): string => $state ? 'Inactive' : 'Active')
                                     ->badge()
                                     ->columnSpanFull()
                                     ->color(fn(bool $state): string => $state ? 'danger' : 'success')
-                                    ->label('Status'),
+                                    ->label(new HtmlString(self::formatLabel('Status'))),
                                 TextEntry::make('ministry.name')
                                     ->columnSpanFull()
-                                    ->label('Ministry'),
+                                    ->label(new HtmlString(self::formatLabel('Ministry'))),
                                 TextEntry::make('businessAreas.name')
                                     ->columnSpanFull()
                                     ->badge()
                                     ->listWithLineBreaks()
-                                    ->label('Business Areas or Program'),
+                                    ->label(new HtmlString(self::formatLabel('Business Areas or Program'))),
                                 TextEntry::make('form_purpose')
                                     ->columnSpanFull()
                                     ->markdown()
-                                    ->label('Purpose'),
+                                    ->label(new HtmlString(self::formatLabel('Purpose'))),
                                 RepeatableEntry::make('links')
                                     ->columnSpanFull()
-                                    ->label('Access Links')
+                                    ->label(new HtmlString(self::formatLabel('Access Links')))
                                     ->schema([
                                         TextEntry::make('link')
                                             ->html()
@@ -85,7 +90,8 @@ class FormResource extends Resource
                                     ]),
                                 TextEntry::make('notes')
                                     ->columnSpanFull()
-                                    ->markdown(),
+                                    ->markdown()
+                                    ->label(new HtmlString(self::formatLabel('Notes'))),
 
                             ]),
                     ]),
@@ -96,15 +102,15 @@ class FormResource extends Resource
                             ->schema([
                                 TextEntry::make('formFrequency.name')
                                     ->badge()
-                                    ->label('Usage Frequency'),
+                                    ->label(new HtmlString(self::formatLabel('Usage Frequency'))),
                                 TextEntry::make('userTypes.name')
                                     ->listWithLineBreaks()
                                     ->badge()
-                                    ->label('Audience'),
+                                    ->label(new HtmlString(self::formatLabel('Audience'))),
 
                                 TextEntry::make('formReach.name')
                                     ->badge()
-                                    ->label('Audience Size'),
+                                    ->label(new HtmlString(self::formatLabel('Audience Size'))),
 
                             ]),
                     ]),
@@ -118,22 +124,22 @@ class FormResource extends Resource
                                     ->badge()
                                     ->columnSpanFull()
                                     ->color(fn(bool $state): string => $state ? 'success' : 'danger')
-                                    ->label('ICM Generated'),
+                                    ->label(new HtmlString(self::formatLabel('ICM Generated'))),
                                 TextEntry::make('formSoftwareSources.name')
                                     ->listWithLineBreaks()
                                     ->badge()
-                                    ->label('Software Sources'),
+                                    ->label(new HtmlString(self::formatLabel('Software Sources'))),
 
                                 TextEntry::make('formLocations.name')
                                     ->listWithLineBreaks()
                                     ->badge()
-                                    ->label('Published Locations'),
+                                    ->label(new HtmlString(self::formatLabel('Published Locations'))),
                                 TextEntry::make('formTags.name')
                                     ->listWithLineBreaks()
                                     ->badge()
-                                    ->label('Tags'),
+                                    ->label(new HtmlString(self::formatLabel('Tags'))),
                                 TextEntry::make('dcv_material_number')
-                                    ->label('DCV Material Number'),
+                                    ->label(new HtmlString(self::formatLabel('DCV Material Number'))),
                             ]),
                     ]),
 
@@ -147,15 +153,17 @@ class FormResource extends Resource
                                 TextEntry::make('formRepositories.name')
                                     ->listWithLineBreaks()
                                     ->badge()
-                                    ->label('Repositories'),
+                                    ->label(new HtmlString(self::formatLabel('Repositories'))),
                                 TextEntry::make('orbeon_functions')
                                     ->markdown()
-                                    ->label('Orbeon Functions'),
+                                    ->label(new HtmlString(self::formatLabel('Orbeon Functions'))),
                                 TextEntry::make('footer_fragment_path')
-                                    ->label('Footer Fragment Path'),
+                                    ->label(new HtmlString(self::formatLabel('Footer Fragment Path'))),
                                 RepeatableEntry::make('workbenchPaths')
+                                    ->label(new HtmlString(self::formatLabel('Workbench Paths')))
                                     ->schema([
-                                        TextEntry::make('workbench_path'),
+                                        TextEntry::make('workbench_path')
+                                            ->label(''),
                                     ]),
 
                             ]),
@@ -169,17 +177,17 @@ class FormResource extends Resource
                                 TextEntry::make('relatedForms.form_id')
                                     ->listWithLineBreaks()
                                     ->badge()
-                                    ->label('Related Forms'),
+                                    ->label(new HtmlString(self::formatLabel('Related Forms'))),
                                 IconEntry::make('icm_non_interactive')
                                     ->boolean()
-                                    ->label('ICM Non-Interactive'),
+                                    ->label(new HtmlString(self::formatLabel('ICM Non-Interactive'))),
                                 TextEntry::make('fillType.name')
                                     ->badge()
-                                    ->label('Fill Type'),
+                                    ->label(new HtmlString(self::formatLabel('Fill Type'))),
                                 TextEntry::make('print_reason')
-                                    ->label('Print Reason'),
+                                    ->label(new HtmlString(self::formatLabel('Print Reason'))),
                                 TextEntry::make('retention_needs')
-                                    ->label('Retention Needs (years)'),
+                                    ->label(new HtmlString(self::formatLabel('Retention Needs (years)'))),
                             ]),
                     ])
                     ->hidden()
@@ -226,13 +234,12 @@ class FormResource extends Resource
                         Forms\Components\Textarea::make('form_purpose')
                             ->label('Purpose'),
                         Forms\Components\Repeater::make('links')
-                            ->relationship('links')
-                            ->schema([
+                            ->defaultItems(1)
+                            ->simple(
                                 Forms\Components\TextInput::make('link')
                                     ->required(),
-                            ])
-                            ->columns(1)
-                            ->defaultItems(1)
+                            )
+                            ->relationship('links')
                             ->addActionLabel('Add Link')
                             ->label('Access Links'),
                         Forms\Components\Textarea::make('notes'),
@@ -253,14 +260,12 @@ class FormResource extends Resource
 
                 Forms\Components\Section::make()
                     ->schema([
-
                         Forms\Components\Radio::make('icm_generated')
                             ->label('Is Form ICM Generated?')
                             ->options([
                                 false => 'No',
                                 true => 'Yes',
                             ])
-
                             ->default(false),
                         Forms\Components\Select::make('form_software_sources')
                             ->multiple()
@@ -301,14 +306,14 @@ class FormResource extends Resource
                             ->nullable()
                             ->maxLength(255),
                         Forms\Components\Repeater::make('workbench_paths')
-                            ->relationship('workbenchPaths')
-                            ->schema([
+                            ->defaultItems(1)
+                            ->simple(
                                 Forms\Components\TextInput::make('workbench_path')
                                     ->required(),
-                            ])
-                            ->columns(1)
-                            ->defaultItems(0)
-                            ->createItemButtonLabel('Add Workbench Path'),
+                            )
+                            ->relationship('workbenchPaths')
+                            ->addActionLabel('Add Workbench Path')
+                            ->label('Workbench Paths'),
 
                     ]),
 
