@@ -17,11 +17,12 @@ class UserTypeResource extends Resource
 {
     protected static ?string $model = UserType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-user';
 
     protected static ?string $navigationGroup = 'Form Metadata';
 
-    protected static ?string $navigationLabel = 'User Types';
+    protected static ?string $navigationLabel = 'Audience';
+    protected static ?int $navigationSort = 3;
 
 
     public static function form(Form $form): Form
@@ -54,7 +55,10 @@ class UserTypeResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

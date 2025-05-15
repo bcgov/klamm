@@ -17,11 +17,12 @@ class FormLocationResource extends Resource
 {
     protected static ?string $model = FormLocation::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-map-pin';
 
     protected static ?string $navigationGroup = 'Form Metadata';
 
-    protected static ?string $navigationLabel = 'Locations';
+    protected static ?string $navigationLabel = 'Published Location';
+    protected static ?int $navigationSort = 6;
 
 
     public static function form(Form $form): Form
@@ -54,7 +55,10 @@ class FormLocationResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

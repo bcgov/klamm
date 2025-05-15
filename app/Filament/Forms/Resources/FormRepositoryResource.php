@@ -21,6 +21,7 @@ class FormRepositoryResource extends Resource
     protected static ?string $navigationGroup = 'Form Metadata';
 
     protected static ?string $navigationLabel = 'Repositories';
+    protected static ?int $navigationSort = 8;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -61,7 +62,10 @@ class FormRepositoryResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

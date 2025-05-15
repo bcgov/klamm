@@ -23,6 +23,7 @@ class ValueTypeResource extends Resource
     protected static ?string $navigationGroup = 'Form Building';
 
     protected static ?string $navigationLabel = 'Value Types';
+    protected static ?int $navigationSort = 16;
 
     public static function form(Form $form): Form
     {
@@ -61,7 +62,10 @@ class ValueTypeResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

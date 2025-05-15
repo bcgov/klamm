@@ -17,11 +17,12 @@ class FormFrequencyResource extends Resource
 {
     protected static ?string $model = FormFrequency::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
 
     protected static ?string $navigationGroup = 'Form Metadata';
 
-    protected static ?string $navigationLabel = 'Frequency';
+    protected static ?string $navigationLabel = 'Usage Frequency';
+    protected static ?int $navigationSort = 2;
 
 
     public static function form(Form $form): Form
@@ -54,7 +55,10 @@ class FormFrequencyResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

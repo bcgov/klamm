@@ -19,6 +19,7 @@ class StyleResource extends Resource
     protected static ?string $navigationLabel = 'Styles';
 
     protected static ?string $navigationGroup = 'Form Building';
+    protected static ?int $navigationSort = 15;
 
 
     public static function form(Form $form): Form

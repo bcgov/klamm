@@ -23,6 +23,7 @@ class SelectOptionsResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Form Building';
+    protected static ?int $navigationSort = 14;
 
     public static function form(Form $form): Form
     {

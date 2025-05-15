@@ -30,6 +30,7 @@ class FormFieldResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationGroup = 'Form Building';
+    protected static ?int $navigationSort = 13;
 
 
     public static function form(Form $form): Form
@@ -219,7 +220,7 @@ class FormFieldResource extends Resource
                     ->multiple()
                     ->preload()
                     ->searchable()
-                    ->options(function () {  // Fetch unique values from the 'data_binding' column            
+                    ->options(function () {  // Fetch unique values from the 'data_binding' column
                         return \App\Models\FormField::query()
                             ->distinct()
                             ->pluck('data_binding', 'data_binding')

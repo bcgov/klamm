@@ -19,9 +19,10 @@ class FormDataSourceResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationGroup = 'Form Metadata';
+    protected static ?string $navigationGroup = 'Form Building';
 
     protected static ?string $navigationLabel = 'Databinding Sources';
+    protected static ?int $navigationSort = 12;
 
 
     public static function form(Form $form): Form

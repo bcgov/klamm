@@ -21,6 +21,7 @@ class FieldGroupResource extends Resource
 
     protected static ?string $navigationGroup = 'Form Building';
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?int $navigationSort = 11;
 
     public static function form(Form $form): Form
     {

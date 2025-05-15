@@ -20,6 +20,7 @@ class DataTypeResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationGroup = 'Form Building';
+    protected static ?int $navigationSort = 10;
 
 
     public static function form(Form $form): Form
@@ -69,7 +70,10 @@ class DataTypeResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
