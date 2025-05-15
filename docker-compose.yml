@@ -17,14 +17,11 @@ services:
             - DB_DATABASE=laravel
             - DB_USERNAME=laravel
             - DB_PASSWORD=secret
-            - CACHE_STORE=redis
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
         networks:
             - sail
         depends_on:
             - pgsql
-            - redis
+    
     mailhog:
         image: mailhog/mailhog:latest
         container_name: mailhog
@@ -48,31 +45,10 @@ services:
         networks:
             - sail
 
-    redis:
-        image: bitnami/redis:latest
-        container_name: redis
-        ports:
-            - "6379:6379"
-        environment:
-            - ALLOW_EMPTY_PASSWORD=yes
-            - REDIS_AOF_ENABLED=no
-            - REDIS_DATABASES=16
-        volumes:
-            - redis_data:/bitnami/redis/data
-        networks:
-            - sail
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 10s
-            timeout: 5s
-            retries: 3
-
 networks:
     sail:
         driver: bridge
 
 volumes:
     pgdata:
-        driver: local
-    redis_data:
         driver: local
