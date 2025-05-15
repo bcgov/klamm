@@ -12,18 +12,25 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Http\Middleware\CheckRole;
 
 class ValueTypeResource extends Resource
 {
     protected static ?string $model = ValueType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-chevrons-left-right-ellipsis';
     protected static bool $shouldRegisterNavigation = true;
 
     protected static ?string $navigationGroup = 'Form Building';
 
     protected static ?string $navigationLabel = 'Value Types';
-    protected static ?int $navigationSort = 16;
+
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
+
 
     public static function form(Form $form): Form
     {

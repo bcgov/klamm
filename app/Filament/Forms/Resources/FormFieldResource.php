@@ -22,15 +22,22 @@ use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Textarea;
 use Filament\Support\Enums\Alignment;
 use Filament\Tables\Filters\SelectFilter;
+use App\Http\Middleware\CheckRole;
 
 class FormFieldResource extends Resource
 {
     protected static ?string $model = FormField::class;
     protected static ?string $navigationLabel = 'Fields';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-text-cursor-input';
 
     protected static ?string $navigationGroup = 'Form Building';
-    protected static ?int $navigationSort = 13;
+
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
+
 
 
     public static function form(Form $form): Form

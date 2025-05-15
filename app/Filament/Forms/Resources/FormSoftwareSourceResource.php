@@ -17,7 +17,7 @@ class FormSoftwareSourceResource extends Resource
 {
     protected static ?string $model = FormSoftwareSource::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-server';
 
     protected static ?string $navigationGroup = 'Form Metadata';
 

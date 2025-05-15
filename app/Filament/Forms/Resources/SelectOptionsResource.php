@@ -16,14 +16,21 @@ use Filament\Tables;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use App\Http\Middleware\CheckRole;
 
 class SelectOptionsResource extends Resource
 {
     protected static ?string $model = SelectOptions::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-square-mouse-pointer';
     protected static ?string $navigationGroup = 'Form Building';
-    protected static ?int $navigationSort = 14;
+
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
+
 
     public static function form(Form $form): Form
     {

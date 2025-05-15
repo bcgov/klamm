@@ -25,6 +25,7 @@ use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
 use Rmsramos\Activitylog\ActivitylogPlugin;
 use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
+use Filament\Navigation\NavigationGroup;
 
 class FormsPanelProvider extends PanelProvider
 {
@@ -64,6 +65,14 @@ class FormsPanelProvider extends PanelProvider
                 YourFormsLogsWidget::class,
                 FormsStatsWidget::class,
                 MinistryGraphWidget::class,
+            ])
+            ->navigationGroups([
+                NavigationGroup::make()
+                    ->label('Form Metadata')
+                    ->collapsible(true)
+                    ->collapsed(true),
+                NavigationGroup::make()
+                    ->label('Form Building'),
             ])
             ->plugins([
                 ActivitylogPlugin::make()
