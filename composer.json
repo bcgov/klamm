@@ -15,6 +15,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "orangehill/iseed": "^3.0",
+        "predis/predis": "^3.0",
         "rmsramos/activitylog": "^1.0",
         "spatie/laravel-activitylog": "^4.10"
     },
