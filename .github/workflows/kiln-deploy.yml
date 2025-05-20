@@ -15,8 +15,8 @@ on:
 env:
   REGISTRY: ghcr.io
   TARGET_REPO: bcgov/kiln
-  HELM_CHART_PATH: deployment/helm
-  DEPLOYMENT_NAME: kiln-external
+  HELM_CHART_PATH: helm
+  DEPLOYMENT_NAME: kiln
   # Specify the Kiln version tag to deploy - currently using dev tag
   KILN_VERSION_TAG: dev
   IMAGE_NAME: bcgov/kiln
@@ -49,7 +49,7 @@ jobs:
 
       - name: Helm Deployment
         run: |
-          helm upgrade --install kiln ./helm \
+          helm upgrade --install ${{ env.DEPLOYMENT_NAME }} ./kiln-source/${{ env.HELM_CHART_PATH }} \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
             --set image.tag=${{ env.KILN_VERSION_TAG }} \
             --namespace ${{ vars.OPENSHIFT_NAMESPACE }} \
