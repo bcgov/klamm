@@ -1,0 +1,60 @@
+name: External Kiln Deployment Monitor
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  TARGET_REPO: bcgov/kiln
+  HELM_CHART_PATH: deployment/helm
+  DEPLOYMENT_NAME: kiln-external
+  # Specify the Kiln version tag to deploy - currently using dev tag
+  KILN_VERSION_TAG: dev
+  IMAGE_NAME: bcgov/kiln-external
+
+jobs:
+  check-and-deploy:
+    runs-on: ubuntu-latest
+    environment: tools
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Kiln repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TARGET_REPO }}
+          ref: ${{ env.KILN_VERSION_TAG }}
+          path: kiln-source
+
+      - name: Setup OpenShift CLI
+        uses: redhat-actions/oc-installer@v1
+
+      - name: Authenticate with OpenShift
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+          namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
+          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
+          insecure_skip_tls_verify: true
+
+      - name: Build and Push Container Image
+        id: build-image
+        uses: docker/build-push-action@v5
+        with:
+          context: kiln-source
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.KILN_VERSION_TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Helm Deployment
+        run: |
+          helm upgrade --install ${{ env.DEPLOYMENT_NAME }} \
+            kiln-source/${{ env.HELM_CHART_PATH }} \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ env.KILN_VERSION_TAG }} \
+            --namespace ${{ secrets.OPENSHIFT_NAMESPACE }} \
+            --create-namespace
