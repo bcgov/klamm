@@ -42,7 +42,7 @@ class FormResource extends Resource
 
     protected static function formatLabel(string $text): string
     {
-        return '<span class="block text-lg font-bold mb-2">' . $text . '</span>';
+        return '<span class="block text-lg font-bold">' . $text . '</span>';
     }
 
     public static function infolist(Infolist $infolist): Infolist
@@ -67,18 +67,22 @@ class FormResource extends Resource
                                     ->label(new HtmlString(self::formatLabel('Status'))),
                                 TextEntry::make('ministry.name')
                                     ->columnSpanFull()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Ministry'))),
                                 TextEntry::make('businessAreas.name')
                                     ->columnSpanFull()
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->listWithLineBreaks()
                                     ->label(new HtmlString(self::formatLabel('Business Areas or Program'))),
                                 TextEntry::make('form_purpose')
                                     ->columnSpanFull()
                                     ->markdown()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Purpose'))),
                                 RepeatableEntry::make('links')
                                     ->columnSpanFull()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Access Links')))
                                     ->schema([
                                         TextEntry::make('link')
@@ -90,6 +94,7 @@ class FormResource extends Resource
                                 TextEntry::make('notes')
                                     ->columnSpanFull()
                                     ->markdown()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Notes'))),
 
                             ]),
@@ -101,20 +106,24 @@ class FormResource extends Resource
                             ->schema([
                                 TextEntry::make('formFrequency.name')
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Usage Frequency'))),
                                 TextEntry::make('userTypes.name')
                                     ->listWithLineBreaks()
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Audience'))),
 
                                 TextEntry::make('formReach.name')
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Audience Size'))),
 
                             ]),
                     ]),
 
                 Section::make()
+
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
@@ -122,22 +131,27 @@ class FormResource extends Resource
                                     ->formatStateUsing(fn(bool $state): string => $state ? 'Yes' : 'No')
                                     ->badge()
                                     ->columnSpanFull()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->color(fn(bool $state): string => $state ? 'success' : 'danger')
                                     ->label(new HtmlString(self::formatLabel('ICM Generated'))),
                                 TextEntry::make('formSoftwareSources.name')
                                     ->listWithLineBreaks()
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Software Sources'))),
 
                                 TextEntry::make('formLocations.name')
                                     ->listWithLineBreaks()
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Published Locations'))),
                                 TextEntry::make('formTags.name')
                                     ->listWithLineBreaks()
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Tags'))),
                                 TextEntry::make('dcv_material_number')
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('DCV Material Number'))),
                             ]),
                     ]),
@@ -148,17 +162,20 @@ class FormResource extends Resource
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
-
                                 TextEntry::make('formRepositories.name')
                                     ->listWithLineBreaks()
                                     ->badge()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Repositories'))),
                                 TextEntry::make('orbeon_functions')
                                     ->markdown()
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Orbeon Functions'))),
                                 TextEntry::make('footer_fragment_path')
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Footer Fragment Path'))),
                                 RepeatableEntry::make('workbenchPaths')
+                                    ->hidden(fn($state): bool => empty($state))
                                     ->label(new HtmlString(self::formatLabel('Workbench Paths')))
                                     ->schema([
                                         TextEntry::make('workbench_path')
