@@ -49,8 +49,7 @@ jobs:
 
       - name: Helm Deployment
         run: |
-          helm upgrade --install ${{ env.DEPLOYMENT_NAME }} \
-            kiln-source/${{ env.HELM_CHART_PATH }} \
+          helm upgrade --install kiln ./helm \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
             --set image.tag=${{ env.KILN_VERSION_TAG }} \
             --namespace ${{ vars.OPENSHIFT_NAMESPACE }} \
