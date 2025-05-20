@@ -19,6 +19,7 @@ env:
   DEPLOYMENT_NAME: kiln
   # Specify the Kiln version tag to deploy - currently using dev tag
   KILN_VERSION_TAG: dev
+  # Ensure this matches exactly what's in the Kiln repository
   IMAGE_NAME: bcgov/kiln
 
 jobs:
@@ -50,5 +51,5 @@ jobs:
       - name: Helm Deployment
         run: |
           helm upgrade --install ${{ env.DEPLOYMENT_NAME }} ./kiln-source/${{ env.HELM_CHART_PATH }} \
-            --set image.repository=${{ env.REGISTRY }}/${{ env.TARGET_REPO }} \
-            --set image.tag=${{ env.KILN_VERSION_TAG }} \
+            --set image.tag="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.KILN_VERSION_TAG }}" \
+            --debug
