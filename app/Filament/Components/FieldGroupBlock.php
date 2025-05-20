@@ -43,6 +43,7 @@ class FieldGroupBlock
                 return 'New Group | id: ' . $state['instance_id'];
             })
             ->icon('heroicon-o-square-2-stack')
+            ->preview('filament.content.block-previews.field-group')
             ->columns(2)
             ->schema([
                 Select::make('field_group_id')
@@ -60,6 +61,11 @@ class FieldGroupBlock
                     ->reactive()
                     ->columnSpan(2)
                     ->afterStateUpdated(function ($state, callable $set) use ($groups) {
+                        // Ensure full data is loaded when interacting with the form
+                        if (!FormDataHelper::isFullyLoaded()) {
+                            FormDataHelper::ensureFullyLoaded();
+                        }
+
                         $fieldGroup = $groups->get($state);
                         if ($fieldGroup) {
                             $formFields = $fieldGroup->formFields()->get()->map(function ($field) {
@@ -119,7 +125,7 @@ class FieldGroupBlock
                                             ->label("Default")
                                             ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
@@ -260,6 +266,7 @@ class FieldGroupBlock
                             ->collapsed(true)
                             ->blockNumbers(false)
                             ->columnSpan(2)
+                            ->blockPreviews(areInteractive: true)
                             ->blocks([
                                 FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
                             ]),

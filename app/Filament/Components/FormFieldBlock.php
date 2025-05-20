@@ -75,6 +75,7 @@ class FormFieldBlock
                 }
                 return 'New Field | id: ' . $state['instance_id'];
             })
+            ->preview('filament.content.block-previews.form-field')
             ->icon('heroicon-o-stop')
             ->columns(2)
             ->schema([
@@ -129,7 +130,7 @@ class FormFieldBlock
                                             ->label("Default")
                                             ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
