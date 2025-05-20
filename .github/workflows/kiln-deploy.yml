@@ -3,6 +3,13 @@ on:
   push:
     tags:
       - "v*"
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - main
   workflow_dispatch:
 
 env:
