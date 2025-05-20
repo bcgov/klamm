@@ -42,8 +42,8 @@ jobs:
       - name: Authenticate with OpenShift
         uses: redhat-actions/oc-login@v1
         with:
-          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
-          namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
+          openshift_server_url: ${{ vars.OPENSHIFT_SERVER }}
+          namespace: ${{ vars.OPENSHIFT_NAMESPACE }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           insecure_skip_tls_verify: true
 
@@ -63,5 +63,5 @@ jobs:
             kiln-source/${{ env.HELM_CHART_PATH }} \
             --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
             --set image.tag=${{ env.KILN_VERSION_TAG }} \
-            --namespace ${{ secrets.OPENSHIFT_NAMESPACE }} \
+            --namespace ${{ vars.OPENSHIFT_NAMESPACE }} \
             --create-namespace
