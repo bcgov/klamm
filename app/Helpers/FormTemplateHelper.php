@@ -99,6 +99,7 @@ class FormTemplateHelper
             "title" => $formVersion->form->form_title,
             "form_id" => $form->form_id,
             "deployed_to" => $formVersion->deployed_to,
+            "footer" => $formVersion->footer,
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
                     'name' => $dataSource->name,
@@ -255,9 +256,11 @@ class FormTemplateHelper
             ->orderBy('order')
             ->with([
                 'formField.dataType',
-                'styleInstances' => function ($query) {
-                    $query->with('style');
-                },
+                'formField.formFieldValue',
+                'formField.formFieldDateFormat',
+                'formInstanceFieldValue',
+                'formInstanceFieldDateFormat',
+                'styleInstances.style',
                 'validations',
                 'conditionals'
             ])

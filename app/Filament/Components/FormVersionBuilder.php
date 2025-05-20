@@ -83,8 +83,9 @@ class FormVersionBuilder
                             ->preload()
                             ->columnSpan(1)
                             ->relationship('formDataSources', 'name'),
+                        TextInput::make('footer')
+                            ->columnSpanFull(),
                         Textarea::make('comments')
-                            ->label('Comments')
                             ->columnSpanFull()
                             ->maxLength(500),
                     ]),
