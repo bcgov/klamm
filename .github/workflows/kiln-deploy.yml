@@ -19,7 +19,7 @@ env:
   DEPLOYMENT_NAME: kiln-external
   # Specify the Kiln version tag to deploy - currently using dev tag
   KILN_VERSION_TAG: dev
-  IMAGE_NAME: bcgov/kiln-external
+  IMAGE_NAME: bcgov/kiln
 
 jobs:
   check-and-deploy:
@@ -46,16 +46,6 @@ jobs:
           namespace: ${{ vars.OPENSHIFT_NAMESPACE }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           insecure_skip_tls_verify: true
-
-      - name: Build and Push Container Image
-        id: build-image
-        uses: docker/build-push-action@v5
-        with:
-          context: kiln-source
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.KILN_VERSION_TAG }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Helm Deployment
         run: |
