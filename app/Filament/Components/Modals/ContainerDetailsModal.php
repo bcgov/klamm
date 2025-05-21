@@ -23,7 +23,7 @@ use Filament\Forms\Components\Select;
 
 class ContainerDetailsModal
 {
-    public static function form(array $state): array
+    public static function form(array $state, bool $viewMode = false): array
     {
         $formFields = [];
         $fieldGroups = [];
@@ -107,7 +107,8 @@ class ContainerDetailsModal
                                             TextInput::make('custom_instance_id')
                                                 ->label('Custom Instance ID')
                                                 ->helperText('Leave empty to use default instance ID')
-                                                ->default($state['custom_instance_id'] ?? null),
+                                                ->default($state['custom_instance_id'] ?? null)
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('Visibility')
@@ -116,11 +117,13 @@ class ContainerDetailsModal
                                                 ->label('Visibility Condition')
                                                 ->helperText('JavaScript expression to determine visibility')
                                                 ->default($state['visibility'] ?? null)
-                                                ->columnSpanFull(),
+                                                ->columnSpanFull()
+                                                ->disabled($viewMode),
 
                                             \Filament\Forms\Components\Toggle::make('clear_button')
                                                 ->label('Show Clear Button')
-                                                ->default($state['clear_button'] ?? false),
+                                                ->default($state['clear_button'] ?? false)
+                                                ->disabled($viewMode),
                                         ])
                                         ->columns(1),
                                 ]),
@@ -145,7 +148,8 @@ class ContainerDetailsModal
                                                 ->preload()
                                                 ->placeholder('Select custom web styles')
                                                 ->default($webStyles)
-                                                ->helperText('Select styles for web display'),
+                                                ->helperText('Select styles for web display')
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('PDF Styles')
@@ -162,7 +166,8 @@ class ContainerDetailsModal
                                                 ->preload()
                                                 ->placeholder('Select custom PDF styles')
                                                 ->default($pdfStyles)
-                                                ->helperText('Select styles for PDF display'),
+                                                ->helperText('Select styles for PDF display')
+                                                ->disabled($viewMode),
                                         ]),
                                 ]),
                         ]),
@@ -206,27 +211,31 @@ class ContainerDetailsModal
                                             ->modalHeading(fn(array $state): string => $state['element_type'] === 'form_field' ? 'Form Field Details' : 'Field Group Details')
                                             ->modalIcon(fn(array $state): string => $state['element_type'] === 'form_field' ? 'heroicon-o-document-text' : 'heroicon-o-table-cells')
                                             ->modalWidth(\Filament\Support\Enums\MaxWidth::FiveExtraLarge)
-                                            ->modalSubmitActionLabel(fn(array $state): string => $state['element_type'] === 'form_field' ? 'Save Form Field Details' : 'Save Field Group Details')
-                                            ->form(function (array $state) {
+                                            ->modalSubmitActionLabel(fn(array $state) => $viewMode
+                                                ? 'Close'
+                                                : ($state['element_type'] === 'form_field' ? 'Save Form Field Details' : 'Save Field Group Details'))
+                                            ->form(function (array $state) use ($viewMode) {
                                                 if ($state['element_type'] === 'form_field') {
                                                     return FormFieldDetailsModal::form([
                                                         'id' => $state['id'],
                                                         'instance_id' => $state['instance_id'],
                                                         'form_field_id' => $state['form_field_id'],
-                                                    ]);
+                                                    ], $viewMode);
                                                 } else {
                                                     return FieldGroupDetailsModal::form([
                                                         'id' => $state['id'],
                                                         'instance_id' => $state['instance_id'],
                                                         'field_group_id' => $state['field_group_id'],
-                                                    ]);
+                                                    ], $viewMode);
                                                 }
                                             })
-                                            ->action(function (array $data, $livewire) use ($state) {
-                                                if ($state['element_type'] === 'form_field') {
-                                                    FormFieldDetailsModal::action($data);
-                                                } else {
-                                                    FieldGroupDetailsModal::action($data);
+                                            ->action(function (array $data, $livewire) use ($state, $viewMode) {
+                                                if (!$viewMode) {
+                                                    if ($state['element_type'] === 'form_field') {
+                                                        FormFieldDetailsModal::action($data);
+                                                    } else {
+                                                        FieldGroupDetailsModal::action($data);
+                                                    }
                                                 }
                                             }),
                                     ])
@@ -234,7 +243,8 @@ class ContainerDetailsModal
                                 ->columns(5)
                                 ->default($allElements)
                                 ->visible(fn() => count($allElements) > 0)
-                                ->columnSpanFull(),
+                                ->columnSpanFull()
+                                ->disabled($viewMode),
 
                             Actions::make([
                                 Action::make('add_form_field')
@@ -343,7 +353,8 @@ class ContainerDetailsModal
                                         $livewire->dispatch('refresh-form');
                                     }),
                             ])
-                                ->columnSpanFull(),
+                                ->columnSpanFull()
+                                ->visible(!$viewMode),
                         ]),
                 ]),
 

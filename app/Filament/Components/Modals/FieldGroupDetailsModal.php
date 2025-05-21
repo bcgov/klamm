@@ -66,7 +66,7 @@ class FieldGroupDetailsModal
         ];
     }
 
-    public static function form(array $state): array
+    public static function form(array $state, bool $viewMode = false): array
     {
         $webStyles = [];
         $pdfStyles = [];
@@ -124,7 +124,8 @@ class FieldGroupDetailsModal
                     $groups = FormDataHelper::get('field_groups');
                     $group = $groups->firstWhere('id', $groupId);
                 })
-                ->preload(),
+                ->preload()
+                ->disabled($viewMode),
 
             Tabs::make('Group Details')
                 ->columnSpanFull()
@@ -143,7 +144,8 @@ class FieldGroupDetailsModal
                                             TextInput::make('custom_instance_id')
                                                 ->label('Custom Instance ID')
                                                 ->helperText('Leave empty to use default instance ID')
-                                                ->default($state['custom_instance_id'] ?? null),
+                                                ->default($state['custom_instance_id'] ?? null)
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('Label')
@@ -168,12 +170,14 @@ class FieldGroupDetailsModal
                                                     'hide' => 'Hide Label',
                                                 ])
                                                 ->default($state['customize_group_label'] ?? 'default')
-                                                ->live(),
+                                                ->live()
+                                                ->disabled($viewMode),
 
                                             TextInput::make('custom_group_label')
                                                 ->label('Custom Label')
                                                 ->default($state['custom_group_label'] ?? null)
-                                                ->visible(fn(Get $get) => $get('customize_group_label') === 'customize'),
+                                                ->visible(fn(Get $get) => $get('customize_group_label') === 'customize')
+                                                ->disabled($viewMode),
                                         ]),
                                 ]),
                         ]),
@@ -213,23 +217,26 @@ class FieldGroupDetailsModal
                                             ->modalHeading('Form Field Details')
                                             ->modalIcon('heroicon-o-document-text')
                                             ->modalWidth(\Filament\Support\Enums\MaxWidth::FiveExtraLarge)
-                                            ->modalSubmitActionLabel('Save Form Field Details')
-                                            ->form(function (array $state) {
+                                            ->modalSubmitActionLabel(fn($livewire) => ($viewMode) ? 'Close' : 'Save Form Field Details')
+                                            ->form(function (array $state) use ($viewMode) {
                                                 return \App\Filament\Components\Modals\FormFieldDetailsModal::form([
                                                     'id' => $state['id'],
                                                     'instance_id' => $state['instance_id'],
                                                     'form_field_id' => $state['form_field_id'],
-                                                ]);
+                                                ], $viewMode);
                                             })
-                                            ->action(function (array $data, $livewire) {
-                                                \App\Filament\Components\Modals\FormFieldDetailsModal::action($data);
+                                            ->action(function (array $data, $livewire) use ($viewMode) {
+                                                if (!$viewMode) {
+                                                    \App\Filament\Components\Modals\FormFieldDetailsModal::action($data);
+                                                }
                                             }),
                                     ])
                                 ])
                                 ->columns(4)
                                 ->default($formFields)
                                 ->visible(fn() => count($formFields) > 0)
-                                ->columnSpanFull(),
+                                ->columnSpanFull()
+                                ->disabled($viewMode),
 
                             Actions::make([
                                 Action::make('add_form_field')
@@ -285,7 +292,8 @@ class FieldGroupDetailsModal
                                         $livewire->dispatch('refresh-form');
                                     }),
                             ])
-                                ->columnSpanFull(),
+                                ->columnSpanFull()
+                                ->visible(!$viewMode),
                         ]),
 
                     Tab::make('Properties')
@@ -310,12 +318,14 @@ class FieldGroupDetailsModal
                                             Toggle::make('repeater')
                                                 ->label('Make Repeatable')
                                                 ->default($state['repeater'] ?? false)
-                                                ->live(),
+                                                ->live()
+                                                ->disabled($viewMode),
 
                                             TextInput::make('custom_repeater_item_label')
                                                 ->label('Custom Repeater Item Label')
                                                 ->default($state['custom_repeater_item_label'] ?? null)
-                                                ->visible(fn(Get $get) => $get('repeater')),
+                                                ->visible(fn(Get $get) => $get('repeater'))
+                                                ->disabled($viewMode),
 
                                             Placeholder::make('default_clear_button')
                                                 ->label('Default Clear Button Setting')
@@ -332,7 +342,8 @@ class FieldGroupDetailsModal
                                             Toggle::make('clear_button')
                                                 ->label('Show Clear Button')
                                                 ->default($state['clear_button'] ?? false)
-                                                ->visible(fn(Get $get) => !$get('repeater')),
+                                                ->visible(fn(Get $get) => !$get('repeater'))
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('Visibility')
@@ -341,7 +352,8 @@ class FieldGroupDetailsModal
                                                 ->label('Visibility Condition')
                                                 ->helperText('JavaScript expression to determine visibility')
                                                 ->default($state['visibility'] ?? null)
-                                                ->columnSpanFull(),
+                                                ->columnSpanFull()
+                                                ->disabled($viewMode),
                                         ])
                                         ->columns(1),
                                 ]),
@@ -374,7 +386,8 @@ class FieldGroupDetailsModal
                                         ->placeholder('Use default data source')
                                         ->default($state['custom_data_binding'] ?? null)
                                         ->helperText('Leave empty to use default data source')
-                                        ->preload(),
+                                        ->preload()
+                                        ->disabled($viewMode),
 
                                     Placeholder::make('default_data_binding_path')
                                         ->label('Default Data Binding Path')
@@ -391,7 +404,8 @@ class FieldGroupDetailsModal
                                     Textarea::make('custom_data_binding_path')
                                         ->label('Custom Data Binding Path')
                                         ->helperText('Leave empty to use default data binding path')
-                                        ->default($state['custom_data_binding_path'] ?? null),
+                                        ->default($state['custom_data_binding_path'] ?? null)
+                                        ->disabled($viewMode),
                                 ]),
                         ]),
 
@@ -430,7 +444,8 @@ class FieldGroupDetailsModal
                                                 ->preload()
                                                 ->placeholder('Select custom web styles')
                                                 ->default($webStyles)
-                                                ->helperText('Select styles to override default web styles'),
+                                                ->helperText('Select styles to override default web styles')
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('PDF Styles')
@@ -463,7 +478,8 @@ class FieldGroupDetailsModal
                                                 ->preload()
                                                 ->placeholder('Select custom PDF styles')
                                                 ->default($pdfStyles)
-                                                ->helperText('Select styles to override default PDF styles'),
+                                                ->helperText('Select styles to override default PDF styles')
+                                                ->disabled($viewMode),
                                         ]),
                                 ]),
                         ]),

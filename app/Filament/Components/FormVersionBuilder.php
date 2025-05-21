@@ -93,12 +93,16 @@ class FormVersionBuilder
                         ->modalIcon('heroicon-o-document-text')
                         ->modalWidth(MaxWidth::FiveExtraLarge)
                         ->modalSubmitActionLabel('Save Form Field Details')
-                        ->form(function (array $state) {
-                            return FormFieldDetailsModal::form($state);
+                        ->form(function (array $state, $livewire) {
+                            $viewMode = $livewire instanceof \Filament\Resources\Pages\ViewRecord;
+                            return FormFieldDetailsModal::form($state, $viewMode);
                         })
                         ->action(function (array $data, $livewire) {
-                            FormFieldDetailsModal::action($data);
-                        }),
+                            if (!($livewire instanceof \Filament\Resources\Pages\ViewRecord)) {
+                                FormFieldDetailsModal::action($data);
+                            }
+                        })
+                        ->modalSubmitActionLabel(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord) ? 'Close' : 'Save Form Field Details'),
                 ]),
             ]);
     }
@@ -119,12 +123,16 @@ class FormVersionBuilder
                         ->modalIcon('heroicon-o-table-cells')
                         ->modalWidth(MaxWidth::FiveExtraLarge)
                         ->modalSubmitActionLabel('Save Field Group Details')
-                        ->form(function (array $state) {
-                            return FieldGroupDetailsModal::form($state);
+                        ->form(function (array $state, $livewire) {
+                            $viewMode = $livewire instanceof \Filament\Resources\Pages\ViewRecord;
+                            return FieldGroupDetailsModal::form($state, $viewMode);
                         })
                         ->action(function (array $data, $livewire) {
-                            FieldGroupDetailsModal::action($data);
-                        }),
+                            if (!($livewire instanceof \Filament\Resources\Pages\ViewRecord)) {
+                                FieldGroupDetailsModal::action($data);
+                            }
+                        })
+                        ->modalSubmitActionLabel(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord) ? 'Close' : 'Save Field Group Details'),
                 ]),
             ]);
     }
@@ -145,12 +153,16 @@ class FormVersionBuilder
                         ->modalIcon('heroicon-o-cube')
                         ->modalWidth(MaxWidth::FiveExtraLarge)
                         ->modalSubmitActionLabel('Save Container Details')
-                        ->form(function (array $state) {
-                            return ContainerDetailsModal::form($state);
+                        ->form(function (array $state, $livewire) {
+                            $viewMode = $livewire instanceof \Filament\Resources\Pages\ViewRecord;
+                            return ContainerDetailsModal::form($state, $viewMode);
                         })
                         ->action(function (array $data, $livewire) {
-                            ContainerDetailsModal::action($data);
-                        }),
+                            if (!($livewire instanceof \Filament\Resources\Pages\ViewRecord)) {
+                                ContainerDetailsModal::action($data);
+                            }
+                        })
+                        ->modalSubmitActionLabel(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord) ? 'Close' : 'Save Container Details'),
                 ]),
             ]);
     }

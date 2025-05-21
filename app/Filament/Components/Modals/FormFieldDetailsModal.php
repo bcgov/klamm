@@ -75,7 +75,7 @@ class FormFieldDetailsModal
         ];
     }
 
-    public static function form(array $state): array
+    public static function form(array $state, bool $viewMode = false): array
     {
         $webStyles = [];
         $pdfStyles = [];
@@ -130,7 +130,8 @@ class FormFieldDetailsModal
                     $fields = \App\Helpers\FormDataHelper::get('form_fields');
                     $field = $fields->firstWhere('id', $fieldId);
                 })
-                ->preload(),
+                ->preload()
+                ->disabled($viewMode),
 
             Tabs::make('Field Details')
                 ->columnSpanFull()
@@ -151,7 +152,8 @@ class FormFieldDetailsModal
                                             TextInput::make('custom_instance_id')
                                                 ->label('Custom Instance ID')
                                                 ->helperText('Leave empty to use default instance ID')
-                                                ->default($state['custom_instance_id'] ?? null),
+                                                ->default($state['custom_instance_id'] ?? null)
+                                                ->disabled($viewMode),
 
                                             Placeholder::make('data_type')
                                                 ->label('Data Type')
@@ -185,12 +187,14 @@ class FormFieldDetailsModal
                                                     'hide' => 'Hide Label',
                                                 ])
                                                 ->default($state['customize_label'] ?? 'default')
-                                                ->live(),
+                                                ->live()
+                                                ->disabled($viewMode),
 
                                             TextInput::make('custom_label')
                                                 ->label('Custom Label')
                                                 ->default($state['custom_label'] ?? null)
-                                                ->visible(fn(Get $get) => $get('customize_label') === 'customize'),
+                                                ->visible(fn(Get $get) => $get('customize_label') === 'customize')
+                                                ->disabled($viewMode),
                                         ]),
                                 ]),
 
@@ -213,7 +217,8 @@ class FormFieldDetailsModal
                                             Textarea::make('custom_help_text')
                                                 ->label('Custom Help Text')
                                                 ->helperText('Leave empty to use default help text')
-                                                ->default($state['custom_help_text'] ?? null),
+                                                ->default($state['custom_help_text'] ?? null)
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('Input Mask')
@@ -233,7 +238,8 @@ class FormFieldDetailsModal
                                             TextInput::make('custom_mask')
                                                 ->label('Custom Input Mask')
                                                 ->helperText('Leave empty to use default input mask')
-                                                ->default($state['custom_mask'] ?? null),
+                                                ->default($state['custom_mask'] ?? null)
+                                                ->disabled($viewMode),
                                         ]),
                                 ]),
                         ]),
@@ -265,7 +271,8 @@ class FormFieldDetailsModal
                                         ->placeholder('Use default data source')
                                         ->default($state['custom_data_binding'] ?? null)
                                         ->helperText('Leave empty to use default data source')
-                                        ->preload(),
+                                        ->preload()
+                                        ->disabled($viewMode),
 
                                     Placeholder::make('default_data_binding_path')
                                         ->label('Default Data Binding Path')
@@ -282,7 +289,8 @@ class FormFieldDetailsModal
                                     Textarea::make('custom_data_binding_path')
                                         ->label('Custom Data Binding Path')
                                         ->helperText('Leave empty to use default data binding path')
-                                        ->default($state['custom_data_binding_path'] ?? null),
+                                        ->default($state['custom_data_binding_path'] ?? null)
+                                        ->disabled($viewMode),
                                 ]),
                         ]),
 
@@ -321,7 +329,8 @@ class FormFieldDetailsModal
                                                 ->preload()
                                                 ->placeholder('Select custom web styles')
                                                 ->default($webStyles)
-                                                ->helperText('Select styles to override default web styles'),
+                                                ->helperText('Select styles to override default web styles')
+                                                ->disabled($viewMode),
                                         ]),
 
                                     Fieldset::make('PDF Styles')
@@ -354,7 +363,8 @@ class FormFieldDetailsModal
                                                 ->preload()
                                                 ->placeholder('Select custom PDF styles')
                                                 ->default($pdfStyles)
-                                                ->helperText('Select styles to override default PDF styles'),
+                                                ->helperText('Select styles to override default PDF styles')
+                                                ->disabled($viewMode),
                                         ]),
                                 ]),
                         ]),
@@ -422,15 +432,19 @@ class FormFieldDetailsModal
                                             'phone' => 'Phone Number',
                                             'javascript' => 'JavaScript',
                                         ])
-                                        ->required(),
+                                        ->required()
+                                        ->disabled($viewMode),
                                     TextInput::make('value')
-                                        ->label('Value'),
+                                        ->label('Value')
+                                        ->disabled($viewMode),
                                     TextInput::make('error_message')
-                                        ->label('Error Message'),
+                                        ->label('Error Message')
+                                        ->disabled($viewMode),
                                 ])
                                 ->collapsible()
                                 ->collapsed()
-                                ->default($validations),
+                                ->default($validations)
+                                ->disabled($viewMode),
                         ]),
 
                     Tab::make('Conditionals')
@@ -462,14 +476,17 @@ class FormFieldDetailsModal
                                             'required_when' => 'Required When',
                                             'javascript' => 'JavaScript Condition',
                                         ])
-                                        ->required(),
+                                        ->required()
+                                        ->disabled($viewMode),
                                     Textarea::make('value')
                                         ->label('Condition Expression')
-                                        ->helperText('JavaScript expression or field reference'),
+                                        ->helperText('JavaScript expression or field reference')
+                                        ->disabled($viewMode),
                                 ])
                                 ->collapsible()
                                 ->collapsed()
-                                ->default($conditionals),
+                                ->default($conditionals)
+                                ->disabled($viewMode),
                         ]),
                 ]),
 
