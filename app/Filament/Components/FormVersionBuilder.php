@@ -22,6 +22,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Session;
 use Filament\Forms\Components\Select;
 use App\Filament\Components\Modals\FormFieldDetailsModal;
+use App\Filament\Components\Modals\FieldGroupDetailsModal;
 use Filament\Support\Enums\MaxWidth;
 
 class FormVersionBuilder
@@ -115,45 +116,13 @@ class FormVersionBuilder
                         ->outlined()
                         ->modalHeading('Field Group Details')
                         ->modalIcon('heroicon-o-table-cells')
+                        ->modalWidth(MaxWidth::FiveExtraLarge)
                         ->modalSubmitActionLabel('Save Field Group Details')
                         ->form(function (array $state) {
-                            return [
-                                Select::make('field_group_id')
-                                    ->label('Field Group')
-                                    ->options(function () {
-                                        $fieldGroups = FormDataHelper::get('field_groups');
-                                        return $fieldGroups->mapWithKeys(fn($group) => [
-                                            $group->id => "{$group->label}"
-                                        ]);
-                                    })
-                                    ->default($state['field_group_id'] ?? null)
-                                    ->searchable()
-                                    ->required()
-                                    ->live()
-                                    ->preload(),
-
-                                Hidden::make('id')
-                                    ->default($state['id'] ?? null),
-                            ];
+                            return FieldGroupDetailsModal::form($state);
                         })
                         ->action(function (array $data, $livewire) {
-                            $fieldGroupInstanceId = $data['id'] ?? null;
-                            if (!$fieldGroupInstanceId) {
-                                return;
-                            }
-
-                            $fieldGroupInstance = FieldGroupInstance::where('id', $fieldGroupInstanceId)->first();
-                            if (!$fieldGroupInstance) {
-                                return;
-                            }
-
-                            $fieldGroupInstance->field_group_id = $data['field_group_id'];
-                            $fieldGroupInstance->save();
-
-                            Notification::make()
-                                ->title('Field group updated')
-                                ->success()
-                                ->send();
+                            FieldGroupDetailsModal::action($data);
                         }),
                 ]),
             ]);

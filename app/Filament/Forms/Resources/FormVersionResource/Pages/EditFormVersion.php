@@ -136,7 +136,22 @@ class EditFormVersion extends EditRecord
             },
             'fieldGroupInstances' => function ($query) {
                 $query->whereNull('container_id')
-                    ->select('id', 'form_version_id', 'field_group_id', 'order', 'instance_id', 'custom_instance_id', 'custom_group_label', 'customize_group_label')
+                    ->select(
+                        'id',
+                        'form_version_id',
+                        'field_group_id',
+                        'order',
+                        'instance_id',
+                        'custom_instance_id',
+                        'custom_group_label',
+                        'customize_group_label',
+                        'repeater',
+                        'clear_button',
+                        'custom_repeater_item_label',
+                        'visibility',
+                        'custom_data_binding',
+                        'custom_data_binding_path'
+                    )
                     ->with(['fieldGroup:id,label']);
             },
             'containers' => function ($query) {
@@ -208,6 +223,12 @@ class EditFormVersion extends EditRecord
                     'customize_instance_id' => !empty($group->custom_instance_id),
                     'custom_group_label' => $group->custom_group_label,
                     'customize_group_label' => $group->customize_group_label,
+                    'repeater' => $group->repeater,
+                    'clear_button' => $group->clear_button,
+                    'custom_repeater_item_label' => $group->custom_repeater_item_label,
+                    'visibility' => $group->visibility,
+                    'custom_data_binding' => $group->custom_data_binding,
+                    'custom_data_binding_path' => $group->custom_data_binding_path,
                     'form_fields' => [],
                     'order' => $group->order,
                     'fieldGroup' => $group->fieldGroup ? [

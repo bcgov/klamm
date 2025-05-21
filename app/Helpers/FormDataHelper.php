@@ -30,7 +30,8 @@ class FormDataHelper
                 'formFieldDateFormat',
             ])->select('id', 'label', 'data_type_id', 'mask', 'help_text', 'data_binding', 'data_binding_path')
                 ->get()->keyBy('id'),
-            'field_groups' => FieldGroup::with([])->get()->keyBy('id'),
+            'field_groups' => FieldGroup::with(['webStyles', 'pdfStyles'])
+                ->get()->keyBy('id'),
             'styles' => Style::select('id', 'name', 'property', 'value')
                 ->get()->keyBy('id'),
             'form_data_sources' => FormDataSource::select('id', 'name', 'type', 'endpoint', 'description')->get()->keyBy('id'),
@@ -61,7 +62,8 @@ class FormDataHelper
                 break;
 
             case 'field_groups':
-                self::$cache[$key] = FieldGroup::select('id', 'label')
+                self::$cache[$key] = FieldGroup::select('id', 'label', 'repeater', 'clear_button', 'repeater_item_label', 'data_binding', 'data_binding_path')
+                    ->with(['webStyles', 'pdfStyles'])
                     ->get()
                     ->keyBy('id');
                 break;
