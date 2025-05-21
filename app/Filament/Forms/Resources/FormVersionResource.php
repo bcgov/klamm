@@ -22,6 +22,12 @@ use Filament\Forms\Components\Tabs\Tab;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Builder;
+use App\Helpers\FormVersionHelper;
+use App\Helpers\FormTemplateHelper;
+use App\Filament\Components\FormVersionMetadata;
 
 class FormVersionResource extends Resource
 {
@@ -44,9 +50,60 @@ class FormVersionResource extends Resource
 
     public static function form(Form $form): Form
     {
+        $formBuilderComponent = Builder::make('components')
+            ->label('Form Elements')
+            ->addActionLabel('Add to Form Elements')
+            ->addBetweenActionLabel('Insert between elements')
+            ->columnSpan(2)
+            ->collapsible(false)
+            ->reorderableWithButtons()
+            ->reorderableWithDragAndDrop(false)
+            ->blockNumbers(false)
+            ->cloneable()
+            ->afterStateHydrated(function (Set $set, Get $get) {
+                Session::put('elementCounter', FormVersionHelper::getHighestID($get('components') ?? []) + 1);
+            })
+            ->blocks([
+                FormVersionBuilder::getFormFieldBlock(),
+                FormVersionBuilder::getFieldGroupBlock(),
+                FormVersionBuilder::getContainerBlock(),
+            ]);
+
         return $form
             ->schema([
-                FormVersionBuilder::schema()
+                Section::make('Form Metadata')
+                    ->description('Basic form information and properties')
+                    ->columnSpanFull()
+                    ->collapsed(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord))
+                    ->collapsible()
+                    ->schema(FormVersionMetadata::schema()),
+
+                Section::make('Form Builder')
+                    ->description('Design your form structure')
+                    ->columnSpanFull()
+                    ->schema([
+                        $formBuilderComponent,
+
+                        Hidden::make('all_instance_ids')
+                            ->default(fn(Get $get) => $get('all_instance_ids') ?? [])
+                            ->dehydrated(fn() => true),
+
+                        Actions::make([
+                            Action::make('Generate Form Template')
+                                ->action(function (Get $get, Set $set) {
+                                    $formId = $get('id');
+                                    $jsonTemplate = FormTemplateHelper::generateJsonTemplate($formId);
+                                    $set('generated_text', $jsonTemplate);
+                                })
+                                ->hidden(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
+                        ]),
+
+                        Textarea::make('generated_text')
+                            ->label('Generated Form Template')
+                            ->columnSpan(2)
+                            ->rows(15)
+                            ->hidden(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
+                    ])
                     ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
 
                 Tabs::make('Tabs')
@@ -56,9 +113,7 @@ class FormVersionResource extends Resource
                     ->reactive()
                     ->tabs([
                         Tab::make('Build')
-                            ->schema([
-                                FormVersionBuilder::schema(),
-                            ]),
+                            ->schema([$formBuilderComponent]),
                         Tab::make('Import')
                             ->columnSpanFull()
                             ->schema([

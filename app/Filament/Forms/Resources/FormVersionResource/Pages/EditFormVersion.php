@@ -17,6 +17,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Filament\Notifications\Notification;
 
 class EditFormVersion extends EditRecord
 {
@@ -29,6 +30,23 @@ class EditFormVersion extends EditRecord
         $data['updater_email'] = $user->email;
 
         Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components'] ?? []));
+
+        $metadataFields = [
+            'form_id',
+            'status',
+            'form_requester_name',
+            'form_requester_email',
+            'form_approver_name',
+            'form_approver_email',
+            'deployed_to',
+            'deployed_at',
+            'comments',
+            'form_data_sources'
+        ];
+
+        foreach ($metadataFields as $field) {
+            unset($data[$field]);
+        }
 
         unset($data['components']);
 
@@ -44,6 +62,43 @@ class EditFormVersion extends EditRecord
     {
         return [
             Actions\ViewAction::make(),
+            Actions\Action::make('saveMetadata')
+                ->label('Save Metadata')
+                ->color('success')
+                ->icon('heroicon-o-document-check')
+                ->action(function () {
+                    $data = $this->form->getState();
+
+                    $metadataFields = [
+                        'form_id',
+                        'status',
+                        'form_requester_name',
+                        'form_requester_email',
+                        'form_approver_name',
+                        'form_approver_email',
+                        'deployed_to',
+                        'deployed_at',
+                        'comments',
+                        'form_data_sources'
+                    ];
+
+                    $filteredData = array_intersect_key($data, array_flip($metadataFields));
+
+                    $user = Auth::user();
+                    $filteredData['updater_name'] = $user->name;
+                    $filteredData['updater_email'] = $user->email;
+
+                    $this->record->update($filteredData);
+
+                    if (isset($filteredData['form_data_sources'])) {
+                        $this->record->formDataSources()->sync($filteredData['form_data_sources']);
+                    }
+
+                    Notification::make()
+                        ->title('Metadata saved successfully')
+                        ->success()
+                        ->send();
+                }),
             Actions\DeleteAction::make(),
         ];
     }

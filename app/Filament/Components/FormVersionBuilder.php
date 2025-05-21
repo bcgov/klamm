@@ -154,4 +154,19 @@ class FormVersionBuilder
                 ]),
             ]);
     }
+
+    public static function getFormFieldBlock(): Block
+    {
+        return self::simplifiedFormFieldBlock();
+    }
+
+    public static function getFieldGroupBlock(): Block
+    {
+        return self::simplifiedFieldGroupBlock();
+    }
+
+    public static function getContainerBlock(): Block
+    {
+        return self::simplifiedContainerBlock();
+    }
 }
