@@ -3,8 +3,12 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Jobs\GenerateFormTemplateJob;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class ViewFormVersion extends ViewRecord
 {
@@ -17,6 +21,30 @@ class ViewFormVersion extends ViewRecord
                 ->url(fn($record) => route('filament.forms.resources.forms.view', ['record' => $record->form_id]))
                 ->icon('heroicon-o-eye')
                 ->label('View Form Metadata'),
+            Actions\Action::make('generateTemplate')
+                ->label('Generate Form Template')
+                ->icon('heroicon-o-document-arrow-down')
+                ->outlined()
+                ->action(function () {
+                    try {
+                        $formVersionId = $this->getRecord()->getKey();
+                        $userId = Auth::id();
+
+                        GenerateFormTemplateJob::dispatch($formVersionId, $userId);
+
+                        Notification::make()
+                            ->title('Form Template Generation Started')
+                            ->body('You will be notified when the template is ready for download.')
+                            ->success()
+                            ->send();
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Error Starting Template Generation')
+                            ->body('Could not start the template generation process. Please try again.')
+                            ->danger()
+                            ->send();
+                    }
+                }),
             Actions\EditAction::make(),
         ];
     }

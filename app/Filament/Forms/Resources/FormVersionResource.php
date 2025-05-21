@@ -87,22 +87,6 @@ class FormVersionResource extends Resource
                         Hidden::make('all_instance_ids')
                             ->default(fn(Get $get) => $get('all_instance_ids') ?? [])
                             ->dehydrated(fn() => true),
-
-                        Actions::make([
-                            Action::make('Generate Form Template')
-                                ->action(function (Get $get, Set $set) {
-                                    $formId = $get('id');
-                                    $jsonTemplate = FormTemplateHelper::generateJsonTemplate($formId);
-                                    $set('generated_text', $jsonTemplate);
-                                })
-                                ->hidden(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
-                        ]),
-
-                        Textarea::make('generated_text')
-                            ->label('Generated Form Template')
-                            ->columnSpan(2)
-                            ->rows(15)
-                            ->hidden(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
                     ])
                     ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
 
