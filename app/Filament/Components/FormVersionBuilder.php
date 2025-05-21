@@ -103,6 +103,7 @@ class FormVersionBuilder
                     ->collapsible()
                     ->collapsed(true)
                     ->reorderableWithButtons()
+                    ->reorderableWithDragAndDrop(false)
                     ->blockNumbers(false)
                     ->cloneable()
                     ->afterStateHydrated(function (Set $set, Get $get) {
