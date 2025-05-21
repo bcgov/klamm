@@ -22,6 +22,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Session;
 use Filament\Forms\Components\Select;
 use App\Filament\Components\Modals\FormFieldDetailsModal;
+use Filament\Support\Enums\MaxWidth;
 
 class FormVersionBuilder
 {
@@ -88,6 +89,7 @@ class FormVersionBuilder
                         ->outlined()
                         ->modalHeading('Form Field Details')
                         ->modalIcon('heroicon-o-document-text')
+                        ->modalWidth(MaxWidth::FiveExtraLarge)
                         ->modalSubmitActionLabel('Save Form Field Details')
                         ->form(function (array $state) {
                             return FormFieldDetailsModal::form($state);

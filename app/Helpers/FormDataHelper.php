@@ -28,10 +28,11 @@ class FormDataHelper
                 'selectOptionInstances',
                 'formFieldValue',
                 'formFieldDateFormat',
-            ])->get()->keyBy('id'),
+            ])->select('id', 'label', 'data_type_id', 'mask', 'help_text', 'data_binding', 'data_binding_path')
+                ->get()->keyBy('id'),
             'field_groups' => FieldGroup::with([])->get()->keyBy('id'),
             'styles' => Style::all()->keyBy('id'),
-            'form_data_sources' => FormDataSource::all()->keyBy('id'),
+            'form_data_sources' => FormDataSource::select('id', 'name', 'type', 'endpoint', 'description')->get()->keyBy('id'),
             'select_options' => SelectOptions::all()->keyBy('id'),
         ];
 
@@ -41,7 +42,7 @@ class FormDataHelper
 
     public static function load(): void
     {
-        //
+        self::loadAll();
     }
 
     public static function get(string $key): Collection
@@ -52,7 +53,7 @@ class FormDataHelper
 
         switch ($key) {
             case 'form_fields':
-                self::$cache[$key] = FormField::select('id', 'label', 'data_type_id')
+                self::$cache[$key] = FormField::select('id', 'label', 'data_type_id', 'mask', 'help_text', 'data_binding', 'data_binding_path')
                     ->with(['dataType:id,name'])
                     ->get()
                     ->keyBy('id');
@@ -71,7 +72,7 @@ class FormDataHelper
                 break;
 
             case 'form_data_sources':
-                self::$cache[$key] = FormDataSource::select('id', 'name')
+                self::$cache[$key] = FormDataSource::select('id', 'name', 'type', 'endpoint', 'description')
                     ->get()
                     ->keyBy('id');
                 break;

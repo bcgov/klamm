@@ -12,7 +12,7 @@ class FormVersionHelper
             return 'Form Field';
         }
 
-        $id = !empty($state['customize_instance_id']) && !empty($state['custom_instance_id'])
+        $id = !empty($state['custom_instance_id'])
             ? $state['custom_instance_id']
             : $state['instance_id'] ?? 'unknown';
 
@@ -53,7 +53,7 @@ class FormVersionHelper
             return 'Field Group';
         }
 
-        $id = !empty($state['customize_instance_id']) && !empty($state['custom_instance_id'])
+        $id = !empty($state['custom_instance_id'])
             ? $state['custom_instance_id']
             : $state['instance_id'] ?? 'unknown';
 
@@ -84,7 +84,7 @@ class FormVersionHelper
             return 'Container';
         }
 
-        $id = !empty($state['customize_instance_id']) && !empty($state['custom_instance_id'])
+        $id = !empty($state['custom_instance_id'])
             ? $state['custom_instance_id']
             : $state['instance_id'] ?? 'unknown';
 
