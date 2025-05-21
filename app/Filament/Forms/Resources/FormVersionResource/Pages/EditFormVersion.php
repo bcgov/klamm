@@ -201,6 +201,7 @@ class EditFormVersion extends EditRecord
             $components[] = [
                 'type' => 'field_group',
                 'data' => [
+                    'id' => $group->id,
                     'field_group_id' => $group->field_group_id,
                     'instance_id' => $group->instance_id,
                     'custom_instance_id' => $group->custom_instance_id,
@@ -226,6 +227,7 @@ class EditFormVersion extends EditRecord
             $components[] = [
                 'type' => 'container',
                 'data' => [
+                    'id' => $container->id,
                     'instance_id' => $container->instance_id,
                     'custom_instance_id' => $container->custom_instance_id,
                     'customize_instance_id' => !empty($container->custom_instance_id),
