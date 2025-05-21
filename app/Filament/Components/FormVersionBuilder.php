@@ -4,22 +4,21 @@ namespace App\Filament\Components;
 
 use App\Helpers\FormTemplateHelper;
 use App\Helpers\FormDataHelper;
+use App\Filament\Components\FormVersionMetadata;
+use App\Filament\Components\Modals\FormFieldDetailsModal;
+use App\Filament\Components\Modals\FieldGroupDetailsModal;
+use App\Filament\Components\Modals\ContainerDetailsModal;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
-use App\Models\FormVersion;
 use Closure;
 
 class FormVersionBuilder
@@ -30,70 +29,7 @@ class FormVersionBuilder
 
         return Grid::make()
             ->schema([
-                Select::make('form_id')
-                    ->relationship('form', 'form_id_title')
-                    ->required()
-                    ->reactive()
-                    ->preload()
-                    ->searchable()
-                    ->default(request()->query('form_id_title')),
-
-                Select::make('status')
-                    ->options(FormVersion::getStatusOptions())
-                    ->required(),
-
-                Section::make('Form Properties')
-                    ->collapsible()
-                    ->collapsed()
-                    ->columns(3)
-                    ->compact()
-                    ->schema([
-                        Fieldset::make('Requester Information')
-                            ->schema([
-                                TextInput::make('form_requester_name')
-                                    ->label('Name'),
-                                TextInput::make('form_requester_email')
-                                    ->label('Email')
-                                    ->email(),
-                            ])
-                            ->label('Requester Information'),
-
-                        Fieldset::make('Approver Information')
-                            ->schema([
-                                TextInput::make('form_approver_name')
-                                    ->label('Name'),
-                                TextInput::make('form_approver_email')
-                                    ->label('Email')
-                                    ->email(),
-                            ])
-                            ->label('Approver Information'),
-
-                        Select::make('deployed_to')
-                            ->label('Deployed To')
-                            ->options([
-                                'dev' => 'Development',
-                                'test' => 'Testing',
-                                'prod' => 'Production',
-                            ])
-                            ->columnSpan(1)
-                            ->nullable()
-                            ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
-
-                        DateTimePicker::make('deployed_at')
-                            ->label('Deployment Date')
-                            ->columnSpan(1),
-
-                        Select::make('form_data_sources')
-                            ->multiple()
-                            ->preload()
-                            ->columnSpan(1)
-                            ->relationship('formDataSources', 'name'),
-
-                        Textarea::make('comments')
-                            ->label('Comments')
-                            ->columnSpanFull()
-                            ->maxLength(500),
-                    ]),
+                ...FormVersionMetadata::schema(),
 
                 Builder::make('components')
                     ->label('Form Elements')
@@ -207,6 +143,60 @@ class FormVersionBuilder
 
                 Hidden::make('customize_label')
                     ->default(''),
+
+                Actions::make([
+                    Action::make('details')
+                        ->label('Details')
+                        ->icon('heroicon-o-information-circle')
+                        ->button()
+                        ->modalHeading('Form Field Details')
+                        ->modalIcon('heroicon-o-document-text')
+                        ->modalSubmitActionLabel('Save Form Field Details')
+                        ->fillForm(function (Get $get) {
+                            return [
+                                'instance_id' => $get('instance_id'),
+                                'form_field_id' => $get('form_field_id'),
+                                'custom_label' => $get('custom_label'),
+                                'customize_label' => !empty($get('custom_label')),
+                                'custom_help_text' => $get('custom_help_text'),
+                                'customize_help_text' => !empty($get('custom_help_text')),
+                                'custom_data_binding' => $get('custom_data_binding'),
+                                'customize_data_binding' => !empty($get('custom_data_binding')),
+                                'custom_data_binding_path' => $get('custom_data_binding_path'),
+                                'customize_data_binding_path' => !empty($get('custom_data_binding_path')),
+                            ];
+                        })
+                        ->form(fn() => FormFieldDetailsModal::getSchema())
+                        ->action(function (array $data, Get $get, Set $set) {
+                            if ($data['form_field_id'] !== $get('form_field_id')) {
+                                $set('form_field_id', $data['form_field_id']);
+                            }
+
+                            if ($data['customize_label']) {
+                                $set('custom_label', $data['custom_label']);
+                            } else {
+                                $set('custom_label', '');
+                            }
+
+                            if ($data['customize_help_text']) {
+                                $set('custom_help_text', $data['custom_help_text']);
+                            } else {
+                                $set('custom_help_text', '');
+                            }
+
+                            if ($data['customize_data_binding']) {
+                                $set('custom_data_binding', $data['custom_data_binding']);
+                            } else {
+                                $set('custom_data_binding', '');
+                            }
+
+                            if ($data['customize_data_binding_path']) {
+                                $set('custom_data_binding_path', $data['custom_data_binding_path']);
+                            } else {
+                                $set('custom_data_binding_path', '');
+                            }
+                        }),
+                ]),
             ]);
     }
 
@@ -279,6 +269,26 @@ class FormVersionBuilder
 
                 Hidden::make('form_fields')
                     ->default([]),
+
+                Actions::make([
+                    Action::make('details')
+                        ->label('Details')
+                        ->icon('heroicon-o-information-circle')
+                        ->button()
+                        ->modalHeading('Field Group Details')
+                        ->modalIcon('heroicon-o-table-cells')
+                        ->modalSubmitActionLabel('Save Field Group Details')
+                        ->mountUsing(function (array $data, Get $get) {
+                            return [
+                                'instance_id' => $get('instance_id'),
+                                'field_group_id' => $get('field_group_id'),
+                            ];
+                        })
+                        ->form(fn() => FieldGroupDetailsModal::getSchema())
+                        ->action(function (array $data, Get $get, Set $set) {
+                            $set('field_group_id', $data['field_group_id']);
+                        }),
+                ]),
             ]);
     }
 
@@ -305,6 +315,22 @@ class FormVersionBuilder
 
                 Hidden::make('components')
                     ->default([]),
+
+                Actions::make([
+                    Action::make('details')
+                        ->label('Details')
+                        ->icon('heroicon-o-information-circle')
+                        ->button()
+                        ->modalHeading('Container Details')
+                        ->modalIcon('heroicon-o-cube')
+                        ->modalSubmitActionLabel('Close')
+                        ->mountUsing(function (array $data, Get $get) {
+                            return [
+                                'instance_id' => $get('instance_id'),
+                            ];
+                        })
+                        ->form(fn() => ContainerDetailsModal::getSchema()),
+                ]),
             ]);
     }
 
