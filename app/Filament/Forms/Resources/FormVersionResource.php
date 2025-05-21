@@ -31,13 +31,11 @@ class FormVersionResource extends Resource
 
     protected static bool $shouldRegisterNavigation = true;
 
-    // Function to get the current counter value from the session
     public static function getElementCounter(): int
     {
-        return Session::get('elementCounter', 1); // Default to 1 if not set
+        return Session::get('elementCounter', 1);
     }
 
-    // Function to increment the counter in the session
     public static function incrementElementCounter(): void
     {
         $currentCounter = self::getElementCounter();
@@ -48,11 +46,9 @@ class FormVersionResource extends Resource
     {
         return $form
             ->schema([
-                // Main view
                 FormVersionBuilder::schema()
                     ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
 
-                // Tab view for Create page
                 Tabs::make('Tabs')
                     ->visible(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\CreateRecord))
                     ->columnSpanFull()
@@ -79,7 +75,8 @@ class FormVersionResource extends Resource
                                     Action::make('Scan JSON')
                                         ->label('Scan JSON')
                                         ->action(function (Set $set, $state) {
-                                            $validation = ScanTemplateHelper::validateForm($state['json']);
+                                            $json = $state['json'] ?? '';
+                                            $validation = ScanTemplateHelper::validateForm($json);
                                             $set('messages', $validation['messages']);
                                             $set('isValid', $validation['isValid']);
                                             $set('jsonModified', false);
@@ -88,14 +85,15 @@ class FormVersionResource extends Resource
                                         ->label('Import JSON')
                                         ->disabled(fn(Get $get) => !$get('isValid') || $get('jsonModified'))
                                         ->action(function (Set $set, $state, $livewire) {
-                                            $formVersion = ImportTemplateHelper::importForm($state['json']);
-                                            if ($formVersion->id) {
+                                            $json = $state['json'] ?? '';
+                                            $formVersion = ImportTemplateHelper::importForm($json);
+                                            if ($formVersion && $formVersion->id) {
                                                 $set('formVersion', $formVersion);
                                             }
                                         }),
                                     Action::make('View Imported Form')
                                         ->label('View Imported Form')
-                                        ->disabled(fn(Get $get) => !$get('formVersion')) // Only enable when formVersionId is set
+                                        ->disabled(fn(Get $get) => !$get('formVersion'))
                                         ->action(
                                             fn(Get $get, $livewire) =>
                                             $livewire->redirect(FormVersionResource::getUrl('view', ['record' => $get('formVersion')]))
@@ -132,9 +130,7 @@ class FormVersionResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
+            ->filters([])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
@@ -204,27 +200,23 @@ class FormVersionResource extends Resource
                                 }
                             }
                         }
+
                         $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
                     }),
             ])
-            ->bulkActions([
-                //
-            ])
+            ->bulkActions([])
             ->paginated([
                 10,
                 25,
                 50,
                 100,
-            ]);;
+            ]);
     }
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
-
 
     public static function getPages(): array
     {

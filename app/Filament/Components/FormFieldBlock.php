@@ -26,9 +26,9 @@ class FormFieldBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
-        $fields = FormDataHelper::get('fields');
-        $dataSources = FormDataHelper::get('dataSources');
-        $selectOptions = FormDataHelper::get('selectOptions');
+        $fields = FormDataHelper::get('form_fields');
+        $dataSources = FormDataHelper::get('form_data_sources');
+        $selectOptions = FormDataHelper::get('select_options');
         $styles = FormDataHelper::get('styles');
 
         $isDate = fn($get) => $fields->get($get('form_field_id'))?->dataType->name === 'date';

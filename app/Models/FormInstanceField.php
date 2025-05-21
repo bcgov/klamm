@@ -28,6 +28,14 @@ class FormInstanceField extends Model
         'custom_instance_id'
     ];
 
+    protected $casts = [
+        'form_version_id' => 'integer',
+        'form_field_id' => 'integer',
+        'order' => 'integer',
+        'field_group_instance_id' => 'integer',
+        'container_id' => 'integer',
+    ];
+
     public function formVersion(): BelongsTo
     {
         return $this->belongsTo(FormVersion::class);
