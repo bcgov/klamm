@@ -100,8 +100,7 @@ class FormVersionBuilder
                     ->addActionLabel('Add to Form Elements')
                     ->addBetweenActionLabel('Insert between elements')
                     ->columnSpan(2)
-                    ->collapsible()
-                    ->collapsed(true)
+                    ->collapsible(false)
                     ->reorderableWithButtons()
                     ->reorderableWithDragAndDrop(false)
                     ->blockNumbers(false)
@@ -200,10 +199,6 @@ class FormVersionBuilder
                     ->required()
                     ->live(),
 
-                TextInput::make('custom_instance_id')
-                    ->label('Custom ID')
-                    ->alphaNum(),
-
                 Hidden::make('customize_instance_id')
                     ->default(fn(Get $get) => !empty($get('custom_instance_id'))),
 
@@ -273,10 +268,6 @@ class FormVersionBuilder
                     ->required()
                     ->live(),
 
-                TextInput::make('custom_instance_id')
-                    ->label('Custom ID')
-                    ->alphaNum(),
-
                 Hidden::make('customize_instance_id')
                     ->default(fn(Get $get) => !empty($get('custom_instance_id'))),
 
@@ -305,14 +296,9 @@ class FormVersionBuilder
 
                 return "Container | ID: $id";
             })
-            ->icon('heroicon-o-square-3-stack-3d')
             ->schema([
                 Hidden::make('instance_id')
                     ->default($calculateIDCallback),
-
-                TextInput::make('custom_instance_id')
-                    ->label('Custom ID')
-                    ->alphaNum(),
 
                 Hidden::make('customize_instance_id')
                     ->default(fn(Get $get) => !empty($get('custom_instance_id'))),
