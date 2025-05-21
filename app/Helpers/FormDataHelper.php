@@ -55,7 +55,7 @@ class FormDataHelper
         switch ($key) {
             case 'form_fields':
                 self::$cache[$key] = FormField::select('id', 'label', 'data_type_id', 'mask', 'help_text', 'data_binding', 'data_binding_path')
-                    ->with(['dataType:id,name'])
+                    ->with(['dataType:id,name', 'validations', 'webStyles', 'pdfStyles'])
                     ->get()
                     ->keyBy('id');
                 break;

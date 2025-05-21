@@ -16,6 +16,7 @@ use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Repeater;
 
 class FormFieldDetailsModal
 {
@@ -34,6 +35,7 @@ class FormFieldDetailsModal
                 'data_binding_path' => 'None',
                 'webStyles' => [],
                 'pdfStyles' => [],
+                'validations' => [],
             ];
         }
 
@@ -48,6 +50,18 @@ class FormFieldDetailsModal
             $pdfStyles = $field->pdfStyles->pluck('id')->toArray();
         }
 
+        $validations = [];
+        if ($field->validations) {
+            $validations = $field->validations->map(function ($validation) {
+                return [
+                    'id' => $validation->id,
+                    'type' => $validation->type,
+                    'value' => $validation->value,
+                    'error_message' => $validation->error_message,
+                ];
+            })->toArray();
+        }
+
         return [
             'exists' => true,
             'label' => $field->label ?? 'Unknown field',
@@ -57,6 +71,7 @@ class FormFieldDetailsModal
             'data_binding_path' => $field->data_binding_path ?? 'None',
             'webStyles' => $webStyles,
             'pdfStyles' => $pdfStyles,
+            'validations' => $validations,
         ];
     }
 
@@ -64,9 +79,16 @@ class FormFieldDetailsModal
     {
         $webStyles = [];
         $pdfStyles = [];
+        $validations = [];
+        $conditionals = [];
 
         if (!empty($state['id'])) {
-            $formInstanceField = \App\Models\FormInstanceField::with(['styleInstances.style'])->find($state['id']);
+            $formInstanceField = \App\Models\FormInstanceField::with([
+                'styleInstances.style',
+                'validations',
+                'conditionals'
+            ])->find($state['id']);
+
             if ($formInstanceField) {
                 foreach ($formInstanceField->styleInstances as $styleInstance) {
                     if ($styleInstance->type === 'web') {
@@ -75,6 +97,9 @@ class FormFieldDetailsModal
                         $pdfStyles[] = $styleInstance->style_id;
                     }
                 }
+
+                $validations = $formInstanceField->validations->toArray();
+                $conditionals = $formInstanceField->conditionals->toArray();
             }
         }
 
@@ -327,11 +352,116 @@ class FormFieldDetailsModal
 
                     Tab::make('Validation')
                         ->icon('heroicon-o-magnifying-glass-plus')
-                        ->schema([]),
+                        ->schema([
+                            Fieldset::make('Default Validations')
+                                ->schema([
+                                    Placeholder::make('default_validations')
+                                        ->label('Default Validations')
+                                        ->content(function (Get $get) {
+                                            $fieldId = $get('form_field_id');
+                                            if (!$fieldId) {
+                                                return 'Select a form field to see its default validations';
+                                            }
+
+                                            $attributes = self::getFormFieldAttributes($fieldId);
+                                            if (empty($attributes['validations'])) {
+                                                return 'None';
+                                            }
+
+                                            $validationList = collect($attributes['validations'])->map(function ($validation) {
+                                                $text = $validation['type'];
+                                                if (!empty($validation['value'])) {
+                                                    $text .= ': ' . $validation['value'];
+                                                }
+                                                if (!empty($validation['error_message'])) {
+                                                    $text .= ' (Error: ' . $validation['error_message'] . ')';
+                                                }
+                                                return $text;
+                                            })->implode('<br>');
+
+                                            return new \Illuminate\Support\HtmlString($validationList);
+                                        }),
+                                ]),
+
+                            Repeater::make('validations')
+                                ->label('Custom Validations')
+                                ->defaultItems(0)
+                                ->itemLabel(function (array $state): ?string {
+                                    $validationOptions = [
+                                        'minValue' => 'Minimum Value',
+                                        'maxValue' => 'Maximum Value',
+                                        'minLength' => 'Minimum Length',
+                                        'maxLength' => 'Maximum Length',
+                                        'required' => 'Required',
+                                        'email' => 'Email',
+                                        'phone' => 'Phone Number',
+                                        'javascript' => 'JavaScript',
+                                    ];
+
+                                    return $validationOptions[$state['type'] ?? ''] ?? 'New Validation';
+                                })
+                                ->schema([
+                                    Select::make('type')
+                                        ->label('Validation Type')
+                                        ->options([
+                                            'minValue' => 'Minimum Value',
+                                            'maxValue' => 'Maximum Value',
+                                            'minLength' => 'Minimum Length',
+                                            'maxLength' => 'Maximum Length',
+                                            'required' => 'Required',
+                                            'email' => 'Email',
+                                            'phone' => 'Phone Number',
+                                            'javascript' => 'JavaScript',
+                                        ])
+                                        ->required(),
+                                    TextInput::make('value')
+                                        ->label('Value'),
+                                    TextInput::make('error_message')
+                                        ->label('Error Message'),
+                                ])
+                                ->collapsible()
+                                ->collapsed()
+                                ->default($validations),
+                        ]),
 
                     Tab::make('Conditionals')
                         ->icon('heroicon-o-link')
-                        ->schema([]),
+                        ->schema([
+                            Repeater::make('conditionals')
+                                ->label('Conditionals')
+                                ->defaultItems(0)
+                                ->itemLabel(function (array $state): ?string {
+                                    $conditionalOptions = [
+                                        'visible_when' => 'Visible When',
+                                        'hidden_when' => 'Hidden When',
+                                        'enabled_when' => 'Enabled When',
+                                        'disabled_when' => 'Disabled When',
+                                        'required_when' => 'Required When',
+                                        'javascript' => 'JavaScript Condition',
+                                    ];
+
+                                    return $conditionalOptions[$state['type'] ?? ''] ?? 'New Conditional';
+                                })
+                                ->schema([
+                                    Select::make('type')
+                                        ->label('Conditional Type')
+                                        ->options([
+                                            'visible_when' => 'Visible When',
+                                            'hidden_when' => 'Hidden When',
+                                            'enabled_when' => 'Enabled When',
+                                            'disabled_when' => 'Disabled When',
+                                            'required_when' => 'Required When',
+                                            'javascript' => 'JavaScript Condition',
+                                        ])
+                                        ->required(),
+                                    Textarea::make('value')
+                                        ->label('Condition Expression')
+                                        ->helperText('JavaScript expression or field reference'),
+                                ])
+                                ->collapsible()
+                                ->collapsed()
+                                ->default($conditionals),
+                        ]),
                 ]),
 
             Hidden::make('id')
@@ -383,6 +513,37 @@ class FormFieldDetailsModal
                 $formInstanceField->styleInstances()->create([
                     'style_id' => $styleId,
                     'type' => 'pdf',
+                ]);
+            }
+        }
+
+        if (isset($data['validations'])) {
+            $formInstanceField->validations()->delete();
+
+            foreach ($data['validations'] as $validation) {
+                if (empty($validation['type'])) {
+                    continue;
+                }
+
+                $formInstanceField->validations()->create([
+                    'type' => $validation['type'],
+                    'value' => $validation['value'] ?? null,
+                    'error_message' => $validation['error_message'] ?? null,
+                ]);
+            }
+        }
+
+        if (isset($data['conditionals'])) {
+            $formInstanceField->conditionals()->delete();
+
+            foreach ($data['conditionals'] as $conditional) {
+                if (empty($conditional['type'])) {
+                    continue;
+                }
+
+                $formInstanceField->conditionals()->create([
+                    'type' => $conditional['type'],
+                    'value' => $conditional['value'] ?? null,
                 ]);
             }
         }
