@@ -31,7 +31,8 @@ class FormDataHelper
             ])->select('id', 'label', 'data_type_id', 'mask', 'help_text', 'data_binding', 'data_binding_path')
                 ->get()->keyBy('id'),
             'field_groups' => FieldGroup::with([])->get()->keyBy('id'),
-            'styles' => Style::all()->keyBy('id'),
+            'styles' => Style::select('id', 'name', 'property', 'value')
+                ->get()->keyBy('id'),
             'form_data_sources' => FormDataSource::select('id', 'name', 'type', 'endpoint', 'description')->get()->keyBy('id'),
             'select_options' => SelectOptions::all()->keyBy('id'),
         ];

@@ -32,7 +32,20 @@ class FormFieldDetailsModal
                 'help_text' => 'None',
                 'data_binding' => 'None',
                 'data_binding_path' => 'None',
+                'webStyles' => [],
+                'pdfStyles' => [],
             ];
+        }
+
+        $webStyles = [];
+        $pdfStyles = [];
+
+        if ($field->webStyles) {
+            $webStyles = $field->webStyles->pluck('id')->toArray();
+        }
+
+        if ($field->pdfStyles) {
+            $pdfStyles = $field->pdfStyles->pluck('id')->toArray();
         }
 
         return [
@@ -42,11 +55,29 @@ class FormFieldDetailsModal
             'help_text' => $field->help_text ?? 'None',
             'data_binding' => $field->data_binding ?? 'None',
             'data_binding_path' => $field->data_binding_path ?? 'None',
+            'webStyles' => $webStyles,
+            'pdfStyles' => $pdfStyles,
         ];
     }
 
     public static function form(array $state): array
     {
+        $webStyles = [];
+        $pdfStyles = [];
+
+        if (!empty($state['id'])) {
+            $formInstanceField = \App\Models\FormInstanceField::with(['styleInstances.style'])->find($state['id']);
+            if ($formInstanceField) {
+                foreach ($formInstanceField->styleInstances as $styleInstance) {
+                    if ($styleInstance->type === 'web') {
+                        $webStyles[] = $styleInstance->style_id;
+                    } elseif ($styleInstance->type === 'pdf') {
+                        $pdfStyles[] = $styleInstance->style_id;
+                    }
+                }
+            }
+        }
+
         return [
             Select::make('form_field_id')
                 ->label('Form Field')
@@ -223,7 +254,76 @@ class FormFieldDetailsModal
 
                     Tab::make('Styles')
                         ->icon('heroicon-o-paint-brush')
-                        ->schema([]),
+                        ->schema([
+                            Grid::make(2)
+                                ->schema([
+                                    Fieldset::make('Web Styles')
+                                        ->schema([
+                                            Placeholder::make('default_web_styles')
+                                                ->label('Default Web Styles')
+                                                ->content(function (Get $get) {
+                                                    $fieldId = $get('form_field_id');
+                                                    if (!$fieldId) {
+                                                        return 'Select a form field to see its default web styles';
+                                                    }
+
+                                                    $formField = \App\Models\FormField::with(['webStyles'])->find($fieldId);
+                                                    if (!$formField || $formField->webStyles->isEmpty()) {
+                                                        return 'None';
+                                                    }
+
+                                                    return $formField->webStyles->pluck('name')->implode(', ');
+                                                }),
+
+                                            Select::make('web_styles')
+                                                ->label('Custom Web Styles')
+                                                ->options(function () {
+                                                    $styles = \App\Helpers\FormDataHelper::get('styles')
+                                                        ->pluck('name', 'id');
+                                                    return $styles;
+                                                })
+                                                ->multiple()
+                                                ->searchable()
+                                                ->preload()
+                                                ->placeholder('Select custom web styles')
+                                                ->default($webStyles)
+                                                ->helperText('Select styles to override default web styles'),
+                                        ]),
+
+                                    Fieldset::make('PDF Styles')
+                                        ->schema([
+                                            Placeholder::make('default_pdf_styles')
+                                                ->label('Default PDF Styles')
+                                                ->content(function (Get $get) {
+                                                    $fieldId = $get('form_field_id');
+                                                    if (!$fieldId) {
+                                                        return 'Select a form field to see its default PDF styles';
+                                                    }
+
+                                                    $formField = \App\Models\FormField::with(['pdfStyles'])->find($fieldId);
+                                                    if (!$formField || $formField->pdfStyles->isEmpty()) {
+                                                        return 'None';
+                                                    }
+
+                                                    return $formField->pdfStyles->pluck('name')->implode(', ');
+                                                }),
+
+                                            Select::make('pdf_styles')
+                                                ->label('Custom PDF Styles')
+                                                ->options(function () {
+                                                    $styles = \App\Helpers\FormDataHelper::get('styles')
+                                                        ->pluck('name', 'id');
+                                                    return $styles;
+                                                })
+                                                ->multiple()
+                                                ->searchable()
+                                                ->preload()
+                                                ->placeholder('Select custom PDF styles')
+                                                ->default($pdfStyles)
+                                                ->helperText('Select styles to override default PDF styles'),
+                                        ]),
+                                ]),
+                        ]),
 
                     Tab::make('Validation')
                         ->icon('heroicon-o-magnifying-glass-plus')
@@ -264,6 +364,28 @@ class FormFieldDetailsModal
         $formInstanceField->custom_mask = !empty($data['custom_mask']) ? $data['custom_mask'] : null;
 
         $formInstanceField->save();
+
+        if (isset($data['web_styles'])) {
+            $formInstanceField->styleInstances()->where('type', 'web')->delete();
+
+            foreach ($data['web_styles'] as $styleId) {
+                $formInstanceField->styleInstances()->create([
+                    'style_id' => $styleId,
+                    'type' => 'web',
+                ]);
+            }
+        }
+
+        if (isset($data['pdf_styles'])) {
+            $formInstanceField->styleInstances()->where('type', 'pdf')->delete();
+
+            foreach ($data['pdf_styles'] as $styleId) {
+                $formInstanceField->styleInstances()->create([
+                    'style_id' => $styleId,
+                    'type' => 'pdf',
+                ]);
+            }
+        }
 
         Notification::make()
             ->title('Form field updated')
