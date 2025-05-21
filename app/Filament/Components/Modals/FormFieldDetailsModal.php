@@ -81,6 +81,7 @@ class FormFieldDetailsModal
         $pdfStyles = [];
         $validations = [];
         $conditionals = [];
+        $fieldGroupInstanceId = null;
 
         if (!empty($state['id'])) {
             $formInstanceField = \App\Models\FormInstanceField::with([
@@ -90,6 +91,8 @@ class FormFieldDetailsModal
             ])->find($state['id']);
 
             if ($formInstanceField) {
+                $fieldGroupInstanceId = $formInstanceField->field_group_instance_id;
+
                 foreach ($formInstanceField->styleInstances as $styleInstance) {
                     if ($styleInstance->type === 'web') {
                         $webStyles[] = $styleInstance->style_id;
@@ -100,6 +103,10 @@ class FormFieldDetailsModal
 
                 $validations = $formInstanceField->validations->toArray();
                 $conditionals = $formInstanceField->conditionals->toArray();
+
+                if (empty($state['form_field_id']) && $formInstanceField->form_field_id) {
+                    $state['form_field_id'] = $formInstanceField->form_field_id;
+                }
             }
         }
 
@@ -137,7 +144,9 @@ class FormFieldDetailsModal
                                         ->schema([
                                             Placeholder::make('instance_id')
                                                 ->label('Default Instance ID')
-                                                ->content(fn(Get $get) => $state['instance_id'] ?? 'Unknown'),
+                                                ->content(function () use ($state) {
+                                                    return $state['instance_id'] ?? 'Unknown';
+                                                }),
 
                                             TextInput::make('custom_instance_id')
                                                 ->label('Custom Instance ID')
@@ -466,6 +475,9 @@ class FormFieldDetailsModal
 
             Hidden::make('id')
                 ->default($state['id'] ?? null),
+
+            Hidden::make('field_group_instance_id')
+                ->default($fieldGroupInstanceId),
         ];
     }
 
@@ -492,6 +504,10 @@ class FormFieldDetailsModal
         $formInstanceField->custom_data_binding = !empty($data['custom_data_binding']) ? $data['custom_data_binding'] : null;
         $formInstanceField->custom_data_binding_path = !empty($data['custom_data_binding_path']) ? $data['custom_data_binding_path'] : null;
         $formInstanceField->custom_mask = !empty($data['custom_mask']) ? $data['custom_mask'] : null;
+
+        if (isset($data['field_group_instance_id'])) {
+            $formInstanceField->field_group_instance_id = $data['field_group_instance_id'];
+        }
 
         $formInstanceField->save();
 

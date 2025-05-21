@@ -18,6 +18,8 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Actions;
 
 class FieldGroupDetailsModal
 {
@@ -96,6 +98,7 @@ class FieldGroupDetailsModal
                         'type' => $field->formField && $field->formField->dataType ? $field->formField->dataType->name : 'Unknown type',
                         'custom_label' => $field->custom_label,
                         'customize_label' => $field->customize_label,
+                        'form_field_id' => $field->form_field_id,
                     ];
                 })->toArray();
             }
@@ -201,10 +204,27 @@ class FieldGroupDetailsModal
                                     TextInput::make('type')
                                         ->label('Field Type')
                                         ->disabled(),
-                                    TextInput::make('custom_label')
-                                        ->label('Custom Label')
-                                        ->disabled()
-                                        ->visible(fn($state): bool => is_array($state) && ($state['customize_label'] ?? '') === 'customize'),
+                                    Actions::make([
+                                        Action::make('edit_field')
+                                            ->label('Edit')
+                                            ->icon('heroicon-o-pencil-square')
+                                            ->button()
+                                            ->size('sm')
+                                            ->modalHeading('Form Field Details')
+                                            ->modalIcon('heroicon-o-document-text')
+                                            ->modalWidth(\Filament\Support\Enums\MaxWidth::FiveExtraLarge)
+                                            ->modalSubmitActionLabel('Save Form Field Details')
+                                            ->form(function (array $state) {
+                                                return \App\Filament\Components\Modals\FormFieldDetailsModal::form([
+                                                    'id' => $state['id'],
+                                                    'instance_id' => $state['instance_id'],
+                                                    'form_field_id' => $state['form_field_id'],
+                                                ]);
+                                            })
+                                            ->action(function (array $data, $livewire) {
+                                                \App\Filament\Components\Modals\FormFieldDetailsModal::action($data);
+                                            }),
+                                    ])
                                 ])
                                 ->columns(4)
                                 ->disabled()
