@@ -21,6 +21,7 @@ use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Session;
 use Filament\Forms\Components\Select;
+use App\Filament\Components\Modals\FormFieldDetailsModal;
 
 class FormVersionBuilder
 {
@@ -89,43 +90,10 @@ class FormVersionBuilder
                         ->modalIcon('heroicon-o-document-text')
                         ->modalSubmitActionLabel('Save Form Field Details')
                         ->form(function (array $state) {
-                            return [
-                                Select::make('form_field_id')
-                                    ->label('Form Field')
-                                    ->options(function () {
-                                        $fields = FormDataHelper::get('form_fields');
-                                        return $fields->mapWithKeys(fn($field) => [
-                                            $field->id => "{$field->label} | {$field->dataType?->name}"
-                                        ]);
-                                    })
-                                    ->default($state['form_field_id'] ?? null)
-                                    ->searchable()
-                                    ->required()
-                                    ->live()
-                                    ->preload(),
-
-                                Hidden::make('id')
-                                    ->default($state['id'] ?? null),
-                            ];
+                            return FormFieldDetailsModal::form($state);
                         })
                         ->action(function (array $data, $livewire) {
-                            $formInstanceFieldId = $data['id'] ?? null;
-                            if (!$formInstanceFieldId) {
-                                return;
-                            }
-
-                            $formInstanceField = FormInstanceField::where('id', $formInstanceFieldId)->first();
-                            if (!$formInstanceField) {
-                                return;
-                            }
-
-                            $formInstanceField->form_field_id = $data['form_field_id'];
-                            $formInstanceField->save();
-
-                            Notification::make()
-                                ->title('Form field updated')
-                                ->success()
-                                ->send();
+                            FormFieldDetailsModal::action($data);
                         }),
                 ]),
             ]);

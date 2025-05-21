@@ -2,260 +2,92 @@
 
 namespace App\Filament\Components\Modals;
 
-use App\Helpers\FormDataHelper;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Tabs;
-use Filament\Forms\Components\Tabs\Tab;
-use Filament\Forms\Components\TagsInput;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
+use App\Models\FormInstanceField;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 
 class FormFieldDetailsModal
 {
-    public static function getSchema(): array
+    public static function form(array $state): array
     {
         return [
-            // Make the form field dropdown editable
             Select::make('form_field_id')
                 ->label('Form Field')
                 ->options(function () {
-                    $fields = FormDataHelper::get('form_fields');
+                    $fields = \App\Helpers\FormDataHelper::get('form_fields');
                     return $fields->mapWithKeys(fn($field) => [
-                        $field->id => "{$field->label} | {$field->dataType?->name} | name: {$field->name}"
+                        $field->id => "{$field->label} | {$field->dataType?->name}"
                     ]);
                 })
+                ->default($state['form_field_id'] ?? null)
                 ->searchable()
                 ->required()
                 ->live()
-                ->preload()
-                ->columnSpan(2),
+                ->afterStateUpdated(function (Get $get, $state, $livewire) {
+                    // Reset the form when changing the form field
+                    $livewire->setFormFieldData('customize_label', 'default');
+                })
+                ->preload(),
 
-            Tabs::make('Field Details')
-                ->columnSpanFull()
-                ->tabs([
-                    Tab::make('Basic Information')
-                        ->icon('heroicon-o-information-circle')
-                        ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    Fieldset::make('ID & Type')
-                                        ->schema([
-                                            Placeholder::make('instance_id')
-                                                ->label('Instance ID')
-                                                ->content(fn(Get $get) => $get('instance_id')),
+            Placeholder::make('default_label')
+                ->label('Default Label')
+                ->content(function (Get $get) {
+                    $fieldId = $get('form_field_id');
+                    if (!$fieldId) {
+                        return 'Select a form field to see its default label';
+                    }
 
-                                            Placeholder::make('data_type')
-                                                ->label('Data Type')
-                                                ->content(function (Get $get) {
-                                                    $fields = FormDataHelper::get('form_fields');
-                                                    $field = $fields->get($get('form_field_id'));
-                                                    return $field && $field->dataType ? $field->dataType->name : 'Unknown';
-                                                }),
-                                        ]),
+                    $fields = \App\Helpers\FormDataHelper::get('form_fields');
+                    $field = $fields->firstWhere('id', $fieldId);
 
-                                    // Make display properties editable
-                                    Fieldset::make('Display')
-                                        ->schema([
-                                            Toggle::make('customize_label')
-                                                ->label('Customize Label')
-                                                ->default(function (Get $get) {
-                                                    return !empty($get('custom_label'));
-                                                })
-                                                ->live(),
+                    return $field ? $field->label : 'Unknown field';
+                }),
 
-                                            TextInput::make('custom_label')
-                                                ->label('Custom Label')
-                                                ->visible(fn(Get $get) => $get('customize_label'))
-                                                ->default(function (Get $get) {
-                                                    return $get('custom_label');
-                                                }),
+            Radio::make('customize_label')
+                ->label('Label Display')
+                ->options([
+                    'default' => 'Use Default Label',
+                    'customize' => 'Use Custom Label',
+                    'hide' => 'Hide Label',
+                ])
+                ->default($state['customize_label'] ?? 'default')
+                ->live(),
 
-                                            Toggle::make('customize_help_text')
-                                                ->label('Customize Help Text')
-                                                ->default(function (Get $get) {
-                                                    return !empty($get('custom_help_text'));
-                                                })
-                                                ->live(),
+            TextInput::make('custom_label')
+                ->label('Custom Label')
+                ->default($state['custom_label'] ?? null)
+                ->visible(fn(Get $get) => $get('customize_label') === 'customize'),
 
-                                            Textarea::make('custom_help_text')
-                                                ->label('Custom Help Text')
-                                                ->visible(fn(Get $get) => $get('customize_help_text'))
-                                                ->default(function (Get $get) {
-                                                    return $get('custom_help_text');
-                                                }),
-
-                                            Placeholder::make('original_label')
-                                                ->label('Original Label')
-                                                ->content(function (Get $get) {
-                                                    $fields = FormDataHelper::get('form_fields');
-                                                    $field = $fields->get($get('form_field_id'));
-                                                    return $field ? $field->label : 'No label';
-                                                }),
-
-                                            Placeholder::make('original_help_text')
-                                                ->label('Original Help Text')
-                                                ->content(function (Get $get) {
-                                                    $fields = FormDataHelper::get('form_fields');
-                                                    $field = $fields->get($get('form_field_id'));
-                                                    return $field && $field->help_text ? $field->help_text : 'None';
-                                                }),
-                                        ]),
-                                ]),
-                        ]),
-
-                    Tab::make('Data Binding')
-                        ->icon('heroicon-o-link')
-                        ->schema([
-                            Fieldset::make('Data Source')
-                                ->schema([
-                                    Toggle::make('customize_data_binding')
-                                        ->label('Customize Data Source')
-                                        ->default(function (Get $get) {
-                                            return !empty($get('custom_data_binding'));
-                                        })
-                                        ->live(),
-
-                                    Select::make('custom_data_binding')
-                                        ->label('Custom Data Source')
-                                        ->options(function () {
-                                            $dataSources = FormDataHelper::get('form_data_sources');
-                                            return $dataSources->pluck('name', 'name');
-                                        })
-                                        ->visible(fn(Get $get) => $get('customize_data_binding'))
-                                        ->default(function (Get $get) {
-                                            return $get('custom_data_binding');
-                                        }),
-
-                                    Toggle::make('customize_data_binding_path')
-                                        ->label('Customize Data Binding Path')
-                                        ->default(function (Get $get) {
-                                            return !empty($get('custom_data_binding_path'));
-                                        })
-                                        ->live(),
-
-                                    Textarea::make('custom_data_binding_path')
-                                        ->label('Custom Data Binding Path')
-                                        ->visible(fn(Get $get) => $get('customize_data_binding_path'))
-                                        ->default(function (Get $get) {
-                                            return $get('custom_data_binding_path');
-                                        }),
-
-                                    Placeholder::make('original_data_binding')
-                                        ->label('Original Data Source')
-                                        ->content(function (Get $get) {
-                                            $fields = FormDataHelper::get('form_fields');
-                                            $field = $fields->get($get('form_field_id'));
-                                            return $field && $field->data_binding ? $field->data_binding : 'None';
-                                        }),
-
-                                    Placeholder::make('original_data_binding_path')
-                                        ->label('Original Data Binding Path')
-                                        ->content(function (Get $get) {
-                                            $fields = FormDataHelper::get('form_fields');
-                                            $field = $fields->get($get('form_field_id'));
-                                            return $field && $field->data_binding_path ? $field->data_binding_path : 'None';
-                                        }),
-                                ]),
-                        ]),
-
-                    Tab::make('Validation & Options')
-                        ->icon('heroicon-o-check-circle')
-                        ->schema([
-                            Fieldset::make('Validations')
-                                ->schema([
-                                    TagsInput::make('validations')
-                                        ->label('Validation Rules')
-                                        ->disabled()
-                                        ->default(function (Get $get) {
-                                            $fields = FormDataHelper::get('form_fields');
-                                            $field = $fields->get($get('form_field_id'));
-                                            if (!$field || !$field->validations) {
-                                                return [];
-                                            }
-
-                                            return $field->validations->map(function ($validation) {
-                                                return "{$validation->type}: {$validation->value}";
-                                            })->toArray();
-                                        }),
-                                ]),
-
-                            // Only show select options for fields that have them
-                            Fieldset::make('Select Options')
-                                ->schema([
-                                    TagsInput::make('select_options')
-                                        ->label('Available Options')
-                                        ->disabled()
-                                        ->default(function (Get $get) {
-                                            $fields = FormDataHelper::get('form_fields');
-                                            $field = $fields->get($get('form_field_id'));
-
-                                            if (!$field || !$field->selectOptionInstances || !in_array($field->dataType?->name, ['radio', 'dropdown'])) {
-                                                return [];
-                                            }
-
-                                            $selectOptions = FormDataHelper::get('select_options');
-
-                                            return $field->selectOptionInstances->map(function ($instance) use ($selectOptions) {
-                                                $option = $selectOptions->get($instance->select_option_id);
-                                                return $option ? "{$option->label}: {$option->value}" : null;
-                                            })->filter()->toArray();
-                                        }),
-                                ])
-                                ->visible(function (Get $get) {
-                                    $fields = FormDataHelper::get('form_fields');
-                                    $field = $fields->get($get('form_field_id'));
-                                    return $field && $field->dataType && in_array($field->dataType->name, ['radio', 'dropdown']);
-                                }),
-                        ]),
-
-                    Tab::make('Styling')
-                        ->icon('heroicon-o-paint-brush')
-                        ->schema([
-                            Grid::make(2)
-                                ->schema([
-                                    Fieldset::make('Web Styles')
-                                        ->schema([
-                                            TagsInput::make('web_styles')
-                                                ->label('Styles')
-                                                ->disabled()
-                                                ->default(function (Get $get) {
-                                                    $fields = FormDataHelper::get('form_fields');
-                                                    $field = $fields->get($get('form_field_id'));
-
-                                                    if (!$field || !$field->webStyles) {
-                                                        return [];
-                                                    }
-
-                                                    return $field->webStyles->pluck('name')->toArray();
-                                                }),
-                                        ]),
-
-                                    Fieldset::make('PDF Styles')
-                                        ->schema([
-                                            TagsInput::make('pdf_styles')
-                                                ->label('Styles')
-                                                ->disabled()
-                                                ->default(function (Get $get) {
-                                                    $fields = FormDataHelper::get('form_fields');
-                                                    $field = $fields->get($get('form_field_id'));
-
-                                                    if (!$field || !$field->pdfStyles) {
-                                                        return [];
-                                                    }
-
-                                                    return $field->pdfStyles->pluck('name')->toArray();
-                                                }),
-                                        ]),
-                                ]),
-                        ]),
-                ]),
+            Hidden::make('id')
+                ->default($state['id'] ?? null),
         ];
+    }
+
+    public static function action(array $data): void
+    {
+        $formInstanceFieldId = $data['id'] ?? null;
+        if (!$formInstanceFieldId) {
+            return;
+        }
+
+        $formInstanceField = FormInstanceField::where('id', $formInstanceFieldId)->first();
+        if (!$formInstanceField) {
+            return;
+        }
+
+        $formInstanceField->form_field_id = $data['form_field_id'];
+        $formInstanceField->customize_label = $data['customize_label'] ?? 'default';
+        $formInstanceField->custom_label = $data['customize_label'] === 'customize' ? ($data['custom_label'] ?? null) : null;
+        $formInstanceField->save();
+
+        Notification::make()
+            ->title('Form field updated')
+            ->success()
+            ->send();
     }
 }

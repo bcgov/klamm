@@ -36,8 +36,12 @@ class FormVersionHelper
             }
         }
 
-        if (!empty($state['customize_label']) && $state['customize_label'] === 'customize' && !empty($state['custom_label'])) {
-            $label = $state['custom_label'];
+        if (!empty($state['customize_label'])) {
+            if ($state['customize_label'] === 'customize' && !empty($state['custom_label'])) {
+                $label = $state['custom_label'];
+            } elseif ($state['customize_label'] === 'hide') {
+                $label = '[Hidden Label]';
+            }
         }
 
         return "$label | $dataType | ID: $id";
