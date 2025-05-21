@@ -172,6 +172,7 @@ class EditFormVersion extends EditRecord
             $components[] = [
                 'type' => 'form_field',
                 'data' => [
+                    'id' => $field->id,
                     'form_field_id' => $field->form_field_id,
                     'instance_id' => $field->instance_id,
                     'custom_instance_id' => $field->custom_instance_id,

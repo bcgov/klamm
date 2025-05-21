@@ -13,6 +13,7 @@ class FormInstanceField extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'form_version_id',
         'form_field_id',
         'order',
