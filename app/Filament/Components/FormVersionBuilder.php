@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Session;
 use Filament\Forms\Components\Select;
 use App\Filament\Components\Modals\FormFieldDetailsModal;
 use App\Filament\Components\Modals\FieldGroupDetailsModal;
+use App\Filament\Components\Modals\ContainerDetailsModal;
 use Filament\Support\Enums\MaxWidth;
 
 class FormVersionBuilder
@@ -132,6 +133,7 @@ class FormVersionBuilder
     {
         return Block::make('container')
             ->label(fn(?array $state) => FormVersionHelper::getContainerLabel($state))
+            ->icon('heroicon-o-cube')
             ->schema([
                 Actions::make([
                     Action::make('details')
@@ -141,28 +143,13 @@ class FormVersionBuilder
                         ->outlined()
                         ->modalHeading('Container Details')
                         ->modalIcon('heroicon-o-cube')
+                        ->modalWidth(MaxWidth::FiveExtraLarge)
                         ->modalSubmitActionLabel('Save Container Details')
                         ->form(function (array $state) {
-                            return [
-                                Hidden::make('id')
-                                    ->default($state['id'] ?? null),
-                            ];
+                            return ContainerDetailsModal::form($state);
                         })
                         ->action(function (array $data, $livewire) {
-                            $containerId = $data['id'] ?? null;
-                            if (!$containerId) {
-                                return;
-                            }
-
-                            $container = Container::find($containerId);
-                            if (!$container) {
-                                return;
-                            }
-
-                            Notification::make()
-                                ->title('Container updated')
-                                ->success()
-                                ->send();
+                            ContainerDetailsModal::action($data);
                         }),
                 ]),
             ]);
