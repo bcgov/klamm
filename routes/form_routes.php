@@ -12,5 +12,5 @@ Route::get('/form-versions/{id}/logs', [FormVersionController::class, 'getFormVe
     ->middleware(['auth:sanctum', 'ability:admin, form-developer']);
 
 // Form Version Data
-Route::get('/form-versions/{id}/data', [FormVersionController::class, 'getFormData'])
-    ->middleware(['auth:sanctum', 'ability:admin, form-developer']);
+Route::get('/form-versions/{id}/data', [FormVersionController::class, 'getFormData']);
+    // ->middleware(['auth:sanctum', 'ability:admin, form-developer']);

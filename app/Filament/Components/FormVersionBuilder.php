@@ -19,6 +19,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\View;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
@@ -142,6 +143,38 @@ class FormVersionBuilder
                     ->cloneAction(UniqueIDsHelper::cloneElement())
                     ->columnSpan(2)
                     ->blockNumbers(false)
+                    ->blockPreviews(areInteractive: true)
+                    ->editAction(
+                        fn(Action $action) => $action
+                            ->visible(fn() => true)
+                            ->icon(function ($livewire) {
+                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
+                                    ? 'heroicon-o-eye'
+                                    : 'heroicon-o-pencil';
+                            })
+                            ->label(function ($livewire) {
+                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
+                                    ? 'View'
+                                    : 'Edit';
+                            })
+                            ->disabledForm(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord)) // Disable the form
+                            ->modalHeading('View Form Field')
+                            ->modalSubmitAction(function ($action, $livewire) {
+                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
+                                    return false;
+                                } else {
+                                    $action->label('Save');
+                                }
+                            })
+                            ->modalCancelAction(function ($action, $livewire) {
+                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
+                                    $action->label('Close');
+                                } else {
+                                    $action->label('Cancel');
+                                }
+                            })
+                    )
+
                     ->cloneable()
                     ->afterStateUpdated(function (Get $get) {
                         $formVersionId = $get('id');
