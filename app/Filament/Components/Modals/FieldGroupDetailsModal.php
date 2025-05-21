@@ -68,9 +68,17 @@ class FieldGroupDetailsModal
     {
         $webStyles = [];
         $pdfStyles = [];
+        $formFields = [];
 
         if (!empty($state['id'])) {
-            $fieldGroupInstance = FieldGroupInstance::with(['styleInstances.style'])->find($state['id']);
+            $fieldGroupInstance = FieldGroupInstance::with([
+                'styleInstances.style',
+                'formInstanceFields' => function ($query) {
+                    $query->whereNull('container_id')
+                        ->with(['formField:id,label,data_type_id', 'formField.dataType:id,name']);
+                }
+            ])->find($state['id']);
+
             if ($fieldGroupInstance) {
                 foreach ($fieldGroupInstance->styleInstances as $styleInstance) {
                     if ($styleInstance->type === 'web') {
@@ -79,6 +87,17 @@ class FieldGroupDetailsModal
                         $pdfStyles[] = $styleInstance->style_id;
                     }
                 }
+
+                $formFields = $fieldGroupInstance->formInstanceFields->map(function ($field) {
+                    return [
+                        'id' => $field->id,
+                        'instance_id' => $field->instance_id,
+                        'label' => $field->formField ? $field->formField->label : 'Unknown field',
+                        'type' => $field->formField && $field->formField->dataType ? $field->formField->dataType->name : 'Unknown type',
+                        'custom_label' => $field->custom_label,
+                        'customize_label' => $field->customize_label,
+                    ];
+                })->toArray();
             }
         }
 
@@ -154,6 +173,47 @@ class FieldGroupDetailsModal
                                                 ->visible(fn(Get $get) => $get('customize_group_label') === 'customize'),
                                         ]),
                                 ]),
+                        ]),
+
+                    Tab::make('Elements')
+                        ->icon('heroicon-o-rectangle-stack')
+                        ->schema([
+                            Placeholder::make('elements_count')
+                                ->label('Number of Elements')
+                                ->content(count($formFields) . ' field(s)')
+                                ->columnSpanFull(),
+
+                            Placeholder::make('no_elements')
+                                ->label('No Elements')
+                                ->content('This field group has no form fields.')
+                                ->visible(fn() => count($formFields) === 0)
+                                ->columnSpanFull(),
+
+                            \Filament\Forms\Components\Repeater::make('form_fields')
+                                ->label('')
+                                ->schema([
+                                    TextInput::make('instance_id')
+                                        ->label('Instance ID')
+                                        ->disabled(),
+                                    TextInput::make('label')
+                                        ->label('Field Label')
+                                        ->disabled(),
+                                    TextInput::make('type')
+                                        ->label('Field Type')
+                                        ->disabled(),
+                                    TextInput::make('custom_label')
+                                        ->label('Custom Label')
+                                        ->disabled()
+                                        ->visible(fn($state): bool => is_array($state) && ($state['customize_label'] ?? '') === 'customize'),
+                                ])
+                                ->columns(4)
+                                ->disabled()
+                                ->disableItemCreation()
+                                ->disableItemDeletion()
+                                ->disableItemMovement()
+                                ->default($formFields)
+                                ->visible(fn() => count($formFields) > 0)
+                                ->columnSpanFull(),
                         ]),
 
                     Tab::make('Properties')
