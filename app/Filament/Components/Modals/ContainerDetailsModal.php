@@ -232,12 +232,117 @@ class ContainerDetailsModal
                                     ])
                                 ])
                                 ->columns(5)
-                                ->disabled()
-                                ->disableItemCreation()
-                                ->disableItemDeletion()
-                                ->disableItemMovement()
                                 ->default($allElements)
                                 ->visible(fn() => count($allElements) > 0)
+                                ->columnSpanFull(),
+
+                            Actions::make([
+                                Action::make('add_form_field')
+                                    ->label('Add Form Field')
+                                    ->icon('heroicon-o-document-plus')
+                                    ->button()
+                                    ->modalHeading('Add Form Field')
+                                    ->modalWidth('lg')
+                                    ->form([
+                                        Select::make('form_field_id')
+                                            ->label('Form Field')
+                                            ->options(function () {
+                                                $fields = \App\Helpers\FormDataHelper::get('form_fields');
+                                                return $fields->mapWithKeys(fn($field) => [
+                                                    $field->id => "{$field->label} | {$field->dataType?->name}"
+                                                ]);
+                                            })
+                                            ->searchable()
+                                            ->required()
+                                            ->preload(),
+                                    ])
+                                    ->action(function (array $data, Get $get, Set $set, $livewire) {
+                                        $containerId = $get('id');
+                                        if (!$containerId) {
+                                            return;
+                                        }
+
+                                        $container = Container::find($containerId);
+                                        if (!$container) {
+                                            return;
+                                        }
+
+                                        $formField = \App\Models\FormField::find($data['form_field_id']);
+                                        if (!$formField) {
+                                            return;
+                                        }
+
+                                        $instanceId = 'field_' . uniqid();
+
+                                        $formInstanceField = \App\Models\FormInstanceField::create([
+                                            'form_version_id' => $container->form_version_id,
+                                            'form_field_id' => $data['form_field_id'],
+                                            'container_id' => $containerId,
+                                            'instance_id' => $instanceId,
+                                            'order' => 999,
+                                        ]);
+
+                                        Notification::make()
+                                            ->title('Form field added')
+                                            ->success()
+                                            ->send();
+
+                                        $livewire->dispatch('refresh-form');
+                                    }),
+
+                                Action::make('add_field_group')
+                                    ->label('Add Field Group')
+                                    ->icon('heroicon-o-table-cells')
+                                    ->button()
+                                    ->modalHeading('Add Field Group')
+                                    ->modalWidth('lg')
+                                    ->form([
+                                        Select::make('field_group_id')
+                                            ->label('Field Group')
+                                            ->options(function () {
+                                                $fieldGroups = \App\Helpers\FormDataHelper::get('field_groups');
+                                                return $fieldGroups->mapWithKeys(fn($group) => [
+                                                    $group->id => "{$group->label}"
+                                                ]);
+                                            })
+                                            ->searchable()
+                                            ->required()
+                                            ->preload(),
+                                    ])
+                                    ->action(function (array $data, Get $get, Set $set, $livewire) {
+                                        $containerId = $get('id');
+                                        if (!$containerId) {
+                                            return;
+                                        }
+
+                                        $container = Container::find($containerId);
+                                        if (!$container) {
+                                            return;
+                                        }
+
+                                        $fieldGroup = \App\Models\FieldGroup::find($data['field_group_id']);
+                                        if (!$fieldGroup) {
+                                            return;
+                                        }
+
+                                        $instanceId = 'group_' . uniqid();
+
+                                        $fieldGroupInstance = \App\Models\FieldGroupInstance::create([
+                                            'form_version_id' => $container->form_version_id,
+                                            'field_group_id' => $data['field_group_id'],
+                                            'container_id' => $containerId,
+                                            'instance_id' => $instanceId,
+                                            'order' => 999,
+                                        ]);
+
+                                        Notification::make()
+                                            ->title('Field group added')
+                                            ->success()
+                                            ->send();
+
+                                        $livewire->dispatch('refresh-form');
+                                    }),
+                            ])
                                 ->columnSpanFull(),
                         ]),
                 ]),
