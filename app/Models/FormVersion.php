@@ -25,6 +25,7 @@ class FormVersion extends Model
         'form_approver_email',
         'updater_name',
         'updater_email',
+        'footer',
         'comments',
         'deployed_to',
         'deployed_at',

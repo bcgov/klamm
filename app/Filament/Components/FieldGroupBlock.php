@@ -3,7 +3,6 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormDataHelper;
-use App\Helpers\FormTemplateHelper;
 use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -34,7 +33,7 @@ class FieldGroupBlock
                 }
                 $group = $groups->get($state['field_group_id']);
                 if ($group) {
-                    $customLabel = strlen($state['custom_group_label']) > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
+                    $customLabel = strlen($state['custom_group_label'] ?? '') > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
                     $label = ($customLabel ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
@@ -42,8 +41,9 @@ class FieldGroupBlock
                 }
                 return 'New Group | id: ' . $state['instance_id'];
             })
-            ->icon('heroicon-o-square-2-stack')
+            ->icon('heroicon-o-rectangle-group')
             ->columns(2)
+            ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
             ->schema([
                 Select::make('field_group_id')
                     ->label('Field Group')
@@ -85,7 +85,7 @@ class FieldGroupBlock
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
-                                        'instance_id' => FormTemplateHelper::calculateElementID(),
+                                        'instance_id' => UniqueIDsHelper::calculateElementID(),
                                         'customize_label' => 'default',
                                         'customize_group_label' => 'default',
                                     ],
@@ -119,7 +119,7 @@ class FieldGroupBlock
                                             ->label("Default")
                                             ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
@@ -152,7 +152,6 @@ class FieldGroupBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
-                                            ->label(false)
                                             ->lazy()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {
@@ -256,12 +255,14 @@ class FieldGroupBlock
                             ->label(false)
                             ->addActionLabel('Add to Group Elements')
                             ->addBetweenActionLabel('Insert between fields')
+                            ->cloneable()
+                            ->cloneAction(UniqueIDsHelper::cloneElement())
                             ->collapsible()
                             ->collapsed(true)
                             ->blockNumbers(false)
                             ->columnSpan(2)
                             ->blocks([
-                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                                FormFieldBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
                             ]),
                     ]),
 

@@ -12,16 +12,22 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Http\Middleware\CheckRole;
 
 class FormDataSourceResource extends Resource
 {
     protected static ?string $model = FormDataSource::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-folder-git-2';
 
-    protected static ?string $navigationGroup = 'Form Metadata';
+    protected static ?string $navigationGroup = 'Form Building';
 
     protected static ?string $navigationLabel = 'Databinding Sources';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
 
 
     public static function form(Form $form): Form

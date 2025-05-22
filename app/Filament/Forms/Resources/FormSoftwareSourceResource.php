@@ -17,11 +17,12 @@ class FormSoftwareSourceResource extends Resource
 {
     protected static ?string $model = FormSoftwareSource::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-server';
 
     protected static ?string $navigationGroup = 'Form Metadata';
 
-    protected static ?string $navigationLabel = 'Sources';
+    protected static ?string $navigationLabel = 'Software Sources';
+    protected static ?int $navigationSort = 5;
 
 
     public static function form(Form $form): Form
@@ -54,7 +55,10 @@ class FormSoftwareSourceResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

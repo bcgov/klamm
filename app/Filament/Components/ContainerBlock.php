@@ -3,7 +3,6 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormDataHelper;
-use App\Helpers\FormTemplateHelper;
 use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -32,7 +31,7 @@ class ContainerBlock
                 return 'Container | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
             })
             ->icon('heroicon-o-square-3-stack-3d')
-            ->columns(2)
+            ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
             ->schema([
                 Section::make('Container Properties')
                     ->collapsible()
@@ -50,7 +49,7 @@ class ContainerBlock
                                             ->label("Default")
                                             ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
                                             ->dehydrated(false)
                                             ->default($calculateIDCallback), // Set the sequential default value
@@ -100,13 +99,15 @@ class ContainerBlock
                             ->label(false)
                             ->addActionLabel('Add to Container Elements')
                             ->addBetweenActionLabel('Insert between elements')
+                            ->cloneable()
+                            ->cloneAction(UniqueIDsHelper::cloneElement())
                             ->collapsible()
                             ->collapsed(true)
                             ->blockNumbers(false)
                             ->columnSpan(2)
                             ->blocks([
-                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
-                                FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                                FormFieldBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
+                                FieldGroupBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
                             ]),
                     ])
             ]);

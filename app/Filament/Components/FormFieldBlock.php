@@ -60,7 +60,7 @@ class FormFieldBlock
                 if ($field) {
                     $label = '';
                     if ($state['customize_label'] !== 'hide') {
-                        $customLabel = strlen($state['custom_label'] ?? null) > 50 ? substr($state['custom_label'] ?? null, 0, 50) . ' ...' : $state['custom_label'] ?? null;
+                        $customLabel = strlen($state['custom_label'] ?? '') > 50 ? substr($state['custom_label'] ?? null, 0, 50) . ' ...' : $state['custom_label'] ?? null;
                         $label .= ($customLabel ?? $field->label ?? 'null') . ' | ';
                     } else {
                         $label .= '(label hidden) | ';
@@ -75,8 +75,9 @@ class FormFieldBlock
                 }
                 return 'New Field | id: ' . $state['instance_id'];
             })
-            ->icon('heroicon-o-stop')
+            ->icon('icon-text-cursor-input')
             ->columns(2)
+            ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
             ->schema([
                 Select::make('form_field_id')
                     ->label('Form Field')
@@ -129,7 +130,7 @@ class FormFieldBlock
                                             ->label("Default")
                                             ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
@@ -314,6 +315,7 @@ class FormFieldBlock
                     ->visible(fn($get) => in_array($fields->get($get('form_field_id'))?->dataType?->name, ['radio', 'dropdown']))
                     ->blocks([
                         Block::make('select_option_instance')
+                            ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
                             ->label(
                                 fn(?array $state): string =>
                                 isset($state['select_option_id']) && $selectOptions->has($state['select_option_id'])

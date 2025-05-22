@@ -114,4 +114,9 @@ class YourFormsLogsWidget extends TableWidget
                     ->where('subject_type', FormVersion::class);
             });
     }
+
+    public static function canView(): bool
+    {
+        return auth()->check() && Auth::user()->businessAreas()->exists();
+    }
 }
