@@ -75,7 +75,7 @@ class FormFieldBlock
                 }
                 return 'New Field | id: ' . $state['instance_id'];
             })
-            ->icon('heroicon-o-stop')
+            ->icon('icon-text-cursor-input')
             ->columns(2)
             ->schema([
                 Select::make('form_field_id')

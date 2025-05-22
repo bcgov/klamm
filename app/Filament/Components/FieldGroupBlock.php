@@ -42,7 +42,7 @@ class FieldGroupBlock
                 }
                 return 'New Group | id: ' . $state['instance_id'];
             })
-            ->icon('heroicon-o-square-2-stack')
+            ->icon('heroicon-o-rectangle-group')
             ->columns(2)
             ->schema([
                 Select::make('field_group_id')
