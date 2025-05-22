@@ -2,11 +2,11 @@
 
 namespace App\Filament\Components;
 
-use App\Helpers\FormTemplateHelper;
 use App\Helpers\FormDataHelper;
 use App\Filament\Components\ContainerBlock;
 use App\Filament\Components\FieldGroupBlock;
 use App\Filament\Components\FormFieldBlock;
+use App\Helpers\UniqueIDsHelper;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Builder;
@@ -92,6 +92,7 @@ class FormVersionBuilder
                     ->label('Form Elements')
                     ->addActionLabel('Add to Form Elements')
                     ->addBetweenActionLabel('Insert between elements')
+                    ->cloneAction(UniqueIDsHelper::cloneElement())
                     ->columnSpan(2)
                     ->collapsible()
                     ->collapsed(true)
@@ -101,9 +102,9 @@ class FormVersionBuilder
                         Session::put('elementCounter', self::getHighestID($get('components')) + 1);
                     })
                     ->blocks([
-                        FormFieldBlock::make(fn() => FormTemplateHelper::calculateElementID()),
-                        FieldGroupBlock::make(fn() => FormTemplateHelper::calculateElementID()),
-                        ContainerBlock::make(fn() => FormTemplateHelper::calculateElementID()),
+                        FormFieldBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                        FieldGroupBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                        ContainerBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
                     ]),
                 // Used by the Create and Edit pages to store IDs in session, so that Blocks can validate their rules.
                 Hidden::make('all_instance_ids')
@@ -154,5 +155,22 @@ class FormVersionBuilder
         }
 
         return $maxID;
+    }
+
+    // Recursively assign new instance IDs to cloned elements
+    protected static function processNestedInstanceIDs(array $data): array
+    {
+        return collect($data)
+            ->map(function ($value) {
+                if (is_array($value)) {
+                    if (array_key_exists('instance_id', $value)) {
+                        $value['instance_id'] = UniqueIDsHelper::calculateElementID();
+                    }
+                    return static::processNestedInstanceIDs($value);
+                }
+
+                return $value;
+            })
+            ->all();
     }
 }

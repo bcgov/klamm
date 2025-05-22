@@ -3,7 +3,6 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormDataHelper;
-use App\Helpers\FormTemplateHelper;
 use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -85,7 +84,7 @@ class FieldGroupBlock
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
-                                        'instance_id' => FormTemplateHelper::calculateElementID(),
+                                        'instance_id' => UniqueIDsHelper::calculateElementID(),
                                         'customize_label' => 'default',
                                         'customize_group_label' => 'default',
                                     ],
@@ -256,12 +255,14 @@ class FieldGroupBlock
                             ->label(false)
                             ->addActionLabel('Add to Group Elements')
                             ->addBetweenActionLabel('Insert between fields')
+                            ->cloneable()
+                            ->cloneAction(UniqueIDsHelper::cloneElement())
                             ->collapsible()
                             ->collapsed(true)
                             ->blockNumbers(false)
                             ->columnSpan(2)
                             ->blocks([
-                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                                FormFieldBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
                             ]),
                     ]),
 
