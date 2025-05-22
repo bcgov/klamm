@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormFieldResource\Pages;
+use App\Filament\Forms\Resources\FormFieldResource\RelationManagers\FormInstanceFieldsRelationManager;
 use App\Helpers\DateFormatHelper;
 use App\Models\FormField;
 use App\Models\FormDataSource;
@@ -245,7 +246,7 @@ class FormFieldResource extends Resource
     public static function getRelations(): array
     {
         return [
-            // Relations here
+            FormInstanceFieldsRelationManager::class,
         ];
     }
 
