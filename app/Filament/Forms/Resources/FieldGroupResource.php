@@ -3,9 +3,9 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FieldGroupResource\Pages;
+use App\Filament\Forms\Resources\FieldGroupResource\RelationManagers\FieldGroupInstancesRelationManager;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -118,7 +118,7 @@ class FieldGroupResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            FieldGroupInstancesRelationManager::class,
         ];
     }
 
