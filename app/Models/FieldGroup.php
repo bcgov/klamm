@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class FieldGroup extends Model
@@ -51,6 +52,11 @@ class FieldGroup extends Model
     public function formFields(): BelongsToMany
     {
         return $this->belongsToMany(FormField::class)->withTimestamps();
+    }
+
+    public function fieldGroupInstances(): HasMany
+    {
+        return $this->hasMany(FieldGroupInstance::class);
     }
 
     public function webStyles(): BelongsToMany
