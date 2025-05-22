@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use App\Helpers\FormDataHelper;
 
 class FormVersion extends Model
 {
@@ -53,6 +54,20 @@ class FormVersion extends Model
                 ->first();
 
             $formVersion->version_number = $latestVersion ? $latestVersion->version_number + 1 : 1;
+        });
+
+        // After saving a form version, invalidate related caches
+        static::saved(function ($formVersion) {
+            if ($formVersion->form_id) {
+                FormDataHelper::invalidateFormCache($formVersion->form_id);
+            }
+        });
+
+        // When a form version is deleted
+        static::deleted(function ($formVersion) {
+            if ($formVersion->form_id) {
+                FormDataHelper::invalidateFormCache($formVersion->form_id);
+            }
         });
     }
 

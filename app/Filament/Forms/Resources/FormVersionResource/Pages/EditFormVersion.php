@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Cache;
 use App\Jobs\GenerateFormTemplateJob;
 use App\Helpers\FormTemplateHelper;
 use Illuminate\Support\Facades\Log;
+use App\Helpers\FormDataHelper;
 
 class EditFormVersion extends EditRecord
 {
@@ -76,11 +77,11 @@ class EditFormVersion extends EditRecord
 
         // Invalidate all caches explicitly
         FormTemplateHelper::clearFormTemplateCache($formVersion->id);
+        $formId = $this->record->id;
+        FormDataHelper::invalidateFormCache($formId);
 
         // Force the updated_at timestamp to change to invalidate any caches
         $formVersion->touch();
-
-        // Trigger the GenerateFormTemplateJob with high priority after saving
         $requestedAt = now()->unix();
         Cache::tags(['form-template'])->put("formtemplate:{$formVersion->id}:requested_at", $requestedAt, now()->addHours(1));
         GenerateFormTemplateJob::dispatch($formVersion->id, $requestedAt)->onQueue('high');

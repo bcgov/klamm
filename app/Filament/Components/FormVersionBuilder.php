@@ -143,7 +143,7 @@ class FormVersionBuilder
                     ->cloneAction(UniqueIDsHelper::cloneElement())
                     ->columnSpan(2)
                     ->blockNumbers(false)
-                    ->blockPreviews(areInteractive: true)
+                    ->blockPreviews()
                     ->editAction(
                         fn(Action $action) => $action
                             ->visible(fn() => true)
