@@ -75,7 +75,7 @@ class FormFieldBlock
                 }
                 return 'New Field | id: ' . $state['instance_id'];
             })
-            ->icon('heroicon-o-stop')
+            ->icon('icon-text-cursor-input')
             ->columns(2)
             ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
             ->schema([
