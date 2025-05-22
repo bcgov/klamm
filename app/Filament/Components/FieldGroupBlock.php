@@ -33,7 +33,7 @@ class FieldGroupBlock
                 }
                 $group = $groups->get($state['field_group_id']);
                 if ($group) {
-                    $customLabel = strlen($state['custom_group_label']) > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
+                    $customLabel = strlen($state['custom_group_label'] ?? '') > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
                     $label = ($customLabel ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
