@@ -349,7 +349,15 @@ class FormTemplateHelper
 
     protected static function formatContainer($container, $index)
     {
-        $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
+        $fieldsInContainer = $container->formInstanceFields()
+            ->orderBy('order')
+            ->with([
+                'formField',
+                'styleInstances',
+                'validations',
+                'conditionals',
+            ])
+            ->get();
         $groupsInContainer = $container->fieldGroupInstances()
             ->orderBy('order')
             ->with(['fieldGroup', 'styleInstances'])
