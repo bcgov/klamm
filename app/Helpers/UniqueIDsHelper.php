@@ -2,7 +2,10 @@
 
 namespace App\Helpers;
 
+use App\Filament\Forms\Resources\FormVersionResource;
 use Closure;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Builder;
 
 class UniqueIDsHelper
 {
@@ -45,5 +48,53 @@ class UniqueIDsHelper
                 $fail("The instance ID '{$id}' is already in use.");
             }
         };
+    }
+
+    public static function calculateElementID(): string
+    {
+        $counter = FormVersionResource::getElementCounter();
+        FormVersionResource::incrementElementCounter();
+        return 'element' . $counter;
+    }
+
+    // Recursively assign new instance IDs to cloned elements
+    protected static function processNestedInstanceIDs(array $data): array
+    {
+        return collect($data)
+            ->map(function ($value) {
+                if (is_array($value)) {
+                    if (array_key_exists('instance_id', $value)) {
+                        $value['instance_id'] = UniqueIDsHelper::calculateElementID();
+                    }
+                    return self::processNestedInstanceIDs($value);
+                }
+
+                return $value;
+            })
+            ->all();
+    }
+
+    public static function cloneElement()
+    {
+        return fn(Action $action) => $action->action(
+            function ($arguments, Builder $component): void {
+                // Identify element in Builder state
+                $state = $component->getState();
+                $elementKey = $arguments['item']; // Outside of a nested Builder, this associative array key is an integer, but inside, it is a UUID.
+                $elementIndex = array_search($arguments['item'], array_keys($state)); // So we need to get the index of that key
+
+                // Clone block, generate new instance ID
+                $new_instance_id = self::calculateElementID();
+                $clonedBlock = self::processNestedInstanceIDs($state[$elementKey]['data']);
+                $clonedBlock['instance_id'] = $new_instance_id;
+
+                // Add the cloned block into state
+                array_splice($state, $elementIndex + 1, 0, [[
+                    ...$state[$elementKey],
+                    'data' => $clonedBlock,
+                ]]);
+                $component->state($state);
+            }
+        );
     }
 }

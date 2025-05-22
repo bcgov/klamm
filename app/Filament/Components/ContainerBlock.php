@@ -3,7 +3,6 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormDataHelper;
-use App\Helpers\FormTemplateHelper;
 use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -100,13 +99,15 @@ class ContainerBlock
                             ->label(false)
                             ->addActionLabel('Add to Container Elements')
                             ->addBetweenActionLabel('Insert between elements')
+                            ->cloneable()
+                            ->cloneAction(UniqueIDsHelper::cloneElement())
                             ->collapsible()
                             ->collapsed(true)
                             ->blockNumbers(false)
                             ->columnSpan(2)
                             ->blocks([
-                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
-                                FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                                FormFieldBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
+                                FieldGroupBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
                             ]),
                     ])
             ]);

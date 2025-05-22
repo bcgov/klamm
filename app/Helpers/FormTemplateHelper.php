@@ -2,7 +2,6 @@
 
 namespace App\Helpers;
 
-use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
 use App\Models\FormVersion;
 use App\Models\Form;
@@ -353,7 +352,15 @@ class FormTemplateHelper
 
     protected static function formatContainer($container, $index)
     {
-        $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
+        $fieldsInContainer = $container->formInstanceFields()
+            ->orderBy('order')
+            ->with([
+                'formField',
+                'styleInstances',
+                'validations',
+                'conditionals',
+            ])
+            ->get();
         $groupsInContainer = $container->fieldGroupInstances()
             ->orderBy('order')
             ->with(['fieldGroup', 'styleInstances'])
@@ -438,12 +445,5 @@ class FormTemplateHelper
         return array_merge($base, [
             "containerItems" => $containerItems,
         ]);
-    }
-
-    public static function calculateElementID(): string
-    {
-        $counter = FormVersionResource::getElementCounter();
-        FormVersionResource::incrementElementCounter();
-        return 'element' . $counter;
     }
 }

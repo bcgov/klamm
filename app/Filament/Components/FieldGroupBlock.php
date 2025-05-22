@@ -3,7 +3,6 @@
 namespace App\Filament\Components;
 
 use App\Helpers\FormDataHelper;
-use App\Helpers\FormTemplateHelper;
 use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
@@ -34,7 +33,7 @@ class FieldGroupBlock
                 }
                 $group = $groups->get($state['field_group_id']);
                 if ($group) {
-                    $customLabel = strlen($state['custom_group_label']) > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
+                    $customLabel = strlen($state['custom_group_label'] ?? '') > 50 ? substr($state['custom_group_label'], 0, 50) . ' ...' : $state['custom_group_label'];
                     $label = ($customLabel ?? $group->label ?? '(no label)')
                         . ' | group '
                         . ' | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
@@ -86,7 +85,7 @@ class FieldGroupBlock
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
-                                        'instance_id' => FormTemplateHelper::calculateElementID(),
+                                        'instance_id' => UniqueIDsHelper::calculateElementID(),
                                         'customize_label' => 'default',
                                         'customize_group_label' => 'default',
                                     ],
@@ -256,12 +255,14 @@ class FieldGroupBlock
                             ->label(false)
                             ->addActionLabel('Add to Group Elements')
                             ->addBetweenActionLabel('Insert between fields')
+                            ->cloneable()
+                            ->cloneAction(UniqueIDsHelper::cloneElement())
                             ->collapsible()
                             ->collapsed(true)
                             ->blockNumbers(false)
                             ->columnSpan(2)
                             ->blocks([
-                                FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
+                                FormFieldBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
                             ]),
                     ]),
 
