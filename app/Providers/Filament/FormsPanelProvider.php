@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;
+use App\Filament\Forms\Widgets\MinistryGraphWidget;
 use App\Filament\Forms\Widgets\YourFormsLogsWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -24,6 +25,7 @@ use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
 use Rmsramos\Activitylog\ActivitylogPlugin;
 use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
+use Filament\Navigation\NavigationGroup;
 
 class FormsPanelProvider extends PanelProvider
 {
@@ -62,6 +64,15 @@ class FormsPanelProvider extends PanelProvider
                 YourFormsWidget::class,
                 YourFormsLogsWidget::class,
                 FormsStatsWidget::class,
+                MinistryGraphWidget::class,
+            ])
+            ->navigationGroups([
+                NavigationGroup::make()
+                    ->label('Form Metadata')
+                    ->collapsible(true)
+                    ->collapsed(true),
+                NavigationGroup::make()
+                    ->label('Form Building'),
             ])
             ->plugins([
                 ActivitylogPlugin::make()

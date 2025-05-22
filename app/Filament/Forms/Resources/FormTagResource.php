@@ -17,9 +17,12 @@ class FormTagResource extends Resource
 {
     protected static ?string $model = FormTag::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
 
     protected static ?string $navigationGroup = 'Form Metadata';
+    protected static ?string $navigationLabel = 'Tags';
+    protected static ?int $navigationSort = 7;
+
 
     public static function form(Form $form): Form
     {
@@ -51,7 +54,10 @@ class FormTagResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

@@ -17,11 +17,12 @@ class FormReachResource extends Resource
 {
     protected static ?string $model = FormReach::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-calculator';
 
     protected static ?string $navigationGroup = 'Form Metadata';
 
-    protected static ?string $navigationLabel = 'Reach';
+    protected static ?string $navigationLabel = 'Audience Size';
+    protected static ?int $navigationSort = 4;
 
 
     public static function form(Form $form): Form
@@ -54,7 +55,10 @@ class FormReachResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

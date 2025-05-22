@@ -41,8 +41,9 @@ class FieldGroupBlock
                 }
                 return 'New Group | id: ' . $state['instance_id'];
             })
-            ->icon('heroicon-o-square-2-stack')
+            ->icon('heroicon-o-rectangle-group')
             ->columns(2)
+            ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
             ->schema([
                 Select::make('field_group_id')
                     ->label('Field Group')
@@ -118,7 +119,7 @@ class FieldGroupBlock
                                             ->label("Default")
                                             ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
@@ -151,7 +152,6 @@ class FieldGroupBlock
                                             ->default('default')
                                             ->inline()
                                             ->inlineLabel(false)
-                                            ->label(false)
                                             ->lazy()
                                             ->afterStateUpdated(function ($state, callable $set) {
                                                 if ($state !== 'customize') {
