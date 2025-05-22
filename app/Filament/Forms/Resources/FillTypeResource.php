@@ -22,6 +22,8 @@ class FillTypeResource extends Resource
     protected static ?string $navigationGroup = 'Form Metadata';
 
     protected static ?string $navigationLabel = 'Fill Types';
+    protected static bool $shouldRegisterNavigation = false;
+
 
     public static function form(Form $form): Form
     {
@@ -53,7 +55,10 @@ class FillTypeResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 

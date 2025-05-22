@@ -14,13 +14,20 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use App\Http\Middleware\CheckRole;
 
 class FieldGroupResource extends Resource
 {
     protected static ?string $model = FieldGroup::class;
 
     protected static ?string $navigationGroup = 'Form Building';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-group';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
+
 
     public static function form(Form $form): Form
     {
