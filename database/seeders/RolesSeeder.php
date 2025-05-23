@@ -17,5 +17,6 @@ class RolesSeeder extends Seeder
         Role::create(['name' => 'bre-view-only']);
         Role::create(['name' => 'fodig-view-only']);
         Role::create(['name' => 'forms-view-only']);
+        Role::create(['name' => 'form-developer']);
     }
 }

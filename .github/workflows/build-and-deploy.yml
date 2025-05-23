@@ -25,7 +25,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.2"
-          extensions: mbstring, pdo_mysql, pdo_pgsql, pcntl, exif, bcmath, gd, intl, zip
+          extensions: mbstring, pdo_mysql, pdo_pgsql, pcntl, exif, bcmath, gd, intl, zip, sqlite3
           ini-values: |
             memory_limit=-1
           coverage: none
@@ -59,6 +59,15 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Sync permissions for testing
+        run: php artisan permissions:sync
+
+      - name: Seed roles for testing
+        run: php artisan db:seed --class=RolesSeeder
 
       - name: Run tests
         run: vendor/bin/pest
