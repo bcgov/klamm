@@ -9,14 +9,12 @@ use Filament\Forms\Form as FilamentForm;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\ActionGroup;
 use App\Filament\Exports\FormExporter;
-use Filament\Forms\Components\Radio;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
@@ -100,7 +98,13 @@ class FormResource extends Resource
                             ]),
                     ]),
 
-                Section::make('')
+                Section::make()
+                    ->hidden(
+                        fn($record): bool =>
+                        empty($record->formFrequency?->name) &&
+                            empty($record->userTypes?->pluck('name')->filter()->toArray()) &&
+                            empty($record->formReach?->name)
+                    )
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
@@ -123,7 +127,14 @@ class FormResource extends Resource
                     ]),
 
                 Section::make()
-
+                    ->hidden(
+                        fn($record): bool =>
+                        empty($record->icm_generated) &&
+                            empty($record->formSoftwareSources?->pluck('name')->filter()->toArray()) &&
+                            empty($record->formLocations?->pluck('name')->filter()->toArray()) &&
+                            empty($record->formTags?->pluck('name')->filter()->toArray()) &&
+                            empty($record->dcv_material_number)
+                    )
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
