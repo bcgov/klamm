@@ -1,5 +1,7 @@
 replicaCount: 1
 
+revisionHistoryLimit: 3
+
 image:
   repository: ghcr.io/bcgov/klamm
   pullPolicy: Always
