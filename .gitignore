@@ -57,3 +57,7 @@ yarn-error.log
 /database/database.sqlite
 /.blueprint
 /storage/logs/laravel.log
+
+# Filament published assets
+/public/js/filament/
+/public/css/filament/
