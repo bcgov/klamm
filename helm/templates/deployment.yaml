@@ -89,5 +89,5 @@ spec:
       schedulerName: default-scheduler
   strategy:
     type: Recreate
-  revisionHistoryLimit: 10
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   progressDeadlineSeconds: 600
