@@ -18,6 +18,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: secret
+          POSTGRES_USER: laravel
+          POSTGRES_DB: laravel_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +40,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.2"
-          extensions: mbstring, pdo_mysql, pdo_pgsql, pcntl, exif, bcmath, gd, intl, zip, sqlite3
+          extensions: mbstring, pdo_mysql, pdo_pgsql, pcntl, exif, bcmath, gd, intl, zip
           ini-values: |
             memory_limit=-1
           coverage: none
@@ -64,9 +79,12 @@ jobs:
         run: vendor/bin/pest
         env:
           APP_ENV: testing
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ":memory:"
-          DB_FOREIGN_KEYS: false
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: laravel_test
+          DB_USERNAME: laravel
+          DB_PASSWORD: secret
 
   build:
     runs-on: ubuntu-latest
