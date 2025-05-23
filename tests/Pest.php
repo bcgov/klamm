@@ -11,10 +11,12 @@
 |
 */
 
+use App\Models\User;
+
 uses(
     Tests\TestCase::class,
-    // Illuminate\Foundation\Testing\RefreshDatabase::class,
-)->in('Feature');
+    Illuminate\Foundation\Testing\RefreshDatabase::class,
+)->in('Feature', 'Unit');
 
 /*
 |--------------------------------------------------------------------------
@@ -42,7 +44,37 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function loginAsAdmin()
 {
-    // ..
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+    return test()->actingAs($user);
+}
+
+function loginAsUser()
+{
+    return test()->actingAs(
+        User::factory()->create()
+    );
+}
+
+function createUserWithRole(string|array $roles): User
+{
+    $user = User::factory()->create();
+
+    if (is_array($roles)) {
+        foreach ($roles as $role) {
+            $user->assignRole($role);
+        }
+    } else {
+        $user->assignRole($roles);
+    }
+
+    return $user;
+}
+
+function loginAsUserWithRole(string|array $roles)
+{
+    $user = createUserWithRole($roles);
+    return test()->actingAs($user);
 }
