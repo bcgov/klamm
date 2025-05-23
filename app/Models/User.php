@@ -59,6 +59,14 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
+    /**
+     * Set the email attribute to lowercase.
+     */
+    public function setEmailAttribute($value): void
+    {
+        $this->attributes['email'] = strtolower($value);
+    }
+
     public function businessAreas(): BelongsToMany
     {
         return $this->belongsToMany(BusinessArea::class);
