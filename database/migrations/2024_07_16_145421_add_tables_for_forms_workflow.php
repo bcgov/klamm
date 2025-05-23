@@ -13,50 +13,50 @@ return new class extends Migration
     {
         // The following tables are being refrenced by the forms table
         Schema::create('business_areas', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->string('short_name')->nullable();
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('fill_types', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('form_locations', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('form_software_sources', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('third_parties', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('user_types', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('form_frequencies', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
         });
         Schema::create('form_reaches', function (Blueprint $table) {
-            $table->id()->primary();
+            $table->id();
             $table->string('name');
             $table->text('description')->nullable();
             $table->timestamps();
