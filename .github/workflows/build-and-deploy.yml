@@ -59,18 +59,16 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-
-      - name: Run database migrations
-        run: php artisan migrate --force
-
-      - name: Sync permissions for testing
-        run: php artisan permissions:sync
-
-      - name: Seed roles for testing
-        run: php artisan db:seed --class=RolesSeeder
+          # Override database settings for testing
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=:memory:" >> .env
 
       - name: Run tests
         run: vendor/bin/pest
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
 
   build:
     runs-on: ubuntu-latest
