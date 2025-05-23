@@ -4,8 +4,8 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\SelectOptionsResource\Pages;
 use App\Filament\Imports\SelectOptionsImporter;
-use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormFieldsRelationManager;
-use App\Filament\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
+use App\Filament\Forms\Resources\FormFieldsRelationManagerResource\RelationManagers\FormFieldsRelationManager;
+use App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
 use App\Models\SelectOptions;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -16,13 +16,21 @@ use Filament\Tables;
 use Filament\Tables\Actions\ImportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use App\Http\Middleware\CheckRole;
 
 class SelectOptionsResource extends Resource
 {
     protected static ?string $model = SelectOptions::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'icon-square-mouse-pointer';
     protected static ?string $navigationGroup = 'Form Building';
+
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
+
 
     public static function form(Form $form): Form
     {

@@ -11,6 +11,8 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Activitylog\Models\Activity;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class User extends Authenticatable implements FilamentUser
 {
@@ -57,8 +59,21 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
+    /**
+     * Set the email attribute to lowercase.
+     */
+    public function setEmailAttribute($value): void
+    {
+        $this->attributes['email'] = strtolower($value);
+    }
+
     public function businessAreas(): BelongsToMany
     {
         return $this->belongsToMany(BusinessArea::class);
+    }
+
+    public function activities(): MorphMany
+    {
+        return $this->morphMany(Activity::class, 'causer');
     }
 }

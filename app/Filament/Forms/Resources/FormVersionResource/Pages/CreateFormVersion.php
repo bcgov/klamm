@@ -3,13 +3,16 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
 use App\Models\FormInstanceFieldConditionals;
+use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
@@ -29,6 +32,9 @@ class CreateFormVersion extends CreateRecord
         $user = Auth::user();
         $data['updater_name'] = $user->name;
         $data['updater_email'] = $user->email;
+
+        // Put all instance IDs into the session so that each block can check them against its duplicate ID rule
+        Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components']));
 
         unset($data['components']);
 
@@ -130,6 +136,16 @@ class CreateFormVersion extends CreateRecord
         }
     }
 
+    private function createFieldDateFormat($component, $formInstanceField)
+    {
+        if (!empty($component['customize_date_format'])) {
+            FormInstanceFieldDateFormat::create([
+                'form_instance_field_id' => $formInstanceField->id,
+                'custom_date_format' => $component['custom_date_format'] ?? null,
+            ]);
+        }
+    }
+
     private function createSelectOptionInstance($component, $formInstanceField)
     {
         if (!empty($component['select_option_instances'])) {
@@ -170,6 +186,7 @@ class CreateFormVersion extends CreateRecord
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
+        $this->createFieldDateFormat($component, $formInstanceField);
         $this->createSelectOptionInstance($component, $formInstanceField);
     }
 
@@ -182,7 +199,8 @@ class CreateFormVersion extends CreateRecord
             'order' => $order,
             'custom_group_label' => $component['custom_group_label'] ?? null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
-            'repeater' => $component['repeater'] ?? false,
+            'repeater' => $component['repeater'] ?? false,    
+            'clear_button' => $component['clear_button'] ?? false,          
             'custom_repeater_item_label' => $component['custom_repeater_item_label'],
             'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
             'custom_data_binding' => $component['custom_data_binding'] ?? null,
@@ -205,6 +223,7 @@ class CreateFormVersion extends CreateRecord
             'form_version_id' => $formVersion->id,
             'order' => $order,
             'instance_id' => $component['instance_id'] ?? null,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
         ]);

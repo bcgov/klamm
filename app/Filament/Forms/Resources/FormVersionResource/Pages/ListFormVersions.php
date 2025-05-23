@@ -15,11 +15,11 @@ class ListFormVersions extends ListRecords
     protected function getTableQuery(): Builder|null
     {
         $query = parent::getTableQuery();
-    
+
         if ($formId = request()->query('form_id')) {
             $query->where('form_id', $formId);
         }
-    
+
         return $query;
     }
 
@@ -28,7 +28,7 @@ class ListFormVersions extends ListRecords
         return [
             Actions\Action::make('New Form Version')
                 ->label('New Form Version')
-                ->url(fn() => FormVersionResource::getUrl('create', ['form_id' => request()->query('form_id')]))
+                ->url(fn() => FormVersionResource::getUrl('create'))
                 ->visible(fn() => Gate::allows('form-developer')),
         ];
     }

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Components;
 
-use App\Helpers\FormTemplateHelper;
-use App\Models\Style;
+use App\Helpers\FormDataHelper;
+use App\Helpers\UniqueIDsHelper;
 use Closure;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
@@ -21,6 +21,8 @@ class ContainerBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
+        $styles = FormDataHelper::get('styles');
+
         return Block::make('container')
             ->label(function (?array $state): string {
                 if ($state === null) {
@@ -29,10 +31,13 @@ class ContainerBlock
                 return 'Container | id: ' . ($state['customize_instance_id'] && !empty($state['custom_instance_id']) ? $state['custom_instance_id'] : $state['instance_id']);
             })
             ->icon('heroicon-o-square-3-stack-3d')
+            ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
             ->schema([
                 Section::make('Container Properties')
                     ->collapsible()
+                    ->collapsed(true)
                     ->compact()
+                    ->columnSpan(2)
                     ->schema([
                         Grid::make(2)
                             ->schema([
@@ -42,54 +47,69 @@ class ContainerBlock
                                     ->schema([
                                         Placeholder::make('instance_id_placeholder') // used to view value in builder
                                             ->label("Default")
+                                            ->dehydrated(false)
                                             ->content(fn($get) => $get('instance_id')), // Set the sequential default value
-                                        Hidden::make('instance_id') // used to populate value in template 
+                                        Hidden::make('instance_id') // used to populate value in template
                                             ->hidden()
+                                            ->dehydrated(false)
                                             ->default($calculateIDCallback), // Set the sequential default value
                                         Toggle::make('customize_instance_id')
                                             ->label('Customize Instance ID')
                                             ->inline()
-                                            ->live(),
+                                            ->lazy(),
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
                                             ->alphanum()
                                             ->lazy()
                                             ->distinct()
+                                            ->alphaNum()
+                                            ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
                                             ->visible(fn($get) => $get('customize_instance_id')),
                                     ]),
-                                Select::make('webStyles')
-                                    ->label('Web Styles')
-                                    ->options(Style::pluck('name', 'id'))
-                                    ->multiple()
-                                    ->preload()
-                                    ->columnSpan(1)
+                                Toggle::make('clear_button')
+                                    ->label('Clear Button')
                                     ->live()
-                                    ->reactive(),
-                                Select::make('pdfStyles')
-                                    ->label('PDF Styles')
-                                    ->options(Style::pluck('name', 'id'))
-                                    ->multiple()
-                                    ->preload()
-                                    ->columnSpan(1)
-                                    ->live()
-                                    ->reactive(),
+                                    ->columnSpanFull(),
                                 Textarea::make('visibility')
                                     ->columnSpanFull()
                                     ->label('Visibility'),
                             ]),
                     ]),
-                Builder::make('components')
-                    ->label('Container Elements')
-                    ->addBetweenActionLabel('Insert between elements')
+                Select::make('webStyles')
+                    ->label('Web Styles')
+                    ->options($styles->pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(1)
+                    ->lazy(),
+                Select::make('pdfStyles')
+                    ->label('PDF Styles')
+                    ->options($styles->pluck('name', 'id'))
+                    ->multiple()
+                    ->preload()
+                    ->columnSpan(1)
+                    ->lazy(),
+                Section::make('Container Elements')
                     ->collapsible()
                     ->collapsed(true)
-                    ->blockNumbers(false)
+                    ->compact()
                     ->columnSpan(2)
-                    ->cloneable()
-                    ->blocks([
-                        FormFieldBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
-                        FieldGroupBlock::make(fn($get) => FormTemplateHelper::calculateElementID()),
-                    ]),
+                    ->schema([
+                        Builder::make('components')
+                            ->label(false)
+                            ->addActionLabel('Add to Container Elements')
+                            ->addBetweenActionLabel('Insert between elements')
+                            ->cloneable()
+                            ->cloneAction(UniqueIDsHelper::cloneElement())
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->blockNumbers(false)
+                            ->columnSpan(2)
+                            ->blocks([
+                                FormFieldBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
+                                FieldGroupBlock::make(fn($get) => UniqueIDsHelper::calculateElementID()),
+                            ]),
+                    ])
             ]);
     }
 }

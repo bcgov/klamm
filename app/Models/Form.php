@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Spatie\Activitylog\Models\Activity;
 
 class Form extends Model
 {
@@ -97,6 +99,11 @@ class Form extends Model
         return $this->belongsToMany(Form::class, 'form_related_forms', 'related_form_id', 'form_id');
     }
 
+    public function formVersions(): HasMany
+    {
+        return $this->hasMany(FormVersion::class);
+    }
+
     protected static function boot()
     {
         parent::boot();
@@ -113,7 +120,6 @@ class Form extends Model
         });
     }
 
-
     public function formFrequency(): BelongsTo
     {
         return $this->belongsTo(FormFrequency::class);
@@ -122,5 +128,22 @@ class Form extends Model
     public function formReach(): BelongsTo
     {
         return $this->belongsTo(FormReach::class);
+    }
+
+    public function activities(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Activity::class,
+            FormVersion::class,
+            'form_id',
+            'subject_id',
+            'id',
+            'id'
+        )->where('subject_type', FormVersion::class)
+            ->select([
+                'activity_log.*',
+                'form_versions.created_at as version_created_at',
+                'form_versions.updated_at as version_updated_at'
+            ]);
     }
 }

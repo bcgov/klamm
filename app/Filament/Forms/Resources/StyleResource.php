@@ -11,14 +11,21 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use App\Http\Middleware\CheckRole;
 
 class StyleResource extends Resource
 {
     protected static ?string $model = Style::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-paint-brush';
     protected static ?string $navigationLabel = 'Styles';
 
     protected static ?string $navigationGroup = 'Form Building';
+
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
 
 
     public static function form(Form $form): Form

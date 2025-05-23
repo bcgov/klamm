@@ -22,7 +22,8 @@ class Container extends Model
         'order',
         'instance_id',
         'custom_instance_id',
-        'visibility'
+        'visibility',
+        'clear_button',
     ];
 
     /**
@@ -33,6 +34,7 @@ class Container extends Model
     protected $casts = [
         'id' => 'integer',
         'order' => 'integer',
+        'clear_button' => 'boolean',
     ];
 
     public function formVersion(): BelongsTo

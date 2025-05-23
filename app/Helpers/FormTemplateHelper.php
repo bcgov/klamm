@@ -2,7 +2,6 @@
 
 namespace App\Helpers;
 
-use App\Filament\Forms\Resources\FormVersionResource;
 use Illuminate\Support\Str;
 use App\Models\FormVersion;
 use App\Models\Form;
@@ -21,7 +20,16 @@ class FormTemplateHelper
             ->whereNull('field_group_instance_id')
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances.style', 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'formField.formFieldDateFormat',
+                'styleInstances.style',
+                'validations',
+                'conditionals',
+                'formInstanceFieldValue',
+                'formInstanceFieldDateFormat',
+            ])
             ->get();
 
         foreach ($formFields as $field) {
@@ -35,7 +43,7 @@ class FormTemplateHelper
         $fieldGroups = $formVersion->fieldGroupInstances()
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['styleInstances.style'])
+            ->with(['fieldGroup', 'styleInstances.style'])
             ->get();
 
         foreach ($fieldGroups as $group) {
@@ -90,6 +98,7 @@ class FormTemplateHelper
             "title" => $formVersion->form->form_title,
             "form_id" => $form->form_id,
             "deployed_to" => $formVersion->deployed_to,
+            "footer" => $formVersion->footer,
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
                     'name' => $dataSource->name,
@@ -215,6 +224,10 @@ class FormTemplateHelper
                 return array_merge($base, [
                     "value" => $fieldInstance->formInstanceFieldValue?->custom_value ?? $field->formFieldValue?->value,
                 ]);
+            case "date":
+                return array_merge($base, [
+                    "inputFormat" => $fieldInstance->formInstanceFieldDateFormat?->custom_date_format ?? $field->formFieldDateFormat?->date_format,
+                ]);
             case "radio":
                 return array_merge($base, [
                     "listItems" => $fieldInstance->selectOptionInstances()
@@ -240,9 +253,16 @@ class FormTemplateHelper
 
         $fieldsInGroup = $groupInstance->formInstanceFields()
             ->orderBy('order')
-            ->with(['formField.dataType', 'styleInstances' => function ($query) {
-                $query->with('style');
-            }, 'validations', 'conditionals'])
+            ->with([
+                'formField.dataType',
+                'formField.formFieldValue',
+                'formField.formFieldDateFormat',
+                'formInstanceFieldValue',
+                'formInstanceFieldDateFormat',
+                'styleInstances.style',
+                'validations',
+                'conditionals'
+            ])
             ->get();
 
         $webStyle = [];
@@ -294,6 +314,7 @@ class FormTemplateHelper
             "id" => $groupInstance->custom_instance_id ?? $groupInstance->instance_id,
             "groupId" => (string) $group->id,
             "repeater" => $groupInstance->repeater,
+            "clear_button" => $groupInstance->clear_button,
             "codeContext" => [
                 "name" => $group->name,
             ],
@@ -331,7 +352,15 @@ class FormTemplateHelper
 
     protected static function formatContainer($container, $index)
     {
-        $fieldsInContainer = $container->formInstanceFields()->orderBy('order')->get();
+        $fieldsInContainer = $container->formInstanceFields()
+            ->orderBy('order')
+            ->with([
+                'formField',
+                'styleInstances',
+                'validations',
+                'conditionals',
+            ])
+            ->get();
         $groupsInContainer = $container->fieldGroupInstances()
             ->orderBy('order')
             ->with(['fieldGroup', 'styleInstances'])
@@ -395,6 +424,7 @@ class FormTemplateHelper
             "type" => "container",
             "id" => $container->custom_instance_id ?? $container->instance_id,
             "containerId" => (string) $container->id,
+            "clear_button" => $container->clear_button,
             "codeContext" => [
                 "name" => 'container',
             ],
@@ -415,12 +445,5 @@ class FormTemplateHelper
         return array_merge($base, [
             "containerItems" => $containerItems,
         ]);
-    }
-
-    public static function calculateElementID(): string
-    {
-        $counter = FormVersionResource::getElementCounter();
-        FormVersionResource::incrementElementCounter();
-        return 'element' . $counter;
     }
 }

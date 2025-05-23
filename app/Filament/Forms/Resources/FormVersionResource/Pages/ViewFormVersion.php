@@ -13,6 +13,11 @@ class ViewFormVersion extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+
+            Actions\ViewAction::make('view')
+                ->url(fn($record) => route('filament.forms.resources.forms.view', ['record' => $record->form_id]))
+                ->icon('heroicon-o-eye')
+                ->label('View Form Metadata'),
             Actions\EditAction::make(),
         ];
     }
@@ -23,7 +28,21 @@ class ViewFormVersion extends ViewRecord
         $this->record->load([
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
-                $query->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                $query->with([
+                    'formField' => function ($query) {
+                        $query->with([
+                            'dataType',
+                            'formFieldValue',
+                            'formFieldDateFormat',
+                        ]);
+                    },
+                    'selectOptionInstances',
+                    'validations',
+                    'conditionals',
+                    'styleInstances',
+                    'formInstanceFieldValue',
+                    'formInstanceFieldDateFormat',
+                ]);
             },
             'fieldGroupInstances' => function ($query) {
                 $query
@@ -33,7 +52,21 @@ class ViewFormVersion extends ViewRecord
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
-                                ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                ->with([
+                                    'formField' => function ($query) {
+                                        $query->with([
+                                            'dataType',
+                                            'formFieldValue',
+                                            'formFieldDateFormat',
+                                        ]);
+                                    },
+                                    'selectOptionInstances',
+                                    'validations',
+                                    'conditionals',
+                                    'styleInstances',
+                                    'formInstanceFieldValue',
+                                    'formInstanceFieldDateFormat',
+                                ]);
                         }
                     ]);
             },
@@ -42,7 +75,21 @@ class ViewFormVersion extends ViewRecord
                     'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
-                            ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                            ->with([
+                                'formField' => function ($query) {
+                                    $query->with([
+                                        'dataType',
+                                        'formFieldValue',
+                                        'formFieldDateFormat',
+                                    ]);
+                                },
+                                'selectOptionInstances',
+                                'validations',
+                                'conditionals',
+                                'styleInstances',
+                                'formInstanceFieldValue',
+                                'formInstanceFieldDateFormat',
+                            ]);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
@@ -50,7 +97,21 @@ class ViewFormVersion extends ViewRecord
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
-                                    ->with(['selectOptionInstances', 'validations', 'conditionals', 'formField', 'styleInstances', 'formInstanceFieldValue']);
+                                    ->with([
+                                        'formField' => function ($query) {
+                                            $query->with([
+                                                'dataType',
+                                                'formFieldValue',
+                                                'formFieldDateFormat',
+                                            ]);
+                                        },
+                                        'selectOptionInstances',
+                                        'validations',
+                                        'conditionals',
+                                        'styleInstances',
+                                        'formInstanceFieldValue',
+                                        'formInstanceFieldDateFormat',
+                                    ]);
                             }
                         ]);
                     }
@@ -159,6 +220,8 @@ class ViewFormVersion extends ViewRecord
                     'data_binding' => $field->data_binding,
                     'custom_data_binding' => $field->custom_data_binding,
                     'customize_data_binding' => $field->custom_data_binding,
+                    'custom_date_format' => $field->formInstanceFieldDateFormat?->custom_date_format ?? $formField->formFieldDateFormat?->date_format,
+                    'customize_date_format' => $field->formInstanceFieldDateFormat?->custom_date_format ?? false,
                     'help_text' => $field->help_text,
                     'custom_help_text' => $field->custom_help_text,
                     'customize_help_text' => $field->custom_help_text,
@@ -168,7 +231,6 @@ class ViewFormVersion extends ViewRecord
                     'instance_id' => $field->instance_id,
                     'custom_instance_id' => $field->custom_instance_id,
                     'customize_instance_id' => $field->custom_instance_id,
-                    'field_value' => $field->formInstanceFieldValue?->value,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'webStyles' => $styles['webStyles'],
@@ -199,7 +261,8 @@ class ViewFormVersion extends ViewRecord
                     'field_group_id' => $group->field_group_id,
                     'custom_group_label' => $group->custom_group_label,
                     'customize_group_label' => $group->customize_group_label,
-                    'repeater' => $group->repeater,
+                    'repeater' => $group->repeater ?? false,
+                    'clear_button' => $group->clear_button ?? false,
                     'custom_repeater_item_label' => $group->custom_repeater_item_label ?? $fieldGroup->repeater_item_label,
                     'customize_repeater_item_label' => $group->custom_repeater_item_label ?? null,
                     'custom_data_binding_path' => $group->custom_data_binding_path ?? $fieldGroup->data_binding_path,
@@ -241,6 +304,7 @@ class ViewFormVersion extends ViewRecord
                     'instance_id' => $container->instance_id,
                     'custom_instance_id' => $container->custom_instance_id,
                     'customize_instance_id' => $container->custom_instance_id ?? null,
+                    'clear_button' => $container->clear_button ?? false,
                     'components' => $blocks,
                     'webStyles' => $styles['webStyles'],
                     'pdfStyles' => $styles['pdfStyles'],

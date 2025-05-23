@@ -3,9 +3,9 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FieldGroupResource\Pages;
+use App\Filament\Forms\Resources\FieldGroupResource\RelationManagers\FieldGroupInstancesRelationManager;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -14,13 +14,20 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use App\Http\Middleware\CheckRole;
 
 class FieldGroupResource extends Resource
 {
     protected static ?string $model = FieldGroup::class;
 
     protected static ?string $navigationGroup = 'Form Building';
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-rectangle-group';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
+
 
     public static function form(Form $form): Form
     {
@@ -66,6 +73,7 @@ class FieldGroupResource extends Resource
                 Textarea::make('internal_description')
                     ->columnSpanFull(),
                 Toggle::make('repeater')
+                    ->label('Repeater')
                     ->columnSpan(1)
                     ->live()
                     ->afterStateUpdated(function ($state, callable $set) {
@@ -77,6 +85,11 @@ class FieldGroupResource extends Resource
                     ->columnSpan(5)
                     ->live()
                     ->visible(fn($get) => $get('repeater')),
+                Toggle::make('clear_button')
+                    ->label('Clear Button')
+                    ->live()
+                    ->visible(fn($get) => !$get('repeater')),
+
             ]);
     }
 
@@ -87,6 +100,7 @@ class FieldGroupResource extends Resource
                 Tables\Columns\TextColumn::make('name')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('label')->sortable()->searchable(),
                 Tables\Columns\IconColumn::make('repeater')->boolean(),
+                Tables\Columns\IconColumn::make('clear_button')->boolean(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -111,7 +125,7 @@ class FieldGroupResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            FieldGroupInstancesRelationManager::class,
         ];
     }
 

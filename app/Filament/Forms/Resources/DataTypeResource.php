@@ -5,6 +5,7 @@ namespace App\Filament\Forms\Resources;
 use App\Filament\Forms\Resources\DataTypeResource\Pages;
 use App\Filament\Forms\Resources\DataTypeResource\RelationManagers;
 use App\Models\DataType;
+use App\Http\Middleware\CheckRole;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -17,10 +18,14 @@ class DataTypeResource extends Resource
 {
     protected static ?string $model = DataType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
 
     protected static ?string $navigationGroup = 'Form Building';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return CheckRole::hasRole(request(), 'admin', 'form-developer');
+    }
 
     public static function form(Form $form): Form
     {
@@ -69,7 +74,10 @@ class DataTypeResource extends Resource
                 //
             ])
             ->paginated([
-                10, 25, 50, 100,
+                10,
+                25,
+                50,
+                100,
             ]);
     }
 
