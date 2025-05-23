@@ -5,11 +5,9 @@ namespace App\Filament\Forms\Resources\FormResource\Pages;
 use App\Filament\Forms\Resources\FormResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
-use App\Filament\Forms\Resources\FormResource\Pages;
 use App\Filament\Forms\Resources\FormResource\RelationManagers\FormVersionRelationManager;
 use Illuminate\Support\Facades\Gate;
 use App\Traits\HasBusinessAreaAccess;
-use Illuminate\Support\Facades\Auth;
 use App\Filament\Forms\Resources\FormResource\RelationManagers\ViewFormActivitiesRelationManager;
 
 class ViewForm extends ViewRecord
