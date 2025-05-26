@@ -160,7 +160,7 @@ class FormResource extends Resource
 
                 Section::make('Development')
                     ->collapsible()
-                    ->collapsed()
+                    ->collapsed(false)
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
