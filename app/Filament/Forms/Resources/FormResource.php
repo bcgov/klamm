@@ -127,23 +127,14 @@ class FormResource extends Resource
                     ]),
 
                 Section::make()
-                    ->hidden(
-                        fn($record): bool =>
-                        empty($record->icm_generated) &&
-                            empty($record->formSoftwareSources?->pluck('name')->filter()->toArray()) &&
-                            empty($record->formLocations?->pluck('name')->filter()->toArray()) &&
-                            empty($record->formTags?->pluck('name')->filter()->toArray()) &&
-                            empty($record->dcv_material_number)
-                    )
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
                                 TextEntry::make('icm_generated')
-                                    ->formatStateUsing(fn(bool $state): string => $state ? 'Yes' : 'No')
+                                    ->formatStateUsing(fn($state) => $state ? 'Yes' : 'No')
                                     ->badge()
                                     ->columnSpanFull()
-                                    ->hidden(fn($state): bool => empty($state))
-                                    ->color(fn(bool $state): string => $state ? 'success' : 'danger')
+                                    ->color(fn($state) => $state ? 'success' : 'danger')
                                     ->label(new HtmlString(self::formatLabel('ICM Generated'))),
                                 TextEntry::make('formSoftwareSources.name')
                                     ->listWithLineBreaks()
@@ -288,7 +279,7 @@ class FormResource extends Resource
                 Forms\Components\Section::make()
                     ->schema([
                         Forms\Components\Radio::make('icm_generated')
-                            ->label('Is Form ICM Generated?')
+                            ->label('Is form ICM generated?')
                             ->options([
                                 false => 'No',
                                 true => 'Yes',
@@ -430,8 +421,8 @@ class FormResource extends Resource
                     ->label('Audience Size'),
                 Tables\Columns\TextColumn::make('icm_generated')
                     ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Yes' : 'No')
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger')
+                    ->formatStateUsing(fn($state) => $state ? 'Yes' : 'No')
+                    ->color(fn($state) => $state ? 'success' : 'danger')
                     ->label('ICM Generated'),
                 Tables\Columns\TextColumn::make('formSoftwareSources.name')
                     ->badge()
