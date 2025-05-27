@@ -11,13 +11,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 use Filament\Actions;
+use Filament\Actions\StaticAction;
 
 class ViewFormVersion extends ViewRecord
 {
@@ -30,16 +29,18 @@ class ViewFormVersion extends ViewRecord
         return [
             Actions\ViewAction::make('view')
                 ->url(fn($record) => route('filament.forms.resources.forms.view', ['record' => $record->form_id]))
-                ->icon('heroicon-o-eye')
-                ->label('View Form Metadata'),
+                ->label('Form Metadata')
+                ->button()
+                ->link()
+                ->extraAttributes(['class' => 'underline']),
             Actions\EditAction::make()
+                ->outlined()
                 ->visible(fn() => $this->record->status === 'draft'),
             Action::make('readyForReview')
                 ->label('Ready for Review')
                 ->modalHeading('Request approval')
                 ->modalDescription(fn() => 'Form: ' . $this->record->form->form_title)
                 ->form([
-
                     CheckboxList::make('approval_types')
                         ->options([
                             'webform' => 'Webform',
@@ -130,6 +131,7 @@ class ViewFormVersion extends ViewRecord
                 })
                 ->slideOver()
                 ->closeModalByClickingAway(false)
+                ->modalSubmitAction(fn(StaticAction $action) => $action->label('Submit request'))
                 ->extraModalFooterActions([
                     Action::make('addNewApprover')
                         ->label('Add new approver')
@@ -206,7 +208,9 @@ class ViewFormVersion extends ViewRecord
                             }
                         })
                         ->slideOver()
-                        ->closeModalByClickingAway(false),
+                        ->closeModalByClickingAway(false)
+                        ->modalSubmitAction(fn(StaticAction $action) => $action->label('Add new approver'))
+                        ->modalCancelAction(fn(StaticAction $action) => $action->label('Back')),
                 ])
                 ->visible(fn() => $this->record->status === 'draft'),
         ];
