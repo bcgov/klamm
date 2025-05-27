@@ -10,6 +10,8 @@ use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Pages\ViewRecord;
@@ -37,6 +39,16 @@ class ViewFormVersion extends ViewRecord
                 ->modalHeading('Request approval')
                 ->modalDescription(fn() => 'Form: ' . $this->record->form->form_title)
                 ->form([
+
+                    CheckboxList::make('approval_types')
+                        ->options([
+                            'webform' => 'Webform',
+                            'pdf' => 'PDF',
+                        ])
+                        ->required()
+                        ->minItems(1)
+                        ->columns(1)
+                        ->label('Select version(s) for approval'),
                     Textarea::make('note')
                         ->label('Note for approver')
                         ->required(),
@@ -75,10 +87,11 @@ class ViewFormVersion extends ViewRecord
                             'approver_name' => $user->name,
                             'approver_email' => $user->email,
                             'note' => $data['note'],
+                            'webform_approval' => in_array('webform', $data['approval_types']),
+                            'pdf_approval' => in_array('pdf', $data['approval_types']),
                             'is_klamm_user' => true,
                             'status' => 'pending',
                         ];
-
 
                         FormApprovalRequest::create($approvalRequestData);
                     } else {
@@ -98,6 +111,8 @@ class ViewFormVersion extends ViewRecord
                             'approver_name' => $approverData[0],
                             'approver_email' => $approverData[1],
                             'note' => $data['note'],
+                            'webform_approval' => in_array('webform', $data['approval_types']),
+                            'pdf_approval' => in_array('pdf', $data['approval_types']),
                             'is_klamm_user' => false,
                             'status' => 'pending',
                             'token' => Str::uuid(),

@@ -16,6 +16,8 @@ class FormApprovalRequest extends Model
         'approver_name',
         'approver_email',
         'note',
+        'webform_approval',
+        'pdf_approval',
         'is_klamm_user',
         'status',
         'token',
@@ -24,6 +26,8 @@ class FormApprovalRequest extends Model
     ];
 
     protected $casts = [
+        'webform_approval' => 'boolean',
+        'pdf_approval' => 'boolean',
         'is_klamm_user' => 'boolean',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',

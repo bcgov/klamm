@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('approver_name');
             $table->string('approver_email');
             $table->text('note')->nullable();
+            $table->boolean('webform_approval')->default(false);
+            $table->boolean('pdf_approval')->default(false);
             $table->boolean('is_klamm_user')->default(false);
             $table->string('status')->default('pending');
             $table->string('token')->unique()->nullable();
