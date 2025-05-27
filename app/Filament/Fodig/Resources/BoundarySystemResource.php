@@ -3,15 +3,12 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\BoundarySystemResource\Pages;
-use App\Filament\Fodig\Resources\BoundarySystemResource\RelationManagers;
 use App\Models\BoundarySystem;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class BoundarySystemResource extends Resource
 {
@@ -20,6 +17,8 @@ class BoundarySystemResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-puzzle-piece';
 
     protected static ?string $navigationGroup = 'Data Gateway';
+
+    protected static ?string $navigationLabel = 'Systems';
 
     protected static ?int $navigationSort = 2;
 

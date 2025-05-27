@@ -57,15 +57,16 @@ class BoundarySystemInterface extends Model
     public static function getTransactionFrequencyOptions(): array
     {
         return [
-            'on_demand' => 'On Demand',
-            'hourly' => 'Hourly',
-            'multiple_times_a_day' => 'Multiple Times a Day',
             'daily' => 'Daily',
-            'weekly' => 'Weekly',
             'monthly' => 'Monthly',
-            'quarterly' => 'Quarterly',
             'annually' => 'Annually',
+            'hourly' => 'Hourly',
+            'on_demand' => 'On Demand',
+            'weekly' => 'Weekly',
+            'multiple_times_a_day' => 'Multiple times a day',
+            'quarterly' => 'Quarterly',
             'custom' => 'Custom',
+            'other' => 'Other',
         ];
     }
 
@@ -96,11 +97,12 @@ class BoundarySystemInterface extends Model
     {
         return [
             'batch' => 'Batch',
-            'asynchronous' => 'Asynchronous',
-            'synchronous' => 'Synchronous',
-            'real_time' => 'Real-time',
-            'near_real_time' => 'Near Real-time',
-            'unknown' => 'Unknown',
+            'file_transfer' => 'File Transfer',
+            'appgate' => 'AppGate',
+            'real_time' => 'Real Time',
+            'vbc_real_time_sync' => 'VBC (Real-time sync)',
+            'email' => 'Email',
+            'lin' => '.LIN',
         ];
     }
 
@@ -125,27 +127,18 @@ class BoundarySystemInterface extends Model
     public static function getDataFormatOptions(): array
     {
         return [
+            'txt' => '.txt',
             'xml' => 'XML',
-            'json' => 'JSON',
-            'yaml' => 'YAML',
-            'txt' => 'TXT',
-            'csv' => 'CSV',
-            'tsv' => 'TSV',
-            'psv' => 'PSV',
-            'doc' => 'DOC',
-            'docx' => 'DOCX',
-            'pdf' => 'PDF',
-            'fixed_width' => 'Fixed-width',
-            'edi' => 'EDI',
-            'compressed' => 'Compressed (TAR, ZIP, 7z, RAR)',
-            'binary' => 'Binary',
-            'msg' => 'MSG',
-            'lin' => 'LIN',
+            'dat' => '.dat',
+            'sent' => '.SENT',
             'dos_module' => 'DOS MODULE',
-            'dat' => 'DAT',
-            'sent' => 'SENT',
-            'sql' => 'SQL',
-            'unknown' => 'Unknown',
+            'xls' => '.xls',
+            'csv' => '.csv',
+            'msg' => '.msg',
+            'json' => 'JSON',
+            'pdf' => '.PDF',
+            'psv' => 'PSV',
+            'call' => 'call',
         ];
     }
 
