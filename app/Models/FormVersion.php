@@ -146,4 +146,9 @@ class FormVersion extends Model
     {
         return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');
     }
+
+    public function approvalRequests(): HasMany
+    {
+        return $this->hasMany(FormApprovalRequest::class);
+    }
 }

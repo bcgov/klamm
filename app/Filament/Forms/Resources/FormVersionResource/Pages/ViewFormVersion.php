@@ -3,22 +3,197 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
-use Filament\Actions;
+use App\Models\FormApprovalRequest;
+use App\Models\User;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Str;
+use Filament\Actions;
 
 class ViewFormVersion extends ViewRecord
 {
     protected static string $resource = FormVersionResource::class;
 
+    public array $additionalApprovers = [];
+
     protected function getHeaderActions(): array
     {
         return [
-
             Actions\ViewAction::make('view')
                 ->url(fn($record) => route('filament.forms.resources.forms.view', ['record' => $record->form_id]))
                 ->icon('heroicon-o-eye')
                 ->label('View Form Metadata'),
-            Actions\EditAction::make(),
+            Actions\EditAction::make()
+                ->visible(fn() => $this->record->status === 'draft'),
+            Action::make('readyForReview')
+                ->label('Ready for Review')
+                ->modalHeading('Request approval')
+                ->modalDescription(fn() => 'Form: ' . $this->record->form->form_title)
+                ->form([
+                    Textarea::make('note')
+                        ->label('Note for approver')
+                        ->required(),
+                    Radio::make('approver')
+                        ->label('Select approver')
+                        ->options(function () {
+                            $businessAreaUsers = $this->record->form->businessAreas->flatMap->users
+                                ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
+                                ->toArray();
+
+                            $allOptions = $businessAreaUsers;
+                            foreach ($this->additionalApprovers as $key => $value) {
+                                $allOptions[$key] = $value;
+                            }
+
+                            return $allOptions;
+                        })
+                        ->required(),
+                ])
+                ->action(function (array $data): void {
+                    if (is_numeric($data['approver'])) {
+
+                        $user = User::find($data['approver']);
+
+                        if (!$user) {
+                            Notification::make()
+                                ->title('Error: User not found')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $approvalRequestData = [
+                            'form_version_id' => $this->record->id,
+                            'approver_id' => $user->id,
+                            'approver_name' => $user->name,
+                            'approver_email' => $user->email,
+                            'note' => $data['note'],
+                            'is_klamm_user' => true,
+                            'status' => 'pending',
+                        ];
+
+
+                        FormApprovalRequest::create($approvalRequestData);
+                    } else {
+
+                        $approverData = explode('|', $data['approver']);
+
+                        if (count($approverData) !== 2) {
+                            Notification::make()
+                                ->title('Error: Invalid approver data')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $approvalRequestData = [
+                            'form_version_id' => $this->record->id,
+                            'approver_name' => $approverData[0],
+                            'approver_email' => $approverData[1],
+                            'note' => $data['note'],
+                            'is_klamm_user' => false,
+                            'status' => 'pending',
+                            'token' => Str::uuid(),
+                        ];
+
+                        FormApprovalRequest::create($approvalRequestData);
+                    }
+
+                    $this->record->update(['status' => 'under_review']);
+
+                    Notification::make()
+                        ->title('Approval request sent successfully')
+                        ->success()
+                        ->send();
+                })
+                ->slideOver()
+                ->closeModalByClickingAway(false)
+                ->extraModalFooterActions([
+                    Action::make('addNewApprover')
+                        ->label('Add new approver')
+                        ->modalWidth('lg')
+                        ->modalHeading('Add a new approver')
+                        ->form([
+                            Radio::make('approver_type')
+                                ->label('Approver Type')
+                                ->options([
+                                    'klamm' => 'Klamm user',
+                                    'non_klamm' => 'Non Klamm user',
+                                ])
+                                ->descriptions([
+                                    'klamm' => 'Best for approvers who do a lot of reviews and want to stay updated on their form status',
+                                    'non_klamm' => 'Best for occasional approvers. They\'ll receive a one-time approval link and access Klamm with their IDIR credentials',
+                                ])
+                                ->required()
+                                ->live(),
+                            Select::make('klamm_user')
+                                ->searchable()
+                                ->label('Select User')
+                                ->options(function () {
+                                    $businessAreaUserIds = $this->record->form->businessAreas->flatMap->users->pluck('id')->toArray();
+                                    $additionalKlammUserIds = collect($this->additionalApprovers)
+                                        ->keys()
+                                        ->filter(fn($key) => is_numeric($key))
+                                        ->toArray();
+
+                                    $excludedIds = array_merge($businessAreaUserIds, $additionalKlammUserIds);
+
+                                    return User::whereNotIn('id', $excludedIds)
+                                        ->get()
+                                        ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
+                                        ->toArray();
+                                })
+                                ->getSearchResultsUsing(function (string $search) {
+                                    $businessAreaUserIds = $this->record->form->businessAreas->flatMap->users->pluck('id')->toArray();
+                                    $additionalKlammUserIds = collect($this->additionalApprovers)
+                                        ->keys()
+                                        ->filter(fn($key) => is_numeric($key))
+                                        ->toArray();
+
+                                    $excludedIds = array_merge($businessAreaUserIds, $additionalKlammUserIds);
+
+                                    return User::where(function ($query) use ($search) {
+                                        $query->where('name', 'like', "%{$search}%")
+                                            ->orWhere('email', 'like', "%{$search}%");
+                                    })
+                                        ->whereNotIn('id', $excludedIds)
+                                        ->limit(50)
+                                        ->get()
+                                        ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
+                                        ->toArray();
+                                })
+                                ->required()
+                                ->visible(fn(Get $get) => $get('approver_type') === 'klamm'),
+                            TextInput::make('name')
+                                ->required()
+                                ->visible(fn(Get $get) => $get('approver_type') === 'non_klamm'),
+                            TextInput::make('email')
+                                ->email()
+                                ->required()
+                                ->visible(fn(Get $get) => $get('approver_type') === 'non_klamm'),
+                        ])
+                        ->action(function (array $data): void {
+                            if ($data['approver_type'] === 'klamm') {
+                                $user = User::find($data['klamm_user']);
+                                if ($user) {
+                                    $this->additionalApprovers[$user->id] = $user->name . ' (' . $user->email . ')';
+                                }
+                            } else {
+                                $key = $data['name'] . '|' . $data['email'];
+                                $this->additionalApprovers[$key] = $data['name'] . ' (' . $data['email'] . ')';
+                            }
+                        })
+                        ->slideOver()
+                        ->closeModalByClickingAway(false),
+                ])
+                ->visible(fn() => $this->record->status === 'draft'),
         ];
     }
 

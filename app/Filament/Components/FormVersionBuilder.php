@@ -41,6 +41,8 @@ class FormVersionBuilder
                     ->default(request()->query('form_id_title')),
                 Select::make('status')
                     ->options(FormVersion::getStatusOptions())
+                    ->default('draft')
+                    ->disabled()
                     ->required(),
                 Section::make('Form Properties')
                     ->collapsible()
