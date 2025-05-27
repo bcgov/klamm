@@ -30,6 +30,9 @@ class BoundarySystemContact extends Model
 
     public function getEmailsListAttribute(): string
     {
+        if (!$this->relationLoaded('emails')) {
+            $this->load('emails');
+        }
         return $this->emails->pluck('email')->join(', ');
     }
 }

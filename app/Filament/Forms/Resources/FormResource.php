@@ -9,14 +9,12 @@ use Filament\Forms\Form as FilamentForm;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\ActionGroup;
 use App\Filament\Exports\FormExporter;
-use Filament\Forms\Components\Radio;
 use Filament\Tables\Actions\ExportAction;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
@@ -100,7 +98,13 @@ class FormResource extends Resource
                             ]),
                     ]),
 
-                Section::make('')
+                Section::make()
+                    ->hidden(
+                        fn($record): bool =>
+                        empty($record->formFrequency?->name) &&
+                            empty($record->userTypes?->pluck('name')->filter()->toArray()) &&
+                            empty($record->formReach?->name)
+                    )
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
@@ -123,16 +127,14 @@ class FormResource extends Resource
                     ]),
 
                 Section::make()
-
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
                                 TextEntry::make('icm_generated')
-                                    ->formatStateUsing(fn(bool $state): string => $state ? 'Yes' : 'No')
+                                    ->formatStateUsing(fn($state) => $state ? 'Yes' : 'No')
                                     ->badge()
                                     ->columnSpanFull()
-                                    ->hidden(fn($state): bool => empty($state))
-                                    ->color(fn(bool $state): string => $state ? 'success' : 'danger')
+                                    ->color(fn($state) => $state ? 'success' : 'danger')
                                     ->label(new HtmlString(self::formatLabel('ICM Generated'))),
                                 TextEntry::make('formSoftwareSources.name')
                                     ->listWithLineBreaks()
@@ -158,7 +160,7 @@ class FormResource extends Resource
 
                 Section::make('Development')
                     ->collapsible()
-                    ->collapsed()
+                    ->collapsed(false)
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
@@ -277,7 +279,7 @@ class FormResource extends Resource
                 Forms\Components\Section::make()
                     ->schema([
                         Forms\Components\Radio::make('icm_generated')
-                            ->label('Is Form ICM Generated?')
+                            ->label('Is form ICM generated?')
                             ->options([
                                 false => 'No',
                                 true => 'Yes',
@@ -419,8 +421,8 @@ class FormResource extends Resource
                     ->label('Audience Size'),
                 Tables\Columns\TextColumn::make('icm_generated')
                     ->badge()
-                    ->formatStateUsing(fn(bool $state): string => $state ? 'Yes' : 'No')
-                    ->color(fn(bool $state): string => $state ? 'success' : 'danger')
+                    ->formatStateUsing(fn($state) => $state ? 'Yes' : 'No')
+                    ->color(fn($state) => $state ? 'success' : 'danger')
                     ->label('ICM Generated'),
                 Tables\Columns\TextColumn::make('formSoftwareSources.name')
                     ->badge()
