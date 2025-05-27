@@ -9,7 +9,9 @@ use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\Split;
+use Filament\Infolists\Components\Grid as InfolistGrid;
 use App\Models\BoundarySystemInterface;
+use Illuminate\Support\HtmlString;
 
 class ViewBoundarySystemInterface extends ViewRecord
 {
@@ -22,83 +24,124 @@ class ViewBoundarySystemInterface extends ViewRecord
         ];
     }
 
+    protected static function formatLabel(string $text): string
+    {
+        return '<span class="block text-lg font-bold">' . $text . '</span>';
+    }
+
     public function infolist(Infolist $infolist): Infolist
     {
         return $infolist
             ->schema([
                 Section::make('Interface Details')
                     ->schema([
-                        TextEntry::make('name'),
-                        TextEntry::make('short_description'),
-                        TextEntry::make('transaction_frequency')
-                            ->label('Transaction Frequency')
-                            ->formatStateUsing(fn($state) => BoundarySystemInterface::getTransactionFrequencyOptions()[$state] ?? $state),
-                        TextEntry::make('transaction_schedule'),
-                        TextEntry::make('complexity')
-                            ->formatStateUsing(fn($state) => BoundarySystemInterface::getComplexityOptions()[$state] ?? $state),
-                        TextEntry::make('integration_type')
-                            ->label('Integration Type')
-                            ->formatStateUsing(fn($state) => BoundarySystemInterface::getIntegrationTypeOptions()[$state] ?? $state),
-                        TextEntry::make('mode_of_transfer')
-                            ->label('Mode of Transfer')
-                            ->formatStateUsing(fn($state) => BoundarySystemInterface::getModeOfTransferOptions()[$state] ?? $state),
-                        TextEntry::make('protocol')
-                            ->formatStateUsing(fn($state) => BoundarySystemInterface::getProtocolOptions()[$state] ?? $state),
-                        TextEntry::make('tags')
-                            ->label('Tags')
-                            ->bulleted()
-                            ->listWithLineBreaks()
-                            ->getStateUsing(fn($record) => $record->tags->pluck('name')->toArray()),
+                        InfolistGrid::make(1)
+                            ->schema([
+                                TextEntry::make('name')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Name'))),
+                                TextEntry::make('short_description')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Short Description'))),
+                                TextEntry::make('transaction_frequency')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Transaction Frequency')))
+                                    ->formatStateUsing(fn($state) => BoundarySystemInterface::getTransactionFrequencyOptions()[$state] ?? $state),
+                                TextEntry::make('transaction_schedule')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Transaction Schedule'))),
+                                TextEntry::make('complexity')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Complexity')))
+                                    ->formatStateUsing(fn($state) => BoundarySystemInterface::getComplexityOptions()[$state] ?? $state),
+                                TextEntry::make('integration_type')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Integration Type')))
+                                    ->formatStateUsing(fn($state) => BoundarySystemInterface::getIntegrationTypeOptions()[$state] ?? $state),
+                                TextEntry::make('mode_of_transfer')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Mode of Transfer')))
+                                    ->formatStateUsing(fn($state) => BoundarySystemInterface::getModeOfTransferOptions()[$state] ?? $state),
+                                TextEntry::make('protocol')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Protocol')))
+                                    ->formatStateUsing(fn($state) => BoundarySystemInterface::getProtocolOptions()[$state] ?? $state),
+                                TextEntry::make('tags')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Tags')))
+                                    ->bulleted()
+                                    ->listWithLineBreaks()
+                                    ->getStateUsing(fn($record) => $record->tags->pluck('name')->toArray()),
+                            ]),
                     ])
-                    ->columns(2)
                     ->collapsed(false),
 
                 Section::make('Data Format and Security')
                     ->schema([
-                        TextEntry::make('data_format')
-                            ->label('Data Formats')
-                            ->listWithLineBreaks()
-                            ->bulleted()
-                            ->getStateUsing(
-                                fn($record) => collect($record->data_format)
-                                    ->map(fn($val) => BoundarySystemInterface::getDataFormatOptions()[$val] ?? $val)
-                                    ->toArray()
-                            ),
-                        TextEntry::make('security')
-                            ->label('Security')
-                            ->listWithLineBreaks()
-                            ->bulleted()
-                            ->getStateUsing(
-                                fn($record) => collect($record->security)
-                                    ->map(fn($val) => BoundarySystemInterface::getSecurityOptions()[$val] ?? $val)
-                                    ->toArray()
-                            ),
+                        InfolistGrid::make(1)
+                            ->schema([
+                                TextEntry::make('data_format')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Data Formats')))
+                                    ->listWithLineBreaks()
+                                    ->bulleted()
+                                    ->getStateUsing(
+                                        fn($record) => collect($record->data_format)
+                                            ->map(fn($val) => BoundarySystemInterface::getDataFormatOptions()[$val] ?? $val)
+                                            ->toArray()
+                                    ),
+                                TextEntry::make('security')
+                                    ->columnSpanFull()
+                                    ->label(new HtmlString(self::formatLabel('Security')))
+                                    ->listWithLineBreaks()
+                                    ->bulleted()
+                                    ->getStateUsing(
+                                        fn($record) => collect($record->security)
+                                            ->map(fn($val) => BoundarySystemInterface::getSecurityOptions()[$val] ?? $val)
+                                            ->toArray()
+                                    ),
+                            ]),
                     ])
-                    ->columns(2)
                     ->collapsed(),
 
                 Section::make('Systems')
                     ->schema([
                         Split::make([
                             Section::make([
-                                TextEntry::make('sourceSystem.name')->label('System Name'),
-                                TextEntry::make('sourceSystem.contact.department_name')->label('Department')
-                                    ->visible(fn($record) => $record->sourceSystem?->contact !== null),
-                                TextEntry::make('sourceSystem.contact.emails_list')
-                                    ->label('Contact Emails')
-                                    ->visible(fn($record) => $record->sourceSystem?->contact?->emails->isNotEmpty()),
+                                InfolistGrid::make(1)
+                                    ->schema([
+                                        TextEntry::make('sourceSystem.name')
+                                            ->columnSpanFull()
+                                            ->label(new HtmlString(self::formatLabel('System Name'))),
+                                        TextEntry::make('sourceSystem.contact.department_name')
+                                            ->columnSpanFull()
+                                            ->label(new HtmlString(self::formatLabel('Department')))
+                                            ->visible(fn($record) => $record->sourceSystem?->contact !== null),
+                                        TextEntry::make('sourceSystem.contact.emails_list')
+                                            ->columnSpanFull()
+                                            ->label(new HtmlString(self::formatLabel('Contact Emails')))
+                                            ->visible(fn($record) => $record->sourceSystem?->contact?->emails->isNotEmpty()),
+                                    ]),
                             ])
                                 ->label('Source System')
                                 ->heading('Source System')
                                 ->grow(true),
 
                             Section::make([
-                                TextEntry::make('targetSystem.name')->label('System Name'),
-                                TextEntry::make('targetSystem.contact.department_name')->label('Department')
-                                    ->visible(fn($record) => $record->targetSystem?->contact !== null),
-                                TextEntry::make('targetSystem.contact.emails_list')
-                                    ->label('Contact Emails')
-                                    ->visible(fn($record) => $record->targetSystem?->contact?->emails->isNotEmpty()),
+                                InfolistGrid::make(1)
+                                    ->schema([
+                                        TextEntry::make('targetSystem.name')
+                                            ->columnSpanFull()
+                                            ->label(new HtmlString(self::formatLabel('System Name'))),
+                                        TextEntry::make('targetSystem.contact.department_name')
+                                            ->columnSpanFull()
+                                            ->label(new HtmlString(self::formatLabel('Department')))
+                                            ->visible(fn($record) => $record->targetSystem?->contact !== null),
+                                        TextEntry::make('targetSystem.contact.emails_list')
+                                            ->columnSpanFull()
+                                            ->label(new HtmlString(self::formatLabel('Contact Emails')))
+                                            ->visible(fn($record) => $record->targetSystem?->contact?->emails->isNotEmpty()),
+                                    ]),
                             ])
                                 ->label('Target System')
                                 ->heading('Target System')
@@ -110,9 +153,13 @@ class ViewBoundarySystemInterface extends ViewRecord
 
                 Section::make('Description')
                     ->schema([
-                        TextEntry::make('description')
-                            ->markdown()
-                            ->label(' '),
+                        InfolistGrid::make(1)
+                            ->schema([
+                                TextEntry::make('description')
+                                    ->columnSpanFull()
+                                    ->markdown()
+                                    ->label(new HtmlString(self::formatLabel('Description'))),
+                            ]),
                     ])
                     ->collapsed(true),
             ]);
