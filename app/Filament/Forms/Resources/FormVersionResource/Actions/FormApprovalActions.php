@@ -14,6 +14,7 @@ use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 use Filament\Actions\StaticAction;
+use Illuminate\Support\HtmlString;
 
 class FormApprovalActions
 {
@@ -22,7 +23,10 @@ class FormApprovalActions
         return Action::make('readyForReview')
             ->label('Ready for Review')
             ->modalHeading('Request approval')
-            ->modalDescription(fn() => 'Form: ' . $record->form->form_title)
+            ->modalDescription(fn() => new HtmlString(
+                'Form: ' . $record->form->form_title . '<br>' .
+                    'Version: ' . $record->version_number
+            ))
             ->form([
                 CheckboxList::make('approval_types')
                     ->options([
@@ -52,10 +56,11 @@ class FormApprovalActions
                     })
                     ->required(),
             ])
-            ->action(function (array $data) use ($record): void {
+            ->action(function (array $data, $livewire) use ($record): void {
                 self::processApprovalRequest($data, $record);
+                $record->refresh();
+                $livewire->refreshFormData(['status']);
             })
-            ->slideOver()
             ->closeModalByClickingAway(false)
             ->modalSubmitAction(fn(StaticAction $action) => $action->label('Submit request'))
             ->extraModalFooterActions([
@@ -140,7 +145,6 @@ class FormApprovalActions
                     $additionalApprovers[$key] = $data['name'] . ' (' . $data['email'] . ')';
                 }
             })
-            ->slideOver()
             ->closeModalByClickingAway(false)
             ->modalSubmitAction(fn(StaticAction $action) => $action->label('Add new approver'))
             ->modalCancelAction(fn(StaticAction $action) => $action->label('Back'));
