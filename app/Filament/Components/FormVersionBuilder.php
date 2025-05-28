@@ -66,6 +66,19 @@ class FormVersionBuilder
                                     ->email(),
                             ])
                             ->label('Approver Information'),
+                        Fieldset::make('PETS template')
+                            ->columns(4)
+                            ->schema([
+                                TextInput::make('pdf_template_name')
+                                    ->label('Name')
+                                    ->columnSpan(3),
+                                TextInput::make('pdf_template_version')
+                                    ->label('Version')
+                                    ->columnSpan(1),
+                                Textarea::make('pdf_template_parameters')
+                                    ->label('Parameters')
+                                    ->columnSpanFull(),
+                            ]),
                         Select::make('deployed_to')
                             ->label('Deployed To')
                             ->options([

@@ -99,6 +99,11 @@ class FormTemplateHelper
             "form_id" => $form->form_id,
             "deployed_to" => $formVersion->deployed_to,
             "footer" => $formVersion->footer,
+            "pdfTemplate" => [
+                "name" => $formVersion->pdf_template_name,
+                "version" => $formVersion->pdf_template_version,
+                "parameters" => $formVersion->pdf_template_parameters,
+            ],
             "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
                 return [
                     'name' => $dataSource->name,
