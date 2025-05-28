@@ -7,7 +7,7 @@ use App\Helpers\DateFormatHelper;
 use App\Models\FormFieldDateFormat;
 use Filament\Resources\Pages\CreateRecord;
 use App\Models\FormFieldValue;
-use App\Models\SelectOptionInstance;
+use App\Models\SelectableValueInstance;
 
 class CreateFormField extends CreateRecord
 {
@@ -18,7 +18,7 @@ class CreateFormField extends CreateRecord
         $formField = $this->record;
 
         $this->createFormFieldValue($formField);
-        $this->createSelectOptionInstance($formField);
+        $this->createSelectableValueInstance($formField);
         $this->createFormFieldDateFormat($formField);
     }
 
@@ -37,17 +37,17 @@ class CreateFormField extends CreateRecord
         }
     }
 
-    private function createSelectOptionInstance($formField)
+    private function createSelectableValueInstance($formField)
     {
         if (method_exists($this, 'getRecord')) {
-            $formField->selectOptionInstances()->delete();
+            $formField->selectableValueInstances()->delete();
         }
 
-        $selectOptions = $this->form->getState()['select_option_instances'] ?? [];
-        foreach ($selectOptions as $index => $instance) {
-            SelectOptionInstance::create([
+        $selectableValues = $this->form->getState()['selectable_value_instances'] ?? [];
+        foreach ($selectableValues as $index => $instance) {
+            SelectableValueInstance::create([
                 'form_field_id' => $formField->id,
-                'select_option_id' => $instance['data']['select_option_id'],
+                'selectable_value_id' => $instance['data']['selectable_value_id'],
                 'order' => $index + 1,
             ]);
         }

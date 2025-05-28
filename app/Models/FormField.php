@@ -84,9 +84,9 @@ class FormField extends Model
         return $this->dataType && $this->dataType->name === 'text-info';
     }
 
-    public function selectOptionInstances(): HasMany
+    public function selectableValueInstances(): HasMany
     {
-        return $this->hasMany(SelectOptionInstance::class, 'form_field_id');
+        return $this->hasMany(SelectableValueInstance::class, 'form_field_id');
     }
 
     public function formVersions()

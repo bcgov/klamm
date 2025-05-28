@@ -15,7 +15,7 @@ use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
-use App\Models\SelectOptionInstance;
+use App\Models\SelectableValueInstance;
 use App\Models\StyleInstance;
 
 class CreateFormVersion extends CreateRecord
@@ -146,13 +146,13 @@ class CreateFormVersion extends CreateRecord
         }
     }
 
-    private function createSelectOptionInstance($component, $formInstanceField)
+    private function createSelectableValueInstance($component, $formInstanceField)
     {
-        if (!empty($component['select_option_instances'])) {
-            foreach ($component['select_option_instances'] as $index => $instance) {
-                SelectOptionInstance::create([
+        if (!empty($component['selectable_value_instances'])) {
+            foreach ($component['selectable_value_instances'] as $index => $instance) {
+                SelectableValueInstance::create([
                     'form_instance_field_id' => $formInstanceField->id,
-                    'select_option_id' => $instance['data']['select_option_id'] ?? null,
+                    'selectable_value_id' => $instance['data']['selectable_value_id'] ?? null,
                     'order' => $index + 1,
                 ]);
             }
@@ -187,7 +187,7 @@ class CreateFormVersion extends CreateRecord
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
         $this->createFieldDateFormat($component, $formInstanceField);
-        $this->createSelectOptionInstance($component, $formInstanceField);
+        $this->createSelectableValueInstance($component, $formInstanceField);
     }
 
     private function createGroup($formVersion, $order, $component, $containerID)
@@ -199,8 +199,8 @@ class CreateFormVersion extends CreateRecord
             'order' => $order,
             'custom_group_label' => $component['custom_group_label'] ?? null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
-            'repeater' => $component['repeater'] ?? false,    
-            'clear_button' => $component['clear_button'] ?? false,          
+            'repeater' => $component['repeater'] ?? false,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_repeater_item_label' => $component['custom_repeater_item_label'],
             'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
             'custom_data_binding' => $component['custom_data_binding'] ?? null,

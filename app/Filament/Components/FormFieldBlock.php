@@ -28,7 +28,7 @@ class FormFieldBlock
     {
         $fields = FormDataHelper::get('fields');
         $dataSources = FormDataHelper::get('dataSources');
-        $selectOptions = FormDataHelper::get('selectOptions');
+        $selectableValues = FormDataHelper::get('selectableValues');
         $styles = FormDataHelper::get('styles');
 
         $isDate = fn($get) => $fields->get($get('form_field_id'))?->dataType->name === 'date';
@@ -99,10 +99,10 @@ class FormFieldBlock
                                 'value' => $validation->value,
                                 'error_message' => $validation->error_message,
                             ])->toArray());
-                            $set('select_option_instances', $field->selectOptionInstances->map(fn($instance) => [
-                                'type' => 'select_option_instance',
+                            $set('selectable_value_instances', $field->selectableValueInstances->map(fn($instance) => [
+                                'type' => 'selectable_value_instance',
                                 'data' => [
-                                    'select_option_id' => $instance->select_option_id,
+                                    'selectable_value_id' => $instance->selectable_value_id,
                                     'order' => $instance->order,
                                 ],
                             ])->toArray());
@@ -111,7 +111,7 @@ class FormFieldBlock
                             $set('webStyles', []);
                             $set('pdfStyles', []);
                             $set('validations', []);
-                            $set('select_option_instances', []);
+                            $set('selectable_value_instances', []);
                         }
                     }),
                 Section::make('Field Properties')
@@ -303,8 +303,8 @@ class FormFieldBlock
                                     ]),
                             ]),
                     ]),
-                Builder::make('select_option_instances')
-                    ->label('Select Option Instances')
+                Builder::make('selectable_value_instances')
+                    ->label('Selectable Value Instances')
                     ->columnSpanFull()
                     ->reorderable()
                     ->blockNumbers(false)
@@ -314,25 +314,25 @@ class FormFieldBlock
                     ->reactive()
                     ->visible(fn($get) => in_array($fields->get($get('form_field_id'))?->dataType?->name, ['radio', 'dropdown']))
                     ->blocks([
-                        Block::make('select_option_instance')
+                        Block::make('selectable_value_instance')
                             ->preview('filament.forms.resources.form-resource.components.block-previews.blank')
                             ->label(
                                 fn(?array $state): string =>
-                                isset($state['select_option_id']) && $selectOptions->has($state['select_option_id'])
-                                    ? $selectOptions[$state['select_option_id']]->label
-                                    . ' | ' . $selectOptions[$state['select_option_id']]->name
-                                    . ' | value: ' . $selectOptions[$state['select_option_id']]->value
-                                    : 'New Option'
+                                isset($state['selectable_value_id']) && $selectableValues->has($state['selectable_value_id'])
+                                    ? $selectableValues[$state['selectable_value_id']]->label
+                                    . ' | ' . $selectableValues[$state['selectable_value_id']]->name
+                                    . ' | value: ' . $selectableValues[$state['selectable_value_id']]->value
+                                    : 'New Selectable Value'
                             )
                             ->schema([
-                                Select::make('select_option_id')
-                                    ->label('Option')
+                                Select::make('selectable_value_id')
+                                    ->label('Selectable Value')
                                     ->searchable()
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->options($selectOptions->map(function ($option) {
-                                        return "{$option->label} | {$option->name} | value: {$option->value}";
+                                    ->options($selectableValues->map(function ($selectableValue) {
+                                        return "{$selectableValue->label} | {$selectableValue->name} | value: {$selectableValue->value}";
                                     })->toArray()),
                             ])
                     ]),

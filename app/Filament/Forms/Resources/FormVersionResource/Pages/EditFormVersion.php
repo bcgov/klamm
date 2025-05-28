@@ -15,7 +15,7 @@ use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValue;
-use App\Models\SelectOptionInstance;
+use App\Models\SelectableValueInstance;
 use App\Models\StyleInstance;
 
 class EditFormVersion extends EditRecord
@@ -84,7 +84,7 @@ class EditFormVersion extends EditRecord
                             'formFieldDateFormat',
                         ]);
                     },
-                    'selectOptionInstances',
+                    'selectableValueInstances',
                     'validations',
                     'conditionals',
                     'styleInstances',
@@ -107,7 +107,7 @@ class EditFormVersion extends EditRecord
                                             'formFieldDateFormat',
                                         ]);
                                     },
-                                    'selectOptionInstances',
+                                    'selectableValueInstances',
                                     'validations',
                                     'conditionals',
                                     'styleInstances',
@@ -129,7 +129,7 @@ class EditFormVersion extends EditRecord
                                         'formFieldDateFormat',
                                     ]);
                                 },
-                                'selectOptionInstances',
+                                'selectableValueInstances',
                                 'validations',
                                 'conditionals',
                                 'styleInstances',
@@ -150,7 +150,7 @@ class EditFormVersion extends EditRecord
                                                 'formFieldDateFormat',
                                             ]);
                                         },
-                                        'selectOptionInstances',
+                                        'selectableValueInstances',
                                         'validations',
                                         'conditionals',
                                         'styleInstances',
@@ -248,13 +248,13 @@ class EditFormVersion extends EditRecord
         }
     }
 
-    private function createSelectOptionInstance($component, $formInstanceField)
+    private function createSelectableValueInstance($component, $formInstanceField)
     {
-        if (!empty($component['select_option_instances'])) {
-            foreach ($component['select_option_instances'] as $index => $instance) {
-                SelectOptionInstance::create([
+        if (!empty($component['selectable_value_instances'])) {
+            foreach ($component['selectable_value_instances'] as $index => $instance) {
+                SelectableValueInstance::create([
                     'form_instance_field_id' => $formInstanceField->id,
-                    'select_option_id' => $instance['data']['select_option_id'] ?? null,
+                    'selectable_value_id' => $instance['data']['selectable_value_id'] ?? null,
                     'order' => $index + 1,
                 ]);
             }
@@ -284,7 +284,7 @@ class EditFormVersion extends EditRecord
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
         $this->createFieldDateFormat($component, $formInstanceField);
-        $this->createSelectOptionInstance($component, $formInstanceField);
+        $this->createSelectableValueInstance($component, $formInstanceField);
     }
 
     private function createGroup($formVersion, $order, $component, $containerID)
@@ -379,14 +379,14 @@ class EditFormVersion extends EditRecord
         return $data;
     }
 
-    private function fillSelectOptionInstances($selectOptionInstances)
+    private function fillSelectableValueInstances($selectableValueInstances)
     {
         $data = [];
-        foreach ($selectOptionInstances as $instance) {
+        foreach ($selectableValueInstances as $instance) {
             $data[] = [
-                'type' => 'select_option_instance',
+                'type' => 'selectable_value_instance',
                 'data' => [
-                    'select_option_id' => $instance->select_option_id,
+                    'selectable_value_id' => $instance->selectable_value_id,
                     'order' => $instance->order
                 ],
             ];
@@ -401,7 +401,7 @@ class EditFormVersion extends EditRecord
             $styles = $this->fillStyles($field->styleInstances);
             $validations = $this->fillValidations($field->validations);
             $conditionals = $this->fillConditionals($field->conditionals);
-            $selectOptionInstances = $this->fillSelectOptionInstances($field->selectOptionInstances);
+            $selectableValueInstances = $this->fillSelectableValueInstances($field->selectableValueInstances);
 
             $formField = $field->formField;
             $components[] = [
@@ -430,7 +430,7 @@ class EditFormVersion extends EditRecord
                     'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
-                    'select_option_instances' => $selectOptionInstances,
+                    'selectable_value_instances' => $selectableValueInstances,
                     'order' => $field->order,
                 ],
             ];

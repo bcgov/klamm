@@ -2,11 +2,11 @@
 
 namespace App\Filament\Forms\Resources;
 
-use App\Filament\Forms\Resources\SelectOptionsResource\Pages;
-use App\Filament\Imports\SelectOptionsImporter;
+use App\Filament\Forms\Resources\SelectableValueResource\Pages;
+use App\Filament\Imports\SelectableValueImporter;
 use App\Filament\Forms\Resources\FormFieldsRelationManagerResource\RelationManagers\FormFieldsRelationManager;
-use App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers\FormInstanceFieldsRelationManager;
-use App\Models\SelectOptions;
+use App\Filament\Forms\Resources\SelectableValueResource\RelationManagers\FormInstanceFieldsRelationManager;
+use App\Models\SelectableValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -18,9 +18,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use App\Http\Middleware\CheckRole;
 
-class SelectOptionsResource extends Resource
+class SelectableValueResource extends Resource
 {
-    protected static ?string $model = SelectOptions::class;
+    protected static ?string $model = SelectableValue::class;
 
     protected static ?string $navigationIcon = 'icon-square-mouse-pointer';
     protected static ?string $navigationGroup = 'Form Building';
@@ -79,7 +79,7 @@ class SelectOptionsResource extends Resource
             ])
             ->headerActions([
                 ImportAction::make('Import CSV')
-                    ->importer(SelectOptionsImporter::class)
+                    ->importer(SelectableValueImporter::class)
             ])
             ->bulkActions([
                 //
@@ -103,10 +103,10 @@ class SelectOptionsResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListSelectOptions::route('/'),
-            'create' => Pages\CreateSelectOptions::route('/create'),
-            'view' => Pages\ViewSelectOptions::route('/{record}'),
-            'edit' => Pages\EditSelectOptions::route('/{record}/edit'),
+            'index' => Pages\ListSelectableValues::route('/'),
+            'create' => Pages\CreateSelectableValue::route('/create'),
+            'view' => Pages\ViewSelectableValue::route('/{record}'),
+            'edit' => Pages\EditSelectableValue::route('/{record}/edit'),
         ];
     }
 }

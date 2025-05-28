@@ -9,7 +9,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use App\Models\FormFieldValue;
-use App\Models\SelectOptionInstance;
+use App\Models\SelectableValueInstance;
 use Filament\Notifications\Notification;
 
 class EditFormField extends EditRecord
@@ -58,10 +58,10 @@ class EditFormField extends EditRecord
         $dateFormatObj = $this->record->formFieldDateFormat()->first();
         $data['date_format'] = array_search($dateFormatObj?->date_format, DateFormatHelper::dateFormats());
 
-        $data['select_option_instances'] = $this->record->selectOptionInstances->map(fn($instance) => [
-            'type' => 'select_option_instance',
+        $data['selectable_value_instances'] = $this->record->selectableValueInstances->map(fn($instance) => [
+            'type' => 'selectable_value_instance',
             'data' => [
-                'select_option_id' => $instance->select_option_id,
+                'selectable_value_id' => $instance->selectable_value_id,
                 'order' => $instance->order,
             ],
         ])->toArray();
@@ -74,7 +74,7 @@ class EditFormField extends EditRecord
         $formField = $this->record;
 
         $this->createFormFieldValue($formField);
-        $this->createSelectOptionInstance($formField);
+        $this->createSelectableValueInstance($formField);
         $this->createFormFieldDateFormat($formField);
     }
 
@@ -93,17 +93,17 @@ class EditFormField extends EditRecord
         }
     }
 
-    private function createSelectOptionInstance($formField)
+    private function createSelectableValueInstance($formField)
     {
         if (method_exists($this, 'getRecord')) {
-            $formField->selectOptionInstances()->delete();
+            $formField->selectableValueInstances()->delete();
         }
 
-        $selectOptions = $this->form->getState()['select_option_instances'] ?? [];
-        foreach ($selectOptions as $index => $instance) {
-            SelectOptionInstance::create([
+        $selectableValues = $this->form->getState()['selectable_value_instances'] ?? [];
+        foreach ($selectableValues as $index => $instance) {
+            SelectableValueInstance::create([
                 'form_field_id' => $formField->id,
-                'select_option_id' => $instance['data']['select_option_id'],
+                'selectable_value_id' => $instance['data']['selectable_value_id'],
                 'order' => $index + 1,
             ]);
         }

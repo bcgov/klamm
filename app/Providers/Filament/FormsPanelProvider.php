@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Forms\Resources\SelectableValueResource;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;

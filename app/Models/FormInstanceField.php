@@ -48,9 +48,9 @@ class FormInstanceField extends Model
         return $this->belongsTo(Container::class);
     }
 
-    public function selectOptionInstances(): HasMany
+    public function selectableValueInstances(): HasMany
     {
-        return $this->hasMany(SelectOptionInstance::class, 'form_instance_field_id');
+        return $this->hasMany(SelectableValueInstance::class, 'form_instance_field_id');
     }
 
     public function styleInstances(): HasMany

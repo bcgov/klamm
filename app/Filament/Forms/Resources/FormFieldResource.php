@@ -16,7 +16,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\RichEditor;
 use App\Models\DataType;
-use App\Models\SelectOptions;
+use App\Models\SelectableValue;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\Fieldset;
@@ -54,7 +54,7 @@ class FormFieldResource extends Resource
             'javascript' => 'JavaScript',
         ];
 
-        $selectOptions = SelectOptions::all()->keyBy('id');
+        $selectableValues = SelectableValue::all()->keyBy('id');
         $dataTypes = DataType::all()->keyBy('id');
         $isDate = fn($get) => isset($dataTypes[$get('data_type_id')]) && $dataTypes[$get('data_type_id')]->name === 'date';
 
@@ -97,8 +97,8 @@ class FormFieldResource extends Resource
                     ])
                     ->live()
                     ->columnSpanFull(),
-                Builder::make('select_option_instances')
-                    ->label('Select Option Instances')
+                Builder::make('selectable_value_instances')
+                    ->label('Selectable Value Instances')
                     ->columnSpanFull()
                     ->reorderable()
                     ->blockNumbers(false)
@@ -108,20 +108,20 @@ class FormFieldResource extends Resource
                     ->reactive()
                     ->visible(fn($get) => isset($dataTypes[$get('data_type_id')]) && in_array($dataTypes[$get('data_type_id')]->name, ['radio', 'dropdown']))
                     ->blocks([
-                        Block::make('select_option_instance')
+                        Block::make('selectable_value_instance')
                             ->label(
                                 fn(?array $state): string =>
-                                isset($state['select_option_id']) && $selectOptions->has($state['select_option_id'])
-                                    ? $selectOptions[$state['select_option_id']]->label
-                                    . ' | ' . $selectOptions[$state['select_option_id']]->name
-                                    . ' | value: ' . $selectOptions[$state['select_option_id']]->value
-                                    : 'New Option'
+                                isset($state['selectable_value_id']) && $selectableValues->has($state['selectable_value_id'])
+                                    ? $selectableValues[$state['selectable_value_id']]->label
+                                    . ' | ' . $selectableValues[$state['selectable_value_id']]->name
+                                    . ' | value: ' . $selectableValues[$state['selectable_value_id']]->value
+                                    : 'New Selectable Value'
                             )
                             ->schema([
-                                Select::make('select_option_id')
-                                    ->label('Option')
-                                    ->options($selectOptions->map(function ($option) {
-                                        return "{$option->label} | {$option->name} | value: {$option->value}";
+                                Select::make('selectable_value_id')
+                                    ->label('Selectable Value')
+                                    ->options($selectableValues->map(function ($selectableValue) {
+                                        return "{$selectableValue->label} | {$selectableValue->name} | value: {$selectableValue->value}";
                                     })->toArray())
                                     ->searchable()
                                     ->preload()

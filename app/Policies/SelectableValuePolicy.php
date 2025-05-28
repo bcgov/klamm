@@ -2,26 +2,27 @@
 
 namespace App\Policies;
 
-use App\Models\SelectOptions;
+use App\Models\SelectableValue;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
-class SelectOptionsPolicy
+class SelectableValuePolicy
 {
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view-any SelectOptions');
+        // return $user->can('view-any SelectableValue');
+        return true;
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, SelectOptions $selectOptions): bool
+    public function view(User $user, SelectableValue $selectableValue): bool
     {
-        return $user->can('view SelectOptions');
+        return $user->can('view SelectableValue');
     }
 
     /**
@@ -29,22 +30,22 @@ class SelectOptionsPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create SelectOptions');
+        return $user->can('create SelectableValue');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, SelectOptions $selectOptions): bool
+    public function update(User $user, SelectableValue $selectableValue): bool
     {
-        return $user->can('update SelectOptions');
+        return $user->can('update SelectableValue');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, SelectOptions $selectOptions): bool
+    public function delete(User $user, SelectableValue $selectableValue): bool
     {
-        return $user->can('delete SelectOptions');
+        return $user->can('delete SelectableValue');
     }
 }

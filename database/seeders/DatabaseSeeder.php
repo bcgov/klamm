@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
             FormFieldSeeder::class,
             RolesSeeder::class,
             PermissionsSeeder::class,
-            SelectOptionsSeeder::class,
+            SelectableValueSeeder::class,
             BusinessAreaSeeder::class,
             FillTypeSeeder::class,
             FormFrequencySeeder::class,

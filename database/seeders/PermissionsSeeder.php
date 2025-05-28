@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 
@@ -253,11 +254,11 @@ class PermissionsSeeder extends Seeder
             'create UserType',
             'update UserType',
             'delete UserType',
-            'view-any SelectOptions',
-            'view SelectOptions',
-            'create SelectOptions',
-            'update SelectOptions',
-            'delete SelectOptions',
+            'view-any SelectableValue',
+            'view SelectableValue',
+            'create SelectableValue',
+            'update SelectableValue',
+            'delete SelectableValue',
             'view-any FormTag',
             'view FormTag',
             'create FormTag',
@@ -326,8 +327,8 @@ class PermissionsSeeder extends Seeder
             'view ValueType',
             'view-any UserType',
             'view UserType',
-            'view-any SelectOptions',
-            'view SelectOptions',
+            'view-any SelectableValue',
+            'view SelectableValue',
             'view-any FormTag',
             'view FormTag',
             'view-any FormSoftwareSource',

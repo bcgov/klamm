@@ -10,20 +10,20 @@ use App\Models\FormField;
 
 class FormFieldsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'selectOptionInstances'; // A placeholder; we override query() anyway
-    protected static ?string $title = 'Fields using this SelectOption';
+    protected static string $relationship = 'selectableValueInstances'; // A placeholder; we override query() anyway
+    protected static ?string $title = 'Fields using this Selectable Value';
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('selectOptionInstances');
+        return parent::getEloquentQuery()->with('selectableValueInstances');
     }
 
     public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->query(function () {
-                return FormField::whereHas('selectOptionInstances', function (Builder $query) {
-                    $query->where('select_option_id', $this->ownerRecord->id);
+                return FormField::whereHas('selectableValueInstances', function (Builder $query) {
+                    $query->where('selectable_value_id', $this->ownerRecord->id);
                 });
             })
             ->columns([

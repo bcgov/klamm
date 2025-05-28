@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Forms\Resources\SelectOptionsResource\RelationManagers;
+namespace App\Filament\Forms\Resources\SelectableValueResource\RelationManagers;
 
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
@@ -10,15 +10,15 @@ use App\Models\FormInstanceField;
 
 class FormInstanceFieldsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'selectOptionInstances';
-    protected static ?string $title = 'Forms using this SelectOption';
+    protected static string $relationship = 'selectableValueInstances';
+    protected static ?string $title = 'Forms using this Selectable Value';
 
     public function table(Tables\Table $table): Tables\Table
     {
         return $table
             ->query(function () {
-                return FormInstanceField::whereHas('selectOptionInstances', function (Builder $query) {
-                    $query->where('select_option_id', $this->ownerRecord->id);
+                return FormInstanceField::whereHas('selectableValueInstances', function (Builder $query) {
+                    $query->where('selectable_value_id', $this->ownerRecord->id);
                 });
             })
             ->columns([

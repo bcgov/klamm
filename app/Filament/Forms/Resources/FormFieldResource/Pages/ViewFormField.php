@@ -28,10 +28,10 @@ class ViewFormField extends ViewRecord
         $dateFormatObj = $this->record->formFieldDateFormat()->first();
         $data['date_format'] = array_search($dateFormatObj?->date_format, DateFormatHelper::dateFormats());
 
-        $data['select_option_instances'] = $this->record->selectOptionInstances->map(fn($instance) => [
-            'type' => 'select_option_instance',
+        $data['selectable_value_instances'] = $this->record->selectableValueInstances->map(fn($instance) => [
+            'type' => 'selectable_value_instance',
             'data' => [
-                'select_option_id' => $instance->select_option_id,
+                'selectable_value_id' => $instance->selectable_value_id,
                 'order' => $instance->order,
             ],
         ])->toArray();

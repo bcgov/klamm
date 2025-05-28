@@ -36,7 +36,7 @@ class ViewFormVersion extends ViewRecord
                             'formFieldDateFormat',
                         ]);
                     },
-                    'selectOptionInstances',
+                    'selectableValueInstances',
                     'validations',
                     'conditionals',
                     'styleInstances',
@@ -60,7 +60,7 @@ class ViewFormVersion extends ViewRecord
                                             'formFieldDateFormat',
                                         ]);
                                     },
-                                    'selectOptionInstances',
+                                    'selectableValueInstances',
                                     'validations',
                                     'conditionals',
                                     'styleInstances',
@@ -83,7 +83,7 @@ class ViewFormVersion extends ViewRecord
                                         'formFieldDateFormat',
                                     ]);
                                 },
-                                'selectOptionInstances',
+                                'selectableValueInstances',
                                 'validations',
                                 'conditionals',
                                 'styleInstances',
@@ -105,7 +105,7 @@ class ViewFormVersion extends ViewRecord
                                                 'formFieldDateFormat',
                                             ]);
                                         },
-                                        'selectOptionInstances',
+                                        'selectableValueInstances',
                                         'validations',
                                         'conditionals',
                                         'styleInstances',
@@ -182,14 +182,14 @@ class ViewFormVersion extends ViewRecord
         return $data;
     }
 
-    private function fillSelectOptionInstances($selectOptionInstances)
+    private function fillselectableValueInstances($selectableValueInstances)
     {
         $data = [];
-        foreach ($selectOptionInstances as $instance) {
+        foreach ($selectableValueInstances as $instance) {
             $data[] = [
-                'type' => 'select_option_instance',
+                'type' => 'selectable_value_instance',
                 'data' => [
-                    'select_option_id' => $instance->select_option_id,
+                    'selectable_value_id' => $instance->selectable_value_id,
                     'order' => $instance->order
                 ],
             ];
@@ -204,7 +204,7 @@ class ViewFormVersion extends ViewRecord
             $styles = $this->fillStyles($field->styleInstances);
             $validations = $this->fillValidations($field->validations);
             $conditionals = $this->fillConditionals($field->conditionals);
-            $selectOptionInstances = $this->fillSelectOptionInstances($field->selectOptionInstances);
+            $selectableValueInstances = $this->fillselectableValueInstances($field->selectableValueInstances);
 
             $formField = $field->formField;
             $components[] = [
@@ -237,7 +237,7 @@ class ViewFormVersion extends ViewRecord
                     'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
-                    'select_option_instances' => $selectOptionInstances,
+                    'selectable_value_instance' => $selectableValueInstances,
                     'order' => $field->order,
                 ],
             ];

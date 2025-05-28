@@ -5,7 +5,7 @@ namespace App\Helpers;
 use App\Models\FormField;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
-use App\Models\SelectOptions;
+use App\Models\SelectableValue;
 use App\Models\Style;
 use Illuminate\Support\Facades\Log;
 
@@ -55,7 +55,7 @@ class FormDataHelper
             'groups' => $groups,
             'styles' => Style::select(['id', 'name'])->get()->keyBy('id'),
             'dataSources' => FormDataSource::select(['id', 'name'])->get()->keyBy('id'),
-            'selectOptions' => SelectOptions::select(['id', 'label'])->get()->keyBy('id'),
+            'selectableValues' => SelectableValue::select(['id', 'label'])->get()->keyBy('id'),
         ];
 
         // For non-view pages that need full data, load additional relationships
@@ -99,14 +99,14 @@ class FormDataHelper
                 'webStyles:id,name',
                 'pdfStyles:id,name',
                 'validations:id,form_field_id,type,value,error_message',
-                'selectOptionInstances:id,form_field_id,select_option_id,order',
+                'selectablevalueInstances:id,form_field_id,selectable_value_id,order',
             ])->chunk(100, function ($fields) use ($formId) {
                 foreach ($fields as $field) {
                     if (isset(self::$cache['fields'][$field->id])) {
                         self::$cache['fields'][$field->id]->webStyles = $field->webStyles;
                         self::$cache['fields'][$field->id]->pdfStyles = $field->pdfStyles;
                         self::$cache['fields'][$field->id]->validations = $field->validations;
-                        self::$cache['fields'][$field->id]->selectOptionInstances = $field->selectOptionInstances;
+                        self::$cache['fields'][$field->id]->selectableValueInstances = $field->selectableValueInstances;
                     }
                 }
             });

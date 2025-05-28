@@ -5,17 +5,17 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use App\Models\DataType;
-use App\Models\SelectOptions;
+use App\Models\SelectableValue;
 use App\Models\FormField;
 
-class SelectOptionsFactory extends Factory
+class SelectableValueFactory extends Factory
 {
     /**
      * The name of the factory's corresponding model.
      *
      * @var string
      */
-    protected $model = SelectOptions::class;
+    protected $model = SelectableValue::class;
 
     /**
      * Define the model's default state.

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SelectOptionInstance extends Model
+class SelectableValueInstance extends Model
 {
     use HasFactory;
 
@@ -18,7 +18,7 @@ class SelectOptionInstance extends Model
     protected $fillable = [
         'form_field_id',
         'form_instance_field_id',
-        'select_option_id',
+        'selectable_value_id',
         'order',
     ];
 
@@ -31,9 +31,9 @@ class SelectOptionInstance extends Model
         'id' => 'integer',
     ];
 
-    public function selectOption(): BelongsTo
+    public function selectableValue(): BelongsTo
     {
-        return $this->belongsTo(SelectOptions::class, 'select_option_id');
+        return $this->belongsTo(SelectableValue::class, 'selectable_value_id');
     }
 
     public function formField(): BelongsTo

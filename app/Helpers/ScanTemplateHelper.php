@@ -7,7 +7,7 @@ use App\Models\FieldGroup;
 use App\Models\Form;
 use App\Models\FormDataSource;
 use App\Models\FormField;
-use App\Models\SelectOptions;
+use App\Models\SelectableValue;
 use App\Models\Style;
 
 class ScanTemplateHelper
@@ -364,23 +364,23 @@ class ScanTemplateHelper
             $warnings = array_merge($warnings, $messages['warnings']);
         }
 
-        // Check if SelectOptions exist
+        // Check if SelectableValue exist
         if (isset($field['listItems'])) {
             foreach ($field['listItems'] as $index => $item) {
                 $num = $index + 1;
                 if (!isset($item['name'])) {
-                    $errors[] = "❌ #{$labelNum}: SelectOption #{$num} requires key `name`.";
+                    $errors[] = "❌ #{$labelNum}: SelectableValue #{$num} requires key `name`.";
                 } else {
-                    $option = SelectOptions::where('name', $item['name'])->first();
-                    if (!$option) {
-                        $warnings[] = "⚠️ #{$labelNum}: SelectOption #{$num} `{$item['name']}` not found. Importing will create a new SelectOption.";
+                    $selectableValue = SelectableValue::where('name', $item['name'])->first();
+                    if (!$selectableValue) {
+                        $warnings[] = "⚠️ #{$labelNum}: SelectableValue #{$num} `{$item['name']}` not found. Importing will create a new SelectableValue.";
                     }
                 }
                 if (!isset($item['text'])) {
-                    $errors[] = "❌ #{$labelNum}: SelectOption #{$num} requires key `text`.";
+                    $errors[] = "❌ #{$labelNum}: SelectableValue #{$num} requires key `text`.";
                 }
                 if (!isset($item['value'])) {
-                    $errors[] = "❌ #{$labelNum}: SelectOption #{$num} requires key `value`.";
+                    $errors[] = "❌ #{$labelNum}: SelectableValue #{$num} requires key `value`.";
                 }
             }
         }

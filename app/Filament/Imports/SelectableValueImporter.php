@@ -2,15 +2,15 @@
 
 namespace App\Filament\Imports;
 
-use App\Models\SelectOptions;
+use App\Models\SelectableValue;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Support\Str;
 
-class SelectOptionsImporter extends Importer
+class SelectableValueImporter extends Importer
 {
-    protected static ?string $model = SelectOptions::class;
+    protected static ?string $model = SelectableValue::class;
 
     public static function getColumns(): array
     {
@@ -28,14 +28,14 @@ class SelectOptionsImporter extends Importer
         ];
     }
 
-    public function resolveRecord(): ?SelectOptions
+    public function resolveRecord(): ?SelectableValue
     {
-        return SelectOptions::firstOrNew([
+        return SelectableValue::firstOrNew([
             // Update existing records, matching them by `$this->data['column_name']`
             'name' => $this->data['name'],
         ]);
 
-        return new SelectOptions();
+        return new SelectableValue();
     }
 
     public static function getCompletedNotificationBody(Import $import): string

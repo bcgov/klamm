@@ -208,14 +208,14 @@ class FormTemplateHelper
                     "selectionFeedback" => "top-after-reopen",
                     "direction" => "bottom",
                     "size" => "md",
-                    "listItems" => $fieldInstance->selectOptionInstances()
-                        ->with('selectOption')
+                    "listItems" => $fieldInstance->selectableValueInstances()
+                        ->with('selectableValue')
                         ->get()
-                        ->map(function ($selectOptionInstance) {
+                        ->map(function ($selectableValueInstance) {
                             return [
-                                "name" => $selectOptionInstance->selectOption->name,
-                                "text" => $selectOptionInstance->selectOption->label,
-                                "value" => $selectOptionInstance->selectOption->value
+                                "name" => $selectableValueInstance->selectableValue->name,
+                                "text" => $selectableValueInstance->selectableValue->label,
+                                "value" => $selectableValueInstance->selectableValue->value
                             ];
                         })
                         ->toArray(),
@@ -230,14 +230,14 @@ class FormTemplateHelper
                 ]);
             case "radio":
                 return array_merge($base, [
-                    "listItems" => $fieldInstance->selectOptionInstances()
-                        ->with('selectOption')
+                    "listItems" => $fieldInstance->selectableValueInstances()
+                        ->with('selectableValue')
                         ->get()
-                        ->map(function ($selectOptionInstance) {
+                        ->map(function ($selectableValueInstance) {
                             return [
-                                "name" => $selectOptionInstance->selectOption->name,
-                                "text" => $selectOptionInstance->selectOption->label,
-                                "value" => $selectOptionInstance->selectOption->value
+                                "name" => $selectableValueInstance->selectableValue->name,
+                                "text" => $selectableValueInstance->selectableValue->label,
+                                "value" => $selectableValueInstance->selectableValue->value
                             ];
                         })
                         ->toArray(),
