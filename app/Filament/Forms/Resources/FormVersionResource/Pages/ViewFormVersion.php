@@ -3,22 +3,29 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
-use Filament\Actions;
+use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Actions;
 
 class ViewFormVersion extends ViewRecord
 {
     protected static string $resource = FormVersionResource::class;
 
+    public array $additionalApprovers = [];
+
     protected function getHeaderActions(): array
     {
         return [
-
             Actions\ViewAction::make('view')
                 ->url(fn($record) => route('filament.forms.resources.forms.view', ['record' => $record->form_id]))
-                ->icon('heroicon-o-eye')
-                ->label('View Form Metadata'),
-            Actions\EditAction::make(),
+                ->label('Form Metadata')
+                ->button()
+                ->link()
+                ->extraAttributes(['class' => 'underline']),
+            Actions\EditAction::make()
+                ->outlined()
+                ->visible(fn() => $this->record->status === 'draft'),
+            FormApprovalActions::makeReadyForReviewAction($this->record, $this->additionalApprovers),
         ];
     }
 
