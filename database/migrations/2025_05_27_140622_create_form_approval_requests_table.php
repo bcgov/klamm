@@ -14,10 +14,12 @@ return new class extends Migration
         Schema::create('form_approval_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('form_version_id')->constrained('form_versions')->cascadeOnDelete();
+            $table->foreignId('requester_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('approver_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('approver_name');
             $table->string('approver_email');
-            $table->text('note')->nullable();
+            $table->text('requester_note')->nullable();
+            $table->text('approver_note')->nullable();
             $table->boolean('webform_approval')->default(false);
             $table->boolean('pdf_approval')->default(false);
             $table->boolean('is_klamm_user')->default(false);

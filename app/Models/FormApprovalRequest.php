@@ -12,10 +12,12 @@ class FormApprovalRequest extends Model
 
     protected $fillable = [
         'form_version_id',
+        'requester_id',
         'approver_id',
         'approver_name',
         'approver_email',
-        'note',
+        'requester_note',
+        'approver_note',
         'webform_approval',
         'pdf_approval',
         'is_klamm_user',
@@ -41,5 +43,10 @@ class FormApprovalRequest extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approver_id');
+    }
+
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requester_id');
     }
 }

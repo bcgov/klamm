@@ -15,6 +15,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 use Filament\Actions\StaticAction;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\Auth;
 
 class FormApprovalActions
 {
@@ -37,7 +38,7 @@ class FormApprovalActions
                     ->minItems(1)
                     ->columns(1)
                     ->label('Select version(s) for approval'),
-                Textarea::make('note')
+                Textarea::make('requester_note')
                     ->label('Note for approver')
                     ->required(),
                 Radio::make('approver')
@@ -180,10 +181,11 @@ class FormApprovalActions
 
         $approvalRequestData = [
             'form_version_id' => $record->id,
+            'requester_id' => Auth::user()->id,
             'approver_id' => $user->id,
             'approver_name' => $user->name,
             'approver_email' => $user->email,
-            'note' => $data['note'],
+            'requester_note' => $data['requester_note'],
             'webform_approval' => in_array('webform', $data['approval_types']),
             'pdf_approval' => in_array('pdf', $data['approval_types']),
             'is_klamm_user' => true,
@@ -207,9 +209,10 @@ class FormApprovalActions
 
         $approvalRequestData = [
             'form_version_id' => $record->id,
+            'requester_id' => Auth::user()->id,
             'approver_name' => $approverData[0],
             'approver_email' => $approverData[1],
-            'note' => $data['note'],
+            'requester_note' => $data['requester_note'],
             'webform_approval' => in_array('webform', $data['approval_types']),
             'pdf_approval' => in_array('pdf', $data['approval_types']),
             'is_klamm_user' => false,
