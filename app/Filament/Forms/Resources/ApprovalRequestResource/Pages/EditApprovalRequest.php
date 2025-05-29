@@ -80,9 +80,19 @@ class EditApprovalRequest extends EditRecord
     {
         parent::mount($record);
 
-        if ($this->record->approver_id !== Auth::id()) {
-            abort(403, 'You are not authorized to review this approval request.');
+        // If user is the approver, show the page
+        if ($this->record->approver_id === Auth::id()) {
+            return;
         }
+
+        // If user is not the approver but has form-developer or admin role, redirect to view page
+        if (optional(Auth::user())->hasRole('form-developer') || optional(Auth::user())->hasRole('admin')) {
+            $this->redirect(ApprovalRequestResource::getUrl('view', ['record' => $this->record]));
+            return;
+        }
+
+        // If user is not the approver and doesn't have required roles, show 403 page
+        abort(403, 'You are not authorized to review this approval request.');
     }
 
     public function form(Form $form): Form

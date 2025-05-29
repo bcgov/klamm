@@ -25,6 +25,13 @@ class ListApprovalRequests extends ListRecords
         ];
     }
 
+    public function getBreadcrumbs(): array
+    {
+        return [
+            //
+        ];
+    }
+
     public function getTabs(): array
     {
         return [
@@ -87,6 +94,9 @@ class ListApprovalRequests extends ListRecords
             ->bulkActions([
                 //
             ])
+            ->recordUrl(
+                fn($record) => ApprovalRequestResource::getUrl('view', ['record' => $record])
+            )
             ->defaultSort('created_at', 'desc');
     }
 }
