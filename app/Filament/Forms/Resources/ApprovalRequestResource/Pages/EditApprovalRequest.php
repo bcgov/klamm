@@ -8,9 +8,11 @@ use Filament\Forms\Form;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Actions as FormActions;
-use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Textarea;
+use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
 
@@ -22,9 +24,49 @@ class EditApprovalRequest extends EditRecord
 
     protected ?string $subheading = 'You are receiving this request because you previously requested changes to a form. Please review the updates made and either approve or reject them.';
 
+    public $webformApprovalState = null;
+    public $pdfApprovalState = null;
+    public $webformRejectionReason = '';
+    public $pdfRejectionReason = '';
+
     protected static function formatLabel(string $text): string
     {
         return '<span class="block text-lg font-bold">' . $text . '</span>';
+    }
+
+    protected static function formatRequesterNote(string $note): string
+    {
+        if (strlen($note) <= 200) {
+            return $note;
+        }
+
+        $truncated = substr($note, 0, 300);
+
+        return '<div>
+            <span id="note-preview">' . $truncated . '...</span>
+            <span id="note-full" style="display: none;">' . $note . '</span>
+            <br>
+            <button type="button" id="toggle-note" class="text-primary-600 hover:text-primary-500 underline text-sm mt-1" onclick="toggleNote()">
+                Show more
+            </button>
+        </div>
+        <script>
+            function toggleNote() {
+                const preview = document.getElementById("note-preview");
+                const full = document.getElementById("note-full");
+                const button = document.getElementById("toggle-note");
+                
+                if (preview.style.display === "none") {
+                    preview.style.display = "inline";
+                    full.style.display = "none";
+                    button.textContent = "Show more";
+                } else {
+                    preview.style.display = "none";
+                    full.style.display = "inline";
+                    button.textContent = "Show less";
+                }
+            }
+        </script>';
     }
 
     public function getBreadcrumbs(): array
@@ -66,7 +108,7 @@ class EditApprovalRequest extends EditRecord
                             ]),
                         Placeholder::make('requester_note')
                             ->label(new HtmlString(self::formatLabel('Requester Note')))
-                            ->content(fn($record) => $record->requester_note ?? 'No note provided')
+                            ->content(fn($record) => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided')))
                             ->columnSpanFull(),
                     ]),
 
@@ -76,33 +118,47 @@ class EditApprovalRequest extends EditRecord
                             ->schema([
                                 Placeholder::make('webform_link')
                                     ->label('')
-                                    ->extraAttributes(['class' => 'prose text-primary-500'])
-                                    ->content(new HtmlString('<a href="https://filamentphp.com/docs">View Webform</a>'))
+                                    ->extraAttributes(['class' => 'prose'])
+                                    ->content(new HtmlString('<a href="https://filamentphp.com/docs" class="text-primary-600 hover:text-primary-500 underline">View Webform</a>'))
                                     ->columnSpanFull(),
                                 Placeholder::make('webform_question')
                                     ->label('')
                                     ->content('Do you approve the changes that have been made?')
                                     ->columnSpanFull(),
                                 FormActions::make([
-                                    Action::make('reject_webform')
+                                    FormAction::make('reject_webform')
                                         ->label('Reject')
                                         ->color('danger')
-                                        ->outlined()
+                                        ->outlined(fn() => $this->webformApprovalState !== 'rejected')
                                         ->icon('heroicon-o-x-circle')
                                         ->action(function () {
-                                            // TODO: Implement reject logic
+                                            if ($this->webformApprovalState === 'rejected') {
+                                                $this->webformApprovalState = null;
+                                            } else {
+                                                $this->webformApprovalState = 'rejected';
+                                            }
                                         }),
-                                    Action::make('approve_webform')
+                                    FormAction::make('approve_webform')
                                         ->label('Approve')
                                         ->color('success')
-                                        ->outlined()
+                                        ->outlined(fn() => $this->webformApprovalState !== 'approved')
                                         ->icon('heroicon-o-check-circle')
                                         ->action(function () {
-                                            // TODO: Implement approve logic
+                                            if ($this->webformApprovalState === 'approved') {
+                                                $this->webformApprovalState = null;
+                                            } else {
+                                                $this->webformApprovalState = 'approved';
+                                            }
                                         }),
                                 ])
                                     ->columnSpanFull()
                                     ->alignment('start'),
+                                Textarea::make('webformRejectionReason')
+                                    ->label('Reasons for rejection (Required)')
+                                    ->required()
+                                    ->rows(3)
+                                    ->columnSpanFull()
+                                    ->visible(fn() => $this->webformApprovalState === 'rejected'),
                             ])
                             ->visible(fn($record) => $record->webform_approval === true),
 
@@ -110,33 +166,47 @@ class EditApprovalRequest extends EditRecord
                             ->schema([
                                 Placeholder::make('pdf_link')
                                     ->label('')
-                                    ->extraAttributes(['class' => 'prose text-primary-500'])
-                                    ->content(new HtmlString('<a href="https://filamentphp.com/docs">View PDF</a>'))
+                                    ->extraAttributes(['class' => 'prose'])
+                                    ->content(new HtmlString('<a href="https://filamentphp.com/docs" class="text-primary-600 hover:text-primary-500 underline">View PDF</a>'))
                                     ->columnSpanFull(),
                                 Placeholder::make('pdf_question')
                                     ->label('')
                                     ->content('Do you approve the changes that have been made?')
                                     ->columnSpanFull(),
                                 FormActions::make([
-                                    Action::make('reject_pdf')
+                                    FormAction::make('reject_pdf')
                                         ->label('Reject')
                                         ->color('danger')
-                                        ->outlined()
+                                        ->outlined(fn() => $this->pdfApprovalState !== 'rejected')
                                         ->icon('heroicon-o-x-circle')
                                         ->action(function () {
-                                            // TODO: Implement reject logic
+                                            if ($this->pdfApprovalState === 'rejected') {
+                                                $this->pdfApprovalState = null;
+                                            } else {
+                                                $this->pdfApprovalState = 'rejected';
+                                            }
                                         }),
-                                    Action::make('approve_pdf')
+                                    FormAction::make('approve_pdf')
                                         ->label('Approve')
                                         ->color('success')
-                                        ->outlined()
+                                        ->outlined(fn() => $this->pdfApprovalState !== 'approved')
                                         ->icon('heroicon-o-check-circle')
                                         ->action(function () {
-                                            // TODO: Implement approve logic
+                                            if ($this->pdfApprovalState === 'approved') {
+                                                $this->pdfApprovalState = null;
+                                            } else {
+                                                $this->pdfApprovalState = 'approved';
+                                            }
                                         }),
                                 ])
                                     ->columnSpanFull()
                                     ->alignment('start'),
+                                Textarea::make('pdfRejectionReason')
+                                    ->label('Reasons for rejection (Required)')
+                                    ->required()
+                                    ->rows(3)
+                                    ->columnSpanFull()
+                                    ->visible(fn() => $this->pdfApprovalState === 'rejected'),
                             ])
                             ->visible(fn($record) => $record->pdf_approval === true),
                     ]),
@@ -153,7 +223,21 @@ class EditApprovalRequest extends EditRecord
     protected function getFormActions(): array
     {
         return [
-            //
+            Action::make('submit')
+                ->label('Submit Review')
+                ->color('primary')
+                ->disabled(function () {
+                    $webformRequired = $this->record->webform_approval;
+                    $pdfRequired = $this->record->pdf_approval;
+
+                    $webformComplete = !$webformRequired || ($this->webformApprovalState !== null);
+                    $pdfComplete = !$pdfRequired || ($this->pdfApprovalState !== null);
+
+                    return !($webformComplete && $pdfComplete);
+                })
+                ->action(function () {
+                    // TODO: Implement submit logic
+                }),
         ];
     }
 }
