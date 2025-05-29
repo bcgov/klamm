@@ -237,8 +237,74 @@ class ExternalApprovalReview extends Page implements HasForms
                     return !($webformComplete && $pdfComplete);
                 })
                 ->action(function () {
-                    // TODO: Implement submit logic for external approval
+                    $formVersionStatus = $this->determineFormVersionStatus();
+                    $isApproved = $formVersionStatus === 'approved';
+
+                    $updateData = [
+                        'status' => 'completed',
+                        'approver_note' => $this->buildApproverNote(),
+                    ];
+
+                    if ($isApproved) {
+                        $updateData['approved_at'] = now();
+                    } else {
+                        $updateData['rejected_at'] = now();
+                    }
+
+                    $this->record->update($updateData);
+
+                    $this->record->formVersion->update([
+                        'status' => $formVersionStatus,
+                    ]);
+
+                    session()->flash('success', 'Your approval has been submitted successfully. Thank you for your review.');
+
+                    return redirect('/welcome');
                 }),
         ];
+    }
+
+    protected function buildApproverNote(): string
+    {
+        $notes = [];
+        $formState = $this->form->getState();
+
+        if ($this->record->webform_approval) {
+            if ($this->webformApprovalState === 'approved') {
+                $notes[] = 'Webform: Approved';
+            } elseif ($this->webformApprovalState === 'rejected') {
+                $rejectionReason = $formState['webformRejectionReason'] ?? 'No reason provided';
+                $notes[] = 'Webform: Rejected - ' . $rejectionReason;
+            }
+        }
+
+        if ($this->record->pdf_approval) {
+            if ($this->pdfApprovalState === 'approved') {
+                $notes[] = 'PDF: Approved';
+            } elseif ($this->pdfApprovalState === 'rejected') {
+                $rejectionReason = $formState['pdfRejectionReason'] ?? 'No reason provided';
+                $notes[] = 'PDF: Rejected - ' . $rejectionReason;
+            }
+        }
+
+        return implode("\n\n", $notes);
+    }
+
+    protected function determineFormVersionStatus(): string
+    {
+        $webformRequired = $this->record->webform_approval;
+        $pdfRequired = $this->record->pdf_approval;
+
+        $hasRejection = false;
+
+        if ($webformRequired && $this->webformApprovalState === 'rejected') {
+            $hasRejection = true;
+        }
+
+        if ($pdfRequired && $this->pdfApprovalState === 'rejected') {
+            $hasRejection = true;
+        }
+
+        return $hasRejection ? 'draft' : 'approved';
     }
 }
