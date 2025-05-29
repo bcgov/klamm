@@ -2,6 +2,7 @@
 
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
+use App\Events\FormVersionUpdateEvent;
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
@@ -43,6 +44,8 @@ class EditFormVersion extends EditRecord
 
     protected function getRedirectUrl(): string
     {
+        // Regenerate Form Version Cache after cancelling the edit
+        FormTemplateHelper::clearFormTemplateCache($this->record->id);
         return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
     }
 
@@ -51,6 +54,38 @@ class EditFormVersion extends EditRecord
         return [
             Actions\ViewAction::make(),
             Actions\DeleteAction::make(),
+            Actions\Action::make('Preview Draft Template')
+                ->label('Preview Draft')
+                ->icon('heroicon-o-eye')
+                ->action(function ($livewire) {
+                    $formVersionId = $this->record->id;
+                    $previewBaseUrl = env('FORM_PREVIEW_URL', '');
+                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId . '?draft=true';
+                    $livewire->js("window.open('$previewUrl', '_blank')");
+                }),
+            Actions\Action::make('refresh_template')
+                ->label('Refresh Preview')
+                ->requiresConfirmation(false)
+                ->action(function () {
+                    Cache::tags(['draft'])->flush();
+                    $formVersion = $this->record;
+                    $components = $this->form->getState()['components'] ?? [];
+                    $requestedAt = now()->unix();
+                    $uniqueJobId = 'generate-form-template-' . $formVersion->id . '-draft';
+                    Cache::forget('laravel_unique_job:' . $uniqueJobId);
+                    $cacheKey = "formtemplate:{$formVersion->id}:draft_requested_at";
+                    Cache::tags(['form-template'])->put($cacheKey, $requestedAt, now()->addDay());
+                    try {
+                        $job = new GenerateFormTemplateJob($formVersion->id, $requestedAt, $components, true);
+                        $job->handle();
+                    } catch (\Exception $e) {
+                        Log::error("Job execution failed: " . $e->getMessage(), [
+                            'exception' => $e,
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                    }
+                    Log::info("Draft cache refresh process completed for form version {$this->record->id}");
+                })
         ];
     }
 
@@ -80,11 +115,11 @@ class EditFormVersion extends EditRecord
         $formId = $this->record->id;
         FormDataHelper::invalidateFormCache($formId);
 
-        // Force the updated_at timestamp to change to invalidate any caches
         $formVersion->touch();
         $requestedAt = now()->unix();
         Cache::tags(['form-template'])->put("formtemplate:{$formVersion->id}:requested_at", $requestedAt, now()->addHours(1));
-        GenerateFormTemplateJob::dispatch($formVersion->id, $requestedAt)->onQueue('high');
+        $job = new GenerateFormTemplateJob($formVersion->id, $requestedAt);
+        $job->handle();
 
         Log::info("Form version {$formVersion->id} saved and template generation triggered");
     }

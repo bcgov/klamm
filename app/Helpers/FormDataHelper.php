@@ -262,18 +262,33 @@ class FormDataHelper
     {
         $keys = [];
         $formId = null;
+        $formVersionIds = [];
 
         if ($type === 'field') {
             $keys[] = "form_field:{$id}:data";
 
-            // Get the field to find related form ID
             try {
-                $field = FormField::select(['id', 'form_id', 'field_group_id'])->find($id);
+                // Get the field to find related form versions
+                $field = FormField::select(['id', 'field_group_id'])->find($id);
                 if ($field) {
-                    if ($field->form_id) {
-                        $formId = $field->form_id;
-                        $keys[] = "form_data:full:{$formId}";
-                        $keys[] = "form_data:minimal:{$formId}";
+                    // Get form versions related to this field
+                    $relatedFormVersions = $field->formVersions()
+                        ->select('form_versions.id', 'form_versions.form_id')
+                        ->get();
+
+                    foreach ($relatedFormVersions as $formVersion) {
+                        $versionFormId = $formVersion->form_id;
+                        $versionId = $formVersion->id;
+
+                        $keys[] = "form_data:full:{$versionFormId}";
+                        $keys[] = "form_data:basic:{$versionFormId}";
+                        $keys[] = "form_data:minimal:{$versionFormId}";
+                        $keys[] = "formtemplate:{$versionId}:cached_json";
+
+                        $formVersionIds[] = $versionId;
+                        if (!$formId) {
+                            $formId = $versionFormId;
+                        }
                     }
 
                     if ($field->field_group_id) {
@@ -286,51 +301,99 @@ class FormDataHelper
         } else if ($type === 'group') {
             $keys[] = "form_group:{$id}:data";
 
-            // Get the group to find related form ID
             try {
-                $group = FieldGroup::select(['id', 'form_id'])->find($id);
-                if ($group && $group->form_id) {
-                    $formId = $group->form_id;
-                    $keys[] = "form_data:full:{$formId}";
-                    $keys[] = "form_data:minimal:{$formId}";
+                // Get the group to find related form versions
+                $group = FieldGroup::select(['id'])->find($id);
+                if ($group) {
+                    // Get form versions related to this group
+                    $relatedFormVersions = $group->formVersions()
+                        ->select('form_versions.id', 'form_versions.form_id')
+                        ->get();
+
+                    foreach ($relatedFormVersions as $formVersion) {
+                        $versionFormId = $formVersion->form_id;
+                        $versionId = $formVersion->id;
+
+                        $keys[] = "form_data:full:{$versionFormId}";
+                        $keys[] = "form_data:basic:{$versionFormId}";
+                        $keys[] = "form_data:minimal:{$versionFormId}";
+                        $keys[] = "formtemplate:{$versionId}:cached_json";
+
+                        $formVersionIds[] = $versionId;
+                        if (!$formId) {
+                            $formId = $versionFormId;
+                        }
+                    }
                 }
             } catch (\Exception $e) {
-                Log::error("Error invalidating group cache: " . $e->getMessage());
+                Log::error("Error invalidating group cache: " . $e->getMessage(), [
+                    'group_id' => $id,
+                    'exception' => $e
+                ]);
             }
         } else if ($type === 'form') {
             $formId = $id;
             $keys[] = "form_data:full:{$formId}";
+            $keys[] = "form_data:basic:{$formId}";
             $keys[] = "form_data:minimal:{$formId}";
 
-            // Also invalidate any field-related caches for this form
+            // Get form versions for this form
             try {
-                $fieldIds = FormField::where('form_id', $formId)->pluck('id')->toArray();
-                foreach ($fieldIds as $fieldId) {
-                    $keys[] = "form_field:{$fieldId}:data";
+                $formVersions = \App\Models\FormVersion::where('form_id', $formId)
+                    ->select('id')
+                    ->get();
+
+                foreach ($formVersions as $formVersion) {
+                    $versionId = $formVersion->id;
+                    $keys[] = "formtemplate:{$versionId}:cached_json";
+                    $keys[] = "formtemplate:{$versionId}:draft_cached_json";
+                    $formVersionIds[] = $versionId;
                 }
 
-                // And group-related caches
-                $groupIds = FieldGroup::where('form_id', $formId)->pluck('id')->toArray();
-                foreach ($groupIds as $groupId) {
-                    $keys[] = "form_group:{$groupId}:data";
+                // No need to query form_fields with form_id directly as it doesn't exist
+                // Instead, we'll find fields through form versions
+            } catch (\Exception $e) {
+                Log::error("Error getting form versions: " . $e->getMessage(), [
+                    'form_id' => $formId,
+                    'exception' => $e
+                ]);
+            }
+        } else if ($type === 'form_version') {
+            // Direct form version invalidation
+            $formVersionId = $id;
+            $formVersionIds[] = $formVersionId;
+            $keys[] = "formtemplate:{$formVersionId}:cached_json";
+            $keys[] = "formtemplate:{$formVersionId}:draft_cached_json";
+
+            try {
+                // Get form ID from form version
+                $formVersion = \App\Models\FormVersion::select('form_id')->find($formVersionId);
+                if ($formVersion) {
+                    $formId = $formVersion->form_id;
+                    $keys[] = "form_data:full:{$formId}";
+                    $keys[] = "form_data:basic:{$formId}";
+                    $keys[] = "form_data:minimal:{$formId}";
                 }
             } catch (\Exception $e) {
-                Log::error("Error invalidating form-related caches: " . $e->getMessage());
+                Log::error("Error getting form from form version: " . $e->getMessage(), [
+                    'form_version_id' => $formVersionId,
+                    'exception' => $e
+                ]);
             }
         }
 
         // Also invalidate the global minimal data cache since it might contain this data
         $keys[] = "form_data:minimal";
 
-        // Also invalidate any form templates that might be cached
-        if ($formId) {
-            $keys[] = "formtemplate:{$formId}:cached_json";
-        }
-
         // Delete all affected cache keys
-        foreach ($keys as $key) {
-            Cache::forget($key);
-            Log::debug("Cache invalidated: {$key}");
+        foreach (array_unique($keys) as $key) {
+            try {
+                Cache::forget($key);
+            } catch (\Exception $e) {
+                Log::error("Failed to invalidate cache key: {$key}", [
+                    'exception' => $e->getMessage()
+                ]);
+            }
         }
 
         // Reset instance caches when invalidating
@@ -348,8 +411,19 @@ class FormDataHelper
         if ($formId) {
             // Clear specific form data caches
             Cache::forget("form_data:full:{$formId}");
+            Cache::forget("form_data:basic:{$formId}");
             Cache::forget("form_data:minimal:{$formId}");
-            Cache::forget("formtemplate:{$formId}:cached_json");
+
+            // Clear template caches for all versions of this form
+            try {
+                $formVersions = \App\Models\FormVersion::where('form_id', $formId)->pluck('id');
+                foreach ($formVersions as $formVersionId) {
+                    Cache::forget("formtemplate:{$formVersionId}:cached_json");
+                    Cache::forget("formtemplate:{$formVersionId}:draft_cached_json");
+                }
+            } catch (\Exception $e) {
+                Log::error("Error clearing form version caches: " . $e->getMessage());
+            }
 
             // Also invalidate any field caches for this form
             try {

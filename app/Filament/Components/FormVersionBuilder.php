@@ -33,8 +33,6 @@ class FormVersionBuilder
 {
     const CACHE_TTL = 3600;
 
-    const CHUNK_SIZE = 10;
-
     public static function schema()
     {
         gc_collect_cycles();
@@ -144,6 +142,7 @@ class FormVersionBuilder
                     ->columnSpan(2)
                     ->blockNumbers(false)
                     ->blockPreviews()
+                    ->live(onBlur: true)
                     ->editAction(
                         fn(Action $action) => $action
                             ->visible(fn() => true)
@@ -173,32 +172,35 @@ class FormVersionBuilder
                                     $action->label('Cancel');
                                 }
                             })
+
                     )
 
                     ->cloneable()
-                    ->afterStateUpdated(function (Get $get) {
+                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
                         $formVersionId = $get('id');
                         // handle when form version ID is not yet set
                         if (!$formVersionId) return;
 
+                        $components = $get('components');
                         // Free memory before template generation
                         gc_collect_cycles();
 
                         $requestedAt = now()->unix();
 
-                        // Throttle template generation to avoid excessive processing
-                        $lastRequestedAt = Cache::get("formtemplate:{$formVersionId}:requested_at", 0);
+                        // Throttled template generation to avoid excessive processing
+                        $lastRequestedAt = Cache::get("formtemplate:{$formVersionId}:draft_requested_at", 0);
                         if ($requestedAt - $lastRequestedAt < 5) return;
 
-                        // remember the latest request timestamp
+                        // Stores the requested timestamp for job deduplication and throttling
                         Cache::tags(['form-template'])->put(
-                            "formtemplate:{$formVersionId}:requested_at",
+                            "formtemplate:{$formVersionId}:draft_requested_at",
                             $requestedAt,
                             now()->addDay()
                         );
 
-                        // dispatch form generation job in the background
-                        GenerateFormTemplateJob::dispatch($formVersionId, $requestedAt);
+                        // Dispatch form generation job in the background with the updated components
+                        // Submits as draft; New job will be created for final version on save
+                        GenerateFormTemplateJob::dispatch($formVersionId, $requestedAt, $components, true);
                     })
                     ->blockPreviews()
                     ->editAction(
@@ -338,11 +340,27 @@ class FormVersionBuilder
                                     ->send();
                                 return;
                             }
+                            // Generate the latest form template if not already cached
+                            $cacheKey = "formtemplate:{$formVersionId}:cached_json";
+                            $json = Cache::get($cacheKey);
+
+                            try {
+                                $json = FormTemplateHelper::generateJsonTemplate($formVersionId);
+                                Cache::tags(['form-template'])->put($cacheKey, $json, now()->addDay());
+                            } catch (\Exception $e) {
+                                Notification::make()
+                                    ->title('Error Generating Template')
+                                    ->body('Could not generate form template: ' . $e->getMessage())
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
                             $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                            $previewUrl = rtrim($previewBaseUrl, '/') . '/external-preview?id=' . $formVersionId;
+                            $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
                             $livewire->js("window.open('$previewUrl', '_blank')");
                         })
                         ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
+
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')

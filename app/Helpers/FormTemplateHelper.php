@@ -8,6 +8,7 @@ use App\Models\FormVersion;
 use App\Models\Form;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Helpers\DraftCacheHelper;
 
 class FormTemplateHelper
 {
@@ -15,19 +16,28 @@ class FormTemplateHelper
     {
         $formVersion = FormVersion::find($formVersionId);
         if ($formVersion) {
+            // Clear both published and draft caches
             Cache::forget("formtemplate:{$formVersionId}:cached_json");
-            Log::info("Cleared form template cache for form version {$formVersionId}");
+            Cache::forget("formtemplate:{$formVersionId}:draft_cached_json");
+            Log::info("Cleared form template cache (both published and draft) for form version {$formVersionId}");
         }
     }
 
-    public static function generateJsonTemplate(int $formVersionId): string
+    public static function generateJsonTemplate(int $formVersionId, ?array $updatedComponents = null, bool $isDraft = false): string
     {
         $formVersion = FormVersion::findOrFail($formVersionId);
 
-        $cacheKey = "formtemplate:{$formVersionId}:cached_json";
+        $cacheKey = $isDraft
+            ? "formtemplate:{$formVersionId}:draft_cached_json"
+            : "formtemplate:{$formVersionId}:cached_json";
 
         $form = $formVersion->form;
         $components = [];
+
+        // If we have updated components from a live edit, process those instead of fetching from database
+        if ($updatedComponents !== null) {
+            return self::generateTemplateFromComponents($formVersion, $updatedComponents, $cacheKey);
+        }
 
         $formFields = $formVersion->formInstanceFields()
             ->whereNull('field_group_instance_id')
@@ -156,6 +166,375 @@ class FormTemplateHelper
         Cache::tags(['form-template'])->put($cacheKey, $result, now()->addDay());
 
         return $result;
+    }
+
+    /**
+     * Generate a JSON template based on updated components from a live edit
+     *
+     * @param FormVersion $formVersion The form version being edited
+     * @param array $updatedComponents The components array from the live edit
+     * @return string The generated JSON template
+     */
+    protected static function generateTemplateFromComponents(FormVersion $formVersion, array $updatedComponents, string $cacheKey): string
+    {
+        $form = $formVersion->form;
+        $items = [];
+        $index = 1;
+        // For live editing, we need to work with the component data directly since
+        // the database records may not exist yet or may be outdated
+        foreach ($updatedComponents as $component) {
+            if (!isset($component['data'])) {
+                Log::warning("Invalid component structure, missing data key", ['component' => $component]);
+                continue;
+            }
+
+            $componentData = $component['data'];
+            $componentType = $component['type'] ?? null;
+
+            if ($componentType === 'form_field') {
+                // For live editing, create a mock field object from the component data
+                $items[] = self::formatLiveField($componentData, $index, $formVersion);
+                $index++;
+            } elseif ($componentType === 'field_group') {
+                // For live editing, create a mock group object from the component data
+                $items[] = self::formatLiveGroup($componentData, $index, $formVersion);
+                $index++;
+            } elseif ($componentType === 'container') {
+                // For live editing, create a mock container object from the component data
+                $items[] = self::formatLiveContainer($componentData, $index, $formVersion);
+                $index++;
+            } else {
+                Log::warning("Unknown component type: {$componentType}", ['data' => $componentData]);
+            }
+        }
+
+        $result = json_encode([
+            "version" => $formVersion->version_number,
+            "ministry_id" => $form->ministry_id,
+            "id" => (string) \Illuminate\Support\Str::uuid(),
+            "lastModified" => now()->toIso8601String(),
+            "title" => $formVersion->form->form_title,
+            "form_id" => $form->form_id,
+            "deployed_to" => $formVersion->deployed_to,
+            "dataSources" => $formVersion->formDataSources->map(function ($dataSource) {
+                return [
+                    'name' => $dataSource->name,
+                    'type' => $dataSource->type,
+                    'endpoint' => $dataSource->endpoint,
+                    'params' => json_decode($dataSource->params, true),
+                    'body' => json_decode($dataSource->body, true),
+                    'headers' => json_decode($dataSource->headers, true),
+                    'host' => $dataSource->host,
+                ];
+            })->toArray(),
+            "data" => [
+                "items" => $items,
+            ],
+        ], JSON_PRETTY_PRINT);
+
+        // Update cache with the new result
+        Cache::tags(['form-template'])->put($cacheKey, $result, now()->addDay());
+        return $result;
+    }
+
+    /**
+     * Format a field from live component data using database fallback
+     */
+    protected static function formatLiveField(array $componentData, int $index, FormVersion $formVersion): array
+    {
+        // Try to get the actual field from database first
+        $fieldId = $componentData['form_field_id'] ?? null;
+        $instanceId = $componentData['instance_id'] ?? $componentData['custom_instance_id'] ?? null;
+
+        $field = null;
+        if ($fieldId) {
+            // Try multiple approaches to find the field
+            $query = \App\Models\FormInstanceField::where('form_version_id', $formVersion->id)
+                ->where('form_field_id', $fieldId);
+
+            if ($instanceId) {
+                $field = $query->where(function ($q) use ($instanceId) {
+                    $q->where('instance_id', $instanceId)
+                        ->orWhere('custom_instance_id', $instanceId);
+                })->with([
+                    'formField.dataType',
+                    'formField.formFieldValue',
+                    'styleInstances.style',
+                    'validations',
+                    'conditionals',
+                    'formInstanceFieldValue',
+                    'selectOptionInstances.selectOption'
+                ])->first();
+            }
+
+            // If we still can't find it, try without instance_id (might be a new field)
+            if (!$field) {
+                $field = $query->with([
+                    'formField.dataType',
+                    'formField.formFieldValue',
+                    'styleInstances.style',
+                    'validations',
+                    'conditionals',
+                    'formInstanceFieldValue',
+                    'selectOptionInstances.selectOption'
+                ])->first();
+            }
+        }
+
+        // If we found the database record, use the existing formatter
+        if ($field) {
+            return self::formatField($field, $index);
+        }
+
+        // Get the base form field for reference
+        $formField = null;
+        if ($fieldId) {
+            $formField = \App\Models\FormField::find($fieldId);
+        }
+
+        $label = null;
+        if (($componentData['customize_label'] ?? 'default') === 'default' && $formField) {
+            $label = $formField->label;
+        } elseif (($componentData['customize_label'] ?? 'default') === 'customize') {
+            $label = $componentData['custom_label'] ?? null;
+        }
+
+        $base = [
+            "type" => $formField?->dataType?->name ?? 'text-input',
+            "id" => $instanceId ?? 'field-' . $index,
+            "label" => $label,
+            "helperText" => $componentData['custom_help_text'] ?? $formField?->help_text,
+            "mask" => $componentData['custom_mask'] ?? $formField?->mask,
+            "codeContext" => [
+                "name" => $formField?->name ?? 'field-' . $index,
+            ],
+        ];
+
+        // Add styles if present
+        if (!empty($componentData['webStyles'])) {
+            $base["webStyles"] = $componentData['webStyles'];
+        }
+        if (!empty($componentData['pdfStyles'])) {
+            $base["pdfStyles"] = $componentData['pdfStyles'];
+        }
+
+        // Add validations if present
+        if (!empty($componentData['validations'])) {
+            $base["validation"] = array_values(array_map(function ($validation) {
+                return [
+                    'type' => $validation['type'] ?? 'required',
+                    'value' => $validation['value'] ?? null,
+                    'errorMessage' => $validation['error_message'] ?? null,
+                ];
+            }, $componentData['validations']));
+        }
+
+        // Add conditionals if present
+        if (!empty($componentData['conditionals'])) {
+            $base["conditions"] = array_values(array_map(function ($conditional) {
+                return [
+                    'type' => $conditional['type'] ?? 'visibility',
+                    'value' => $conditional['value'] ?? null,
+                ];
+            }, $componentData['conditionals']));
+        }
+
+        // Add data bindings if present
+        $dataBinding = $componentData['custom_data_binding'] ?? $formField?->data_binding;
+        $dataBindingPath = $componentData['custom_data_binding_path'] ?? $formField?->data_binding_path;
+        if ($dataBinding && $dataBindingPath) {
+            $base['databindings'] = [
+                "source" => $dataBinding,
+                "path" => $dataBindingPath,
+            ];
+        }
+
+        // Add field-specific properties
+        $fieldType = $formField?->dataType?->name ?? 'text-input';
+        switch ($fieldType) {
+            case "text-input":
+                $base["inputType"] = "text";
+                break;
+            case "dropdown":
+                $base = array_merge($base, [
+                    "placeholder" => "Select your " . ($label ?? 'option'),
+                    "isMulti" => false,
+                    "isInline" => false,
+                    "selectionFeedback" => "top-after-reopen",
+                    "direction" => "bottom",
+                    "size" => "md",
+                    "listItems" => []
+                ]);
+                break;
+            case "text-info":
+                $base["value"] = $componentData['custom_field_value'] ?? $formField?->formFieldValue?->value;
+                break;
+            case "radio":
+                $base["listItems"] = [];
+                break;
+        }
+
+        return $base;
+    }
+
+    /**
+     * Format a group from live component data using database fallback
+     */
+    protected static function formatLiveGroup(array $componentData, int $index, FormVersion $formVersion): array
+    {
+        // Similar approach for groups - try database first, fall back to component data
+        $groupId = $componentData['field_group_id'] ?? null;
+        $instanceId = $componentData['instance_id'] ?? $componentData['custom_instance_id'] ?? null;
+
+        $group = null;
+        if ($groupId && $instanceId) {
+            $group = \App\Models\FieldGroupInstance::where('form_version_id', $formVersion->id)
+                ->where('field_group_id', $groupId)
+                ->where(function ($q) use ($instanceId) {
+                    $q->where('instance_id', $instanceId)
+                        ->orWhere('custom_instance_id', $instanceId);
+                })
+                ->with([
+                    'fieldGroup',
+                    'styleInstances.style',
+                    'formInstanceFields' => function ($query) {
+                        $query->orderBy('order')->with([
+                            'formField.dataType',
+                            'formField.formFieldValue',
+                            'formInstanceFieldValue',
+                            'styleInstances.style',
+                            'validations',
+                            'conditionals',
+                            'selectOptionInstances.selectOption'
+                        ]);
+                    }
+                ])
+                ->first();
+        }
+
+        if ($group) {
+            return self::formatGroup($group, $index);
+        }
+
+        // Format from component data
+        $fieldGroup = null;
+        if ($groupId) {
+            $fieldGroup = \App\Models\FieldGroup::find($groupId);
+        }
+
+        $label = null;
+        if (($componentData['customize_group_label'] ?? 'default') === 'default' && $fieldGroup) {
+            $label = $fieldGroup->label;
+        } elseif (($componentData['customize_group_label'] ?? 'default') === 'customize') {
+            $label = $componentData['custom_group_label'] ?? null;
+        }
+
+        $base = [
+            "type" => "group",
+            "label" => $label,
+            "id" => $instanceId ?? 'group-' . $index,
+            "groupId" => (string) ($groupId ?? $index),
+            "repeater" => $componentData['repeater'] ?? false,
+            "codeContext" => [
+                "name" => $fieldGroup?->name ?? 'group-' . $index,
+            ],
+        ];
+
+        // Process nested fields
+        $fields = [];
+        if (!empty($componentData['form_fields'])) {
+            $fieldIndex = 1;
+            foreach ($componentData['form_fields'] as $field) {
+                $fields[] = self::formatLiveField($field['data'] ?? $field, $fieldIndex, $formVersion);
+                $fieldIndex++;
+            }
+        }
+
+        $base["groupItems"] = [
+            [
+                "fields" => $fields,
+            ],
+        ];
+
+        return $base;
+    }
+
+    /**
+     * Format a container from live component data using database fallback
+     */
+    protected static function formatLiveContainer(array $componentData, int $index, FormVersion $formVersion): array
+    {
+        $instanceId = $componentData['instance_id'] ?? $componentData['custom_instance_id'] ?? null;
+
+        $container = null;
+        if ($instanceId) {
+            $container = \App\Models\Container::where('form_version_id', $formVersion->id)
+                ->where(function ($q) use ($instanceId) {
+                    $q->where('instance_id', $instanceId)
+                        ->orWhere('custom_instance_id', $instanceId);
+                })
+                ->with([
+                    'styleInstances.style',
+                    'formInstanceFields.formField.dataType',
+                    'formInstanceFields.formField.formFieldValue',
+                    'formInstanceFields.styleInstances.style',
+                    'formInstanceFields.validations',
+                    'formInstanceFields.conditionals',
+                    'formInstanceFields.formInstanceFieldValue',
+                    'formInstanceFields.selectOptionInstances.selectOption',
+                    'fieldGroupInstances' => function ($query) {
+                        $query->orderBy('order')->with([
+                            'fieldGroup',
+                            'styleInstances.style',
+                            'formInstanceFields' => function ($query) {
+                                $query->orderBy('order')->with([
+                                    'formField.dataType',
+                                    'formField.formFieldValue',
+                                    'formInstanceFieldValue',
+                                    'styleInstances.style',
+                                    'validations',
+                                    'conditionals',
+                                    'selectOptionInstances.selectOption'
+                                ]);
+                            }
+                        ]);
+                    }
+                ])
+                ->first();
+        }
+
+        if ($container) {
+            return self::formatContainer($container, $index);
+        }
+
+        // Format from component data
+        $base = [
+            "type" => "container",
+            "id" => $instanceId ?? 'container-' . $index,
+            "containerId" => (string) $index,
+            "codeContext" => [
+                "name" => 'container',
+            ],
+        ];
+
+        // Process nested components
+        $containerItems = [];
+        if (!empty($componentData['components'])) {
+            $componentIndex = 1;
+            foreach ($componentData['components'] as $component) {
+                $componentType = $component['type'] ?? null;
+                if ($componentType === 'form_field') {
+                    $containerItems[] = self::formatLiveField($component['data'] ?? $component, $componentIndex, $formVersion);
+                } elseif ($componentType === 'field_group') {
+                    $containerItems[] = self::formatLiveGroup($component['data'] ?? $component, $componentIndex, $formVersion);
+                }
+                $componentIndex++;
+            }
+        }
+
+        $base["containerItems"] = $containerItems;
+
+        return $base;
     }
 
     protected static function formatField($fieldInstance, $index)
@@ -514,7 +893,9 @@ class FormTemplateHelper
      */
     public static function clearAllFormTemplateCaches(): void
     {
-        Log::info("Clearing cache now.");
+        Log::info("Clearing all form template caches");
         Cache::tags(['form-template'])->flush();
+        Cache::tags(['draft'])->flush();
+        Log::info("All form template caches cleared successfully");
     }
 }

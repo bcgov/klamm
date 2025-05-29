@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\FormVersion;
 use App\Models\WebhookSubscription;
 use App\Helpers\FormTemplateHelper;
+use App\Helpers\DraftCacheHelper;
+use App\Events\FormVersionUpdateEvent;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +18,7 @@ class FormVersionController extends Controller
 
     // Get the JSON template for a form version if it exists
     // If it doesn't exist, generate it and store it in cache for one day
-    public function getFormTemplate($id)
+    public function getFormTemplate($id, Request $request)
     {
         try {
             // Find the form version
@@ -25,17 +27,39 @@ class FormVersionController extends Controller
                 return response()->json(['error' => 'Form version not found'], 404);
             }
 
-            $cacheKey = "formtemplate:{$id}:cached_json";
-            if (Cache::has($cacheKey)) {
-                $jsonTemplate = Cache::get($cacheKey);
-            } else {
-                $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
-                Cache::tags(['form-template'])->put($cacheKey, $jsonTemplate, now()->addDay());
+            $isDraft = $request->query('draft', false);
+            $isDraft = filter_var($isDraft, FILTER_VALIDATE_BOOLEAN);
+
+            $cacheKey = $isDraft ? "formtemplate:{$id}:draft_cached_json" : "formtemplate:{$id}:cached_json";
+            $cacheTag = $isDraft ? 'draft' : 'form-template';
+
+            $jsonTemplate = Cache::tags([$cacheTag])->get($cacheKey);
+            if ($jsonTemplate === null) {
+                if ($isDraft) {
+                    // For draft requests, first try to get published template and use it as base
+                    // Otherwise, generate a new draft template
+                    $publishedCacheKey = "formtemplate:{$id}:cached_json";
+                    $publishedTemplate = Cache::tags(['form-template'])->get($publishedCacheKey);
+
+                    if ($publishedTemplate !== null) {
+                        $jsonTemplate = $publishedTemplate;
+                        Cache::tags(['draft'])->put($cacheKey, $jsonTemplate, now()->addDay());
+                    } else {
+                        $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
+                        Cache::tags(['draft'])->put($cacheKey, $jsonTemplate, now()->addDay());
+                    }
+                } else {
+
+                    $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
+                    Cache::tags(['form-template'])->put($cacheKey, $jsonTemplate, now()->addDay());
+                }
             }
+
+            $filename = $isDraft ? "form_template_draft_{$id}.json" : "form_template_{$id}.json";
 
             return response($jsonTemplate)
                 ->header('Content-Type', 'application/json')
-                ->header('Content-Disposition', "attachment; filename=form_template_{$id}.json");
+                ->header('Content-Disposition', "attachment; filename={$filename}");
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to generate form template',
@@ -79,7 +103,7 @@ class FormVersionController extends Controller
         }
     }
 
-    public function getFormData($id)
+    public function getFormData($id, Request $request)
     {
         try {
             // Find the form version
@@ -95,13 +119,39 @@ class FormVersionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            // Get form template
-            $cacheKey = "formtemplate:{$id}:cached_json";
-            if (Cache::has($cacheKey)) {
-                $jsonTemplate = Cache::get($cacheKey);
+            $isDraft = $request->query('draft', false);
+            $isDraft = filter_var($isDraft, FILTER_VALIDATE_BOOLEAN);
+
+            $cacheKey = $isDraft ? "formtemplate:{$id}:draft_cached_json" : "formtemplate:{$id}:cached_json";
+            $cacheTag = $isDraft ? 'draft' : 'form-template';
+
+            // Try to get the requested template from cache
+            $cachedTemplate = Cache::tags([$cacheTag])->get($cacheKey);
+
+            if ($cachedTemplate !== null) {
+                $jsonTemplate = $cachedTemplate;
             } else {
-                $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
-                Cache::tags(['form-template'])->put($cacheKey, $jsonTemplate, now()->addDay());
+                if ($isDraft) {
+                    // For draft requests, first try to get published template and use it as base
+                    // Otherwise, generate a new draft template
+                    $publishedCacheKey = "formtemplate:{$id}:cached_json";
+                    $publishedTemplate = Cache::tags(['form-template'])->get($publishedCacheKey);
+
+                    if ($publishedTemplate !== null) {
+                        // Use published template as base for new draft
+                        $jsonTemplate = $publishedTemplate;
+                        // Store it as draft cache
+                        Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
+                    } else {
+                        // No published template exists, generate fresh
+                        $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
+                        Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
+                    }
+                } else {
+                    // Generate published template
+                    $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
+                    Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
+                }
             }
 
             // Return a properly formatted response with both logs and form template
@@ -113,11 +163,63 @@ class FormVersionController extends Controller
                     'version_number' => $formVersion->version_number,
                     'status' => $formVersion->status
                 ],
-                'form_template' => json_decode($jsonTemplate)
+                'form_template' => json_decode($jsonTemplate),
+                'is_draft' => $isDraft,
+                'cache_source' => $cachedTemplate !== null ? 'cache' : 'generated'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to retrieve form version data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update components of a form version and broadcast the changes
+     *
+     * @param int $id
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateFormComponents($id, Request $request)
+    {
+        try {
+            // Find the form version
+            $formVersion = FormVersion::findOrFail($id);
+
+            // Validate that the components data exists
+            $request->validate([
+                'components' => 'required|array',
+            ]);
+
+            // Get the components from the request
+            $components = $request->input('components');
+
+            // Update the form version with the new components
+            $formVersion->components = $components;
+            $formVersion->save();
+
+            // Clear both published and draft caches for this form version
+            FormTemplateHelper::clearFormTemplateCache($id);
+
+            // Dispatch event about the component update
+            event(new FormVersionUpdateEvent(
+                $formVersion->id,
+                $formVersion->form_id,
+                $formVersion->version_number,
+                $components,
+                'components'
+            ));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Form components updated successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to update form components',
                 'message' => $e->getMessage()
             ], 500);
         }
