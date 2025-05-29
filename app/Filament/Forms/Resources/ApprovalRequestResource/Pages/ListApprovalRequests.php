@@ -4,7 +4,7 @@ namespace App\Filament\Forms\Resources\ApprovalRequestResource\Pages;
 
 use App\Filament\Forms\Resources\ApprovalRequestResource;
 use App\Models\FormApprovalRequest;
-use Filament\Actions;
+use Filament\Tables\Enums\ActionsPosition;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -28,11 +28,13 @@ class ListApprovalRequests extends ListRecords
     public function getTabs(): array
     {
         return [
-            'approvals_for_you' => Tab::make('Approvals for You')
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id()))
+            'pending_your_approval' => Tab::make('Pending Your Approval')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', 'pending'))
                 ->badge(FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')->count())
                 ->badgeColor('warning'),
-            'your_requests' => Tab::make('Your Requests')
+            'closed_approvals' => Tab::make('Closed Approvals')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', '!=', 'pending')),
+            'requested_by_you' => Tab::make('Requested by You')
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('requester_id', Auth::id())),
         ];
     }
@@ -52,12 +54,12 @@ class ListApprovalRequests extends ListRecords
                     ->label('Requested By')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => $this->activeTab === 'approvals_for_you'),
+                    ->visible(fn() => $this->activeTab === 'pending_your_approval' || $this->activeTab === 'closed_approvals'),
                 TextColumn::make('approver_name')
                     ->label('Approver')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => $this->activeTab === 'your_requests'),
+                    ->visible(fn() => $this->activeTab === 'requested_by_you'),
                 BadgeColumn::make('status')
                     ->label('Status')
                     ->colors([
@@ -69,46 +71,21 @@ class ListApprovalRequests extends ListRecords
                     ->label('Requested')
                     ->dateTime()
                     ->sortable(),
-                TextColumn::make('requester_note')
-                    ->label('Request Note')
-                    ->limit(50)
-                    ->tooltip(function (TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 50) {
-                            return null;
-                        }
-                        return $state;
-                    })
-                    ->visible(fn() => $this->activeTab === 'approvals_for_you'),
-                TextColumn::make('approver_note')
-                    ->label('Approver Note')
-                    ->limit(50)
-                    ->tooltip(function (TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 50) {
-                            return null;
-                        }
-                        return $state;
-                    })
-                    ->visible(fn() => $this->activeTab === 'your_requests'),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'approved' => 'Approved',
-                        'rejected' => 'Rejected',
-                    ]),
+                //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make()
-                    ->visible(fn($record) => $record->approver_id === Auth::id()),
-            ])
+                    ->label('Submit Your Review')
+                    ->icon('heroicon-o-check-circle')
+                    ->button()
+                    ->outlined()
+                    ->color('success')
+                    ->visible(fn($record) => $record->approver_id === Auth::id() && $this->activeTab === 'pending_your_approval'),
+            ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                //
             ])
             ->defaultSort('created_at', 'desc');
     }

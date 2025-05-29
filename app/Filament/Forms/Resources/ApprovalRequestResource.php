@@ -158,7 +158,7 @@ class ApprovalRequestResource extends Resource
         return [
             'index' => Pages\ListApprovalRequests::route('/'),
             'view' => Pages\ViewApprovalRequest::route('/{record}'),
-            'edit' => Pages\EditApprovalRequest::route('/{record}/edit'),
+            'edit' => Pages\EditApprovalRequest::route('/{record}/review'),
         ];
     }
 }
