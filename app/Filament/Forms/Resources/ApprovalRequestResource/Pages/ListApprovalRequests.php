@@ -39,7 +39,7 @@ class ListApprovalRequests extends ListRecords
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', 'pending'))
                 ->badge(FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')->count())
                 ->badgeColor('warning'),
-            'closed_approvals' => Tab::make('Closed Approvals')
+            'completed_reviews' => Tab::make('Completed Reviews')
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', '!=', 'pending')),
             'requested_by_you' => Tab::make('Requested by You')
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('requester_id', Auth::id())),
@@ -61,7 +61,7 @@ class ListApprovalRequests extends ListRecords
                     ->label('Requested By')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => $this->activeTab === 'pending_your_approval' || $this->activeTab === 'closed_approvals'),
+                    ->visible(fn() => $this->activeTab === 'pending_your_approval' || $this->activeTab === 'completed_reviews'),
                 TextColumn::make('approver_name')
                     ->label('Approver')
                     ->searchable()
@@ -78,6 +78,16 @@ class ListApprovalRequests extends ListRecords
                     ->label('Requested')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('decision_date')
+                    ->label('Decision Date')
+                    ->getStateUsing(function ($record) {
+                        return $record->approved_at ?? $record->rejected_at;
+                    })
+                    ->dateTime()
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderByRaw("COALESCE(approved_at, rejected_at) $direction");
+                    })
+                    ->placeholder('Pending'),
             ])
             ->filters([
                 //
