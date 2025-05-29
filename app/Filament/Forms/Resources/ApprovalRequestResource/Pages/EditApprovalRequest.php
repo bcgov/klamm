@@ -15,6 +15,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
+use App\Notifications\ApprovalDecisionNotification;
 
 class EditApprovalRequest extends EditRecord
 {
@@ -265,6 +266,13 @@ class EditApprovalRequest extends EditRecord
                     $this->record->formVersion->update([
                         'status' => $formVersionStatus,
                     ]);
+
+                    if ($this->record->formVersion->form_developer_id) {
+                        $formDeveloper = $this->record->formVersion->formDeveloper;
+                        if ($formDeveloper) {
+                            $formDeveloper->notify(new ApprovalDecisionNotification($this->record, $isApproved));
+                        }
+                    }
 
                     \Filament\Notifications\Notification::make()
                         ->title('Approval submitted successfully')

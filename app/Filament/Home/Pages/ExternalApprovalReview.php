@@ -16,6 +16,7 @@ use Filament\Actions\Action;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use App\Notifications\ApprovalDecisionNotification;
 
 class ExternalApprovalReview extends Page implements HasForms
 {
@@ -256,6 +257,13 @@ class ExternalApprovalReview extends Page implements HasForms
                     $this->record->formVersion->update([
                         'status' => $formVersionStatus,
                     ]);
+
+                    if ($this->record->formVersion->form_developer_id) {
+                        $formDeveloper = $this->record->formVersion->formDeveloper;
+                        if ($formDeveloper) {
+                            $formDeveloper->notify(new ApprovalDecisionNotification($this->record, $isApproved));
+                        }
+                    }
 
                     session()->flash('success', 'Your approval has been submitted successfully. Thank you for your review.');
 

@@ -89,8 +89,7 @@ class ApprovalRequestResource extends Resource
                                     ->badge()
                                     ->color(fn(string $state): string => match ($state) {
                                         'pending' => 'warning',
-                                        'approved' => 'success',
-                                        'rejected' => 'danger',
+                                        'completed' => 'success',
                                         default => 'gray',
                                     }),
                             ]),
