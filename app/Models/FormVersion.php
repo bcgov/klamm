@@ -17,12 +17,8 @@ class FormVersion extends Model
         'form_id',
         'version_number',
         'status',
-        'form_requester_name',
-        'form_requester_email',
         'form_developer_name',
         'form_developer_email',
-        'form_approver_name',
-        'form_approver_email',
         'updater_name',
         'updater_email',
         'footer',
@@ -40,12 +36,8 @@ class FormVersion extends Model
         'form_id',
         'version_number',
         'status',
-        'form_requester_name',
-        'form_requester_email',
         'form_developer_name',
         'form_developer_email',
-        'form_approver_name',
-        'form_approver_email',
         'comments',
         'deployed_to',
         'deployed_at',
@@ -87,8 +79,6 @@ class FormVersion extends Model
                 if (!empty($changes)) {
                     $changes = array_map(function ($change) {
                         $change = str_replace('_', ' ', $change);
-                        $change = str_replace('form requester', 'requester', $change);
-                        $change = str_replace('form approver', 'approver', $change);
                         $change = str_replace('form developer', 'developer', $change);
                         return $change;
                     }, $changes);
@@ -145,5 +135,10 @@ class FormVersion extends Model
     public function formDataSources(): BelongsToMany
     {
         return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');
+    }
+
+    public function approvalRequests(): HasMany
+    {
+        return $this->hasMany(FormApprovalRequest::class);
     }
 }
