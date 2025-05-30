@@ -104,7 +104,9 @@ class EditApprovalRequest extends EditRecord
 
     protected function getFormActions(): array
     {
-        return $this->getApprovalFormActions();
+        return [
+            //
+        ];
     }
 
     protected function getApprovalRecord()
@@ -115,11 +117,11 @@ class EditApprovalRequest extends EditRecord
     protected function getFormContent(string $field, $record)
     {
         return match ($field) {
-            'form_name' => fn($record) => $record->formVersion->form->form_title ?? 'N/A',
-            'form_id' => fn($record) => $record->formVersion->form->form_id ?? 'N/A',
-            'version' => fn($record) => $record->formVersion->version_number ?? 'N/A',
-            'request_date' => fn($record) => $record->created_at->format('M j, Y g:i A'),
-            'requester_note' => fn($record) => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided', 200)),
+            'form_name' => $record->formVersion->form->form_title ?? 'N/A',
+            'form_id' => $record->formVersion->form->form_id ?? 'N/A',
+            'version' => $record->formVersion->version_number ?? 'N/A',
+            'request_date' => $record->created_at->format('M j, Y g:i A'),
+            'requester_note' => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided', 200)),
         };
     }
 

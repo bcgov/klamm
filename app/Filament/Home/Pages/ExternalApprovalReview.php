@@ -9,10 +9,12 @@ use Filament\Forms\Form;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 
-class ExternalApprovalReview extends Page implements HasForms
+class ExternalApprovalReview extends Page implements HasForms, HasActions
 {
-    use InteractsWithForms, HandlesApprovalReview;
+    use InteractsWithForms, InteractsWithActions, HandlesApprovalReview;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static string $view = 'filament.home.pages.external-approval-review';
@@ -91,11 +93,6 @@ class ExternalApprovalReview extends Page implements HasForms
         return $form->schema($this->getApprovalReviewForm());
     }
 
-    protected function getFormActions(): array
-    {
-        return $this->getApprovalFormActions();
-    }
-
     protected function getApprovalRecord()
     {
         return $this->record;
@@ -104,11 +101,11 @@ class ExternalApprovalReview extends Page implements HasForms
     protected function getFormContent(string $field, $record)
     {
         return match ($field) {
-            'form_name' => fn() => $record->formVersion->form->form_title ?? 'N/A',
-            'form_id' => fn() => $record->formVersion->form->form_id ?? 'N/A',
-            'version' => fn() => $record->formVersion->version_number ?? 'N/A',
-            'request_date' => fn() => $record->created_at->format('M j, Y g:i A'),
-            'requester_note' => fn() => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided')),
+            'form_name' => $record->formVersion->form->form_title ?? 'N/A',
+            'form_id' => $record->formVersion->form->form_id ?? 'N/A',
+            'version' => $record->formVersion->version_number ?? 'N/A',
+            'request_date' => $record->created_at->format('M j, Y g:i A'),
+            'requester_note' => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided')),
         };
     }
 

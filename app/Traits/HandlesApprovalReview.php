@@ -9,7 +9,6 @@ use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Textarea;
-use Filament\Actions\Action;
 use Illuminate\Support\HtmlString;
 use App\Notifications\ApprovalDecisionNotification;
 
@@ -185,29 +184,30 @@ trait HandlesApprovalReview
                                 ->visible(fn() => $this->pdfApprovalState === 'rejected'),
                         ])
                         ->visible($this->getPdfApprovalVisibility($record)),
+
+                    FormActions::make([
+                        FormAction::make('submit')
+                            ->label('Submit Review')
+                            ->color('primary')
+                            ->disabled(function () {
+                                $record = $this->getApprovalRecord();
+                                $webformRequired = $record->webform_approval;
+                                $pdfRequired = $record->pdf_approval;
+
+                                $webformComplete = !$webformRequired || ($this->webformApprovalState !== null);
+                                $pdfComplete = !$pdfRequired || ($this->pdfApprovalState !== null);
+
+                                $isDisabled = !($webformComplete && $pdfComplete);
+
+                                return $isDisabled;
+                            })
+                            ->action(function () {
+                                $this->handleApprovalSubmission();
+                            }),
+                    ])
+                        ->columnSpanFull()
+                        ->alignment('end'),
                 ]),
-        ];
-    }
-
-    protected function getApprovalFormActions(): array
-    {
-        return [
-            Action::make('submit')
-                ->label('Submit Review')
-                ->color('primary')
-                ->disabled(function () {
-                    $record = $this->getApprovalRecord();
-                    $webformRequired = $record->webform_approval;
-                    $pdfRequired = $record->pdf_approval;
-
-                    $webformComplete = !$webformRequired || ($this->webformApprovalState !== null);
-                    $pdfComplete = !$pdfRequired || ($this->pdfApprovalState !== null);
-
-                    return !($webformComplete && $pdfComplete);
-                })
-                ->action(function () {
-                    $this->handleApprovalSubmission();
-                }),
         ];
     }
 
