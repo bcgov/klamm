@@ -18,13 +18,14 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\ApprovalRequestNotification;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use Illuminate\Support\Facades\Gate;
 
 class FormApprovalActions
 {
     public static function makeReadyForReviewAction($record, &$additionalApprovers): Action
     {
         return Action::make('readyForReview')
-            ->label('Ready for Review')
+            ->label('Send for Review')
             ->modalHeading('Request approval')
             ->modalDescription(fn() => new HtmlString(
                 'Form: ' . $record->form->form_title . '<br>' .
@@ -69,7 +70,7 @@ class FormApprovalActions
             ->extraModalFooterActions([
                 self::makeAddNewApproverAction($record, $additionalApprovers)
             ])
-            ->visible(fn() => $record->status === 'draft');
+            ->visible(fn() => $record->status === 'draft' && Gate::allows('form-developer'));
     }
 
     public static function makeAddNewApproverAction($record, &$additionalApprovers): Action

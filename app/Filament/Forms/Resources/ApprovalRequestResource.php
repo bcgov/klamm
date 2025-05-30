@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\ApprovalRequestResource\Pages;
 use App\Models\FormApprovalRequest;
+use Illuminate\Support\Facades\Gate;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Infolists\Infolist;
@@ -29,6 +30,12 @@ class ApprovalRequestResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
+        $user = Auth::user();
+
+        if ($user && (Gate::allows('form-developer') || Gate::allows('admin'))) {
+            return true;
+        }
+
         return static::getModel()::where('approver_id', Auth::id())
             ->orWhere('requester_id', Auth::id())
             ->exists();
@@ -36,9 +43,17 @@ class ApprovalRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::where('approver_id', Auth::id())
-            ->where('status', 'pending')
-            ->count();
+        $user = Auth::user();
+
+        if ($user && Gate::allows('form-developer')) {
+            $count = static::getModel()::whereHas('formVersion', function (Builder $query) {
+                $query->where('form_developer_id', Auth::id());
+            })->where('status', 'pending')->count();
+        } else {
+            $count = static::getModel()::where('approver_id', Auth::id())
+                ->where('status', 'pending')
+                ->count();
+        }
 
         return $count > 0 ? (string) $count : null;
     }
@@ -50,11 +65,26 @@ class ApprovalRequestResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
+        $user = Auth::user();
+
+        if ($user && Gate::allows('form-developer')) {
+            return 'Pending form approvals for your forms';
+        }
+
         return 'Pending form approvals assigned to you';
     }
 
     public static function getEloquentQuery(): Builder
     {
+        $user = Auth::user();
+
+        if ($user && Gate::allows('form-developer')) {
+            return parent::getEloquentQuery()
+                ->whereHas('formVersion', function (Builder $query) {
+                    $query->where('form_developer_id', Auth::id());
+                });
+        }
+
         return parent::getEloquentQuery()
             ->where(function ($query) {
                 $query->where('approver_id', Auth::id())

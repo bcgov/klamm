@@ -13,6 +13,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Components\Tab;
+use Illuminate\Support\Facades\Gate;
 
 class ListApprovalRequests extends ListRecords
 {
@@ -34,20 +35,29 @@ class ListApprovalRequests extends ListRecords
 
     public function getTabs(): array
     {
+        $user = Auth::user();
+
+        if ($user && Gate::allows('form-developer')) {
+            return [];
+        }
+
         return [
-            'pending_your_approval' => Tab::make('Pending Your Approval')
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', 'pending'))
+            'all_forms' => Tab::make('All Forms')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())
+                    ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+                    ->orderBy('created_at', 'desc'))
                 ->badge(FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')->count())
                 ->badgeColor('warning'),
-            'completed_reviews' => Tab::make('Completed Reviews')
+            'reviewed_forms' => Tab::make('Reviewed Forms')
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', '!=', 'pending')),
-            'requested_by_you' => Tab::make('Requested by You')
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('requester_id', Auth::id())),
         ];
     }
 
     public function table(Table $table): Table
     {
+        $user = Auth::user();
+        $isFormDeveloper = $user && Gate::allows('form-developer');
+
         return $table
             ->columns([
                 TextColumn::make('formVersion.form.form_title')
@@ -61,12 +71,12 @@ class ListApprovalRequests extends ListRecords
                     ->label('Requested By')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => $this->activeTab === 'pending_your_approval' || $this->activeTab === 'completed_reviews'),
+                    ->visible(fn() => !$isFormDeveloper),
                 TextColumn::make('approver_name')
                     ->label('Approver')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => $this->activeTab === 'requested_by_you'),
+                    ->visible(fn() => $isFormDeveloper),
                 BadgeColumn::make('status')
                     ->label('Status')
                     ->colors([
@@ -94,12 +104,19 @@ class ListApprovalRequests extends ListRecords
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->label('Submit Your Review')
+                    ->label('Review')
                     ->icon('heroicon-o-check-circle')
                     ->button()
-                    ->outlined()
-                    ->color('success')
-                    ->visible(fn($record) => $record->approver_id === Auth::id() && $this->activeTab === 'pending_your_approval'),
+                    ->outlined(false)
+                    ->color('primary')
+                    ->extraAttributes(['style' => 'background-color: #013366; border-color: #013366;'])
+                    ->visible(
+                        fn($record) =>
+                        !$isFormDeveloper &&
+                            $record->approver_id === Auth::id() &&
+                            $record->status === 'pending' &&
+                            ($this->activeTab === 'all_forms' || $this->activeTab === null)
+                    ),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
                 //
