@@ -23,7 +23,10 @@
         }
     ">
         <div class="prose max-w-none">
-            <span x-text="isExpanded ? originalContent.replace(/<[^>]*>/g, '') : truncatedContent"></span>
+            <span
+                x-html="isExpanded ? 
+                    originalContent.replace(/<[^>]*>/g, '').replace(/\n/g, '<br>') : 
+                    truncatedContent.replace(/\n/g, '<br>')"></span>
 
             <button
                 type="button"
