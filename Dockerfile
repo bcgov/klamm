@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     postgresql-client \
+    nodejs \
+    npm \
     && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -44,6 +46,9 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy existing application directory contents
 COPY . /var/www
 
+# Install Node.js dependencies if package.json exists
+RUN if [ -f package.json ]; then npm install; fi
+
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
@@ -61,7 +66,17 @@ RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
 
 # Expose ports
-EXPOSE 8080 443
+EXPOSE 8080 443 6001
 
-# Start Apache server
-CMD ["apache2-foreground"]
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+    if [ "$CONTAINER_ROLE" = "worker" ]; then\n\
+    echo "Running as Reverb worker..."\n\
+    exec php artisan reverb:start --host=0.0.0.0 --port=6001\n\
+    else\n\
+    echo "Running as web server..."\n\
+    exec apache2-foreground\n\
+    fi' > /var/www/entrypoint.sh && chmod +x /var/www/entrypoint.sh
+
+# Start with entrypoint script
+CMD ["/var/www/entrypoint.sh"]
