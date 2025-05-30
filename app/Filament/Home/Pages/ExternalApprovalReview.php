@@ -32,46 +32,6 @@ class ExternalApprovalReview extends Page implements HasForms, HasActions
     public FormApprovalRequest $record;
     public string $token;
 
-    protected static function formatLabel(string $text): string
-    {
-        return '<span class="block text-lg font-bold">' . $text . '</span>';
-    }
-
-    protected static function formatRequesterNote(string $note): string
-    {
-        if (strlen($note) <= 300) {
-            return $note;
-        }
-
-        $truncated = substr($note, 0, 300);
-
-        return '<div>
-            <span id="note-preview">' . $truncated . '...</span>
-            <span id="note-full" style="display: none;">' . $note . '</span>
-            <br>
-            <button type="button" id="toggle-note" class="text-primary-600 hover:text-primary-500 underline text-sm mt-1" onclick="toggleNote()">
-                Show more
-            </button>
-        </div>
-        <script>
-            function toggleNote() {
-                const preview = document.getElementById("note-preview");
-                const full = document.getElementById("note-full");
-                const button = document.getElementById("toggle-note");
-                
-                if (preview.style.display === "none") {
-                    preview.style.display = "inline";
-                    full.style.display = "none";
-                    button.textContent = "Show more";
-                } else {
-                    preview.style.display = "none";
-                    full.style.display = "inline";
-                    button.textContent = "Show less";
-                }
-            }
-        </script>';
-    }
-
     public function mount(FormApprovalRequest $record, string $token): void
     {
         $this->record = $record;
@@ -110,7 +70,7 @@ class ExternalApprovalReview extends Page implements HasForms, HasActions
             'form_id' => $record->formVersion->form->form_id ?? 'N/A',
             'version' => $record->formVersion->version_number ?? 'N/A',
             'request_date' => $record->created_at->format('M j, Y g:i A'),
-            'requester_note' => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided')),
+            'requester_note' => $record->requester_note ?? 'No note provided',
         };
     }
 

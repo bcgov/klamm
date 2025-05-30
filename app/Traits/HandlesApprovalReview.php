@@ -11,6 +11,7 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Textarea;
 use Illuminate\Support\HtmlString;
 use App\Notifications\ApprovalDecisionNotification;
+use App\Forms\Components\ShowMorePlaceholder;
 
 trait HandlesApprovalReview
 {
@@ -22,41 +23,6 @@ trait HandlesApprovalReview
     protected static function formatLabel(string $text): string
     {
         return '<span class="block text-lg font-bold">' . $text . '</span>';
-    }
-
-    protected static function formatRequesterNote(string $note, int $maxLength = 300): string
-    {
-        if (strlen($note) <= $maxLength) {
-            return $note;
-        }
-
-        $truncated = substr($note, 0, $maxLength);
-
-        return '<div>
-            <span id="note-preview">' . $truncated . '...</span>
-            <span id="note-full" style="display: none;">' . $note . '</span>
-            <br>
-            <button type="button" id="toggle-note" class="text-primary-600 hover:text-primary-500 underline text-sm mt-1" onclick="toggleNote()">
-                Show more
-            </button>
-        </div>
-        <script>
-            function toggleNote() {
-                const preview = document.getElementById("note-preview");
-                const full = document.getElementById("note-full");
-                const button = document.getElementById("toggle-note");
-                
-                if (preview.style.display === "none") {
-                    preview.style.display = "inline";
-                    full.style.display = "none";
-                    button.textContent = "Show more";
-                } else {
-                    preview.style.display = "none";
-                    full.style.display = "inline";
-                    button.textContent = "Show less";
-                }
-            }
-        </script>';
     }
 
     protected function getApprovalReviewForm(): array
@@ -81,9 +47,10 @@ trait HandlesApprovalReview
                                 ->label(new HtmlString(self::formatLabel('Request Date')))
                                 ->content($this->getFormContent('request_date', $record)),
                         ]),
-                    Placeholder::make('requester_note')
+                    ShowMorePlaceholder::make('requester_note')
                         ->label(new HtmlString(self::formatLabel('Requester Note')))
-                        ->content($this->getFormContent('requester_note', $record))
+                        ->showMoreContent(fn() => $this->getFormContent('requester_note', $record))
+                        ->maxLength(300)
                         ->columnSpanFull(),
                 ]),
 
