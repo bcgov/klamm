@@ -3,22 +3,16 @@
 namespace App\Filament\Forms\Resources\ApprovalRequestResource\Pages;
 
 use App\Filament\Forms\Resources\ApprovalRequestResource;
+use App\Traits\HandlesApprovalReview;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms\Form;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Actions as FormActions;
-use Filament\Forms\Components\Actions\Action as FormAction;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Textarea;
-use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
-use App\Notifications\ApprovalDecisionNotification;
 
 class EditApprovalRequest extends EditRecord
 {
+    use HandlesApprovalReview;
+
     protected static string $resource = ApprovalRequestResource::class;
 
     protected ?string $heading = 'Review requested update';
@@ -98,130 +92,7 @@ class EditApprovalRequest extends EditRecord
 
     public function form(Form $form): Form
     {
-        return $form
-            ->schema([
-                Section::make('Requested updates')
-                    ->schema([
-                        Grid::make(1)
-                            ->schema([
-                                Placeholder::make('form_name')
-                                    ->label(new HtmlString(self::formatLabel('Form Name')))
-                                    ->content(fn($record) => $record->formVersion->form->form_title ?? 'N/A'),
-                                Placeholder::make('form_id')
-                                    ->label(new HtmlString(self::formatLabel('Form ID')))
-                                    ->content(fn($record) => $record->formVersion->form->form_id ?? 'N/A'),
-                                Placeholder::make('version')
-                                    ->label(new HtmlString(self::formatLabel('Version')))
-                                    ->content(fn($record) => $record->formVersion->version_number ?? 'N/A'),
-                                Placeholder::make('request_date')
-                                    ->label(new HtmlString(self::formatLabel('Request Date')))
-                                    ->content(fn($record) => $record->created_at->format('M j, Y g:i A')),
-                            ]),
-                        Placeholder::make('requester_note')
-                            ->label(new HtmlString(self::formatLabel('Requester Note')))
-                            ->content(fn($record) => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided')))
-                            ->columnSpanFull(),
-                    ]),
-
-                Section::make('Review updated form')
-                    ->schema([
-                        Fieldset::make('Webform')
-                            ->schema([
-                                Placeholder::make('webform_link')
-                                    ->label('')
-                                    ->extraAttributes(['class' => 'prose'])
-                                    ->content(new HtmlString('<a href="https://filamentphp.com/docs" class="text-primary-600 hover:text-primary-500 underline">View Webform</a>'))
-                                    ->columnSpanFull(),
-                                Placeholder::make('webform_question')
-                                    ->label('')
-                                    ->content('Do you approve the changes that have been made?')
-                                    ->columnSpanFull(),
-                                FormActions::make([
-                                    FormAction::make('reject_webform')
-                                        ->label('Reject')
-                                        ->color('danger')
-                                        ->outlined(fn() => $this->webformApprovalState !== 'rejected')
-                                        ->icon('heroicon-o-x-circle')
-                                        ->action(function () {
-                                            if ($this->webformApprovalState === 'rejected') {
-                                                $this->webformApprovalState = null;
-                                            } else {
-                                                $this->webformApprovalState = 'rejected';
-                                            }
-                                        }),
-                                    FormAction::make('approve_webform')
-                                        ->label('Approve')
-                                        ->color('success')
-                                        ->outlined(fn() => $this->webformApprovalState !== 'approved')
-                                        ->icon('heroicon-o-check-circle')
-                                        ->action(function () {
-                                            if ($this->webformApprovalState === 'approved') {
-                                                $this->webformApprovalState = null;
-                                            } else {
-                                                $this->webformApprovalState = 'approved';
-                                            }
-                                        }),
-                                ])
-                                    ->columnSpanFull()
-                                    ->alignment('start'),
-                                Textarea::make('webformRejectionReason')
-                                    ->label('Reasons for rejection (Required)')
-                                    ->required()
-                                    ->rows(3)
-                                    ->columnSpanFull()
-                                    ->visible(fn() => $this->webformApprovalState === 'rejected'),
-                            ])
-                            ->visible(fn($record) => $record->webform_approval === true),
-
-                        Fieldset::make('PDF')
-                            ->schema([
-                                Placeholder::make('pdf_link')
-                                    ->label('')
-                                    ->extraAttributes(['class' => 'prose'])
-                                    ->content(new HtmlString('<a href="https://filamentphp.com/docs" class="text-primary-600 hover:text-primary-500 underline">View PDF</a>'))
-                                    ->columnSpanFull(),
-                                Placeholder::make('pdf_question')
-                                    ->label('')
-                                    ->content('Do you approve the changes that have been made?')
-                                    ->columnSpanFull(),
-                                FormActions::make([
-                                    FormAction::make('reject_pdf')
-                                        ->label('Reject')
-                                        ->color('danger')
-                                        ->outlined(fn() => $this->pdfApprovalState !== 'rejected')
-                                        ->icon('heroicon-o-x-circle')
-                                        ->action(function () {
-                                            if ($this->pdfApprovalState === 'rejected') {
-                                                $this->pdfApprovalState = null;
-                                            } else {
-                                                $this->pdfApprovalState = 'rejected';
-                                            }
-                                        }),
-                                    FormAction::make('approve_pdf')
-                                        ->label('Approve')
-                                        ->color('success')
-                                        ->outlined(fn() => $this->pdfApprovalState !== 'approved')
-                                        ->icon('heroicon-o-check-circle')
-                                        ->action(function () {
-                                            if ($this->pdfApprovalState === 'approved') {
-                                                $this->pdfApprovalState = null;
-                                            } else {
-                                                $this->pdfApprovalState = 'approved';
-                                            }
-                                        }),
-                                ])
-                                    ->columnSpanFull()
-                                    ->alignment('start'),
-                                Textarea::make('pdfRejectionReason')
-                                    ->label('Reasons for rejection (Required)')
-                                    ->required()
-                                    ->rows(3)
-                                    ->columnSpanFull()
-                                    ->visible(fn() => $this->pdfApprovalState === 'rejected'),
-                            ])
-                            ->visible(fn($record) => $record->pdf_approval === true),
-                    ]),
-            ]);
+        return $form->schema($this->getApprovalReviewForm());
     }
 
     protected function getHeaderActions(): array
@@ -233,98 +104,42 @@ class EditApprovalRequest extends EditRecord
 
     protected function getFormActions(): array
     {
-        return [
-            Action::make('submit')
-                ->label('Submit Review')
-                ->color('primary')
-                ->disabled(function () {
-                    $webformRequired = $this->record->webform_approval;
-                    $pdfRequired = $this->record->pdf_approval;
-
-                    $webformComplete = !$webformRequired || ($this->webformApprovalState !== null);
-                    $pdfComplete = !$pdfRequired || ($this->pdfApprovalState !== null);
-
-                    return !($webformComplete && $pdfComplete);
-                })
-                ->action(function () {
-                    $formVersionStatus = $this->determineFormVersionStatus();
-                    $isApproved = $formVersionStatus === 'approved';
-
-                    $updateData = [
-                        'status' => 'completed',
-                        'approver_note' => $this->buildApproverNote(),
-                    ];
-
-                    if ($isApproved) {
-                        $updateData['approved_at'] = now();
-                    } else {
-                        $updateData['rejected_at'] = now();
-                    }
-
-                    $this->record->update($updateData);
-
-                    $this->record->formVersion->update([
-                        'status' => $formVersionStatus,
-                    ]);
-
-                    if ($this->record->formVersion->form_developer_id) {
-                        $formDeveloper = $this->record->formVersion->formDeveloper;
-                        if ($formDeveloper) {
-                            $formDeveloper->notify(new ApprovalDecisionNotification($this->record, $isApproved));
-                        }
-                    }
-
-                    \Filament\Notifications\Notification::make()
-                        ->title('Approval submitted successfully')
-                        ->success()
-                        ->send();
-
-                    $this->redirect(ApprovalRequestResource::getUrl('index'));
-                }),
-        ];
+        return $this->getApprovalFormActions();
     }
 
-    protected function buildApproverNote(): string
+    protected function getApprovalRecord()
     {
-        $notes = [];
-        $formState = $this->form->getState();
-
-        if ($this->record->webform_approval) {
-            if ($this->webformApprovalState === 'approved') {
-                $notes[] = 'Webform: Approved';
-            } elseif ($this->webformApprovalState === 'rejected') {
-                $rejectionReason = $formState['webformRejectionReason'] ?? 'No reason provided';
-                $notes[] = 'Webform: Rejected - ' . $rejectionReason;
-            }
-        }
-
-        if ($this->record->pdf_approval) {
-            if ($this->pdfApprovalState === 'approved') {
-                $notes[] = 'PDF: Approved';
-            } elseif ($this->pdfApprovalState === 'rejected') {
-                $rejectionReason = $formState['pdfRejectionReason'] ?? 'No reason provided';
-                $notes[] = 'PDF: Rejected - ' . $rejectionReason;
-            }
-        }
-
-        return implode("\n\n", $notes);
+        return $this->record;
     }
 
-    protected function determineFormVersionStatus(): string
+    protected function getFormContent(string $field, $record)
     {
-        $webformRequired = $this->record->webform_approval;
-        $pdfRequired = $this->record->pdf_approval;
+        return match ($field) {
+            'form_name' => fn($record) => $record->formVersion->form->form_title ?? 'N/A',
+            'form_id' => fn($record) => $record->formVersion->form->form_id ?? 'N/A',
+            'version' => fn($record) => $record->formVersion->version_number ?? 'N/A',
+            'request_date' => fn($record) => $record->created_at->format('M j, Y g:i A'),
+            'requester_note' => fn($record) => new HtmlString(self::formatRequesterNote($record->requester_note ?? 'No note provided', 200)),
+        };
+    }
 
-        $hasRejection = false;
+    protected function getWebformApprovalVisibility($record): bool
+    {
+        return $record->webform_approval === true;
+    }
 
-        if ($webformRequired && $this->webformApprovalState === 'rejected') {
-            $hasRejection = true;
-        }
+    protected function getPdfApprovalVisibility($record): bool
+    {
+        return $record->pdf_approval === true;
+    }
 
-        if ($pdfRequired && $this->pdfApprovalState === 'rejected') {
-            $hasRejection = true;
-        }
+    protected function handlePostSubmissionActions(): void
+    {
+        \Filament\Notifications\Notification::make()
+            ->title('Approval submitted successfully')
+            ->success()
+            ->send();
 
-        return $hasRejection ? 'draft' : 'approved';
+        $this->redirect(ApprovalRequestResource::getUrl('index'));
     }
 }
