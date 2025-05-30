@@ -86,6 +86,11 @@ class ExternalApprovalReview extends Page implements HasForms, HasActions
         if ($this->record->approver_id !== null) {
             abort(403, 'This approval request is not for external review.');
         }
+
+        // Check if the approval request is still pending
+        if ($this->record->status !== 'pending') {
+            abort(403, 'A review has already been submitted for this request.');
+        }
     }
 
     public function form(Form $form): Form
