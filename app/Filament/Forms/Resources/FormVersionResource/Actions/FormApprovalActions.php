@@ -16,6 +16,8 @@ use Illuminate\Support\Str;
 use Filament\Actions\StaticAction;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
+use App\Notifications\ApprovalRequestNotification;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class FormApprovalActions
 {
@@ -192,7 +194,9 @@ class FormApprovalActions
             'status' => 'pending',
         ];
 
-        FormApprovalRequest::create($approvalRequestData);
+        $approvalRequest = FormApprovalRequest::create($approvalRequestData);
+
+        $user->notify(new ApprovalRequestNotification($approvalRequest));
     }
 
     private static function createNonKlammUserApprovalRequest(array $data, $record): void
@@ -220,6 +224,9 @@ class FormApprovalActions
             'token' => Str::uuid(),
         ];
 
-        FormApprovalRequest::create($approvalRequestData);
+        $approvalRequest = FormApprovalRequest::create($approvalRequestData);
+
+        NotificationFacade::route('mail', $approverData[1])
+            ->notify(new ApprovalRequestNotification($approvalRequest));
     }
 }

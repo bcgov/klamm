@@ -47,27 +47,24 @@ class FormVersionBuilder
                 Section::make('Form Properties')
                     ->collapsible()
                     ->collapsed()
-                    ->columns(3)
+                    ->columns(2)
                     ->compact()
                     ->schema([
-                        Fieldset::make('Requester Information')
-                            ->schema([
-                                TextInput::make('form_requester_name')
-                                    ->label('Name'),
-                                TextInput::make('form_requester_email')
-                                    ->label('Email')
-                                    ->email(),
-                            ])
-                            ->label('Requester Information'),
-                        Fieldset::make('Approver Information')
-                            ->schema([
-                                TextInput::make('form_approver_name')
-                                    ->label('Name'),
-                                TextInput::make('form_approver_email')
-                                    ->label('Email')
-                                    ->email(),
-                            ])
-                            ->label('Approver Information'),
+                        Select::make('form_developer_id')
+                            ->label('Form Developer')
+                            ->relationship(
+                                'formDeveloper',
+                                'name',
+                                fn($query) => $query->whereHas('roles', fn($q) => $q->where('name', 'form-developer'))
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->columnSpan(1),
+                        Select::make('form_data_sources')
+                            ->multiple()
+                            ->preload()
+                            ->columnSpan(1)
+                            ->relationship('formDataSources', 'name'),
                         Select::make('deployed_to')
                             ->label('Deployed To')
                             ->options([
@@ -81,11 +78,6 @@ class FormVersionBuilder
                         DateTimePicker::make('deployed_at')
                             ->label('Deployment Date')
                             ->columnSpan(1),
-                        Select::make('form_data_sources')
-                            ->multiple()
-                            ->preload()
-                            ->columnSpan(1)
-                            ->relationship('formDataSources', 'name'),
                         TextInput::make('footer')
                             ->columnSpanFull(),
                         Textarea::make('comments')
