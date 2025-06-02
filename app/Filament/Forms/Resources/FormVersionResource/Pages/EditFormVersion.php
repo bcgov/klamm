@@ -56,7 +56,10 @@ class EditFormVersion extends EditRecord
             Actions\DeleteAction::make(),
             Actions\Action::make('Preview Draft Template')
                 ->label('Preview Draft')
-                ->icon('heroicon-o-eye')
+                ->icon('heroicon-o-rocket-launch')
+                ->extraAttributes([
+                    'style' => 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;'
+                ])
                 ->action(function ($livewire) {
                     $formVersionId = $this->record->id;
                     $previewBaseUrl = env('FORM_PREVIEW_URL', '');
@@ -352,7 +355,7 @@ class EditFormVersion extends EditRecord
             'custom_group_label' => $component['customize_group_label'] === 'customize' ? $component['custom_group_label'] : null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
             'custom_repeater_item_label' => $component['customize_repeater_item_label'] ? $component['custom_repeater_item_label'] : null,
-            'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['custom_data_binding_path'] : null,
+            'custom_data_binding_path' => $component['customize_data_binding_path'] ? $component['customize_data_binding_path'] : null,
             'custom_data_binding' => $component['customize_data_binding'] ? $component['custom_data_binding'] : null,
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
             'instance_id' => $component['instance_id'] ?? null,
