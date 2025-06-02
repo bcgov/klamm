@@ -79,8 +79,8 @@ class FormVersionUpdateListener implements ShouldQueue
         // Clear caches based on update type
         if ($event->updateType === 'components' || $event->updateType === 'general') {
             // Invalidate caches
-            FormDataHelper::invalidateCache('form_version', $event->formVersionId);
-            FormDataHelper::invalidateCache('form', $event->formId);
+            // FormDataHelper::invalidateCache('form_version', $event->formVersionId);
+            // FormDataHelper::invalidateCache('form', $event->formId);
 
             // If components were updated, trigger template regeneration
             if ($event->updateType === 'components' && $event->updatedComponents) {
@@ -88,10 +88,10 @@ class FormVersionUpdateListener implements ShouldQueue
             }
         } elseif ($event->updateType === 'deleted') {
             // Handle deletion - clean up all caches
-            FormDataHelper::invalidateAllCaches($event->formId);
+            // FormDataHelper::invalidateAllCaches($event->formId);
             Log::info("Cleared all caches for deleted form version: {$event->formVersionId}");
         } elseif ($event->updateType === 'status' || $event->updateType === 'deployment') {
-            FormDataHelper::invalidateCache('form_version', $event->formVersionId);
+            // FormDataHelper::invalidateCache('form_version', $event->formVersionId);
         }
     }
 

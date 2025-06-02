@@ -113,7 +113,7 @@ class EditFormVersion extends EditRecord
         // Invalidate all caches explicitly
         FormTemplateHelper::clearFormTemplateCache($formVersion->id);
         $formId = $this->record->id;
-        FormDataHelper::invalidateFormCache($formId);
+        // FormDataHelper::invalidateFormCache($formId);
 
         $formVersion->touch();
         $requestedAt = now()->unix();

@@ -60,7 +60,7 @@ class FormVersion extends Model
         // After saving a form version, invalidate related caches and dispatch event
         static::saved(function ($formVersion) {
             if ($formVersion->form_id) {
-                FormDataHelper::invalidateFormCache($formVersion->form_id);
+                // FormDataHelper::invalidateFormCache($formVersion->form_id);
 
                 // Determine what fields were updated
                 $updateType = 'general';
@@ -89,7 +89,7 @@ class FormVersion extends Model
         // When a form version is deleted
         static::deleted(function ($formVersion) {
             if ($formVersion->form_id) {
-                FormDataHelper::invalidateFormCache($formVersion->form_id);
+                // FormDataHelper::invalidateFormCache($formVersion->form_id);
 
                 // Dispatch deletion event
                 event(new FormVersionUpdateEvent(
