@@ -73,6 +73,84 @@ class FormApprovalActions
             ->visible(fn() => $record->status === 'draft' && Gate::allows('form-developer'));
     }
 
+    public static function makeChangeApproverAction($approvalRequest): Action
+    {
+        return Action::make('changeApprover')
+            ->label('Change Approver')
+            ->icon('heroicon-o-arrow-path')
+            ->modalHeading('Change Approver')
+            ->modalDescription(fn() => new HtmlString(
+                'Form: ' . $approvalRequest->formVersion->form->form_title . '<br>' .
+                    'Version: ' . $approvalRequest->formVersion->version_number . '<br>' .
+                    'Current Approver: ' . $approvalRequest->approver_name
+            ))
+            ->form([
+                Radio::make('approver_type')
+                    ->label('Approver Type')
+                    ->options([
+                        'klamm' => 'Klamm user',
+                        'non_klamm' => 'Non Klamm user',
+                    ])
+                    ->descriptions([
+                        'klamm' => 'Best for approvers who do a lot of reviews and want to stay updated on their form status',
+                        'non_klamm' => 'Best for occasional approvers. They\'ll receive a one-time approval link and access Klamm with their IDIR credentials',
+                    ])
+                    ->required()
+                    ->live()
+                    ->default(function () use ($approvalRequest) {
+                        return $approvalRequest->is_klamm_user ? 'klamm' : 'non_klamm';
+                    }),
+                Select::make('klamm_user')
+                    ->searchable()
+                    ->label('Select User')
+                    ->options(function () use ($approvalRequest) {
+                        $businessAreaUsers = $approvalRequest->formVersion->form->businessAreas->flatMap->users
+                            ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
+                            ->toArray();
+
+                        $allKlammUsers = User::all()
+                            ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
+                            ->toArray();
+
+                        return array_merge($businessAreaUsers, $allKlammUsers);
+                    })
+                    ->getSearchResultsUsing(function (string $search) {
+                        return User::where(function ($query) use ($search) {
+                            $query->where('name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        })
+                            ->limit(50)
+                            ->get()
+                            ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
+                            ->toArray();
+                    })
+                    ->required()
+                    ->visible(fn(Get $get) => $get('approver_type') === 'klamm')
+                    ->default(function () use ($approvalRequest) {
+                        return $approvalRequest->is_klamm_user ? $approvalRequest->approver_id : null;
+                    }),
+                TextInput::make('name')
+                    ->required()
+                    ->visible(fn(Get $get) => $get('approver_type') === 'non_klamm')
+                    ->default(function () use ($approvalRequest) {
+                        return !$approvalRequest->is_klamm_user ? $approvalRequest->approver_name : null;
+                    }),
+                TextInput::make('email')
+                    ->email()
+                    ->required()
+                    ->visible(fn(Get $get) => $get('approver_type') === 'non_klamm')
+                    ->default(function () use ($approvalRequest) {
+                        return !$approvalRequest->is_klamm_user ? $approvalRequest->approver_email : null;
+                    }),
+            ])
+            ->action(function (array $data) use ($approvalRequest): void {
+                self::processChangeApprover($data, $approvalRequest);
+            })
+            ->closeModalByClickingAway(false)
+            ->modalSubmitAction(fn(StaticAction $action) => $action->label('Change Approver'))
+            ->visible(fn() => $approvalRequest->status === 'pending' && Gate::allows('form-developer'));
+    }
+
     public static function makeAddNewApproverAction($record, &$additionalApprovers): Action
     {
         return Action::make('addNewApprover')
@@ -168,6 +246,80 @@ class FormApprovalActions
             ->title('Approval request sent successfully')
             ->success()
             ->send();
+    }
+
+    public static function processChangeApprover(array $data, $approvalRequest): void
+    {
+        $hasChanged = false;
+
+        if ($data['approver_type'] === 'klamm') {
+            $newUser = User::find($data['klamm_user']);
+
+            if (!$newUser) {
+                Notification::make()
+                    ->title('Error: User not found')
+                    ->danger()
+                    ->send();
+                return;
+            }
+
+            $hasChanged = !$approvalRequest->is_klamm_user ||
+                $approvalRequest->approver_id !== $newUser->id;
+
+            if ($hasChanged) {
+                $approvalRequest->update([
+                    'approver_id' => $newUser->id,
+                    'approver_name' => $newUser->name,
+                    'approver_email' => $newUser->email,
+                    'is_klamm_user' => true,
+                    'token' => null,
+                ]);
+
+                $newUser->notify(new ApprovalRequestNotification($approvalRequest));
+            }
+        } else {
+            $hasChanged = $approvalRequest->is_klamm_user ||
+                $approvalRequest->approver_name !== $data['name'] ||
+                $approvalRequest->approver_email !== $data['email'];
+
+            $shouldGenerateNewToken = !$approvalRequest->is_klamm_user || $hasChanged;
+
+            if ($hasChanged) {
+                $approvalRequest->update([
+                    'approver_id' => null,
+                    'approver_name' => $data['name'],
+                    'approver_email' => $data['email'],
+                    'is_klamm_user' => false,
+                    'token' => Str::uuid(),
+                ]);
+
+                NotificationFacade::route('mail', $data['email'])
+                    ->notify(new ApprovalRequestNotification($approvalRequest));
+            } elseif ($shouldGenerateNewToken) {
+                $approvalRequest->update([
+                    'token' => Str::uuid(),
+                ]);
+
+                NotificationFacade::route('mail', $data['email'])
+                    ->notify(new ApprovalRequestNotification($approvalRequest));
+
+                $hasChanged = true;
+            }
+        }
+
+        if ($hasChanged) {
+            Notification::make()
+                ->title('Approver changed successfully')
+                ->body('A notification has been sent to the new approver.')
+                ->success()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('No changes made')
+                ->body('The approver information is the same as before.')
+                ->warning()
+                ->send();
+        }
     }
 
     private static function createKlammUserApprovalRequest(array $data, $record): void
