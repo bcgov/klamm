@@ -282,12 +282,6 @@ class FormVersionBuilder
                                     $json = FormTemplateHelper::generateJsonTemplate($formVersionId);
                                     $set('generated_text', $json);
                                     Cache::tags(['form-template'])->put($cacheKey, $json, now()->addDay());
-
-                                    Notification::make()
-                                        ->title('Template Generated!')
-                                        ->body('Form template generated successfully and copied to clipboard.')
-                                        ->success()
-                                        ->send();
                                 } catch (\Exception $e) {
                                     $set('generated_text', 'Error generating template: ' . $e->getMessage());
                                     return;
