@@ -24,6 +24,7 @@ class FormApprovalActions
 {
     public static function makeReadyForReviewAction($record, &$additionalApprovers): Action
     {
+        $record->load('form.businessAreas.users');
         return Action::make('readyForReview')
             ->label('Send for Review')
             ->modalHeading('Request approval')
