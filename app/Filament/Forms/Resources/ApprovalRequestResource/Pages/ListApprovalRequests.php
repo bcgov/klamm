@@ -177,7 +177,7 @@ class ListApprovalRequests extends ListRecords
                             ->required()
                             ->visible(fn(Get $get) => $get('approver_type') === 'klamm')
                             ->default(function ($record) {
-                                return $record->is_klamm_user ? $record->approver_id : null;
+                                return $record->is_klamm_user ? User::find($record->approver_id)?->name : null;
                             }),
                         TextInput::make('name')
                             ->required()

@@ -127,7 +127,7 @@ class FormApprovalActions
                     ->required()
                     ->visible(fn(Get $get) => $get('approver_type') === 'klamm')
                     ->default(function () use ($approvalRequest) {
-                        return $approvalRequest->is_klamm_user ? $approvalRequest->approver_id : null;
+                        return $approvalRequest->is_klamm_user ? User::find($approvalRequest->approver_id)?->name : null;
                     }),
                 TextInput::make('name')
                     ->required()
