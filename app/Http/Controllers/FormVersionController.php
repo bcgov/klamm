@@ -117,6 +117,7 @@ class FormVersionController extends Controller
             $logs = Activity::where('subject_type', FormVersion::class)
                 ->where('subject_id', $id)
                 ->orderBy('created_at', 'desc')
+                ->limit(10)
                 ->get();
 
             $isDraft = $request->query('draft', false);
