@@ -16,7 +16,6 @@ use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
-use App\Models\StyleInstance;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -84,25 +83,6 @@ class CreateFormVersion extends CreateRecord
     }
 
     // Helper functions
-    private function createStyles($component, $id, $instanceType)
-    {
-        foreach ($component['webStyles'] ?? [] as $styleId) {
-            StyleInstance::create([
-                'style_id' => $styleId,
-                'type' => 'web',
-                $instanceType => $id,
-            ]);
-        }
-
-        foreach ($component['pdfStyles'] ?? [] as $styleId) {
-            StyleInstance::create([
-                'style_id' => $styleId,
-                'type' => 'pdf',
-                $instanceType => $id,
-            ]);
-        }
-    }
-
     private function createFieldValidations($component, $formInstanceField)
     {
         foreach ($component['validations'] ?? [] as $validationData) {
@@ -182,7 +162,6 @@ class CreateFormVersion extends CreateRecord
             'custom_instance_id' => $component['custom_instance_id'] ?? null,
         ]);
 
-        $this->createStyles($component, $formInstanceField->id, 'form_instance_field_id');
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
@@ -199,8 +178,8 @@ class CreateFormVersion extends CreateRecord
             'order' => $order,
             'custom_group_label' => $component['custom_group_label'] ?? null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
-            'repeater' => $component['repeater'] ?? false,    
-            'clear_button' => $component['clear_button'] ?? false,          
+            'repeater' => $component['repeater'] ?? false,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_repeater_item_label' => $component['custom_repeater_item_label'],
             'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
             'custom_data_binding' => $component['custom_data_binding'] ?? null,
@@ -208,8 +187,6 @@ class CreateFormVersion extends CreateRecord
             'instance_id' => $component['instance_id'] ?? null,
             'custom_instance_id' => $component['custom_instance_id'] ?? null,
         ]);
-
-        $this->createStyles($component, $fieldGroupInstance->id, 'field_group_instance_id');
 
         $formFields = $component['form_fields'] ?? [];
         foreach ($formFields as $fieldOrder => $field) {
@@ -227,8 +204,6 @@ class CreateFormVersion extends CreateRecord
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
         ]);
-
-        $this->createStyles($component, $container->id, 'container_id');
 
         $blocks = $component['components'] ?? [];
         foreach ($blocks as $order => $block) {

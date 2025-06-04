@@ -8,7 +8,6 @@ use App\Models\Form;
 use App\Models\FormDataSource;
 use App\Models\FormField;
 use App\Models\SelectOptions;
-use App\Models\Style;
 
 class ScanTemplateHelper
 {
@@ -194,18 +193,6 @@ class ScanTemplateHelper
             $instance_ids[] = $container['id'];
         }
 
-        // Check if styles exist
-        if (isset($container['webStyles'])) {
-            $messages = self::validateStyles($container['webStyles'], $containerNum);
-            $errors = array_merge($errors, $messages['errors']);
-            $warnings = array_merge($warnings, $messages['warnings']);
-        }
-        if (isset($container['pdfStyles'])) {
-            $messages = self::validateStyles($container['pdfStyles'], $containerNum);
-            $errors = array_merge($errors, $messages['errors']);
-            $warnings = array_merge($warnings, $messages['warnings']);
-        }
-
         // Check each in containerItems
         foreach ($container['containerItems'] as $index => $item) {
             $num = $index + 1;
@@ -281,18 +268,6 @@ class ScanTemplateHelper
             $errors[] = "❌ #{$labelNum}: `repeater` must be boolean value: found `{$type}`.";
         }
 
-        // Check if styles exist
-        if (isset($group['webStyles'])) {
-            $messages = self::validateStyles($group['webStyles'], $labelNum);
-            $errors = array_merge($errors, $messages['errors']);
-            $warnings = array_merge($warnings, $messages['warnings']);
-        }
-        if (isset($group['pdfStyles'])) {
-            $messages = self::validateStyles($group['pdfStyles'], $labelNum);
-            $errors = array_merge($errors, $messages['errors']);
-            $warnings = array_merge($warnings, $messages['warnings']);
-        }
-
         // Check each in groupItems
         foreach ($group['groupItems'][0]['fields'] as $index => $item) {
             $num = $index + 1;
@@ -352,18 +327,6 @@ class ScanTemplateHelper
             }
         }
 
-        // Check if styles exist
-        if (isset($field['webStyles'])) {
-            $messages = self::validateStyles($field['webStyles'], $labelNum);
-            $errors = array_merge($errors, $messages['errors']);
-            $warnings = array_merge($warnings, $messages['warnings']);
-        }
-        if (isset($field['pdfStyles'])) {
-            $messages = self::validateStyles($field['pdfStyles'], $labelNum);
-            $errors = array_merge($errors, $messages['errors']);
-            $warnings = array_merge($warnings, $messages['warnings']);
-        }
-
         // Check if SelectOptions exist
         if (isset($field['listItems'])) {
             foreach ($field['listItems'] as $index => $item) {
@@ -386,25 +349,6 @@ class ScanTemplateHelper
         }
 
         return ['errors' => $errors, 'warnings' => $warnings, 'instance_ids' => $instance_ids];
-    }
-
-    private static function validateStyles($styles, $labelNum)
-    {
-        $warnings = [];
-        $errors = [];
-        foreach ($styles as $property => $value) {
-            if (!$property) {
-                $errors[] = "❌ #{$labelNum}: Style requires CSS `property`.";
-            }
-            if (!$value) {
-                $errors[] = "❌ #{$labelNum}: Style missing CSS `value`.";
-            }
-            $style = Style::where('property', $property)->where('value', $value)->first();
-            if (!$style) {
-                $warnings[] = "⚠️ #{$labelNum}: Style `{$property}: {$value}` not found. Importing will create a new Style.";
-            }
-        }
-        return ['errors' => $errors, 'warnings' => $warnings];
     }
 
     private static function find_duplicate_ids(array $ids)

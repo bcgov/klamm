@@ -92,8 +92,6 @@ class FormFieldBlock
                     ->afterStateUpdated(function ($state, callable $set) use ($fields) {
                         $field = $fields->get($state);
                         if ($field) {
-                            $set('webStyles', $field->webStyles->pluck('id')->toArray());
-                            $set('pdfStyles', $field->pdfStyles->pluck('id')->toArray());
                             $set('validations', $field->validations->map(fn($validation) => [
                                 'type' => $validation->type,
                                 'value' => $validation->value,
@@ -108,8 +106,6 @@ class FormFieldBlock
                             ])->toArray());
                         } else {
                             // Reset when no field is selected
-                            $set('webStyles', []);
-                            $set('pdfStyles', []);
                             $set('validations', []);
                             $set('select_option_instances', []);
                         }
@@ -336,19 +332,6 @@ class FormFieldBlock
                                     })->toArray()),
                             ])
                     ]),
-
-                Select::make('webStyles')
-                    ->label('Web Styles')
-                    ->options($styles->pluck('name', 'id'))
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(1),
-                Select::make('pdfStyles')
-                    ->label('PDF Styles')
-                    ->options($styles->pluck('name', 'id'))
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(1),
                 Section::make('Validations & Conditionals')
                     ->collapsible()
                     ->collapsed(true)

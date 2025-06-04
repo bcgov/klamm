@@ -15,8 +15,6 @@ use App\Models\FormInstanceFieldValue;
 use App\Models\FormVersion;
 use App\Models\SelectOptionInstance;
 use App\Models\SelectOptions;
-use App\Models\Style;
-use App\Models\StyleInstance;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 
@@ -143,14 +141,6 @@ class ImportTemplateHelper
         } else {
             $elementNum++;
 
-            // Create style_instances
-            if (isset($container['webStyles'])) {
-                self::createStyles($user, $container['webStyles'], 'web', containerID: $newContainer->id);
-            }
-            if (isset($container['pdfStyles'])) {
-                self::createStyles($user, $container['pdfStyles'], 'pdf', containerID: $newContainer->id);
-            }
-
             // Create nested elements
             foreach ($container['containerItems'] as $index => $element) {
                 if ($element['type'] === 'group') {
@@ -217,14 +207,6 @@ class ImportTemplateHelper
             Notification::make()->title('Error')->body('Failed to create Group.')->danger()->send()->sendToDatabase($user);
         } else {
             $elementNum++;
-
-            // Create style_instances
-            if (isset($group['webStyles'])) {
-                self::createStyles($user, $group['webStyles'], 'web', groupID: $newGroup->id);
-            }
-            if (isset($group['pdfStyles'])) {
-                self::createStyles($user, $group['pdfStyles'], 'pdf', groupID: $newGroup->id);
-            }
 
             // Create nested elements
             foreach ($group['groupItems'][0]['fields'] as $index => $element) {
@@ -325,60 +307,9 @@ class ImportTemplateHelper
                 }
             }
 
-            // Create style_instances
-            if (isset($field['webStyles'])) {
-                self::createStyles($user, $field['webStyles'], 'web', fieldID: $newField->id);
-            }
-            if (isset($field['pdfStyles'])) {
-                self::createStyles($user, $field['pdfStyles'], 'pdf', fieldID: $newField->id);
-            }
-
             // Create select_option_instances
             if (isset($field['listItems'])) {
                 self::createSelectOptions($user, $field['listItems'], $newField->id, $formVersionID);
-            }
-        }
-    }
-
-    private static function createStyles($user, $styles, $type, $fieldID = null, $groupID = null, $containerID = null)
-    {
-        foreach ($styles as $property => $value) {
-            // Check if style exists, create if not
-            $style = Style::firstOrCreate(
-                ['property' => $property, 'value' => $value],
-                ['name' => "{$property} {$value}"]
-            );
-
-            if (!$style) {
-                Notification::make()
-                    ->title('Error')
-                    ->body("Failed to create Style `{$property}: {$value}`.")
-                    ->danger()
-                    ->send()
-                    ->sendToDatabase($user);
-            } elseif ($style->wasRecentlyCreated) {
-                Notification::make()
-                    ->title('Error')
-                    ->body("Creating new Style: `{$property}: {$value}`.")
-                    ->warning()
-                    ->send()
-                    ->sendToDatabase($user);
-            }
-
-            // Create style_instance
-            $newStyleInstance = StyleInstance::create([
-                'type' => $type,
-                'style_id' => $style->id,
-                'form_instance_field_id' => $fieldID,
-                'field_group_instance_id' => $groupID,
-                'container_id' => $containerID,
-            ]);
-            if (!$newStyleInstance) {
-                Notification::make()
-                    ->title('Error')->body("Failed to create StyleInstance `{$style}` for field #{$fieldID}.")
-                    ->danger()
-                    ->send()
-                    ->sendToDatabase($user);
             }
         }
     }

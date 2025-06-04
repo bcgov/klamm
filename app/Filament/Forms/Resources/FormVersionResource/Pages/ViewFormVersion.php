@@ -46,7 +46,6 @@ class ViewFormVersion extends ViewRecord
                     'selectOptionInstances',
                     'validations',
                     'conditionals',
-                    'styleInstances',
                     'formInstanceFieldValue',
                     'formInstanceFieldDateFormat',
                 ]);
@@ -55,7 +54,6 @@ class ViewFormVersion extends ViewRecord
                 $query
                     ->whereNull('container_id')
                     ->with([
-                        'styleInstances',
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
@@ -70,7 +68,6 @@ class ViewFormVersion extends ViewRecord
                                     'selectOptionInstances',
                                     'validations',
                                     'conditionals',
-                                    'styleInstances',
                                     'formInstanceFieldValue',
                                     'formInstanceFieldDateFormat',
                                 ]);
@@ -79,7 +76,6 @@ class ViewFormVersion extends ViewRecord
             },
             'containers' => function ($query) {
                 $query->with([
-                    'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
                             ->with([
@@ -93,14 +89,12 @@ class ViewFormVersion extends ViewRecord
                                 'selectOptionInstances',
                                 'validations',
                                 'conditionals',
-                                'styleInstances',
                                 'formInstanceFieldValue',
                                 'formInstanceFieldDateFormat',
                             ]);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
-                            'styleInstances',
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
@@ -115,7 +109,6 @@ class ViewFormVersion extends ViewRecord
                                         'selectOptionInstances',
                                         'validations',
                                         'conditionals',
-                                        'styleInstances',
                                         'formInstanceFieldValue',
                                         'formInstanceFieldDateFormat',
                                     ]);
@@ -148,22 +141,6 @@ class ViewFormVersion extends ViewRecord
     }
 
     // Helper functions
-    private function fillStyles($styleInstances)
-    {
-        $styles = [
-            'webStyles' => [],
-            'pdfStyles' => [],
-        ];
-        foreach ($styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
-                $styles['webStyles'][] = $styleInstance->style_id;
-            } elseif ($styleInstance->type === 'pdf') {
-                $styles['pdfStyles'][] = $styleInstance->style_id;
-            }
-        }
-        return $styles;
-    }
-
     private function fillValidations($validations)
     {
         $data = [];
@@ -208,7 +185,6 @@ class ViewFormVersion extends ViewRecord
     {
         $components = [];
         foreach ($formFields as $field) {
-            $styles = $this->fillStyles($field->styleInstances);
             $validations = $this->fillValidations($field->validations);
             $conditionals = $this->fillConditionals($field->conditionals);
             $selectOptionInstances = $this->fillSelectOptionInstances($field->selectOptionInstances);
@@ -240,8 +216,6 @@ class ViewFormVersion extends ViewRecord
                     'customize_instance_id' => $field->custom_instance_id,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value,
-                    'webStyles' => $styles['webStyles'],
-                    'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'select_option_instances' => $selectOptionInstances,
@@ -258,8 +232,6 @@ class ViewFormVersion extends ViewRecord
         foreach ($fieldGroups as $group) {
             $groupFields = $group->formInstanceFields;
             $formFieldsData = $this->fillFields($groupFields);
-
-            $styles = $this->fillStyles($group->styleInstances);
 
             $fieldGroup = $group->fieldGroup;
             $components[] = [
@@ -282,8 +254,6 @@ class ViewFormVersion extends ViewRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
-                    'webStyles' => $styles['webStyles'],
-                    'pdfStyles' => $styles['pdfStyles'],
                 ],
             ];
         }
@@ -294,7 +264,6 @@ class ViewFormVersion extends ViewRecord
     {
         $components = [];
         foreach ($containers as $container) {
-            $styles = $this->fillStyles($container->styleInstances);
 
             $blocks = array_merge(
                 $this->fillFields($container->formInstanceFields),
@@ -313,8 +282,6 @@ class ViewFormVersion extends ViewRecord
                     'customize_instance_id' => $container->custom_instance_id ?? null,
                     'clear_button' => $container->clear_button ?? false,
                     'components' => $blocks,
-                    'webStyles' => $styles['webStyles'],
-                    'pdfStyles' => $styles['pdfStyles'],
                     'visibility' => $container->visibility,
                     'order' => $container->order,
                 ],
