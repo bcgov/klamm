@@ -36,9 +36,16 @@ class ApprovalRequestResource extends Resource
             return true;
         }
 
-        return static::getModel()::where('approver_id', Auth::id())
-            ->orWhere('requester_id', Auth::id())
-            ->exists();
+        // Check if user has any approval requests in their business areas or assigned to them
+        $userBusinessAreaIds = $user->businessAreas->pluck('id')->toArray();
+
+        return static::getModel()::where(function ($query) use ($user, $userBusinessAreaIds) {
+            $query->where('approver_id', $user->id)
+                ->orWhere('requester_id', $user->id)
+                ->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                    $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                });
+        })->exists();
     }
 
     public static function getNavigationBadge(): ?string
@@ -46,9 +53,14 @@ class ApprovalRequestResource extends Resource
         $user = Auth::user();
 
         if ($user && Gate::allows('form-developer')) {
-            $count = static::getModel()::whereHas('formVersion', function (Builder $query) {
-                $query->where('form_developer_id', Auth::id());
-            })->where('status', 'pending')->count();
+            $count = static::getModel()::where('status', 'pending')
+                ->where(function ($query) {
+                    $query->where('requester_id', Auth::id())
+                        ->orWhereHas('formVersion', function (Builder $subQuery) {
+                            $subQuery->where('form_developer_id', Auth::id());
+                        });
+                })
+                ->count();
         } else {
             $count = static::getModel()::where('approver_id', Auth::id())
                 ->where('status', 'pending')
@@ -78,17 +90,31 @@ class ApprovalRequestResource extends Resource
     {
         $user = Auth::user();
 
+        // Admins can see all approval requests
+        if ($user && Gate::allows('admin')) {
+            return parent::getEloquentQuery();
+        }
+
         if ($user && Gate::allows('form-developer')) {
             return parent::getEloquentQuery()
-                ->whereHas('formVersion', function (Builder $query) {
-                    $query->where('form_developer_id', Auth::id());
+                ->where(function ($query) use ($user) {
+                    $query->where('requester_id', $user->id)
+                        ->orWhereHas('formVersion', function (Builder $subQuery) use ($user) {
+                            $subQuery->where('form_developer_id', $user->id);
+                        });
                 });
         }
 
+        // Include approvals in user's business areas
+        $userBusinessAreaIds = $user->businessAreas->pluck('id')->toArray();
+
         return parent::getEloquentQuery()
-            ->where(function ($query) {
-                $query->where('approver_id', Auth::id())
-                    ->orWhere('requester_id', Auth::id());
+            ->where(function ($query) use ($user, $userBusinessAreaIds) {
+                $query->where('approver_id', $user->id)
+                    ->orWhere('requester_id', $user->id)
+                    ->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                        $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                    });
             });
     }
 
