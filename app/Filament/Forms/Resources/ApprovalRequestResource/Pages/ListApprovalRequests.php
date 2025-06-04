@@ -132,12 +132,14 @@ class ListApprovalRequests extends ListRecords
                     ->searchable()
                     ->sortable()
                     ->visible(fn() => $isFormDeveloper || $this->activeTab === 'business_areas'),
-                BadgeColumn::make('status')
+                TextColumn::make('status')
+                    ->badge()
                     ->label('Status')
                     ->colors([
                         'warning' => 'pending',
                         'success' => 'approved',
                         'danger' => 'rejected',
+                        'gray' => 'cancelled',
                     ]),
                 TextColumn::make('created_at')
                     ->label('Requested')
@@ -152,7 +154,8 @@ class ListApprovalRequests extends ListRecords
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderByRaw("COALESCE(approved_at, rejected_at) $direction");
                     })
-                    ->placeholder('Pending'),
+                    ->placeholder(fn($record) => $record->status != 'cancelled' ? 'Pending' : 'Cancelled'),
+
             ])
             ->filters([
                 //

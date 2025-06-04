@@ -135,9 +135,13 @@ class ApprovalRequestResource extends Resource
                         Grid::make(2)
                             ->schema([
                                 TextEntry::make('formVersion.form.form_title')
-                                    ->label('Form Title'),
+                                    ->label('Form Title')
+                                    ->icon('heroicon-o-document-text')
+                                    ->url(fn(FormApprovalRequest $record): string => FormResource::getUrl('view', ['record' => $record->formVersion->form_id])),
                                 TextEntry::make('formVersion.version_number')
-                                    ->label('Version Number'),
+                                    ->label('Version Number')
+                                    ->icon('heroicon-o-inbox-stack')
+                                    ->url(fn(FormApprovalRequest $record): string => FormVersionResource::getUrl('view', ['record' => $record->formVersion->id])),
                                 TextEntry::make('formVersion.form.form_id')
                                     ->label('Form ID'),
                                 TextEntry::make('status')

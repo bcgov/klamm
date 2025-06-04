@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Filament\Support\Enums\MaxWidth;
+use Filament\Forms\Components\Textarea;
 
 class ViewApprovalRequest extends ViewRecord
 {
@@ -85,10 +86,25 @@ class ViewApprovalRequest extends ViewRecord
 
                 Actions\Action::make('cancel')
                     ->label('Cancel Request')
-                    ->action(function () {
+                    ->form([
+                        Textarea::make('cancellation_reason')
+                            ->label('Cancellation Reason (Optional)')
+                            ->placeholder('Provide a reason for cancelling this request...')
+                            ->rows(3)
+                            ->maxLength(500)
+                    ])
+                    ->action(function (array $data) {
                         try {
                             $this->record->formVersion->update(['status' => 'draft']);
-                            $this->record->update(['status' => 'cancelled']);
+
+                            $cancellerName = Auth::user()->name;
+                            $reason = !empty($data['cancellation_reason']) ? $data['cancellation_reason'] : 'Not provided';
+                            $cancellationNote = "Cancelled by: {$cancellerName}; Cancellation Reason: {$reason}";
+
+                            $this->record->update([
+                                'status' => 'cancelled',
+                                'approver_note' => $cancellationNote
+                            ]);
 
                             // Send notification to requester only if they're not the one cancelling (admin cancelling)
                             if ($this->record->requester_id !== Auth::id()) {
@@ -119,13 +135,12 @@ class ViewApprovalRequest extends ViewRecord
                     })
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')
-                    ->requiresConfirmation()
                     ->modalHeading('Cancel Approval Request')
                     ->modalDescription(
                         function () {
                             $cancellationMessage = 'Are you sure you want to cancel this Approval Request? This cannot be undone. The form will be returned to draft status and the approver will be notified of the cancellation.';
                             if ($this->record->requester_id !== Auth::id()) {
-                                return $cancellationMessage . 'The original requester will also be notified. ';
+                                return $cancellationMessage . ' The original requester will also be notified.';
                             };
                             return $cancellationMessage;
                         }

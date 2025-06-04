@@ -52,6 +52,9 @@ class CancellationNotification extends Notification
                 ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
                 ->line('**Form ID:** ' . ($this->approvalRequest->formVersion->form->form_id ?? 'N/A'))
                 ->line('**Cancellation Date:** ' . now()->format('M j, Y g:i A'))
+                ->when($this->approvalRequest->approver_note && str_contains($this->approvalRequest->approver_note, 'Cancelled by:'), function ($mail) {
+                    return $mail->line('**' . $this->approvalRequest->approver_note . '**');
+                })
                 ->when($this->approvalRequest->requester_note, function ($mail) {
                     return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
                 })
@@ -71,6 +74,9 @@ class CancellationNotification extends Notification
                 ->line('**Requested by:** ' . $requesterName)
                 ->line('**Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
                 ->line('**Cancellation Date:** ' . now()->format('M j, Y g:i A'))
+                ->when($this->approvalRequest->approver_note && str_contains($this->approvalRequest->approver_note, 'Cancelled by:'), function ($mail) {
+                    return $mail->line('**' . $this->approvalRequest->approver_note . '**');
+                })
                 ->when($this->approvalRequest->requester_note, function ($mail) {
                     return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
                 })
