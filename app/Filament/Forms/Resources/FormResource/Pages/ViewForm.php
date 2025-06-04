@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources\FormResource\Pages;
 
 use App\Filament\Forms\Resources\FormResource;
+use App\Filament\Forms\Resources\FormResource\RelationManagers\FormApprovalRequestRelationManager;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use App\Filament\Forms\Resources\FormResource\RelationManagers\FormVersionRelationManager;
@@ -17,7 +18,8 @@ class ViewForm extends ViewRecord
 
     protected const DEFAULT_RELATION_MANAGERS = [
         FormVersionRelationManager::class,
-        ViewFormActivitiesRelationManager::class
+        ViewFormActivitiesRelationManager::class,
+        FormApprovalRequestRelationManager::class,
     ];
 
     protected static string $resource = FormResource::class;

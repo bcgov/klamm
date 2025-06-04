@@ -146,4 +146,16 @@ class Form extends Model
                 'form_versions.updated_at as version_updated_at'
             ]);
     }
+
+    public function approvalRequests(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            FormApprovalRequest::class,
+            FormVersion::class,
+            'form_id',
+            'form_version_id',
+            'id',
+            'id'
+        );
+    }
 }
