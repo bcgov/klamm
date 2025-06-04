@@ -2,7 +2,13 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
+use App\Console\Commands\SendEmailReminders;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote')->hourly();
+// Run Email Reminders Command Every Day at 7:00 AM
+Schedule::command(SendEmailReminders::class)
+    ->daily()
+    ->weekdays()
+    ->timezone('America/Vancouver')
+    ->at('7:00')
+    ->withoutOverlapping();

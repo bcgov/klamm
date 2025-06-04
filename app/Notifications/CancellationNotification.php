@@ -39,7 +39,7 @@ class CancellationNotification extends Notification
         $formTitle = $this->approvalRequest->formVersion->form->form_title ?? 'Unknown Form';
         $requesterName = $this->approvalRequest->requester->name ?? 'Unknown Requester';
 
-        $isRequester = $notifiable->id === $this->approvalRequest->requester_id;
+        $isRequester = isset($notifiable->id) && $notifiable->id === $this->approvalRequest->requester_id;
         $recipientName = $notifiable->name ?? 'User';
 
         if ($isRequester) {
@@ -91,7 +91,7 @@ class CancellationNotification extends Notification
             'form_id' => $this->approvalRequest->formVersion->form->form_id,
             'version_number' => $this->approvalRequest->formVersion->version_number,
             'requester_name' => $this->approvalRequest->requester->name,
-            'is_requester' => $notifiable->id === $this->approvalRequest->requester_id,
+            'is_requester' => isset($notifiable->id) && $notifiable->id === $this->approvalRequest->requester_id,
             'is_internal' => $this->approvalRequest->approver_id !== null,
         ];
     }
