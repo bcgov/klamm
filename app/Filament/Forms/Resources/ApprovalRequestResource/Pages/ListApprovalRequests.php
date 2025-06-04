@@ -154,7 +154,7 @@ class ListApprovalRequests extends ListRecords
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderByRaw("COALESCE(approved_at, rejected_at) $direction");
                     })
-                    ->placeholder(fn($record) => $record->status != 'cancelled' ? 'Pending' : 'Cancelled'),
+                    ->placeholder(fn($record) => $record->status === 'cancelled' ? 'Cancelled' : 'Pending'),
 
             ])
             ->filters([

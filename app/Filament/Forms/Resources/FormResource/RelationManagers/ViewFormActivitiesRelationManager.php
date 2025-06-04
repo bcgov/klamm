@@ -31,6 +31,7 @@ class ViewFormActivitiesRelationManager extends RelationManager
         return $table
             ->heading(ActivitylogPlugin::get()->getPluralLabel())
             ->columns($columns)
+            ->deferLoading()
             ->filters(CustomActivitylogResource::getStandardFilters())
             ->defaultSort('activity_log.created_at', 'desc')
             ->actions([

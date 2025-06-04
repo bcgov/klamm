@@ -6,9 +6,14 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
+use Illuminate\Support\Facades\Gate;
+use App\Filament\Forms\Resources\FormVersionResource\RelationManagers\ApprovalRequestRelationManager;
+use App\Traits\HasBusinessAreaAccess;
 
 class ViewFormVersion extends ViewRecord
 {
+    use HasBusinessAreaAccess;
+
     protected static string $resource = FormVersionResource::class;
 
     public array $additionalApprovers = [];
@@ -27,6 +32,26 @@ class ViewFormVersion extends ViewRecord
                 ->visible(fn() => $this->record->status === 'draft'),
             FormApprovalActions::makeReadyForReviewAction($this->record, $this->additionalApprovers),
         ];
+    }
+
+    protected const DEFAULT_RELATION_MANAGERS = [
+        ApprovalRequestRelationManager::class,
+    ];
+
+    public function getRelationManagers(): array
+    {
+        if (Gate::allows('admin') || Gate::allows('form-developer')) {
+            return self::DEFAULT_RELATION_MANAGERS;
+        }
+        if ($this->hasBusinessAreaAccess()) {
+            $formVersion = $this->getRecord();
+
+            if ($this->hasAccessToFormVersion($formVersion)) {
+                return self::DEFAULT_RELATION_MANAGERS;
+            }
+        }
+
+        return [];
     }
 
     protected function mutateFormDataBeforeFill(array $data): array

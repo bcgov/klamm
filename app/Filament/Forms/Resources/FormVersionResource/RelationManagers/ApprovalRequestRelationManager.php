@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Filament\Forms\Resources\FormResource\RelationManagers;
+namespace App\Filament\Forms\Resources\FormVersionResource\RelationManagers;
 
 use App\Models\FormApprovalRequest;
-use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Actions\ViewAction;
@@ -14,7 +13,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 
-class FormApprovalRequestRelationManager extends RelationManager
+class ApprovalRequestRelationManager extends RelationManager
 {
     protected static string $relationship = 'approvalRequests';
 
@@ -28,22 +27,9 @@ class FormApprovalRequestRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Form Approval Requests')
+            ->heading('Approval Requests')
             ->deferLoading()
-            ->modifyQueryUsing(function (Builder $query) {
-                // Get all approval requests for this form through its versions
-                return $query->whereHas('formVersion', function (Builder $subQuery) {
-                    $subQuery->where('form_id', $this->ownerRecord->id);
-                });
-            })
             ->columns([
-                TextColumn::make('formVersion.version_number')
-                    ->label('Version')
-                    ->sortable()
-                    ->url(
-                        fn(FormApprovalRequest $record): string =>
-                        FormVersionResource::getUrl('view', ['record' => $record->formVersion->id])
-                    ),
                 TextColumn::make('status')
                     ->badge()
                     ->label('Status')
@@ -92,12 +78,6 @@ class FormApprovalRequestRelationManager extends RelationManager
                     ->placeholder(fn($record) => $record->status === 'cancelled' ? 'Cancelled' : 'Pending'),
             ])
             ->filters([
-                SelectFilter::make('form_version_id')
-                    ->label('Version ID')
-                    ->multiple()
-                    ->options(
-                        $this->ownerRecord->versions->pluck('version_number', 'id')->toArray()
-                    ),
                 SelectFilter::make('status')
                     ->label('Status')
                     ->multiple()
@@ -108,6 +88,7 @@ class FormApprovalRequestRelationManager extends RelationManager
                         'cancelled' => 'Cancelled',
                     ])
                     ->attribute('form_approval_requests.status'),
+
                 Filter::make('created_at')
                     ->label('Requested At')
                     ->form([
