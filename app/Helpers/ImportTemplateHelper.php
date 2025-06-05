@@ -50,8 +50,6 @@ class ImportTemplateHelper
 
         $formVersion = FormVersion::create([
             'form_id' => $form->id,
-            'updater_name' => $user->name,
-            'updater_email' => $user->email,
             'deployed_to' => $json['deployed_to'] ?? null,
         ]);
 

@@ -28,10 +28,6 @@ class CreateFormVersion extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $user = Auth::user();
-        $data['updater_name'] = $user->name;
-        $data['updater_email'] = $user->email;
-
         // Put all instance IDs into the session so that each block can check them against its duplicate ID rule
         Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components']));
 
