@@ -15,6 +15,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Filament\Home\Pages\Welcome;
 use App\Filament\Home\Pages\Profile;
+use App\Filament\Home\Pages\ExternalApprovalReview;
 use Filament\Navigation\MenuItem;
 use App\Http\Middleware\CheckRole;
 
@@ -47,6 +48,7 @@ class HomePanelProvider extends PanelProvider
             ->pages([
                 Welcome::class,
                 Profile::class,
+                ExternalApprovalReview::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Home/Widgets'), for: 'App\\Filament\\Home\\Widgets')
             ->widgets([])

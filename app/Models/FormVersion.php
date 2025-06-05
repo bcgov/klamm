@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use App\Helpers\FormDataHelper;
@@ -19,10 +20,7 @@ class FormVersion extends Model
         'form_id',
         'version_number',
         'status',
-        'form_developer_name',
-        'form_developer_email',
-        'updater_name',
-        'updater_email',
+        'form_developer_id',
         'footer',
         'comments',
         'deployed_to',
@@ -38,8 +36,7 @@ class FormVersion extends Model
         'form_id',
         'version_number',
         'status',
-        'form_developer_name',
-        'form_developer_email',
+        'form_developer_id',
         'comments',
         'deployed_to',
         'deployed_at',
@@ -120,7 +117,7 @@ class FormVersion extends Model
 
                 // Filter out unnecessary fields from changes description
                 $changes = array_filter($changes, function ($change) {
-                    return !in_array($change, ['updated_at', 'updater_name', 'updater_email']);
+                    return !in_array($change, ['updated_at']);
                 });
 
                 if (!empty($changes)) {
@@ -159,9 +156,14 @@ class FormVersion extends Model
         return self::getStatusOptions()[$this->status] ?? $this->status;
     }
 
-    public function form()
+    public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
+    }
+
+    public function formDeveloper(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'form_developer_id');
     }
 
     public function formInstanceFields(): HasMany

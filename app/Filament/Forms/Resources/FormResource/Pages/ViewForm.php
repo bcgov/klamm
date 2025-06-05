@@ -9,6 +9,7 @@ use App\Filament\Forms\Resources\FormResource\RelationManagers\FormVersionRelati
 use Illuminate\Support\Facades\Gate;
 use App\Traits\HasBusinessAreaAccess;
 use App\Filament\Forms\Resources\FormResource\RelationManagers\ViewFormActivitiesRelationManager;
+use App\Filament\Forms\Resources\FormVersionResource;
 
 class ViewForm extends ViewRecord
 {
@@ -45,6 +46,24 @@ class ViewForm extends ViewRecord
     {
         return [
             Actions\EditAction::make(),
+            Actions\Action::make('view_latest_version')
+                ->label('View latest version')
+                ->icon('heroicon-o-document-text')
+                ->url(function () {
+                    $form = $this->getRecord();
+                    $latestVersion = $form->versions()->latest('version_number')->first();
+
+                    if ($latestVersion) {
+                        return FormVersionResource::getUrl('view', ['record' => $latestVersion]);
+                    }
+
+                    return null;
+                })
+                ->visible(function () {
+                    $form = $this->getRecord();
+                    return $form->versions()->exists();
+                })
+                ->outlined(),
         ];
     }
 }
