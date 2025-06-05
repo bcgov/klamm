@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\ApprovalRequestResource\Pages;
 use App\Models\FormApprovalRequest;
+use App\Traits\HasBusinessAreaAccess;
 use Illuminate\Support\Facades\Gate;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Auth;
 
 class ApprovalRequestResource extends Resource
 {
+    use HasBusinessAreaAccess;
+
     protected static ?string $model = FormApprovalRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
@@ -36,15 +39,18 @@ class ApprovalRequestResource extends Resource
             return true;
         }
 
-        // Check if user has any approval requests in their business areas or assigned to them
-        $userBusinessAreaIds = $user->businessAreas->pluck('id')->toArray();
+        $instance = new static();
+        $userBusinessAreaIds = $instance->getUserBusinessAreaIds();
 
         return static::getModel()::where(function ($query) use ($user, $userBusinessAreaIds) {
             $query->where('approver_id', $user->id)
-                ->orWhere('requester_id', $user->id)
-                ->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                ->orWhere('requester_id', $user->id);
+
+            if (!empty($userBusinessAreaIds)) {
+                $query->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
                     $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
                 });
+            }
         })->exists();
     }
 
@@ -95,26 +101,35 @@ class ApprovalRequestResource extends Resource
             return parent::getEloquentQuery();
         }
 
+        $instance = new static();
+        $userBusinessAreaIds = $instance->getUserBusinessAreaIds();
+
         if ($user && Gate::allows('form-developer')) {
             return parent::getEloquentQuery()
-                ->where(function ($query) use ($user) {
+                ->where(function ($query) use ($user, $userBusinessAreaIds) {
                     $query->where('requester_id', $user->id)
+                        ->orWhere('approver_id', $user->id)
                         ->orWhereHas('formVersion', function (Builder $subQuery) use ($user) {
                             $subQuery->where('form_developer_id', $user->id);
                         });
+
+                    if (!empty($userBusinessAreaIds)) {
+                        $query->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                            $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                        });
+                    }
                 });
         }
-
-        // Include approvals in user's business areas
-        $userBusinessAreaIds = $user->businessAreas->pluck('id')->toArray();
 
         return parent::getEloquentQuery()
             ->where(function ($query) use ($user, $userBusinessAreaIds) {
                 $query->where('approver_id', $user->id)
-                    ->orWhere('requester_id', $user->id)
-                    ->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                    ->orWhere('requester_id', $user->id);
+                if (!empty($userBusinessAreaIds)) {
+                    $query->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
                         $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
                     });
+                }
             });
     }
 

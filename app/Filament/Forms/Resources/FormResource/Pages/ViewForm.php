@@ -18,8 +18,8 @@ class ViewForm extends ViewRecord
 
     protected const DEFAULT_RELATION_MANAGERS = [
         FormVersionRelationManager::class,
-        ViewFormActivitiesRelationManager::class,
         FormApprovalRequestRelationManager::class,
+        ViewFormActivitiesRelationManager::class,
     ];
 
     protected static string $resource = FormResource::class;

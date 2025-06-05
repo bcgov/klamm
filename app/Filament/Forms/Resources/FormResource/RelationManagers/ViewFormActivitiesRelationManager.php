@@ -9,13 +9,18 @@ use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Table;
 use Rmsramos\Activitylog\ActivitylogPlugin;
 use Rmsramos\Activitylog\Resources\ActivitylogResource;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 class ViewFormActivitiesRelationManager extends RelationManager
 {
     protected static string $relationship = 'activities';
 
     protected static ?string $recordTitleAttribute = 'description';
+
+    protected function getTableQuery(): ?Builder
+    {
+        return $this->getOwnerRecord()->getAllActivities();
+    }
 
     public function form(Form $form): Form
     {

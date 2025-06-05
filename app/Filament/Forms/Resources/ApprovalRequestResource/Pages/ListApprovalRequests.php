@@ -6,12 +6,12 @@ use App\Filament\Forms\Resources\ApprovalRequestResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use App\Models\FormApprovalRequest;
 use App\Models\User;
+use App\Traits\HasBusinessAreaAccess;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +25,8 @@ use Illuminate\Support\HtmlString;
 
 class ListApprovalRequests extends ListRecords
 {
+    use HasBusinessAreaAccess;
+
     protected static string $resource = ApprovalRequestResource::class;
 
     protected function getHeaderActions(): array
@@ -75,33 +77,35 @@ class ListApprovalRequests extends ListRecords
                 ),
         ];
 
-        $userBusinessAreaIds = $user->businessAreas->pluck('id')->toArray();
+        $userBusinessAreaIds = $this->getUserBusinessAreaIds();
+
+        $businessAreaRequests = FormApprovalRequest::where('status', 'pending')
+            ->where(function ($query) use ($user, $userBusinessAreaIds) {
+                $query->where('approver_id', $user->id)
+                    ->orWhere(function ($businessAreaQuery) use ($userBusinessAreaIds) {
+                        if (!empty($userBusinessAreaIds)) {
+                            $businessAreaQuery->whereHas('formVersion.form.businessAreas', function ($formBusinessAreaQuery) use ($userBusinessAreaIds) {
+                                $formBusinessAreaQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                            });
+                        }
+                    });
+            });
 
         return [
             ...($user && Gate::allows('form-developer') || Gate::allows('admin') ? $developerTabs : []),
             'assigned_to_me' => Tab::make('Assigned to Me')
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', $user->id)
+                ->modifyQueryUsing(fn() => FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')
                     ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
                     ->orderBy('created_at', 'desc'))
                 ->badge(FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')->count())
                 ->badgeColor('warning'),
 
-            'business_areas' => Tab::make('My Business Areas')
-                ->modifyQueryUsing(fn(Builder $query) => $query->where(function ($subQuery) use ($user, $userBusinessAreaIds) {
-                    $subQuery->where('approver_id', $user->id)
-                        ->orWhereHas('formVersion.form.businessAreas', function ($businessAreaQuery) use ($userBusinessAreaIds) {
-                            $businessAreaQuery->whereIn('business_areas.id', $userBusinessAreaIds);
-                        });
-                })
+            ...!empty($userBusinessAreaIds) ? ['business_areas' => Tab::make('My Business Areas')
+                ->modifyQueryUsing(fn() => $businessAreaRequests
                     ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
                     ->orderBy('created_at', 'desc'))
-                ->badge(FormApprovalRequest::where('status', 'pending')
-                    ->where(function ($query) use ($user, $userBusinessAreaIds) {
-                        $query->where('approver_id', $user->id)
-                            ->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
-                                $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
-                            });
-                    })->count()),
+                ->badge(fn() => $businessAreaRequests->count())] : [],
+
             'reviewed_forms' => Tab::make('Reviewed Forms')
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', '!=', 'pending')),
             ...($user && Gate::allows('admin') ? $adminTabs : []),
@@ -170,7 +174,7 @@ class ListApprovalRequests extends ListRecords
                     ->extraAttributes(['style' => 'background-color: #013366; border-color: #013366;'])
                     ->visible(
                         fn($record) =>
-                        !$isFormDeveloper &&
+                        $this->activeTab == 'assigned_to_me' &&
                             $record->approver_id === Auth::id() &&
                             $record->status === 'pending'
                     ),
@@ -247,11 +251,11 @@ class ListApprovalRequests extends ListRecords
                     })
                     ->closeModalByClickingAway(false)
                     ->modalSubmitAction(fn(StaticAction $action) => $action->label('Change Approver'))
+                    // Give admins and form developers ability to change approver
                     ->visible(
-                        fn($record) =>
-                        $isFormDeveloper &&
+                        fn($record) => ($isFormDeveloper || Gate::allows('admin')) &&
                             $record->status === 'pending' &&
-                            $record->formVersion->form_developer_id === Auth::id()
+                            ($record->formVersion->form_developer_id === Auth::id() || $record->requester_id === Auth::id() || Gate::allows('admin'))
                     ),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([

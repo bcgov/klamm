@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Widgets;
 
 use App\Models\Form;
 use App\Models\FormVersion;
+use App\Models\FormApprovalRequest;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -33,9 +34,20 @@ class YourFormsLogsWidget extends TableWidget
             return $table->query(Activity::whereNull('id'));
         }
 
+        // Includes FormVersions and FormApprovalRequests
+        $formVersionIds = FormVersion::whereIn('form_id', $forms->pluck('id'))->pluck('id');
+        $approvalRequestIds = FormApprovalRequest::whereIn('form_version_id', $formVersionIds)->pluck('id');
+
         $baseQuery = Activity::query()
-            ->whereHas('subject.form', function ($query) use ($forms) {
-                $query->whereIn('forms.id', $forms->pluck('id'));
+            ->where(function ($query) use ($formVersionIds, $approvalRequestIds) {
+                $query->where(function ($subQuery) use ($formVersionIds) {
+                    $subQuery->where('subject_type', FormVersion::class)
+                        ->whereIn('subject_id', $formVersionIds);
+                })
+                    ->orWhere(function ($subQuery) use ($approvalRequestIds) {
+                        $subQuery->where('subject_type', FormApprovalRequest::class)
+                            ->whereIn('subject_id', $approvalRequestIds);
+                    });
             })
             ->select('activity_log.*')
             ->with(['subject.form', 'causer'])
