@@ -61,7 +61,7 @@ trait HandlesApprovalReview
                             Placeholder::make('webform_link')
                                 ->label('')
                                 ->extraAttributes(['class' => 'prose'])
-                                ->content(new HtmlString('<a href="https://filamentphp.com/docs" class="text-primary-600 hover:text-primary-500 underline">View Webform</a>'))
+                                ->content(new HtmlString('<a href="/" class="text-primary-600 hover:text-primary-500 underline">View Webform</a>'))
                                 ->columnSpanFull(),
                             Placeholder::make('webform_question')
                                 ->label('')
@@ -109,7 +109,7 @@ trait HandlesApprovalReview
                             Placeholder::make('pdf_link')
                                 ->label('')
                                 ->extraAttributes(['class' => 'prose'])
-                                ->content(new HtmlString('<a href="https://filamentphp.com/docs" class="text-primary-600 hover:text-primary-500 underline">View PDF</a>'))
+                                ->content(new HtmlString('<a href="/" class="text-primary-600 hover:text-primary-500 underline">View PDF</a>'))
                                 ->columnSpanFull(),
                             Placeholder::make('pdf_question')
                                 ->label('')
