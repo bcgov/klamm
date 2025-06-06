@@ -72,7 +72,7 @@ class BrePanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                CheckRole::class . ':bre,bre-view-only,admin',
+                CheckRole::class . ':bre,user,admin',
             ]);
     }
 }

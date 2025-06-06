@@ -72,7 +72,7 @@ class BusinessAreaResource extends Resource
                                     'password' => bcrypt($password),
                                     'created_via_business_area' => true,
                                 ]);
-                                $user->assignRole('forms-view-only');
+                                $user->assignRole('user');
 
                                 $user->notify(new \App\Notifications\FormAccountCreatedNotification());
 
