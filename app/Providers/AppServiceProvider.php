@@ -40,24 +40,16 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasRole('bre');
         });
 
-        Gate::define('bre-view-only', function (User $user) {
-            return $user->hasRole('bre-view-only');
+        Gate::define('user', function (User $user) {
+            return $user->hasRole('user');
         });
 
         Gate::define('fodig', function (User $user) {
             return $user->hasRole('fodig');
         });
 
-        Gate::define('fodig-view-only', function (User $user) {
-            return $user->hasRole('fodig-view-only');
-        });
-
         Gate::define('forms', function (User $user) {
             return $user->hasRole('forms');
-        });
-
-        Gate::define('forms-view-only', function (User $user) {
-            return $user->hasRole('forms-view-only');
         });
 
         Gate::define('form-developer', function (User $user) {

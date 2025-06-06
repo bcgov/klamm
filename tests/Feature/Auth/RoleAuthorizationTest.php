@@ -65,11 +65,11 @@ describe('Gate Authorization', function () {
             ->and(Gate::allows('admin'))->toBeFalse();
     });
 
-    test('fodig-view-only role can access fodig-view-only gate', function () {
-        $user = createUserWithRole('fodig-view-only');
+    test('user role can access user gate', function () {
+        $user = createUserWithRole('user');
         $this->actingAs($user);
 
-        expect(Gate::allows('fodig-view-only'))->toBeTrue()
+        expect(Gate::allows('user'))->toBeTrue()
             ->and(Gate::allows('fodig'))->toBeFalse()
             ->and(Gate::allows('admin'))->toBeFalse();
     });
@@ -82,28 +82,12 @@ describe('Gate Authorization', function () {
             ->and(Gate::allows('admin'))->toBeFalse();
     });
 
-    test('forms-view-only role can access forms-view-only gate', function () {
-        $user = createUserWithRole('forms-view-only');
-        $this->actingAs($user);
-
-        expect(Gate::allows('forms-view-only'))->toBeTrue()
-            ->and(Gate::allows('forms'))->toBeFalse();
-    });
-
     test('bre role can access bre gate', function () {
         $user = createUserWithRole('bre');
         $this->actingAs($user);
 
         expect(Gate::allows('bre'))->toBeTrue()
             ->and(Gate::allows('admin'))->toBeFalse();
-    });
-
-    test('bre-view-only role can access bre-view-only gate', function () {
-        $user = createUserWithRole('bre-view-only');
-        $this->actingAs($user);
-
-        expect(Gate::allows('bre-view-only'))->toBeTrue()
-            ->and(Gate::allows('bre'))->toBeFalse();
     });
 
     test('form-developer role can access form-developer gate', function () {
@@ -200,10 +184,10 @@ describe('Factory Role States', function () {
         expect($user->hasRole('fodig'))->toBeTrue();
     });
 
-    test('fodigViewOnly factory creates user with fodig-view-only role', function () {
-        $user = User::factory()->fodigViewOnly()->create();
+    test('userRole factory creates user with user role', function () {
+        $user = User::factory()->userRole()->create();
 
-        expect($user->hasRole('fodig-view-only'))->toBeTrue();
+        expect($user->hasRole('user'))->toBeTrue();
     });
 
     test('forms factory creates user with forms role', function () {
@@ -212,22 +196,10 @@ describe('Factory Role States', function () {
         expect($user->hasRole('forms'))->toBeTrue();
     });
 
-    test('formsViewOnly factory creates user with forms-view-only role', function () {
-        $user = User::factory()->formsViewOnly()->create();
-
-        expect($user->hasRole('forms-view-only'))->toBeTrue();
-    });
-
     test('bre factory creates user with bre role', function () {
         $user = User::factory()->bre()->create();
 
         expect($user->hasRole('bre'))->toBeTrue();
-    });
-
-    test('breViewOnly factory creates user with bre-view-only role', function () {
-        $user = User::factory()->breViewOnly()->create();
-
-        expect($user->hasRole('bre-view-only'))->toBeTrue();
     });
 
     test('formDeveloper factory creates user with form-developer role', function () {
@@ -256,12 +228,11 @@ describe('Role Permissions Integration', function () {
         expect($user2->hasRole('fodig'))->toBeTrue();
     });
 
-    test('view-only roles have limited permissions compared to full roles', function () {
-        $fodigUser = createUserWithRole('fodig');
-        $fodigViewOnlyUser = createUserWithRole('fodig-view-only');
+    test('user role has view-only permissions', function () {
+        $fodigViewOnlyUser = createUserWithRole('user');
 
-        expect($fodigUser->hasRole('fodig'))->toBeTrue()
-            ->and($fodigViewOnlyUser->hasRole('fodig-view-only'))->toBeTrue()
+        expect($fodigViewOnlyUser->hasRole('user'))->toBeTrue()
+            ->and($fodigViewOnlyUser->hasRole('user'))->toBeTrue()
             ->and($fodigViewOnlyUser->hasRole('fodig'))->toBeFalse();
     });
 });
