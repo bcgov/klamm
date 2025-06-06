@@ -25,9 +25,22 @@ trait HandlesApprovalReview
         return '<span class="block text-lg font-bold">' . $text . '</span>';
     }
 
+    protected function getFormPreviewUrl($formVersionId, $isPdf = false): string
+    {
+        $previewBaseUrl = env('FORM_PREVIEW_URL', '');
+        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
+
+        if ($isPdf) {
+            $previewUrl .= '?format=pdf';
+        }
+
+        return $previewUrl;
+    }
+
     protected function getApprovalReviewForm(): array
     {
         $record = $this->getApprovalRecord();
+        $formVersionId = $record->form_version_id;
 
         return [
             Section::make('Requested updates')
@@ -61,7 +74,10 @@ trait HandlesApprovalReview
                             Placeholder::make('webform_link')
                                 ->label('')
                                 ->extraAttributes(['class' => 'prose'])
-                                ->content(new HtmlString('<a href="/" class="text-primary-600 hover:text-primary-500 underline">View Webform</a>'))
+                                ->content(function () use ($formVersionId) {
+                                    $previewUrl = $this->getFormPreviewUrl($formVersionId);
+                                    return new HtmlString('<a href="' . $previewUrl . '" target="_blank" class="text-primary-600 hover:text-primary-500 underline">View Webform</a>');
+                                })
                                 ->columnSpanFull(),
                             Placeholder::make('webform_question')
                                 ->label('')
@@ -109,7 +125,10 @@ trait HandlesApprovalReview
                             Placeholder::make('pdf_link')
                                 ->label('')
                                 ->extraAttributes(['class' => 'prose'])
-                                ->content(new HtmlString('<a href="/" class="text-primary-600 hover:text-primary-500 underline">View PDF</a>'))
+                                ->content(function () use ($formVersionId) {
+                                    $previewUrl = $this->getFormPreviewUrl($formVersionId, true);
+                                    return new HtmlString('<a href="' . $previewUrl . '" target="_blank" class="text-primary-600 hover:text-primary-500 underline">View PDF</a>');
+                                })
                                 ->columnSpanFull(),
                             Placeholder::make('pdf_question')
                                 ->label('')
@@ -201,7 +220,16 @@ trait HandlesApprovalReview
             'status' => $formVersionStatus,
         ]);
 
-        if ($record->formVersion->form_developer_id) {
+        // Send notification to form developer who requested the approval
+        if ($record->requester_id) {
+            $formDeveloper = $record->requester;
+            if ($formDeveloper) {
+                $formDeveloper->notify(new ApprovalDecisionNotification($record, $isApproved));
+            }
+        }
+
+        // Fall back to the form version developer if requester not found
+        elseif ($record->formVersion->form_developer_id) {
             $formDeveloper = $record->formVersion->formDeveloper;
             if ($formDeveloper) {
                 $formDeveloper->notify(new ApprovalDecisionNotification($record, $isApproved));

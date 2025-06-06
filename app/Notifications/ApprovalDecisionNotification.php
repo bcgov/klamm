@@ -44,17 +44,29 @@ class ApprovalDecisionNotification extends Notification
 
         $viewUrl = url('/forms/approval-requests/' . $this->approvalRequest->id);
 
+        $isInternal = $this->approvalRequest->approver_id !== null;
+
+        if ($isInternal) {
+            $approverName = $notifiable->name;
+        } else {
+            $approverName = $this->approvalRequest->approver_name ?? 'Reviewer';
+        }
+
         return (new MailMessage)
-            ->subject('Form Approval Decision: ' . $formTitle)
-            ->greeting('Hello ' . $notifiable->name . '!')
-            ->line('You are receiving this email because a form you submitted for approval has been reviewed.')
-            ->line('**Form:** ' . $formTitle)
-            ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
-            ->line('**Decision:** ' . $statusCapitalized)
-            ->line('The form you submitted for approval has been **' . $status . '**.')
-            ->action('View Approval Details', $viewUrl)
-            ->line('You can view the full approval details and any comments by clicking the button above.')
-            ->line('Thank you!');
+            ->subject('Form Review Completed: See the Decision: ' . $formTitle)
+            ->markdown('mail.forms-default-template', [
+                'slot' => (new MailMessage)
+                    ->greeting('Hello ' . $notifiable->name . '!')
+                    ->line('')
+                    ->line($approverName . ' has reviewed the form below and provided their decisions as outlined')
+                    ->line('**Form:** ' . $formTitle)
+                    ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
+                    ->line('**Decision:** ' . $statusCapitalized)
+                    ->action('Review decision details', $viewUrl)
+                    ->line('Regards,')
+                    ->line('**Forms Modernization Team**')
+                    ->render()
+            ]);
     }
 
     /**

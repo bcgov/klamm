@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\ApprovalRequestResource\Pages;
 use App\Models\FormApprovalRequest;
+use App\Traits\HasBusinessAreaAccess;
 use Illuminate\Support\Facades\Gate;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Auth;
 
 class ApprovalRequestResource extends Resource
 {
+    use HasBusinessAreaAccess;
+
     protected static ?string $model = FormApprovalRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
@@ -36,9 +39,19 @@ class ApprovalRequestResource extends Resource
             return true;
         }
 
-        return static::getModel()::where('approver_id', Auth::id())
-            ->orWhere('requester_id', Auth::id())
-            ->exists();
+        $instance = new static();
+        $userBusinessAreaIds = $instance->getUserBusinessAreaIds();
+
+        return static::getModel()::where(function ($query) use ($user, $userBusinessAreaIds) {
+            $query->where('approver_id', $user->id)
+                ->orWhere('requester_id', $user->id);
+
+            if (!empty($userBusinessAreaIds)) {
+                $query->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                    $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                });
+            }
+        })->exists();
     }
 
     public static function getNavigationBadge(): ?string
@@ -46,9 +59,14 @@ class ApprovalRequestResource extends Resource
         $user = Auth::user();
 
         if ($user && Gate::allows('form-developer')) {
-            $count = static::getModel()::whereHas('formVersion', function (Builder $query) {
-                $query->where('form_developer_id', Auth::id());
-            })->where('status', 'pending')->count();
+            $count = static::getModel()::where('status', 'pending')
+                ->where(function ($query) {
+                    $query->where('requester_id', Auth::id())
+                        ->orWhereHas('formVersion', function (Builder $subQuery) {
+                            $subQuery->where('form_developer_id', Auth::id());
+                        });
+                })
+                ->count();
         } else {
             $count = static::getModel()::where('approver_id', Auth::id())
                 ->where('status', 'pending')
@@ -78,17 +96,40 @@ class ApprovalRequestResource extends Resource
     {
         $user = Auth::user();
 
+        // Admins can see all approval requests
+        if ($user && Gate::allows('admin')) {
+            return parent::getEloquentQuery();
+        }
+
+        $instance = new static();
+        $userBusinessAreaIds = $instance->getUserBusinessAreaIds();
+
         if ($user && Gate::allows('form-developer')) {
             return parent::getEloquentQuery()
-                ->whereHas('formVersion', function (Builder $query) {
-                    $query->where('form_developer_id', Auth::id());
+                ->where(function ($query) use ($user, $userBusinessAreaIds) {
+                    $query->where('requester_id', $user->id)
+                        ->orWhere('approver_id', $user->id)
+                        ->orWhereHas('formVersion', function (Builder $subQuery) use ($user) {
+                            $subQuery->where('form_developer_id', $user->id);
+                        });
+
+                    if (!empty($userBusinessAreaIds)) {
+                        $query->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                            $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                        });
+                    }
                 });
         }
 
         return parent::getEloquentQuery()
-            ->where(function ($query) {
-                $query->where('approver_id', Auth::id())
-                    ->orWhere('requester_id', Auth::id());
+            ->where(function ($query) use ($user, $userBusinessAreaIds) {
+                $query->where('approver_id', $user->id)
+                    ->orWhere('requester_id', $user->id);
+                if (!empty($userBusinessAreaIds)) {
+                    $query->orWhereHas('formVersion.form.businessAreas', function ($subQuery) use ($userBusinessAreaIds) {
+                        $subQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                    });
+                }
             });
     }
 
@@ -109,9 +150,13 @@ class ApprovalRequestResource extends Resource
                         Grid::make(2)
                             ->schema([
                                 TextEntry::make('formVersion.form.form_title')
-                                    ->label('Form Title'),
+                                    ->label('Form Title')
+                                    ->icon('heroicon-o-document-text')
+                                    ->url(fn(FormApprovalRequest $record): string => FormResource::getUrl('view', ['record' => $record->formVersion->form_id])),
                                 TextEntry::make('formVersion.version_number')
-                                    ->label('Version Number'),
+                                    ->label('Version Number')
+                                    ->icon('heroicon-o-inbox-stack')
+                                    ->url(fn(FormApprovalRequest $record): string => FormVersionResource::getUrl('view', ['record' => $record->formVersion->id])),
                                 TextEntry::make('formVersion.form.form_id')
                                     ->label('Form ID'),
                                 TextEntry::make('status')

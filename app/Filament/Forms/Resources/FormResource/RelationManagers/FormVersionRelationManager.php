@@ -99,6 +99,8 @@ class FormVersionRelationManager extends RelationManager
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
             ])
             ->bulkActions([])
+            ->deferLoading()
+
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50, 100]);
     }
