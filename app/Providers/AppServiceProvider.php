@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Models\FormVersion;
+use App\Observers\FormVersionObserver;
 
 class AppServiceProvider extends ServiceProvider
 {

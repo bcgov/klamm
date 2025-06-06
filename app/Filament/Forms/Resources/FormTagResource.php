@@ -29,7 +29,8 @@ class FormTagResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
             ]);
@@ -64,7 +65,7 @@ class FormTagResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\FormsRelationManager::class,
         ];
     }
 

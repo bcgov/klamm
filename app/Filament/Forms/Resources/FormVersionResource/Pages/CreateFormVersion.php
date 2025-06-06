@@ -29,10 +29,6 @@ class CreateFormVersion extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $user = Auth::user();
-        $data['updater_name'] = $user->name;
-        $data['updater_email'] = $user->email;
-
         // Put all instance IDs into the session so that each block can check them against its duplicate ID rule
         Session::put('all_instance_ids', UniqueIDsHelper::extractInstanceIds($data['components']));
 
@@ -199,8 +195,8 @@ class CreateFormVersion extends CreateRecord
             'order' => $order,
             'custom_group_label' => $component['custom_group_label'] ?? null,
             'customize_group_label' => $component['customize_group_label'] ?? null,
-            'repeater' => $component['repeater'] ?? false,    
-            'clear_button' => $component['clear_button'] ?? false,          
+            'repeater' => $component['repeater'] ?? false,
+            'clear_button' => $component['clear_button'] ?? false,
             'custom_repeater_item_label' => $component['custom_repeater_item_label'],
             'custom_data_binding_path' => $component['custom_data_binding_path'] ?? null,
             'custom_data_binding' => $component['custom_data_binding'] ?? null,

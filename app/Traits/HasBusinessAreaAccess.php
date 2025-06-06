@@ -44,4 +44,26 @@ trait HasBusinessAreaAccess
             ->whereIn('business_areas.id', $businessAreaIds)
             ->exists();
     }
+
+    protected function hasAccessToFormVersion($formVersion): bool
+    {
+        if (!$formVersion->form) {
+            return false;
+        }
+
+        return $this->hasAccessToForm($formVersion->form);
+    }
+
+    protected function getAccessibleFormVersions(): Collection
+    {
+        $businessAreaIds = $this->getUserBusinessAreaIds();
+
+        if (empty($businessAreaIds)) {
+            return collect();
+        }
+
+        return \App\Models\FormVersion::whereHas('form.businessAreas', function ($query) use ($businessAreaIds) {
+            $query->whereIn('business_areas.id', $businessAreaIds);
+        })->get();
+    }
 }
