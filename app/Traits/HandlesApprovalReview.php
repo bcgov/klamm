@@ -201,7 +201,16 @@ trait HandlesApprovalReview
             'status' => $formVersionStatus,
         ]);
 
-        if ($record->formVersion->form_developer_id) {
+        // Send notification to form developer who requested the approval
+        if ($record->requester_id) {
+            $formDeveloper = $record->requester;
+            if ($formDeveloper) {
+                $formDeveloper->notify(new ApprovalDecisionNotification($record, $isApproved));
+            }
+        }
+
+        // Fall back to the form version developer if requester not found
+        elseif ($record->formVersion->form_developer_id) {
             $formDeveloper = $record->formVersion->formDeveloper;
             if ($formDeveloper) {
                 $formDeveloper->notify(new ApprovalDecisionNotification($record, $isApproved));

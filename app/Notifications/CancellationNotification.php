@@ -46,19 +46,23 @@ class CancellationNotification extends Notification
             // Message for the requester
             return (new MailMessage)
                 ->subject('Form Review Request Cancelled: ' . $formTitle)
-                ->greeting('Hello ' . $recipientName . '!')
-                ->line('Your form review request has been cancelled.')
-                ->line('**Form:** ' . $formTitle)
-                ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
-                ->line('**Form ID:** ' . ($this->approvalRequest->formVersion->form->form_id ?? 'N/A'))
-                ->line('**Cancellation Date:** ' . now()->format('M j, Y g:i A'))
-                ->when($this->approvalRequest->approver_note && str_contains($this->approvalRequest->approver_note, 'Cancelled by:'), function ($mail) {
-                    return $mail->line('**' . $this->approvalRequest->approver_note . '**');
-                })
-                ->when($this->approvalRequest->requester_note, function ($mail) {
-                    return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
-                })
-                ->line('The form has been returned to draft status and can be modified if needed.');
+                ->markdown('mail.forms-default-template', [
+                    'slot' => (new MailMessage)
+                        ->greeting('Hello ' . $recipientName . '!')
+                        ->line('Your form review request has been cancelled.')
+                        ->line('**Form:** ' . $formTitle)
+                        ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
+                        ->line('**Form ID:** ' . ($this->approvalRequest->formVersion->form->form_id ?? 'N/A'))
+                        ->line('**Cancellation Date:** ' . now()->format('M j, Y g:i A'))
+                        ->when($this->approvalRequest->approver_note && str_contains($this->approvalRequest->approver_note, 'Cancelled by:'), function ($mail) {
+                            return $mail->line('**' . $this->approvalRequest->approver_note . '**');
+                        })
+                        ->when($this->approvalRequest->requester_note, function ($mail) {
+                            return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
+                        })
+                        ->line('The form has been returned to draft status and can be modified if needed.')
+                        ->render()
+                ]);
         } else {
             // Message for the approver
             $approverName = $this->approvalRequest->approver_id ?
@@ -66,21 +70,25 @@ class CancellationNotification extends Notification
 
             return (new MailMessage)
                 ->subject('Form Review Request Cancelled: ' . $formTitle)
-                ->greeting('Hello ' . $approverName . '!')
-                ->line('A form review request assigned to you has been cancelled by the requester.')
-                ->line('**Form:** ' . $formTitle)
-                ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
-                ->line('**Form ID:** ' . ($this->approvalRequest->formVersion->form->form_id ?? 'N/A'))
-                ->line('**Requested by:** ' . $requesterName)
-                ->line('**Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
-                ->line('**Cancellation Date:** ' . now()->format('M j, Y g:i A'))
-                ->when($this->approvalRequest->approver_note && str_contains($this->approvalRequest->approver_note, 'Cancelled by:'), function ($mail) {
-                    return $mail->line('**' . $this->approvalRequest->approver_note . '**');
-                })
-                ->when($this->approvalRequest->requester_note, function ($mail) {
-                    return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
-                })
-                ->line('No further action is required from you.');
+                ->markdown('mail.forms-default-template', [
+                    'slot' => (new MailMessage)
+                        ->greeting('Hello ' . $approverName . '!')
+                        ->line('A form review request assigned to you has been cancelled by the requester.')
+                        ->line('**Form:** ' . $formTitle)
+                        ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
+                        ->line('**Form ID:** ' . ($this->approvalRequest->formVersion->form->form_id ?? 'N/A'))
+                        ->line('**Requested by:** ' . $requesterName)
+                        ->line('**Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
+                        ->line('**Cancellation Date:** ' . now()->format('M j, Y g:i A'))
+                        ->when($this->approvalRequest->approver_note && str_contains($this->approvalRequest->approver_note, 'Cancelled by:'), function ($mail) {
+                            return $mail->line('**' . $this->approvalRequest->approver_note . '**');
+                        })
+                        ->when($this->approvalRequest->requester_note, function ($mail) {
+                            return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
+                        })
+                        ->line('No further action is required from you.')
+                        ->render()
+                ]);
         }
     }
 

@@ -51,20 +51,24 @@ class ApprovalRequestReminderNotification extends Notification
 
         return (new MailMessage)
             ->subject('Reminder: Form Review Request - ' . $formTitle)
-            ->greeting('Hello ' . $approverName . '!')
-            ->line('This is a friendly reminder that you have a pending form approval request.')
-            ->line('**Form:** ' . $formTitle)
-            ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
-            ->line('**Requested by:** ' . $requesterName)
-            ->line('**Original Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
-            ->when($this->approvalRequest->requester_note, function ($mail) {
-                return $mail->line('**Request Note:** ' . $this->approvalRequest->requester_note);
-            })
-            ->line('Please review the form and provide your approval decision at your earliest convenience.')
-            ->action('Review Form', $reviewUrl)
-            ->when(!$isInternal, function ($mail) {
-                return $mail->line('*Note: This is a secure link that is unique to you. Please do not share this link with others.*');
-            });
+            ->markdown('mail.forms-default-template', [
+                'slot' => (new MailMessage)
+                    ->greeting('Hello ' . $approverName . '!')
+                    ->line('This is a friendly reminder that you have a pending form approval request.')
+                    ->line('**Form:** ' . $formTitle)
+                    ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
+                    ->line('**Requested by:** ' . $requesterName)
+                    ->line('**Original Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
+                    ->when($this->approvalRequest->requester_note, function ($mail) {
+                        return $mail->line('**Request Note:** ' . $this->approvalRequest->requester_note);
+                    })
+                    ->line('Please review the form and provide your approval decision at your earliest convenience.')
+                    ->action('Review Form', $reviewUrl)
+                    ->when(!$isInternal, function ($mail) {
+                        return $mail->line('*Note: This is a secure link that is unique to you. Please do not share this link with others.*');
+                    })
+                    ->render()
+            ]);
     }
 
     /**
