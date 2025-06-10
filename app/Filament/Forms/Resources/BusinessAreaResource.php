@@ -21,6 +21,7 @@ class BusinessAreaResource extends Resource
     protected static ?string $navigationGroup = 'Form Metadata';
 
     protected static ?string $navigationLabel = 'Business Area or Program';
+    protected static ?string $title = 'Business Area or Program';
     protected static ?int $navigationSort = 1;
 
 
@@ -134,5 +135,15 @@ class BusinessAreaResource extends Resource
             'create' => Pages\CreateBusinessArea::route('/create'),
             'edit' => Pages\EditBusinessArea::route('/{record}/edit'),
         ];
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Business Area or Program';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Business Areas or Programs';
     }
 }

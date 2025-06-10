@@ -308,4 +308,14 @@ class ApprovalRequestResource extends Resource
             'edit' => Pages\EditApprovalRequest::route('/{record}/review'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Approval Request';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Approval Requests';
+    }
 }
