@@ -289,15 +289,22 @@ class ListApprovalRequests extends ListRecords
                             ->searchable()
                             ->label('Select User')
                             ->options(function ($record) {
-                                $businessAreaUsers = $record->formVersion->form->businessAreas->flatMap->users
-                                    ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
-                                    ->toArray();
+                                $formVersion = $record->formVersion;
+                                $form = $formVersion->form;
+                                $form->loadMissing(['businessAreas.users']);
+
+                                $businessAreaUsers = [];
+                                foreach ($form->businessAreas as $businessArea) {
+                                    foreach ($businessArea->users as $user) {
+                                        $businessAreaUsers[$user->id] = $user->name . ' (' . $user->email . ')';
+                                    }
+                                }
 
                                 $allKlammUsers = User::all()
                                     ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
                                     ->toArray();
 
-                                return array_merge($businessAreaUsers, $allKlammUsers);
+                                return $businessAreaUsers + $allKlammUsers;
                             })
                             ->getSearchResultsUsing(function (string $search) {
                                 return User::where(function ($query) use ($search) {
@@ -312,7 +319,7 @@ class ListApprovalRequests extends ListRecords
                             ->required()
                             ->visible(fn(Get $get) => $get('approver_type') === 'klamm')
                             ->default(function ($record) {
-                                return $record->is_klamm_user ? User::find($record->approver_id)?->name : null;
+                                return $record->is_klamm_user ? $record->approver_id : null;
                             }),
                         TextInput::make('name')
                             ->required()
