@@ -30,6 +30,7 @@ use App\Models\FormRepository;
 use App\Models\UserType;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\Log;
 
 
 class FormResource extends Resource
@@ -183,6 +184,11 @@ class FormResource extends Resource
                                         TextEntry::make('workbench_path')
                                             ->label(''),
                                     ]),
+                                TextEntry::make('css_file_status')
+                                    ->label(new HtmlString(self::formatLabel('CSS File')))
+                                    ->badge()
+                                    ->formatStateUsing(fn($record): string => $record->hasCssFile() ? 'Exists' : 'Not Found')
+                                    ->color(fn($record): string => $record->hasCssFile() ? 'success' : 'gray'),
 
                             ]),
                     ])
@@ -332,6 +338,18 @@ class FormResource extends Resource
                             ->relationship('workbenchPaths')
                             ->addActionLabel('Add Workbench Path')
                             ->label('Workbench Paths'),
+                        Forms\Components\Textarea::make('css_content')
+                            ->label('Custom CSS')
+                            ->placeholder('Enter custom CSS for this form...')
+                            ->rows(10)
+                            ->columnSpanFull()
+                            ->helperText('CSS will be saved as {id}.css in the stylesheets directory')
+                            ->dehydrated(true)
+                            ->afterStateUpdated(function ($state, $record) {
+                                if ($record) {
+                                    Log::info('CSS content updated for form ID: ' . $record->id);
+                                }
+                            }),
 
                     ]),
 

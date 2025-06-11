@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Spatie\Activitylog\Models\Activity;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class Form extends Model
 {
@@ -117,6 +119,9 @@ class Form extends Model
         static::deleting(function ($form) {
             $form->relatedTo()->detach();
             $form->relatedForms()->detach();
+
+            // Clean up CSS file when form is deleted
+            $form->deleteCssFile();
         });
     }
 
@@ -171,5 +176,73 @@ class Form extends Model
             'id',
             'id'
         );
+    }
+
+    /**
+     * Get the CSS file content for this form
+     */
+    public function getCssContent(): ?string
+    {
+        $filename = $this->id . '.css';
+        Log::info('Getting CSS content for form ID: ' . $this->id . ', filename: ' . $filename);
+
+        if (Storage::disk('stylesheets')->exists($filename)) {
+            $content = Storage::disk('stylesheets')->get($filename);
+            Log::info('CSS file found, content length: ' . strlen($content));
+            return $content;
+        }
+
+        Log::info('CSS file not found');
+        return null;
+    }
+
+    /**
+     * Save CSS content to file
+     */
+    public function saveCssContent(string $content): bool
+    {
+        $filename = $this->id . '.css';
+        Log::info('Saving CSS content for form ID: ' . $this->id . ', filename: ' . $filename . ', content length: ' . strlen($content));
+
+        // Create directory if it doesn't exist
+        if (!Storage::disk('stylesheets')->exists('')) {
+            Log::info('Creating stylesheets directory');
+            Storage::disk('stylesheets')->makeDirectory('');
+        }
+
+        $result = Storage::disk('stylesheets')->put($filename, $content);
+        Log::info('CSS save result: ' . ($result ? 'Success' : 'Failed'));
+
+        // Verify the file was created
+        if ($result && Storage::disk('stylesheets')->exists($filename)) {
+            Log::info('CSS file verified to exist after save');
+        } else {
+            Log::error('CSS file does not exist after save attempt');
+        }
+
+        return $result;
+    }
+
+    /**
+     * Delete CSS file for this form
+     */
+    public function deleteCssFile(): bool
+    {
+        $filename = $this->id . '.css';
+
+        if (Storage::disk('stylesheets')->exists($filename)) {
+            return Storage::disk('stylesheets')->delete($filename);
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if CSS file exists for this form
+     */
+    public function hasCssFile(): bool
+    {
+        $filename = $this->id . '.css';
+        return Storage::disk('stylesheets')->exists($filename);
     }
 }

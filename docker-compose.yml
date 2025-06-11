@@ -8,6 +8,7 @@ services:
             - "80:80"
         volumes:
             - .:/var/www
+            - form_data:/var/www/storage/app/form_data
         environment:
             - APP_ENV=local
             - APP_DEBUG=true
@@ -35,6 +36,7 @@ services:
             - "6001:6001"
         volumes:
             - .:/var/www
+            - form_data:/var/www/storage/app/form_data
         environment:
             - APP_ENV=local
             - APP_DEBUG=true
@@ -103,4 +105,6 @@ volumes:
     pgdata:
         driver: local
     redis_data:
+        driver: local
+    form_data:
         driver: local
