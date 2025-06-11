@@ -40,7 +40,7 @@ class AccountCreatedNotification extends Notification
             ->line('Your account has been successfully created.')
             ->line('Here are your login details:')
             ->line('Email: ' . $notifiable->email)
-            ->action('Login to Your Account', URL::to('/login'))
+            ->action('Login to Your Account', URL::to('/forms/login'))
             ->line('Use the "Forgot Password" feature if you need to set your password.')
             ->line('Thank you!');
     }
