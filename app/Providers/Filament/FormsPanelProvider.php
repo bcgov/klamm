@@ -98,7 +98,7 @@ class FormsPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                CheckRole::class . ':forms,forms-view-only,admin',
+                CheckRole::class . ':forms,user,admin',
             ]);
     }
 }

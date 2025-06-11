@@ -71,11 +71,9 @@ abstract class TestCase extends BaseTestCase
         return [
             'admin' => $this->createUserWithRole('admin'),
             'fodig' => $this->createUserWithRole('fodig'),
-            'fodig_view_only' => $this->createUserWithRole('fodig-view-only'),
+            'user' => $this->createUserWithRole('user'),
             'forms' => $this->createUserWithRole('forms'),
-            'forms_view_only' => $this->createUserWithRole('forms-view-only'),
             'bre' => $this->createUserWithRole('bre'),
-            'bre_view_only' => $this->createUserWithRole('bre-view-only'),
             'form_developer' => $this->createUserWithRole('form-developer'),
             'multiple_roles' => $this->createUserWithRole(['fodig', 'forms']),
             'no_role' => User::factory()->create()
@@ -90,11 +88,9 @@ abstract class TestCase extends BaseTestCase
         $roles = [
             'admin',
             'fodig',
-            'fodig-view-only',
+            'user',
             'forms',
-            'forms-view-only',
             'bre',
-            'bre-view-only',
             'form-developer'
         ];
 
