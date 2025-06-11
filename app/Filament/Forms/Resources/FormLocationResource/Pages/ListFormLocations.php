@@ -16,4 +16,11 @@ class ListFormLocations extends ListRecords
             Actions\CreateAction::make(),
         ];
     }
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            //
+        ];
+    }
 }
