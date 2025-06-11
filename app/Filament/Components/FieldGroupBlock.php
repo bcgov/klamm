@@ -23,7 +23,6 @@ class FieldGroupBlock
     public static function make(Closure $calculateIDCallback): Block
     {
         $groups = FormDataHelper::get('groups');
-        $styles = FormDataHelper::get('styles');
         $dataSources = FormDataHelper::get('dataSources');
 
         return Block::make('field_group')

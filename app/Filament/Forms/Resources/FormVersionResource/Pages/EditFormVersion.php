@@ -7,7 +7,6 @@ use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
@@ -55,6 +54,16 @@ class EditFormVersion extends EditRecord
             $formVersion->containers()->delete();
         }
 
+        // Attach stylesheets
+        $styleSheets = $this->form->getState()['style_sheets'] ?? [];
+        $formVersion->styleSheets()->detach();
+        foreach ($styleSheets as $index => $item) {
+            $formVersion->styleSheets()->attach($item['id'], [
+                'order' => $index,
+                'type' => $item['type'],
+            ]);
+        }
+
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
                 $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
@@ -70,6 +79,7 @@ class EditFormVersion extends EditRecord
     {
         // Eager load required records
         $this->record->load([
+            'styleSheets',
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
                 $query->with([
@@ -169,6 +179,12 @@ class EditFormVersion extends EditRecord
         }
 
         $data['components'] = $components;
+        $data['style_sheets'] = $this->record->styleSheets->map(function ($styleSheet) {
+            return [
+                'id' => $styleSheet->id,
+                'type' => $styleSheet->pivot->type,
+            ];
+        })->toArray();
 
         return $data;
     }

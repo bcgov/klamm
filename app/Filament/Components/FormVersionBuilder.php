@@ -11,7 +11,6 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -22,15 +21,21 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
 use App\Models\FormVersion;
+use App\Models\StyleSheet;
+use Filament\Forms\Components\Repeater;
 use Filament\Notifications\Notification;
+use Filament\Support\Enums\Alignment;
 
 class FormVersionBuilder
 {
     public static function schema()
     {
         FormDataHelper::load();
+        $styleSheets = FormDataHelper::get('styleSheets');
+        $styleSheetTypes = StyleSheet::getTypes();
 
         return Grid::make()
+            ->columns(3)
             ->schema([
                 Select::make('form_id')
                     ->relationship('form', 'form_id_title')
@@ -38,11 +43,13 @@ class FormVersionBuilder
                     ->reactive()
                     ->preload()
                     ->searchable()
+                    ->columnSpan(2)
                     ->default(request()->query('form_id_title')),
                 Select::make('status')
                     ->options(FormVersion::getStatusOptions())
                     ->default('draft')
                     ->disabled()
+                    ->columnSpan(1)
                     ->required(),
                 Section::make('Form Properties')
                     ->collapsible()
@@ -78,6 +85,30 @@ class FormVersionBuilder
                         DateTimePicker::make('deployed_at')
                             ->label('Deployment Date')
                             ->columnSpan(1),
+                        Repeater::make('style_sheets')
+                            ->label('Style sheets')
+                            ->addActionAlignment(Alignment::Left)
+                            ->collapsible()
+                            ->collapsed()
+                            ->defaultItems(0)
+                            ->columnSpanFull()
+                            ->itemLabel(function (array $state) use ($styleSheets, $styleSheetTypes) {
+                                $name = $styleSheets->find($state['id'] ?? null)?->name ?? 'New Style';
+                                $type = $styleSheetTypes[$state['type'] ?? null] ?? 'no type';
+                                return "{$name} ({$type})";
+                            })
+                            ->schema([
+                                Select::make('id')
+                                    ->label('Style sheet')
+                                    ->preload()
+                                    ->options($styleSheets->mapWithKeys(fn($s) => [$s->id => $s->name]))
+                                    ->live()
+                                    ->required(),
+                                Select::make('type')
+                                    ->options($styleSheetTypes)
+                                    ->live()
+                                    ->required(),
+                            ]),
                         TextInput::make('footer')
                             ->columnSpanFull(),
                         Textarea::make('comments')
@@ -89,7 +120,7 @@ class FormVersionBuilder
                     ->addActionLabel('Add to Form Elements')
                     ->addBetweenActionLabel('Insert between elements')
                     ->cloneAction(UniqueIDsHelper::cloneElement())
-                    ->columnSpan(2)
+                    ->columnSpanFull()
                     ->blockNumbers(false)
                     ->cloneable()
                     ->blockPreviews()
@@ -177,7 +208,7 @@ class FormVersionBuilder
                 ]),
                 Textarea::make('generated_text')
                     ->label('Generated Form Template')
-                    ->columnSpan(2)
+                    ->columnSpanFull()
                     ->rows(15)
                     ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
             ]);

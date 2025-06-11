@@ -6,7 +6,6 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
@@ -65,6 +64,16 @@ class CreateFormVersion extends CreateRecord
             $formVersion->formInstanceFields()->delete();
             $formVersion->fieldGroupInstances()->delete();
             $formVersion->containers()->delete();
+        }
+
+        // Attach stylesheets
+        $styleSheets = $this->form->getState()['style_sheets'] ?? [];
+        $formVersion->styleSheets()->detach();
+        foreach ($styleSheets as $index => $item) {
+            $formVersion->styleSheets()->attach($item['id'], [
+                'order' => $index,
+                'type' => $item['type'],
+            ]);
         }
 
         foreach ($components as $order => $block) {

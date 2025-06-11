@@ -20,8 +20,6 @@ class ContainerBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
-        $styles = FormDataHelper::get('styles');
-
         return Block::make('container')
             ->label(function (?array $state): string {
                 if ($state === null) {

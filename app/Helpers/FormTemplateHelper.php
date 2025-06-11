@@ -108,6 +108,14 @@ class FormTemplateHelper
                     'host' => $dataSource->host,
                 ];
             })->toArray(),
+            "stylesheets" => $formVersion->styleSheets->map(function ($styleSheet) {
+                return [
+                    'name' => $styleSheet->name,
+                    'order' => $styleSheet->pivot->order,
+                    'type' => $styleSheet->pivot->type,
+                    'styles' => $styleSheet->styles,
+                ];
+            })->toArray(),
             "data" => [
                 "items" => $items,
             ],

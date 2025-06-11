@@ -6,6 +6,7 @@ use App\Models\FormField;
 use App\Models\FieldGroup;
 use App\Models\FormDataSource;
 use App\Models\SelectOptions;
+use App\Models\StyleSheet;
 use Illuminate\Support\Facades\Log;
 
 class FormDataHelper
@@ -54,6 +55,7 @@ class FormDataHelper
             'groups' => $groups,
             'dataSources' => FormDataSource::select(['id', 'name'])->get()->keyBy('id'),
             'selectOptions' => SelectOptions::select(['id', 'label'])->get()->keyBy('id'),
+            'styleSheets' => StyleSheet::select(['id', 'name'])->get()->keyBy('id'),
         ];
 
         // For non-view pages that need full data, load additional relationships

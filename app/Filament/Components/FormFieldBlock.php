@@ -29,7 +29,6 @@ class FormFieldBlock
         $fields = FormDataHelper::get('fields');
         $dataSources = FormDataHelper::get('dataSources');
         $selectOptions = FormDataHelper::get('selectOptions');
-        $styles = FormDataHelper::get('styles');
 
         $isDate = fn($get) => $fields->get($get('form_field_id'))?->dataType->name === 'date';
 

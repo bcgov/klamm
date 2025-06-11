@@ -8,6 +8,7 @@ services:
             - "80:80"
         volumes:
             - .:/var/www
+            - form_data:/var/www/storage/app/form_data
         environment:
             - APP_ENV=local
             - APP_DEBUG=true
@@ -51,4 +52,6 @@ networks:
 
 volumes:
     pgdata:
+        driver: local
+    form_data:
         driver: local
