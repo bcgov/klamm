@@ -30,6 +30,7 @@ use App\Models\FormRepository;
 use App\Models\UserType;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
+use Illuminate\Database\Eloquent\Builder;
 
 
 class FormResource extends Resource
@@ -208,7 +209,26 @@ class FormResource extends Resource
                                     ->label(new HtmlString(self::formatLabel('Retention Needs (years)'))),
                             ]),
                     ])
-                    ->hidden()
+                    ->hidden(),
+                Section::make()
+                    ->schema([
+                        InfolistGrid::make(1)
+                            ->schema([
+                                TextEntry::make('migration2025_status')
+                                    ->label(new HtmlString(self::formatLabel('Migration 2025 Status')))
+                                    ->badge()
+                                    ->getStateUsing(fn($record) => $record->migration2025_status)
+                                    ->color(function ($state) {
+                                        return match ($state) {
+                                            'Completed' => 'success',
+                                            'In Progress' => 'info',
+                                            'To Be Done' => 'warning',
+                                            default => 'gray',
+                                        };
+                                    }),
+                            ]),
+                    ])
+                    ->visible(fn($record) => (Gate::allows('admin') && $record->migration2025_status !== 'Not Applicable')),
             ]);
     }
 
@@ -376,6 +396,9 @@ class FormResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->query(
+                Form::query()->with(['formVersions', 'formTags'])
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('form_id')
                     ->searchable()
@@ -438,7 +461,19 @@ class FormResource extends Resource
                     ->toggleable()
                     ->toggledHiddenByDefault(true)
                     ->label('DCV Material Number'),
-
+                Tables\Columns\TextColumn::make('migration2025_status')
+                    ->label('Migration 2025 Status')
+                    ->badge()
+                    ->getStateUsing(fn($record) => $record->migration2025_status)
+                    ->color(function ($state) {
+                        return match ($state) {
+                            'Completed' => 'success',
+                            'In Progress' => 'info',
+                            'To Be Done' => 'warning',
+                            default => 'gray',
+                        };
+                    })
+                    ->visible(Gate::allows('admin')),
             ])
             ->searchable()
             ->persistSearchInSession()
