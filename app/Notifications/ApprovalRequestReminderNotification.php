@@ -67,6 +67,8 @@ class ApprovalRequestReminderNotification extends Notification
                     ->when(!$isInternal, function ($mail) {
                         return $mail->line('*Note: This is a secure link that is unique to you. Please do not share this link with others.*');
                     })
+                    ->line('Regards,')
+                    ->salutation('**Forms Modernization Team**')
                     ->render()
             ]);
     }

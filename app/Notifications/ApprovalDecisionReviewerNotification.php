@@ -100,7 +100,7 @@ class ApprovalDecisionReviewerNotification extends Notification
                     ->line("**Version:** " . ($approval->formVersion->version_number ?? 'N/A'))
                     ->line(new \Illuminate\Support\HtmlString($decisionDetails))
                     ->line('Regards,')
-                    ->line('**Forms Modernization Team**')
+                    ->salutation('**Forms Modernization Team**')
                     ->render()
             ]);
     }
