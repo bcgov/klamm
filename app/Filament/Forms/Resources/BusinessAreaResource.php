@@ -85,7 +85,7 @@ class BusinessAreaResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
+        $table = $table
             ->query(
                 BusinessArea::query()
                     ->with([
@@ -98,7 +98,6 @@ class BusinessAreaResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
-
                 Tables\Columns\TextColumn::make('formCount')
                     ->label('Total Forms')
                     ->toggleable()
@@ -106,25 +105,21 @@ class BusinessAreaResource extends Resource
                 Tables\Columns\TextColumn::make('forms_migration2025')
                     ->label('Forms Migration 2025')
                     ->toggleable()
-                    ->toggledHiddenByDefault(true)
                     ->visible(Gate::allows('admin'))
                     ->getStateUsing(fn($record) => $record->countFormsMigration2025($record->forms)),
                 Tables\Columns\TextColumn::make('forms_completed')
                     ->label('Forms Completed')
                     ->toggleable()
-                    ->toggledHiddenByDefault(true)
                     ->visible(Gate::allows('admin'))
                     ->getStateUsing(fn($record) => $record->countFormsCompleted($record->forms)),
                 Tables\Columns\TextColumn::make('forms_in_progress')
                     ->label('Forms In Progress')
                     ->toggleable()
-                    ->toggledHiddenByDefault(true)
                     ->visible(Gate::allows('admin'))
                     ->getStateUsing(fn($record) => $record->countFormsInProgress($record->forms)),
                 Tables\Columns\TextColumn::make('forms_to_be_done')
                     ->label('Forms To Be Done')
                     ->toggleable()
-                    ->toggledHiddenByDefault(true)
                     ->visible(Gate::allows('admin'))
                     ->getStateUsing(fn($record) => $record->countFormsToBeDone($record->forms)),
                 Tables\Columns\TextColumn::make('short_name')
@@ -140,7 +135,6 @@ class BusinessAreaResource extends Resource
                         $state = $state->name . ' (' . $state->email . ')';
                         return $state;
                     }),
-
             ])
             ->filters([
                 //
@@ -157,6 +151,17 @@ class BusinessAreaResource extends Resource
                 50,
                 100,
             ]);
+
+        // If showAllColumns query present, notify user about column visibility
+        if (request()->query('showAllColumns')) {
+            \Filament\Notifications\Notification::make()
+                ->title('Tip: Show More Columns')
+                ->body('Use the column selector (top right of the table) to toggle Migration 2025 status columns.')
+                ->icon('heroicon-o-information-circle')
+                ->success()
+                ->send();
+        }
+        return $table;
     }
 
     public static function getRelations(): array
