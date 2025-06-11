@@ -17,6 +17,6 @@ class FormTag extends Model
 
     public function forms(): BelongsToMany
     {
-        return $this->belongsToMany(Form::class, 'form_form_tag');
+        return $this->belongsToMany(Form::class, 'form_form_tags');
     }
 }

@@ -11,6 +11,7 @@ use Filament\Resources\Pages\EditRecord;
 use App\Models\FormFieldValue;
 use App\Models\SelectOptionInstance;
 use Filament\Notifications\Notification;
+use App\Helpers\FormTemplateHelper;
 
 class EditFormField extends EditRecord
 {
@@ -75,6 +76,8 @@ class EditFormField extends EditRecord
 
         $this->createFormFieldValue($formField);
         $this->createSelectOptionInstance($formField);
+
+        FormTemplateHelper::clearAllFormTemplateCaches();
         $this->createFormFieldDateFormat($formField);
     }
 

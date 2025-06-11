@@ -52,8 +52,6 @@ class ImportTemplateHelper
 
         $formVersion = FormVersion::create([
             'form_id' => $form->id,
-            'updater_name' => $user->name,
-            'updater_email' => $user->email,
             'deployed_to' => $json['deployed_to'] ?? null,
         ]);
 
@@ -244,8 +242,8 @@ class ImportTemplateHelper
     {
         $validID = self::isValidIdFormat($field['id']);
         $type = str_replace('-', '_', $field['type']);
-        $generic = FormField::where('name', "generic_{$type}")->first();
-        $template = FormField::where('name', $field['codeContext']['name'])->first();
+        $generic = FormField::with('dataType')->where('name', "generic_{$type}")->first();
+        $template = FormField::with('dataType')->where('name', $field['codeContext']['name'])->first();
 
         ['customize' => $customizeFieldLabel, 'custom' => $customFieldLabel] = self::composeLabel($field, $template, $generic);
 

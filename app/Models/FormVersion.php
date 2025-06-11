@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use App\Helpers\FormDataHelper;
+use App\Events\FormVersionUpdateEvent;
 
 class FormVersion extends Model
 {
@@ -17,14 +20,7 @@ class FormVersion extends Model
         'form_id',
         'version_number',
         'status',
-        'form_requester_name',
-        'form_requester_email',
-        'form_developer_name',
-        'form_developer_email',
-        'form_approver_name',
-        'form_approver_email',
-        'updater_name',
-        'updater_email',
+        'form_developer_id',
         'footer',
         'comments',
         'deployed_to',
@@ -40,12 +36,7 @@ class FormVersion extends Model
         'form_id',
         'version_number',
         'status',
-        'form_requester_name',
-        'form_requester_email',
-        'form_developer_name',
-        'form_developer_email',
-        'form_approver_name',
-        'form_approver_email',
+        'form_developer_id',
         'comments',
         'deployed_to',
         'deployed_at',
@@ -61,6 +52,51 @@ class FormVersion extends Model
                 ->first();
 
             $formVersion->version_number = $latestVersion ? $latestVersion->version_number + 1 : 1;
+        });
+
+        // After saving a form version, invalidate related caches and dispatch event
+        static::saved(function ($formVersion) {
+            if ($formVersion->form_id) {
+                // FormDataHelper::invalidateFormCache($formVersion->form_id);
+
+                // Determine what fields were updated
+                $updateType = 'general';
+                $componentsUpdated = false;
+
+                if ($formVersion->isDirty('components') || $formVersion->wasChanged('components')) {
+                    $updateType = 'components';
+                    $componentsUpdated = true;
+                } elseif ($formVersion->isDirty('status') || $formVersion->wasChanged('status')) {
+                    $updateType = 'status';
+                } elseif ($formVersion->isDirty('deployed_to') || $formVersion->isDirty('deployed_at')) {
+                    $updateType = 'deployment';
+                }
+
+                // Dispatch the update event
+                event(new FormVersionUpdateEvent(
+                    $formVersion->id,
+                    $formVersion->form_id,
+                    $formVersion->version_number,
+                    $componentsUpdated ? $formVersion->components : null,
+                    $updateType
+                ));
+            }
+        });
+
+        // When a form version is deleted
+        static::deleted(function ($formVersion) {
+            if ($formVersion->form_id) {
+                // FormDataHelper::invalidateFormCache($formVersion->form_id);
+
+                // Dispatch deletion event
+                event(new FormVersionUpdateEvent(
+                    $formVersion->id,
+                    $formVersion->form_id,
+                    $formVersion->version_number,
+                    null,
+                    'deleted'
+                ));
+            }
         });
     }
 
@@ -81,14 +117,12 @@ class FormVersion extends Model
 
                 // Filter out unnecessary fields from changes description
                 $changes = array_filter($changes, function ($change) {
-                    return !in_array($change, ['updated_at', 'updater_name', 'updater_email']);
+                    return !in_array($change, ['updated_at']);
                 });
 
                 if (!empty($changes)) {
                     $changes = array_map(function ($change) {
                         $change = str_replace('_', ' ', $change);
-                        $change = str_replace('form requester', 'requester', $change);
-                        $change = str_replace('form approver', 'approver', $change);
                         $change = str_replace('form developer', 'developer', $change);
                         return $change;
                     }, $changes);
@@ -122,9 +156,14 @@ class FormVersion extends Model
         return self::getStatusOptions()[$this->status] ?? $this->status;
     }
 
-    public function form()
+    public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
+    }
+
+    public function formDeveloper(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'form_developer_id');
     }
 
     public function formInstanceFields(): HasMany
@@ -145,5 +184,10 @@ class FormVersion extends Model
     public function formDataSources(): BelongsToMany
     {
         return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');
+    }
+
+    public function approvalRequests(): HasMany
+    {
+        return $this->hasMany(FormApprovalRequest::class);
     }
 }
