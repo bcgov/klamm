@@ -6,9 +6,8 @@ use App\Models\FormApprovalRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\HtmlString;
 
-class ApprovalDecisionNotification extends Notification
+class ApprovalDecisionReviewerNotification extends Notification
 {
     use Queueable;
 
@@ -40,22 +39,21 @@ class ApprovalDecisionNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $approval = $this->approvalRequest;
-        $formVersion = $approval->formVersion;
-        $form = $formVersion->form ?? null;
+        $form = $approval->formVersion->form ?? null;
 
         $formTitle = $form->form_title ?? 'Unknown Form';
         $status = $this->isApproved ? 'approved' : 'rejected';
         $statusCapitalized = ucfirst($status);
-        $viewUrl = url('/forms/approval-requests/' . $approval->id);
-        $approverName = $approval->approver_id ? $notifiable->name : ($approval->approver_name ?? 'Reviewer');
+        $approverName = $approval->approver_name ?? 'Reviewer';
 
-        $previewUrl = $formVersion->id
-            ? rtrim(env('FORM_PREVIEW_URL', ''), '/') . '/preview/' . $formVersion->id
-            : null;
+        $greetingName = (is_object($notifiable) && property_exists($notifiable, 'name'))
+            ? $notifiable->name
+            : $approverName;
 
-        $approverNote = $approval->approver_note ?? '';
+        $formVersionId = $approval->formVersion->id ?? null;
+        $previewUrl = $formVersionId ? rtrim(env('FORM_PREVIEW_URL', ''), '/') . '/preview/' . $formVersionId : null;
 
-        $parseStatus = function (string $text, string $type): ?string {
+        $parseStatus = function ($text, $type) {
             preg_match_all('/(Webform|PDF):\s*(Rejected|Approved)\s*-?\s*([^P]*)?/i', $text, $matches, PREG_SET_ORDER);
             foreach ($matches as $match) {
                 if (strtolower($match[1]) === strtolower($type)) {
@@ -65,46 +63,45 @@ class ApprovalDecisionNotification extends Notification
             return null;
         };
 
-        $buildDecisionLine = function (?string $type, ?string $status) use ($previewUrl): string {
-            if (!$status || !$type || !$previewUrl) return '';
+        $note = $approval->approver_note ?? '';
+        $webformStatus = $parseStatus($note, 'webform');
+        $pdfStatus = $parseStatus($note, 'pdf');
 
-            $label = ucfirst($type);
-            if ($status === 'approved') {
-                $tag = '<span style="background:#F6FFF8;border:1px solid #42814A;border-radius:2px;color:#2D2D2D;padding:2px 8px;display:inline-block;">Approved</span>';
-            } else {
-                $tag = '<span style="background:#F4E1E2;border:1px solid #CE3E39;border-radius:2px;color:#2D2D2D;padding:2px 8px;display:inline-block;">Rejected</span>';
-            }
+        $badge = fn($status) =>
+        $status === 'approved'
+            ? '<span style="background:#F6FFF8;border:1px solid #42814A;border-radius:2px;color:#2D2D2D;padding:2px 8px;display:inline-block;">Approved</span>'
+            : '<span style="background:#F4E1E2;border:1px solid #CE3E39;border-radius:2px;color:#2D2D2D;padding:2px 8px;display:inline-block;">Rejected</span>';
 
-            return "<a href=\"{$previewUrl}\" style=\"text-decoration:underline;color:#2563eb;\">{$label} updates:</a> {$tag}<br>";
-        };
-
-        $webformStatus = $parseStatus($approverNote, 'webform');
-        $pdfStatus = $parseStatus($approverNote, 'pdf');
-
-        $decisionDetails = $buildDecisionLine('Web', $webformStatus);
-        if ($webformStatus && $pdfStatus) {
-            $decisionDetails .= '<br>';
+        $decisionDetails = '';
+        if ($webformStatus) {
+            $decisionDetails .= "<a href=\"{$previewUrl}\" style=\"text-decoration:underline;color:#2563eb;\">Web updates:</a>  " . $badge($webformStatus) . "<br>";
         }
-        $decisionDetails .= $buildDecisionLine('PDF', $pdfStatus);
-
+        if ($webformStatus && $pdfStatus) {
+            $decisionDetails .= "<br>";
+        }
+        if ($pdfStatus) {
+            $decisionDetails .= "<a href=\"{$previewUrl}\" style=\"text-decoration:underline;color:#2563eb;\">PDF updates:</a>  " . $badge($pdfStatus) . "<br>";
+        }
         if (!$decisionDetails) {
-            $decisionDetails = 'Decision: ' . $statusCapitalized . '<br>';
+            $decisionDetails = "Decision: {$statusCapitalized}<br>";
         }
 
         return (new MailMessage)
-            ->subject("Form Review Completed - See the Decision: {$formTitle}")
+            ->subject("Form Review Completed - Record of your Decision: {$formTitle}")
             ->markdown('mail.forms-default-template', [
                 'slot' => (new MailMessage)
-                    ->greeting("Hello {$notifiable->name},")
+                    ->greeting("Hello {$greetingName},")
                     ->line('')
+                    ->line('You are receiving this email because you have reviewed a form and made a decision.')
+                    ->line('')
+                    ->line('Please keep this as a record of your decision for the form review request.')
                     ->line("{$approverName} has reviewed the form below and provided their decisions as outlined")
                     ->line("**Form:** {$formTitle}")
-                    ->line("**Version:** " . ($formVersion->version_number ?? 'N/A'))
-                    ->line(new HtmlString($decisionDetails))
-                    ->action('Review decision details', $viewUrl)
+                    ->line("**Version:** " . ($approval->formVersion->version_number ?? 'N/A'))
+                    ->line(new \Illuminate\Support\HtmlString($decisionDetails))
                     ->line('Regards,')
                     ->line('**Forms Modernization Team**')
-                    ->render(),
+                    ->render()
             ]);
     }
 

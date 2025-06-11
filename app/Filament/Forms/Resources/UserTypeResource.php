@@ -77,4 +77,14 @@ class UserTypeResource extends Resource
             'edit' => Pages\EditUserType::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Audience';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Audiences';
+    }
 }

@@ -1,10 +1,16 @@
+@php
+use App\Helpers\MailImageHelper;
+
+$logoSrc = MailImageHelper::embedOrFallback('images/forms-modernization-logo.png', 'images/forms-modernization-logo.png');
+@endphp
+
 @component('mail::layout')
 
 {{-- Custom Header --}}
 @slot('header')
 @component('mail::header', ['url' => config('app.url')])
 <span style="display: inline-flex; align-items: center;">
-    <img src="{{ asset('images/forms-modernization-logo.png') }}" alt="Forms Modernization Logo" style="height: 40px; margin-right: 10px;">
+    <img src="{{ $logoSrc }}" alt="Forms Modernization Logo" style="height: 40px; margin-right: 10px;">
     <span style="font-size: 20px; font-weight: bold; color: #000;">Forms Modernization</span>
 </span>
 @endcomponent
@@ -17,7 +23,7 @@
 @slot('footer')
 @component('mail::footer')
 <span style="display: inline-flex; align-items: center;">
-    <img src="{{ asset('images/forms-modernization-logo.png') }}" alt="Forms Modernization Logo" style="height: 40px; margin-right: 10px;">
+    <img src="{{ $logoSrc }}" alt="Forms Modernization Logo" style="height: 40px; margin-right: 10px;">
     <span style="font-size: 16px; font-weight: bold; color: #000;">Forms Modernization</span>
 </span>
 <p style="margin: 0; color: #333; font-size: 14px;">

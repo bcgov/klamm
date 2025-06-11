@@ -136,15 +136,28 @@ class ListApprovalRequests extends ListRecords
                     ->searchable()
                     ->sortable()
                     ->visible(fn() => $isFormDeveloper || $this->activeTab === 'business_areas'),
-                TextColumn::make('status')
+                TextColumn::make('request_decision')
+                    ->label('Decision')
                     ->badge()
-                    ->label('Status')
+                    ->getStateUsing(function ($record) {
+                        if ($record->approved_at) {
+                            return 'approved';
+                        }
+                        if ($record->rejected_at) {
+                            return 'rejected';
+                        }
+                        if ($record->status === 'cancelled') {
+                            return 'cancelled';
+                        }
+                        return 'pending';
+                    })
                     ->colors([
                         'warning' => 'pending',
                         'success' => 'approved',
                         'danger' => 'rejected',
                         'gray' => 'cancelled',
-                    ]),
+                    ])
+                    ->placeholder(fn($record) => $record->status === 'cancelled' ? 'cancelled' : 'pending'),
                 TextColumn::make('created_at')
                     ->label('Requested')
                     ->dateTime()
@@ -162,7 +175,76 @@ class ListApprovalRequests extends ListRecords
 
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('requested_by')
+                    ->label('Requested By')
+                    ->options(function () {
+                        return FormApprovalRequest::query()
+                            ->selectRaw('requester_id')
+                            ->distinct()
+                            ->get()
+                            ->mapWithKeys(function ($row) {
+                                $user = User::find($row->requester_id);
+                                $label = $user ? $user->name : 'Unknown';
+                                return [$row->requester_id => $label];
+                            })
+                            ->toArray();
+                    })
+                    ->visible(fn() => !$isFormDeveloper || $this->activeTab === 'all_requests' || $this->activeTab === 'business_areas')
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || !$data['value']) {
+                            return $query;
+                        }
+                        return $query->where('requester_id', $data['value']);
+                    }),
+
+                Tables\Filters\SelectFilter::make('approver')
+                    ->label('Approver')
+                    ->options(function () {
+                        return FormApprovalRequest::query()
+                            ->selectRaw('COALESCE(CAST(approver_id AS CHAR), approver_email) as key_val, approver_name, approver_email')
+                            ->distinct()
+                            ->get()
+                            ->mapWithKeys(function ($row) {
+                                $label = $row->approver_name ?: ($row->approver_email ?: 'Unknown');
+                                return [$row->key_val => $label . ($row->approver_email ? " ({$row->approver_email})" : '')];
+                            })
+                            ->toArray();
+                    })
+                    ->visible(fn() => $isFormDeveloper || $this->activeTab === 'business_areas')
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || !$data['value']) {
+                            return $query;
+                        }
+                        if (is_numeric($data['value'])) {
+                            return $query->where('approver_id', $data['value']);
+                        }
+                        return $query->where('approver_email', $data['value']);
+                    }),
+
+                Tables\Filters\SelectFilter::make('decision')
+                    ->label('Decision')
+                    ->options([
+                        'pending' => 'Pending',
+                        'approved' => 'Approved',
+                        'rejected' => 'Rejected',
+                        'cancelled' => 'Cancelled',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || $data['value'] === null) {
+                            return $query;
+                        }
+                        $decision = $data['value'];
+                        if ($decision === 'approved') {
+                            return $query->whereNotNull('approved_at');
+                        }
+                        if ($decision === 'rejected') {
+                            return $query->whereNotNull('rejected_at');
+                        }
+                        if ($decision === 'cancelled') {
+                            return $query->where('status', 'cancelled');
+                        }
+                        return $query->whereNull('approved_at')->whereNull('rejected_at')->where('status', '!=', 'cancelled');
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
@@ -207,15 +289,22 @@ class ListApprovalRequests extends ListRecords
                             ->searchable()
                             ->label('Select User')
                             ->options(function ($record) {
-                                $businessAreaUsers = $record->formVersion->form->businessAreas->flatMap->users
-                                    ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
-                                    ->toArray();
+                                $formVersion = $record->formVersion;
+                                $form = $formVersion->form;
+                                $form->loadMissing(['businessAreas.users']);
+
+                                $businessAreaUsers = [];
+                                foreach ($form->businessAreas as $businessArea) {
+                                    foreach ($businessArea->users as $user) {
+                                        $businessAreaUsers[$user->id] = $user->name . ' (' . $user->email . ')';
+                                    }
+                                }
 
                                 $allKlammUsers = User::all()
                                     ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
                                     ->toArray();
 
-                                return array_merge($businessAreaUsers, $allKlammUsers);
+                                return $businessAreaUsers + $allKlammUsers;
                             })
                             ->getSearchResultsUsing(function (string $search) {
                                 return User::where(function ($query) use ($search) {
@@ -230,7 +319,7 @@ class ListApprovalRequests extends ListRecords
                             ->required()
                             ->visible(fn(Get $get) => $get('approver_type') === 'klamm')
                             ->default(function ($record) {
-                                return $record->is_klamm_user ? User::find($record->approver_id)?->name : null;
+                                return $record->is_klamm_user ? $record->approver_id : null;
                             }),
                         TextInput::make('name')
                             ->required()

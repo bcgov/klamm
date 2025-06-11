@@ -21,6 +21,7 @@ class BusinessAreaResource extends Resource
     protected static ?string $navigationGroup = 'Form Metadata';
 
     protected static ?string $navigationLabel = 'Business Area or Program';
+    protected static ?string $title = 'Business Area or Program';
     protected static ?int $navigationSort = 1;
 
 
@@ -84,11 +85,43 @@ class BusinessAreaResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->query(BusinessArea::query()->with('users'))
+        $table = $table
+            ->query(
+                BusinessArea::query()
+                    ->with([
+                        'users',
+                        'forms.formTags',
+                        'forms.formVersions',
+                        'ministries',
+                    ])
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('formCount')
+                    ->label('Total Forms')
+                    ->toggleable()
+                    ->getStateUsing(fn($record) => $record->getFormCount($record->forms)),
+                Tables\Columns\TextColumn::make('forms_migration2025')
+                    ->label('Forms Migration 2025')
+                    ->toggleable()
+                    ->visible(Gate::allows('admin'))
+                    ->getStateUsing(fn($record) => $record->countFormsMigration2025($record->forms)),
+                Tables\Columns\TextColumn::make('forms_completed')
+                    ->label('Forms Completed')
+                    ->toggleable()
+                    ->visible(Gate::allows('admin'))
+                    ->getStateUsing(fn($record) => $record->countFormsCompleted($record->forms)),
+                Tables\Columns\TextColumn::make('forms_in_progress')
+                    ->label('Forms In Progress')
+                    ->toggleable()
+                    ->visible(Gate::allows('admin'))
+                    ->getStateUsing(fn($record) => $record->countFormsInProgress($record->forms)),
+                Tables\Columns\TextColumn::make('forms_to_be_done')
+                    ->label('Forms To Be Done')
+                    ->toggleable()
+                    ->visible(Gate::allows('admin'))
+                    ->getStateUsing(fn($record) => $record->countFormsToBeDone($record->forms)),
                 Tables\Columns\TextColumn::make('short_name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('ministries.name')
@@ -101,7 +134,7 @@ class BusinessAreaResource extends Resource
                     ->formatStateUsing(function ($state) {
                         $state = $state->name . ' (' . $state->email . ')';
                         return $state;
-                    })
+                    }),
             ])
             ->filters([
                 //
@@ -118,6 +151,17 @@ class BusinessAreaResource extends Resource
                 50,
                 100,
             ]);
+
+        // If showAllColumns query present, notify user about column visibility
+        if (request()->query('showAllColumns')) {
+            \Filament\Notifications\Notification::make()
+                ->title('Tip: Show More Columns')
+                ->body('Use the column selector (top right of the table) to toggle Migration 2025 status columns.')
+                ->icon('heroicon-o-information-circle')
+                ->success()
+                ->send();
+        }
+        return $table;
     }
 
     public static function getRelations(): array
@@ -134,5 +178,15 @@ class BusinessAreaResource extends Resource
             'create' => Pages\CreateBusinessArea::route('/create'),
             'edit' => Pages\EditBusinessArea::route('/{record}/edit'),
         ];
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Business Area or Program';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Business Areas or Programs';
     }
 }

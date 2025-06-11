@@ -172,4 +172,22 @@ class Form extends Model
             'id'
         );
     }
+
+    public function getMigration2025StatusAttribute(): string
+    {
+        $hasTag = $this->formTags->contains('name', 'migration2025');
+        if (!$hasTag) {
+            return 'Not Applicable';
+        }
+        $versions = $this->formVersions;
+        $hasPublished = $versions->contains(fn($v) => $v->status === 'published');
+        $hasDraftOrReview = $versions->contains(fn($v) => in_array($v->status, ['draft', 'under_review']));
+        if ($hasPublished) {
+            return 'Completed';
+        } elseif ($hasDraftOrReview) {
+            return 'In Progress';
+        } else {
+            return 'To Be Done';
+        }
+    }
 }

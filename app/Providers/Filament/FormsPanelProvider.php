@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Forms\Widgets\FormMigrationWidget;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;
@@ -61,6 +62,7 @@ class FormsPanelProvider extends PanelProvider
             ])
             ->widgets([
                 FormsDescriptionWidget::class,
+                FormMigrationWidget::class,
                 YourFormsWidget::class,
                 YourFormsLogsWidget::class,
                 FormsStatsWidget::class,
