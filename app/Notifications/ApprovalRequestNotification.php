@@ -77,8 +77,7 @@ class ApprovalRequestNotification extends Notification
                     ->line('Thanks for your collaboration.')
                     ->line('')
                     ->line('Regards,')
-                    ->line('')
-                    ->line('**Forms Modernization Team**')
+                    ->salutation('**Forms Modernization Team**')
                     ->render()
             ]);
     }
