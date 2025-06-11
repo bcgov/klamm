@@ -479,6 +479,51 @@ class FormResource extends Resource
             ->persistSearchInSession()
             ->searchDebounce(500)
             ->filters([
+                Tables\Filters\SelectFilter::make('migration2025_status')
+                    ->label('Migration 2025 Status')
+                    ->options([
+                        'Completed' => 'Completed',
+                        'In Progress' => 'In Progress',
+                        'To Be Done' => 'To Be Done',
+                        'Not Applicable' => 'Not Applicable',
+                    ])
+                    ->visible(Gate::allows('admin'))
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+                        $value = $data['value'];
+                        if ($value === 'Not Applicable') {
+                            return $query->whereDoesntHave('formTags', function ($q) {
+                                $q->where('name', 'migration2025');
+                            });
+                        }
+                        $query = $query->whereHas('formTags', function ($q) {
+                            $q->where('name', 'migration2025');
+                        });
+                        if ($value === 'Completed') {
+                            return $query->whereHas('formVersions', function ($q) {
+                                $q->where('status', 'published');
+                            });
+                        } elseif ($value === 'In Progress') {
+                            return $query
+                                ->whereHas('formVersions', function ($q) {
+                                    $q->whereIn('status', ['draft', 'under_review']);
+                                })
+                                ->whereDoesntHave('formVersions', function ($q) {
+                                    $q->where('status', 'published');
+                                });
+                        } elseif ($value === 'To Be Done') {
+                            return $query
+                                ->whereDoesntHave('formVersions', function ($q) {
+                                    $q->where('status', 'published');
+                                })
+                                ->whereDoesntHave('formVersions', function ($q) {
+                                    $q->whereIn('status', ['draft', 'under_review']);
+                                });
+                        }
+                        return $query;
+                    }),
                 Tables\Filters\SelectFilter::make('decommissioned')
                     ->label('Status')
                     ->default(false)
