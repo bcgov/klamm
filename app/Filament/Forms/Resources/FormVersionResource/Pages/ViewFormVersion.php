@@ -6,9 +6,14 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
+use Illuminate\Support\Facades\Gate;
+use App\Filament\Forms\Resources\FormVersionResource\RelationManagers\ApprovalRequestRelationManager;
+use App\Traits\HasBusinessAreaAccess;
 
 class ViewFormVersion extends ViewRecord
 {
+    use HasBusinessAreaAccess;
+
     protected static string $resource = FormVersionResource::class;
 
     public array $additionalApprovers = [];
@@ -22,11 +27,43 @@ class ViewFormVersion extends ViewRecord
                 ->button()
                 ->link()
                 ->extraAttributes(['class' => 'underline']),
+            Actions\Action::make('Preview Form')
+                ->label('Preview Form')
+                ->icon('heroicon-o-rocket-launch')
+                ->extraAttributes([
+                    'style' => 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;'
+                ])
+                ->action(function ($livewire) {
+                    $formVersionId = $this->record->id;
+                    $previewBaseUrl = env('FORM_PREVIEW_URL', '');
+                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
+                    $livewire->js("window.open('$previewUrl', '_blank')");
+                }),
             Actions\EditAction::make()
                 ->outlined()
                 ->visible(fn() => $this->record->status === 'draft'),
             FormApprovalActions::makeReadyForReviewAction($this->record, $this->additionalApprovers),
         ];
+    }
+
+    protected const DEFAULT_RELATION_MANAGERS = [
+        ApprovalRequestRelationManager::class,
+    ];
+
+    public function getRelationManagers(): array
+    {
+        if (Gate::allows('admin') || Gate::allows('form-developer')) {
+            return self::DEFAULT_RELATION_MANAGERS;
+        }
+        if ($this->hasBusinessAreaAccess()) {
+            $formVersion = $this->getRecord();
+
+            if ($this->hasAccessToFormVersion($formVersion)) {
+                return self::DEFAULT_RELATION_MANAGERS;
+            }
+        }
+
+        return [];
     }
 
     protected function mutateFormDataBeforeFill(array $data): array

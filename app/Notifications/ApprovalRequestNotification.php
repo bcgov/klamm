@@ -50,21 +50,37 @@ class ApprovalRequestNotification extends Notification
         }
 
         return (new MailMessage)
-            ->subject('Form Review Request: ' . $formTitle)
-            ->greeting('Hello ' . $approverName . '!')
-            ->line('You are receiving this email because you have been assigned to review a form approval request.')
-            ->line('**Form:** ' . $formTitle)
-            ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
-            ->line('**Requested by:** ' . $requesterName)
-            ->line('**Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
-            ->when($this->approvalRequest->requester_note, function ($mail) {
-                return $mail->line('**Request Note:** ' . $this->approvalRequest->requester_note);
-            })
-            ->line('Please review the form and provide your approval decision.')
-            ->action('Review Form', $reviewUrl)
-            ->when(!$isInternal, function ($mail) {
-                return $mail->line('*Note: This is a secure link that is unique to you. Please do not share this link with others.*');
-            });
+            ->subject('Form Review Requested: ' . $formTitle)
+
+            ->markdown('mail.forms-default-template', [
+                'slot' => (new MailMessage)
+                    ->greeting('Hello ' . $approverName . ',')
+                    ->line('')
+                    ->line('You are receiving this email because you are part of the approval process for a form.')
+                    ->line('')
+                    ->line('Please review the recent updates to the form and respond with your decision to approve or reject them.')
+                    ->line('Your timely feedback will help keep the process efficient and on track.')
+                    ->line('')
+                    ->line('**Form:** ' . $formTitle)
+                    // ->line('**Version:** ' . ($this->approvalRequest->formVersion->version_number ?? 'N/A'))
+                    // ->line('**Requested by:** ' . $requesterName)
+                    // ->line('**Request Date:** ' . $this->approvalRequest->created_at->format('M j, Y g:i A'))
+                    // ->when($this->approvalRequest->requester_note, function ($mail) {
+                    //     return $mail->line('**Request Note:** ' . $this->approvalRequest->requester_note);
+                    // })
+                    ->action('Review Form updates', $reviewUrl)
+                    ->when(!$isInternal, function ($mail) {
+                        return $mail->line('*Note: This is a secure link that is unique to you. Please do not share this link with others.*');
+                    })
+                    ->line('If you have any issue accessing the updated form, please email us directly at Klamm@gov.bc.ca.')
+                    ->line('')
+                    ->line('Thanks for your collaboration.')
+                    ->line('')
+                    ->line('Regards,')
+                    ->line('')
+                    ->line('**Forms Modernization Team**')
+                    ->render()
+            ]);
     }
 
     /**

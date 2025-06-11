@@ -6,12 +6,12 @@ use App\Filament\Forms\Resources\ApprovalRequestResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use App\Models\FormApprovalRequest;
 use App\Models\User;
+use App\Traits\HasBusinessAreaAccess;
 use Filament\Tables\Enums\ActionsPosition;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -25,6 +25,8 @@ use Illuminate\Support\HtmlString;
 
 class ListApprovalRequests extends ListRecords
 {
+    use HasBusinessAreaAccess;
+
     protected static string $resource = ApprovalRequestResource::class;
 
     protected function getHeaderActions(): array
@@ -45,19 +47,68 @@ class ListApprovalRequests extends ListRecords
     {
         $user = Auth::user();
 
-        if ($user && Gate::allows('form-developer')) {
-            return [];
-        }
+        $developerTabs = [
+            'my_requests' => Tab::make('My Requests')
+                ->modifyQueryUsing(fn(Builder $query) => $query->where(function ($subQuery) use ($user) {
+                    $subQuery->where('requester_id', Auth::id())
+                        ->orWhereHas('formVersion', function (Builder $formQuery) use ($user) {
+                            $formQuery->where('form_developer_id', Auth::id());
+                        });
+                })
+                    ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+                    ->orderBy('created_at', 'desc'))
+                ->badge(FormApprovalRequest::where('status', 'pending')
+                    ->where(function ($query) use ($user) {
+                        $query->where('requester_id', Auth::id())
+                            ->orWhereHas('formVersion', function (Builder $subQuery) use ($user) {
+                                $subQuery->where('form_developer_id', Auth::id());
+                            });
+                    })->count())
+                ->badgeColor('warning'),
+        ];
+
+        $adminTabs = [
+            'all_requests' => Tab::make('All Requests')
+                ->modifyQueryUsing(
+                    fn() =>
+                    FormApprovalRequest::query()
+                        ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+                        ->orderBy('created_at', 'desc')
+                ),
+        ];
+
+        $userBusinessAreaIds = $this->getUserBusinessAreaIds();
+
+        $businessAreaRequests = FormApprovalRequest::where('status', 'pending')
+            ->where(function ($query) use ($user, $userBusinessAreaIds) {
+                $query->where('approver_id', $user->id)
+                    ->orWhere(function ($businessAreaQuery) use ($userBusinessAreaIds) {
+                        if (!empty($userBusinessAreaIds)) {
+                            $businessAreaQuery->whereHas('formVersion.form.businessAreas', function ($formBusinessAreaQuery) use ($userBusinessAreaIds) {
+                                $formBusinessAreaQuery->whereIn('business_areas.id', $userBusinessAreaIds);
+                            });
+                        }
+                    });
+            });
 
         return [
-            'all_forms' => Tab::make('All Forms')
-                ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())
+            ...($user && Gate::allows('form-developer') || Gate::allows('admin') ? $developerTabs : []),
+            'assigned_to_me' => Tab::make('Assigned to Me')
+                ->modifyQueryUsing(fn() => FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')
                     ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
                     ->orderBy('created_at', 'desc'))
                 ->badge(FormApprovalRequest::where('approver_id', Auth::id())->where('status', 'pending')->count())
                 ->badgeColor('warning'),
+
+            ...!empty($userBusinessAreaIds) ? ['business_areas' => Tab::make('My Business Areas')
+                ->modifyQueryUsing(fn() => $businessAreaRequests
+                    ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+                    ->orderBy('created_at', 'desc'))
+                ->badge(fn() => $businessAreaRequests->count())] : [],
+
             'reviewed_forms' => Tab::make('Reviewed Forms')
                 ->modifyQueryUsing(fn(Builder $query) => $query->where('approver_id', Auth::id())->where('status', '!=', 'pending')),
+            ...($user && Gate::allows('admin') ? $adminTabs : []),
         ];
     }
 
@@ -79,19 +130,34 @@ class ListApprovalRequests extends ListRecords
                     ->label('Requested By')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => !$isFormDeveloper),
+                    ->visible(fn() => !$isFormDeveloper || $this->activeTab === 'all_requests' || $this->activeTab === 'business_areas'),
                 TextColumn::make('approver_name')
                     ->label('Approver')
                     ->searchable()
                     ->sortable()
-                    ->visible(fn() => $isFormDeveloper),
-                BadgeColumn::make('status')
-                    ->label('Status')
+                    ->visible(fn() => $isFormDeveloper || $this->activeTab === 'business_areas'),
+                TextColumn::make('request_decision')
+                    ->label('Decision')
+                    ->badge()
+                    ->getStateUsing(function ($record) {
+                        if ($record->approved_at) {
+                            return 'approved';
+                        }
+                        if ($record->rejected_at) {
+                            return 'rejected';
+                        }
+                        if ($record->status === 'cancelled') {
+                            return 'cancelled';
+                        }
+                        return 'pending';
+                    })
                     ->colors([
                         'warning' => 'pending',
                         'success' => 'approved',
                         'danger' => 'rejected',
-                    ]),
+                        'gray' => 'cancelled',
+                    ])
+                    ->placeholder(fn($record) => $record->status === 'cancelled' ? 'cancelled' : 'pending'),
                 TextColumn::make('created_at')
                     ->label('Requested')
                     ->dateTime()
@@ -105,10 +171,80 @@ class ListApprovalRequests extends ListRecords
                     ->sortable(query: function (Builder $query, string $direction): Builder {
                         return $query->orderByRaw("COALESCE(approved_at, rejected_at) $direction");
                     })
-                    ->placeholder('Pending'),
+                    ->placeholder(fn($record) => $record->status === 'cancelled' ? 'Cancelled' : 'Pending'),
+
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('requested_by')
+                    ->label('Requested By')
+                    ->options(function () {
+                        return FormApprovalRequest::query()
+                            ->selectRaw('requester_id')
+                            ->distinct()
+                            ->get()
+                            ->mapWithKeys(function ($row) {
+                                $user = User::find($row->requester_id);
+                                $label = $user ? $user->name : 'Unknown';
+                                return [$row->requester_id => $label];
+                            })
+                            ->toArray();
+                    })
+                    ->visible(fn() => !$isFormDeveloper || $this->activeTab === 'all_requests' || $this->activeTab === 'business_areas')
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || !$data['value']) {
+                            return $query;
+                        }
+                        return $query->where('requester_id', $data['value']);
+                    }),
+
+                Tables\Filters\SelectFilter::make('approver')
+                    ->label('Approver')
+                    ->options(function () {
+                        return FormApprovalRequest::query()
+                            ->selectRaw('COALESCE(CAST(approver_id AS CHAR), approver_email) as key_val, approver_name, approver_email')
+                            ->distinct()
+                            ->get()
+                            ->mapWithKeys(function ($row) {
+                                $label = $row->approver_name ?: ($row->approver_email ?: 'Unknown');
+                                return [$row->key_val => $label . ($row->approver_email ? " ({$row->approver_email})" : '')];
+                            })
+                            ->toArray();
+                    })
+                    ->visible(fn() => $isFormDeveloper || $this->activeTab === 'business_areas')
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || !$data['value']) {
+                            return $query;
+                        }
+                        if (is_numeric($data['value'])) {
+                            return $query->where('approver_id', $data['value']);
+                        }
+                        return $query->where('approver_email', $data['value']);
+                    }),
+
+                Tables\Filters\SelectFilter::make('decision')
+                    ->label('Decision')
+                    ->options([
+                        'pending' => 'Pending',
+                        'approved' => 'Approved',
+                        'rejected' => 'Rejected',
+                        'cancelled' => 'Cancelled',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        if (!isset($data['value']) || $data['value'] === null) {
+                            return $query;
+                        }
+                        $decision = $data['value'];
+                        if ($decision === 'approved') {
+                            return $query->whereNotNull('approved_at');
+                        }
+                        if ($decision === 'rejected') {
+                            return $query->whereNotNull('rejected_at');
+                        }
+                        if ($decision === 'cancelled') {
+                            return $query->where('status', 'cancelled');
+                        }
+                        return $query->whereNull('approved_at')->whereNull('rejected_at')->where('status', '!=', 'cancelled');
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
@@ -120,10 +256,9 @@ class ListApprovalRequests extends ListRecords
                     ->extraAttributes(['style' => 'background-color: #013366; border-color: #013366;'])
                     ->visible(
                         fn($record) =>
-                        !$isFormDeveloper &&
+                        $this->activeTab == 'assigned_to_me' &&
                             $record->approver_id === Auth::id() &&
-                            $record->status === 'pending' &&
-                            ($this->activeTab === 'all_forms' || $this->activeTab === null)
+                            $record->status === 'pending'
                     ),
                 Tables\Actions\Action::make('changeApprover')
                     ->label('Change Approver')
@@ -154,15 +289,22 @@ class ListApprovalRequests extends ListRecords
                             ->searchable()
                             ->label('Select User')
                             ->options(function ($record) {
-                                $businessAreaUsers = $record->formVersion->form->businessAreas->flatMap->users
-                                    ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
-                                    ->toArray();
+                                $formVersion = $record->formVersion;
+                                $form = $formVersion->form;
+                                $form->loadMissing(['businessAreas.users']);
+
+                                $businessAreaUsers = [];
+                                foreach ($form->businessAreas as $businessArea) {
+                                    foreach ($businessArea->users as $user) {
+                                        $businessAreaUsers[$user->id] = $user->name . ' (' . $user->email . ')';
+                                    }
+                                }
 
                                 $allKlammUsers = User::all()
                                     ->mapWithKeys(fn($user) => [$user->id => $user->name . ' (' . $user->email . ')'])
                                     ->toArray();
 
-                                return array_merge($businessAreaUsers, $allKlammUsers);
+                                return $businessAreaUsers + $allKlammUsers;
                             })
                             ->getSearchResultsUsing(function (string $search) {
                                 return User::where(function ($query) use ($search) {
@@ -198,11 +340,11 @@ class ListApprovalRequests extends ListRecords
                     })
                     ->closeModalByClickingAway(false)
                     ->modalSubmitAction(fn(StaticAction $action) => $action->label('Change Approver'))
+                    // Give admins and form developers ability to change approver
                     ->visible(
-                        fn($record) =>
-                        $isFormDeveloper &&
+                        fn($record) => ($isFormDeveloper || Gate::allows('admin')) &&
                             $record->status === 'pending' &&
-                            $record->formVersion->form_developer_id === Auth::id()
+                            ($record->formVersion->form_developer_id === Auth::id() || $record->requester_id === Auth::id() || Gate::allows('admin'))
                     ),
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([

@@ -77,4 +77,14 @@ class FormLocationResource extends Resource
             'edit' => Pages\EditFormLocation::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Published Location';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Published Locations';
+    }
 }

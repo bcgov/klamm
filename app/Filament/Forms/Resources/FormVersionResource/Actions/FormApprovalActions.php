@@ -24,6 +24,7 @@ class FormApprovalActions
 {
     public static function makeReadyForReviewAction($record, &$additionalApprovers): Action
     {
+        $record->load('form.businessAreas.users');
         return Action::make('readyForReview')
             ->label('Send for Review')
             ->modalHeading('Request approval')
@@ -127,7 +128,7 @@ class FormApprovalActions
                     ->required()
                     ->visible(fn(Get $get) => $get('approver_type') === 'klamm')
                     ->default(function () use ($approvalRequest) {
-                        return $approvalRequest->is_klamm_user ? $approvalRequest->approver_id : null;
+                        return $approvalRequest->is_klamm_user ? User::find($approvalRequest->approver_id)?->name : null;
                     }),
                 TextInput::make('name')
                     ->required()

@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: klamm-reverb-worker
+  labels:
+    app.kubernetes.io/name: klamm-reverb-worker
+spec:
+  replicas: {{ .Values.reverbWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: klamm-reverb-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: klamm-reverb-worker
+    spec:
+      containers:
+        - name: reverb-worker
+          image: "{{ .Values.image.tag }}"
+          command: ["php", "/var/www/artisan", "reverb:start", "--host=0.0.0.0"]
+          envFrom:
+            - secretRef:
+                name: app-secrets
+          env:
+            - name: DB_CONNECTION
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_CONNECTION
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PORT
+            - name: DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_DATABASE
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DB_PASSWORD
+            - name: MAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MAIL_HOST
+            - name: MAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: MAIL_PORT
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REVERB_APP_KEY
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: klamm-cache-redis
+                  key: redis-password
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /var/www/storage
+          resources:
+            limits:
+              cpu: {{ .Values.reverbWorker.resources.limits.cpu }}
+              memory: {{ .Values.reverbWorker.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.reverbWorker.resources.requests.cpu }}
+              memory: {{ .Values.reverbWorker.resources.requests.memory }}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 6001
+              name: reverb
+      volumes:
+        - name: storage-volume
+          persistentVolumeClaim:
+            claimName: klamm-app-shared-pvc
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+      schedulerName: default-scheduler
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  progressDeadlineSeconds: 600

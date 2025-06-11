@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use App\Helpers\FormDataHelper;
+use App\Events\FormVersionUpdateEvent;
 
 class FormVersion extends Model
 {
@@ -50,6 +52,51 @@ class FormVersion extends Model
                 ->first();
 
             $formVersion->version_number = $latestVersion ? $latestVersion->version_number + 1 : 1;
+        });
+
+        // After saving a form version, invalidate related caches and dispatch event
+        static::saved(function ($formVersion) {
+            if ($formVersion->form_id) {
+                // FormDataHelper::invalidateFormCache($formVersion->form_id);
+
+                // Determine what fields were updated
+                $updateType = 'general';
+                $componentsUpdated = false;
+
+                if ($formVersion->isDirty('components') || $formVersion->wasChanged('components')) {
+                    $updateType = 'components';
+                    $componentsUpdated = true;
+                } elseif ($formVersion->isDirty('status') || $formVersion->wasChanged('status')) {
+                    $updateType = 'status';
+                } elseif ($formVersion->isDirty('deployed_to') || $formVersion->isDirty('deployed_at')) {
+                    $updateType = 'deployment';
+                }
+
+                // Dispatch the update event
+                event(new FormVersionUpdateEvent(
+                    $formVersion->id,
+                    $formVersion->form_id,
+                    $formVersion->version_number,
+                    $componentsUpdated ? $formVersion->components : null,
+                    $updateType
+                ));
+            }
+        });
+
+        // When a form version is deleted
+        static::deleted(function ($formVersion) {
+            if ($formVersion->form_id) {
+                // FormDataHelper::invalidateFormCache($formVersion->form_id);
+
+                // Dispatch deletion event
+                event(new FormVersionUpdateEvent(
+                    $formVersion->id,
+                    $formVersion->form_id,
+                    $formVersion->version_number,
+                    null,
+                    'deleted'
+                ));
+            }
         });
     }
 

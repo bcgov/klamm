@@ -49,13 +49,6 @@ class UserFactory extends Factory
         });
     }
 
-    public function fodigViewOnly(): static
-    {
-        return $this->afterCreating(function (User $user) {
-            $user->assignRole('fodig-view-only');
-        });
-    }
-
     public function forms(): static
     {
         return $this->afterCreating(function (User $user) {
@@ -63,10 +56,10 @@ class UserFactory extends Factory
         });
     }
 
-    public function formsViewOnly(): static
+    public function userRole(): static
     {
         return $this->afterCreating(function (User $user) {
-            $user->assignRole('forms-view-only');
+            $user->assignRole('user');
         });
     }
 
@@ -74,13 +67,6 @@ class UserFactory extends Factory
     {
         return $this->afterCreating(function (User $user) {
             $user->assignRole('bre');
-        });
-    }
-
-    public function breViewOnly(): static
-    {
-        return $this->afterCreating(function (User $user) {
-            $user->assignRole('bre-view-only');
         });
     }
 

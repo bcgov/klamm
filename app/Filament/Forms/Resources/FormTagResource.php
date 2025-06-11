@@ -77,4 +77,14 @@ class FormTagResource extends Resource
             'edit' => Pages\EditFormTag::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Tag';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Tags';
+    }
 }
