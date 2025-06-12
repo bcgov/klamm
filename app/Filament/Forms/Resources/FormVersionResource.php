@@ -2,7 +2,7 @@
 
 namespace App\Filament\Forms\Resources;
 
-use App\Filament\Resources\FormVersionResource\Pages;
+use App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Models\Element;
 use App\Models\Container;
 use App\Models\Field;
@@ -79,13 +79,26 @@ class FormVersionResource extends Resource
 
                                 Forms\Components\Select::make('parent_element_id')
                                     ->label('Parent Element')
-                                    ->options(function (callable $get, ?FormVersion $record) {
+                                    ->options(function (callable $get, $record) {
                                         if (!$record) return [];
 
-                                        return $record->elements()
-                                            ->where('type', 'container')
-                                            ->pluck('custom_label', 'id')
-                                            ->toArray();
+                                        // If record is a FormVersion, use its elements relationship
+                                        if ($record instanceof \App\Models\FormVersion) {
+                                            return $record->elements()
+                                                ->where('type', 'container')
+                                                ->pluck('custom_label', 'id')
+                                                ->toArray();
+                                        }
+
+                                        // If record is an Element, use its form version's elements
+                                        if ($record instanceof \App\Models\Element) {
+                                            return $record->formVersion->elements()
+                                                ->where('type', 'container')
+                                                ->pluck('custom_label', 'id')
+                                                ->toArray();
+                                        }
+
+                                        return [];
                                     })
                                     ->nullable(),
 
