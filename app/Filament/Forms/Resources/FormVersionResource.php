@@ -2,106 +2,149 @@
 
 namespace App\Filament\Forms\Resources;
 
-use App\Filament\Components\FormVersionBuilder;
-use App\Filament\Forms\Resources\FormVersionResource\Pages;
-use App\Helpers\ImportTemplateHelper;
-use App\Helpers\ScanTemplateHelper;
+use App\Filament\Resources\FormVersionResource\Pages;
+use App\Models\Element;
+use App\Models\Container;
+use App\Models\Field;
+use App\Models\FieldTemplate;
+use App\Models\Form;
 use App\Models\FormVersion;
-use Filament\Forms\Form;
+use Filament\Forms;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Tabs;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Gate;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\MarkdownEditor;
-use Filament\Forms\Components\Split;
-use Filament\Forms\Components\Tabs;
-use Filament\Forms\Components\Tabs\Tab;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class FormVersionResource extends Resource
 {
     protected static ?string $model = FormVersion::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-inbox-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
 
-    protected static bool $shouldRegisterNavigation = true;
+    protected static ?string $navigationGroup = 'Forms';
 
-    // Function to get the current counter value from the session
-    public static function getElementCounter(): int
-    {
-        return Session::get('elementCounter', 1); // Default to 1 if not set
-    }
-
-    // Function to increment the counter in the session
-    public static function incrementElementCounter(): void
-    {
-        $currentCounter = self::getElementCounter();
-        Session::put('elementCounter', $currentCounter + 1);
-    }
-
-    public static function form(Form $form): Form
+    public static function form(Forms\Form $form): Forms\Form
     {
         return $form
             ->schema([
-                // Main view
-                FormVersionBuilder::schema()
-                    ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
+                Forms\Components\Section::make('Form Version Details')
+                    ->schema([
+                        Forms\Components\Select::make('form_id')
+                            ->label('Form')
+                            ->relationship('form', 'form_title')
+                            ->required(),
 
-                // Tab view for Create page
-                Tabs::make('Tabs')
-                    ->visible(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\CreateRecord))
-                    ->columnSpanFull()
-                    ->activeTab(1)
-                    ->reactive()
-                    ->tabs([
-                        Tab::make('Build')
+                        Forms\Components\TextInput::make('version_number')
+                            ->label('Version Number')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->visible(fn($record) => $record !== null),
+
+                        Forms\Components\Select::make('status')
+                            ->label('Status')
+                            ->options(FormVersion::getStatusOptions())
+                            ->required(),
+
+                        Forms\Components\Select::make('form_developer_id')
+                            ->label('Form Developer')
+                            ->relationship('formDeveloper', 'name')
+                            ->required(),
+
+                        Forms\Components\TextInput::make('footer')
+                            ->label('Footer')
+                            ->maxLength(255),
+                    ]),
+
+                Forms\Components\Section::make('Form Elements')
+                    ->schema([
+                        Forms\Components\Repeater::make('elements')
+                            ->relationship()
                             ->schema([
-                                FormVersionBuilder::schema(),
-                            ]),
-                        Tab::make('Import')
-                            ->columnSpanFull()
-                            ->schema([
-                                Split::make([
-                                    Textarea::make('json')
-                                        ->label('Import JSON')
-                                        ->afterStateUpdated(fn(Set $set) => $set('jsonModified', true))
-                                        ->rows(15),
-                                    MarkdownEditor::make('messages')
-                                        ->label('Validation messages')
-                                        ->disabled(),
-                                ]),
-                                Actions::make([
-                                    Action::make('Scan JSON')
-                                        ->label('Scan JSON')
-                                        ->action(function (Set $set, $state) {
-                                            $validation = ScanTemplateHelper::validateForm($state['json']);
-                                            $set('messages', $validation['messages']);
-                                            $set('isValid', $validation['isValid']);
-                                            $set('jsonModified', false);
-                                        }),
-                                    Action::make('Import JSON')
-                                        ->label('Import JSON')
-                                        ->disabled(fn(Get $get) => !$get('isValid') || $get('jsonModified'))
-                                        ->action(function (Set $set, $state, $livewire) {
-                                            $formVersion = ImportTemplateHelper::importForm($state['json']);
-                                            if ($formVersion->id) {
-                                                $set('formVersion', $formVersion);
-                                            }
-                                        }),
-                                    Action::make('View Imported Form')
-                                        ->label('View Imported Form')
-                                        ->disabled(fn(Get $get) => !$get('formVersion')) // Only enable when formVersionId is set
-                                        ->action(
-                                            fn(Get $get, $livewire) =>
-                                            $livewire->redirect(FormVersionResource::getUrl('view', ['record' => $get('formVersion')]))
-                                        ),
-                                ]),
-                            ]),
+                                Forms\Components\Select::make('type')
+                                    ->label('Element Type')
+                                    ->options([
+                                        'container' => 'Container',
+                                        'field' => 'Field',
+                                    ])
+                                    ->required()
+                                    ->reactive()
+                                    ->afterStateUpdated(fn($set) => $set('parent_element_id', null)),
+
+                                Forms\Components\Select::make('parent_element_id')
+                                    ->label('Parent Element')
+                                    ->options(function (callable $get, ?FormVersion $record) {
+                                        if (!$record) return [];
+
+                                        return $record->elements()
+                                            ->where('type', 'container')
+                                            ->pluck('custom_label', 'id')
+                                            ->toArray();
+                                    })
+                                    ->nullable(),
+
+                                Forms\Components\TextInput::make('order')
+                                    ->label('Order')
+                                    ->numeric()
+                                    ->required(),
+
+                                Forms\Components\TextInput::make('custom_label')
+                                    ->label('Label')
+                                    ->required(),
+
+                                Forms\Components\Toggle::make('hide_label')
+                                    ->label('Hide Label'),
+
+                                Forms\Components\TextInput::make('custom_data_binding_path')
+                                    ->label('Data Binding Path'),
+
+                                Forms\Components\TextInput::make('custom_data_binding')
+                                    ->label('Data Binding'),
+
+                                Forms\Components\TextInput::make('custom_help_text')
+                                    ->label('Help Text'),
+
+                                Forms\Components\Toggle::make('visible_web')
+                                    ->label('Visible on Web')
+                                    ->default(true),
+
+                                Forms\Components\Toggle::make('visible_pdf')
+                                    ->label('Visible on PDF')
+                                    ->default(true),
+
+                                // Container-specific fields
+                                Forms\Components\Toggle::make('has_repeater')
+                                    ->label('Has Repeater')
+                                    ->visible(fn($get) => $get('type') === 'container'),
+
+                                Forms\Components\Toggle::make('has_clear_button')
+                                    ->label('Has Clear Button')
+                                    ->visible(fn($get) => $get('type') === 'container'),
+
+                                Forms\Components\TextInput::make('repeater_item_label')
+                                    ->label('Repeater Item Label')
+                                    ->visible(fn($get) => $get('type') === 'container' && $get('has_repeater')),
+
+                                // Field-specific fields
+                                Forms\Components\Select::make('field_template_id')
+                                    ->label('Field Template')
+                                    ->relationship('fieldTemplate', 'name')
+                                    ->visible(fn($get) => $get('type') === 'field'),
+
+                                Forms\Components\TextInput::make('custom_mask')
+                                    ->label('Custom Mask')
+                                    ->visible(fn($get) => $get('type') === 'field'),
+                            ])
+                            ->itemLabel(fn(array $state): ?string => $state['custom_label'] ?? null)
+                            ->collapsible()
+                            ->reorderableWithButtons()
+                            ->defaultItems(0),
                     ]),
             ]);
     }
@@ -110,112 +153,50 @@ class FormVersionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('form.form_id_title')
+                Tables\Columns\TextColumn::make('form.form_title')
                     ->label('Form')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('version_number')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('status')
                     ->searchable()
-                    ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
-                Tables\Columns\TextColumn::make('deployed_to')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('deployed_at')
-                    ->date('M j, Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('version_number')
+                    ->label('Version')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->formatStateUsing(fn(string $state): string => FormVersion::getStatusOptions()[$state] ?? $state)
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('formDeveloper.name')
+                    ->label('Developer')
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('elements_count')
+                    ->label('Elements')
+                    ->counts('elements'),
+
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Last Updated')
                     ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('status')
+                    ->options(FormVersion::getStatusOptions()),
+
+                Tables\Filters\SelectFilter::make('form_id')
+                    ->label('Form')
+                    ->relationship('form', 'form_title'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
-                    ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
-                Tables\Actions\Action::make('archive')
-                    ->label('Archive')
-                    ->icon('heroicon-o-archive-box-arrow-down')
-                    ->visible(fn($record) => $record->status === 'published')
-                    ->action(function ($record) {
-                        $record->update(['status' => 'archived']);
-                    })
-                    ->requiresConfirmation()
-                    ->color('danger')
-                    ->tooltip('Archive this form version'),
-                Tables\Actions\Action::make('Create New Version')
-                    ->label('Create New Version')
-                    ->icon('heroicon-o-document-plus')
-                    ->requiresConfirmation()
-                    ->tooltip('Create a new version from this version')
-                    ->visible(fn($record) => (Gate::allows('form-developer') && in_array($record->status, ['published', 'archived'])))
-                    ->action(function ($record, $livewire) {
-                        $newVersion = $record->replicate();
-                        $newVersion->status = 'draft';
-                        $newVersion->deployed_to = null;
-                        $newVersion->deployed_at = null;
-                        $newVersion->save();
-
-                        foreach ($record->formInstanceFields()->whereNull('field_group_instance_id')->get() as $field) {
-                            $newField = $field->replicate();
-                            $newField->form_version_id = $newVersion->id;
-                            $newField->save();
-
-                            foreach ($field->validations as $validation) {
-                                $newValidation = $validation->replicate();
-                                $newValidation->form_instance_field_id = $newField->id;
-                                $newValidation->save();
-                            }
-
-                            foreach ($field->conditionals as $conditional) {
-                                $newConditional = $conditional->replicate();
-                                $newConditional->form_instance_field_id = $newField->id;
-                                $newConditional->save();
-                            }
-                        }
-
-                        foreach ($record->fieldGroupInstances as $groupInstance) {
-                            $newGroupInstance = $groupInstance->replicate();
-                            $newGroupInstance->form_version_id = $newVersion->id;
-                            $newGroupInstance->save();
-
-                            foreach ($groupInstance->formInstanceFields as $field) {
-                                $newField = $field->replicate();
-                                $newField->form_version_id = $newVersion->id;
-                                $newField->field_group_instance_id = $newGroupInstance->id;
-                                $newField->save();
-
-                                foreach ($field->validations as $validation) {
-                                    $newValidation = $validation->replicate();
-                                    $newValidation->form_instance_field_id = $newField->id;
-                                    $newValidation->save();
-                                }
-
-                                foreach ($field->conditionals as $conditional) {
-                                    $newConditional = $conditional->replicate();
-                                    $newConditional->form_instance_field_id = $newField->id;
-                                    $newConditional->save();
-                                }
-                            }
-                        }
-                        $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
-                    }),
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
-                //
-            ])
-            ->paginated([
-                10,
-                25,
-                50,
-                100,
-            ]);;
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
     }
 
     public static function getRelations(): array
@@ -225,14 +206,12 @@ class FormVersionResource extends Resource
         ];
     }
 
-
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListFormVersions::route('/'),
             'create' => Pages\CreateFormVersion::route('/create'),
             'edit' => Pages\EditFormVersion::route('/{record}/edit'),
-            'view' => Pages\ViewFormVersion::route('/{record}'),
         ];
     }
 }

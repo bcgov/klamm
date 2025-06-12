@@ -3,10 +3,19 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Field extends Element
 {
     use HasFactory;
+
+    protected $fillable = [
+        'element_id',
+        'field_template_id',
+        'custom_mask',
+    ];
 
     public function __construct(array $attributes = [])
     {
@@ -33,22 +42,22 @@ class Field extends Element
         ];
     }
 
-    public function fieldTemplate()
+    public function fieldTemplate(): BelongsTo
     {
         return $this->belongsTo(FieldTemplate::class);
     }
 
-    public function elementValue()
+    public function elementValue(): HasOne
     {
         return $this->hasOne(ElementValue::class, 'element_id');
     }
 
-    public function elementDateFormat()
+    public function elementDateFormat(): HasOne
     {
         return $this->hasOne(ElementDateFormat::class, 'element_id');
     }
 
-    public function selectOptionInstances()
+    public function selectOptionInstances(): HasMany
     {
         return $this->hasMany(SelectOptionInstance::class, 'element_id');
     }
