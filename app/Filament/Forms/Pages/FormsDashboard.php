@@ -57,8 +57,8 @@ class FormsDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
-            FormMigrationWidget::class,
             FormsDescriptionWidget::class,
+            FormMigrationWidget::class,
             YourFormsWidget::class,
             YourFormsLogsWidget::class,
             FormsStatsWidget::class,

@@ -103,7 +103,7 @@ class ApprovalDecisionNotification extends Notification
                     ->line(new HtmlString($decisionDetails))
                     ->action('Review decision details', $viewUrl)
                     ->line('Regards,')
-                    ->line('**Forms Modernization Team**')
+                    ->salutation('**Forms Modernization Team**')
                     ->render(),
             ]);
     }

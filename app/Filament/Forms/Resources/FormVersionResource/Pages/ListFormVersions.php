@@ -32,4 +32,11 @@ class ListFormVersions extends ListRecords
                 ->visible(fn() => Gate::allows('form-developer')),
         ];
     }
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            //
+        ];
+    }
 }
