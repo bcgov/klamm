@@ -18,11 +18,14 @@ return new class extends Migration
         });
 
         // Generate UUIDs for existing records
-        DB::table('form_versions')->whereNull('uuid')->each(function ($formVersion) {
-            DB::table('form_versions')
-                ->where('id', $formVersion->id)
-                ->update(['uuid' => Str::uuid()]);
-        });
+        DB::table('form_versions')
+            ->whereNull('uuid')
+            ->orderBy('id')
+            ->each(function ($formVersion) {
+                DB::table('form_versions')
+                    ->where('id', $formVersion->id)
+                    ->update(['uuid' => Str::uuid()]);
+            });
 
         Schema::table('form_versions', function (Blueprint $table) {
             $table->uuid('uuid')->nullable(false)->change();
