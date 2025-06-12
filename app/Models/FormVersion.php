@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
-use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
 use Illuminate\Support\Str;
 
@@ -50,11 +49,9 @@ class FormVersion extends Model
             $formVersion->version_number = $latestVersion ? $latestVersion->version_number + 1 : 1;
         });
 
-        // After saving a form version, invalidate related caches and dispatch event
+        // After saving a form version, dispatch event
         static::saved(function ($formVersion) {
             if ($formVersion->form_id) {
-                // FormDataHelper::invalidateFormCache($formVersion->form_id);
-
                 // Determine what fields were updated
                 $updateType = 'general';
 
@@ -76,8 +73,6 @@ class FormVersion extends Model
         // When a form version is deleted
         static::deleted(function ($formVersion) {
             if ($formVersion->form_id) {
-                // FormDataHelper::invalidateFormCache($formVersion->form_id);
-
                 // Dispatch deletion event
                 event(new FormVersionUpdateEvent(
                     $formVersion->id,
@@ -159,6 +154,21 @@ class FormVersion extends Model
     public function elements(): HasMany
     {
         return $this->hasMany(Element::class);
+    }
+
+    public function containers(): HasMany
+    {
+        return $this->hasMany(Element::class)->where('type', 'container');
+    }
+
+    public function fields(): HasMany
+    {
+        return $this->hasMany(Element::class)->where('type', 'field');
+    }
+
+    public function rootElements(): HasMany
+    {
+        return $this->hasMany(Element::class)->whereNull('parent_element_id');
     }
 
     public function formStyleSheets(): HasMany

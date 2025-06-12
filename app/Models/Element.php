@@ -16,6 +16,7 @@ class Element extends Model
         'form_version_id',
         'parent_element_id',
         'uuid',
+        'type', // 'field' or 'container'
         'order',
         'custom_label',
         'hide_label',
@@ -23,13 +24,22 @@ class Element extends Model
         'custom_data_binding',
         'custom_help_text',
         'visible_web',
-        'visible_pdf'
+        'visible_pdf',
+        // Container-specific fields
+        'has_repeater',
+        'has_clear_button',
+        'repeater_item_label',
+        // Field-specific fields
+        'field_template_id',
+        'custom_mask',
     ];
 
     protected $casts = [
         'hide_label' => 'boolean',
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
+        'has_repeater' => 'boolean',
+        'has_clear_button' => 'boolean',
     ];
 
     public static function boot()
@@ -67,5 +77,59 @@ class Element extends Model
     public function elementConditionals(): HasMany
     {
         return $this->hasMany(ElementConditional::class);
+    }
+
+    // Field-specific relationships
+    public function fieldTemplate(): BelongsTo
+    {
+        return $this->belongsTo(FieldTemplate::class);
+    }
+
+    public function elementValue()
+    {
+        return $this->hasOne(ElementValue::class);
+    }
+
+    public function elementDateFormat()
+    {
+        return $this->hasOne(ElementDateFormat::class);
+    }
+
+    public function selectOptionInstances()
+    {
+        return $this->hasMany(SelectOptionInstance::class);
+    }
+
+    // Helper methods for type checking
+    public function isContainer(): bool
+    {
+        return $this->type === 'container';
+    }
+
+    public function isField(): bool
+    {
+        return $this->type === 'field';
+    }
+
+    // Scope methods for querying
+    public function scopeContainers($query)
+    {
+        return $query->where('type', 'container');
+    }
+
+    public function scopeFields($query)
+    {
+        return $query->where('type', 'field');
+    }
+
+    // Helper methods to access as specific type
+    public function asContainer()
+    {
+        return $this->isContainer() ? new Container($this->attributes) : null;
+    }
+
+    public function asField()
+    {
+        return $this->isField() ? new Field($this->attributes) : null;
     }
 }
