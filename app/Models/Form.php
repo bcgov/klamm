@@ -20,9 +20,7 @@ class Form extends Model
         'ministry_id',
         'form_purpose',
         'notes',
-        'program',
-        'fill_type_id',
-        'decommissioned',
+        'active',
         'form_frequency_id',
         'form_reach_id',
         'print_reason',
@@ -32,6 +30,12 @@ class Form extends Model
         'dcv_material_number',
         'orbeon_functions',
         'icm_generated'
+    ];
+
+    protected $casts = [
+        'active' => 'boolean',
+        'icm_non_interactive' => 'boolean',
+        'icm_generated' => 'boolean',
     ];
 
     public function versions(): HasMany
@@ -52,11 +56,6 @@ class Form extends Model
     public function formTags(): BelongsToMany
     {
         return $this->belongsToMany(FormTag::class, 'form_form_tags');
-    }
-
-    public function fillType(): BelongsTo
-    {
-        return $this->belongsTo(FillType::class);
     }
 
     public function formLocations(): BelongsToMany

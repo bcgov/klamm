@@ -3,11 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Container extends Model
+class Container extends Element
 {
     use HasFactory;
 
@@ -17,13 +15,10 @@ class Container extends Model
      * @var array
      */
     protected $fillable = [
-        'id',
-        'form_version_id',
-        'order',
-        'instance_id',
-        'custom_instance_id',
-        'visibility',
-        'clear_button',
+        'element_id',
+        'has_repeater',
+        'has_clear_button',
+        'repeater_item_label',
     ];
 
     /**
@@ -32,28 +27,12 @@ class Container extends Model
      * @var array
      */
     protected $casts = [
-        'id' => 'integer',
-        'order' => 'integer',
-        'clear_button' => 'boolean',
+        'has_repeater' => 'boolean',
+        'has_clear_button' => 'boolean',
     ];
 
-    public function formVersion(): BelongsTo
+    public function element(): BelongsTo
     {
-        return $this->belongsTo(FormVersion::class);
-    }
-
-    public function fieldGroupInstances(): HasMany
-    {
-        return $this->hasMany(FieldGroupInstance::class);
-    }
-
-    public function formInstanceFields(): HasMany
-    {
-        return $this->hasMany(FormInstanceField::class);
-    }
-
-    public function styleInstances(): HasMany
-    {
-        return $this->hasMany(StyleInstance::class);
+        return $this->belongsTo(Element::class);
     }
 }

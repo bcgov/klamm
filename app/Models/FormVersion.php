@@ -11,6 +11,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
+use Illuminate\Support\Str;
 
 class FormVersion extends Model
 {
@@ -18,18 +19,11 @@ class FormVersion extends Model
 
     protected $fillable = [
         'form_id',
+        'uuid',
         'version_number',
         'status',
         'form_developer_id',
         'footer',
-        'comments',
-        'deployed_to',
-        'deployed_at',
-        'components'
-    ];
-
-    protected $casts = [
-        'deployed_at' => 'datetime',
     ];
 
     protected static $logAttributes = [
@@ -37,9 +31,6 @@ class FormVersion extends Model
         'version_number',
         'status',
         'form_developer_id',
-        'comments',
-        'deployed_to',
-        'deployed_at',
     ];
 
     public static function boot()
@@ -47,6 +38,11 @@ class FormVersion extends Model
         parent::boot();
 
         static::creating(function ($formVersion) {
+            // Generate UUID if not provided
+            if (empty($formVersion->uuid)) {
+                $formVersion->uuid = (string) Str::uuid();
+            }
+
             $latestVersion = FormVersion::where('form_id', $formVersion->form_id)
                 ->orderBy('version_number', 'desc')
                 ->first();
@@ -61,15 +57,9 @@ class FormVersion extends Model
 
                 // Determine what fields were updated
                 $updateType = 'general';
-                $componentsUpdated = false;
 
-                if ($formVersion->isDirty('components') || $formVersion->wasChanged('components')) {
-                    $updateType = 'components';
-                    $componentsUpdated = true;
-                } elseif ($formVersion->isDirty('status') || $formVersion->wasChanged('status')) {
+                if ($formVersion->isDirty('status') || $formVersion->wasChanged('status')) {
                     $updateType = 'status';
-                } elseif ($formVersion->isDirty('deployed_to') || $formVersion->isDirty('deployed_at')) {
-                    $updateType = 'deployment';
                 }
 
                 // Dispatch the update event
@@ -77,7 +67,7 @@ class FormVersion extends Model
                     $formVersion->id,
                     $formVersion->form_id,
                     $formVersion->version_number,
-                    $componentsUpdated ? $formVersion->components : null,
+                    null,
                     $updateType
                 ));
             }
@@ -166,19 +156,19 @@ class FormVersion extends Model
         return $this->belongsTo(User::class, 'form_developer_id');
     }
 
-    public function formInstanceFields(): HasMany
+    public function elements(): HasMany
     {
-        return $this->hasMany(FormInstanceField::class);
+        return $this->hasMany(Element::class);
     }
 
-    public function fieldGroupInstances(): HasMany
+    public function formStyleSheets(): HasMany
     {
-        return $this->hasMany(FieldGroupInstance::class);
+        return $this->hasMany(FormStyleSheet::class);
     }
 
-    public function containers(): HasMany
+    public function formDeploymentDetails(): HasMany
     {
-        return $this->hasMany(Container::class);
+        return $this->hasMany(FormDeploymentDetail::class);
     }
 
     public function formDataSources(): BelongsToMany
