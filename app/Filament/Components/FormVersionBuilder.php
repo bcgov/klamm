@@ -12,14 +12,12 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\View;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
@@ -28,6 +26,7 @@ use App\Jobs\GenerateFormTemplateJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
 
 class FormVersionBuilder
 {
@@ -83,6 +82,7 @@ class FormVersionBuilder
                                 'name',
                                 fn($query) => $query->whereHas('roles', fn($q) => $q->where('name', 'form-developer'))
                             )
+                            ->default(Auth::id())
                             ->searchable()
                             ->preload()
                             ->columnSpan(1),
