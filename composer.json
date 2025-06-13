@@ -9,8 +9,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "abdelhamiderrahmouni/filament-monaco-editor": "^0.2.5",
         "althinect/filament-spatie-roles-permissions": "^2.2",
-        "dotswan/filament-code-editor": "^1.1",
         "filament/filament": "^3.2",
         "laravel/framework": "^11.0",
         "laravel/reverb": "^1.0",

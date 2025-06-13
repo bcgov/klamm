@@ -7,14 +7,12 @@ use App\Filament\Forms\Resources\StyleSheetResource\RelationManagers\FormVersion
 use App\Http\Middleware\CheckRole;
 use App\Models\FormVersion;
 use App\Models\StyleSheet;
-use Dotswan\FilamentCodeEditor\Fields\CodeEditor;
-use Filament\Forms\Components\Select;
+use AbdelhamidErrahmouni\FilamentMonacoEditor\MonacoEditor;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -47,12 +45,11 @@ class StyleSheetResource extends Resource
                     ->columnSpanFull()
                     ->disabled(fn($record) => $record?->formVersions()->where('status', ['approved', 'published'])->exists())
                     ->required(),
-                CodeEditor::make('css_content')
+                MonacoEditor::make('css_content')
+                    ->language('css')
                     ->columnSpanFull()
                     ->required()
-                    ->disabled(fn($record) => $record?->formVersions()->where('status', ['approved', 'published'])->exists())
-                    ->darkModeTheme('material-dark')
-                    ->lightModeTheme('basic-light'),
+                    ->disabled(fn($record) => $record?->formVersions()->where('status', ['approved', 'published'])->exists()),
                 Textarea::make('description')
                     ->columnSpanFull()
                     ->disabled(fn($record) => $record?->formVersions()->where('status', ['approved', 'published'])->exists()),

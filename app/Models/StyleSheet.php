@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -39,7 +38,7 @@ class StyleSheet extends Model
 
         // Create UUID and add to record
         static::creating(function ($styleSheet) {
-            $styleSheet->filename = Str::uuid()->toString();
+            $styleSheet->filename = $styleSheet->id . '_' . Str::uuid()->toString();
         });
 
         // If StyleSheet is deleted, delete the associated CSS file. 
@@ -70,15 +69,12 @@ class StyleSheet extends Model
     public function getCssContent(): ?string
     {
         $filename = $this->filename . '.css';
-        Log::info('Getting CSS content for StyleSheet ID: ' . $this->id . ', filename: ' . $filename);
 
         if (Storage::disk('stylesheets')->exists($filename)) {
             $content = Storage::disk('stylesheets')->get($filename);
-            Log::info('CSS file found, content length: ' . strlen($content));
             return $content;
         }
 
-        Log::info('CSS file not found');
         return null;
     }
 
@@ -87,26 +83,7 @@ class StyleSheet extends Model
      */
     public function saveCssContent(string $content): bool
     {
-        $filename = $this->filename . '.css';
-        Log::info('Saving CSS content for style sheet ID: ' . $this->id . ', filename: ' . $filename . ', content length: ' . strlen($content));
-
-        // Create directory if it doesn't exist
-        if (!Storage::disk('stylesheets')->exists('')) {
-            Log::info('Creating stylesheets directory');
-            Storage::disk('stylesheets')->makeDirectory('');
-        }
-
-        $result = Storage::disk('stylesheets')->put($filename, $content);
-        Log::info('CSS save result: ' . ($result ? 'Success' : 'Failed'));
-
-        // Verify the file was created
-        if ($result && Storage::disk('stylesheets')->exists($filename)) {
-            Log::info('CSS file verified to exist after save');
-        } else {
-            Log::error('CSS file does not exist after save attempt');
-        }
-
-        return $result;
+        return Storage::disk('stylesheets')->put($this->filename . '.css', $content);
     }
 
     public function handleCssFileSave(?string $cssContent): void
@@ -114,10 +91,8 @@ class StyleSheet extends Model
         if (!is_null($cssContent)) {
             if (!empty(trim($cssContent))) {
                 $this->saveCssContent($cssContent);
-                Log::info("Saved CSS file for StyleSheet ID {$this->id}");
             } else {
                 $this->deleteCssFile();
-                Log::info("Deleted CSS file for StyleSheet ID {$this->id} (empty content)");
             }
         }
     }

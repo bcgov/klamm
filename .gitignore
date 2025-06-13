@@ -61,5 +61,5 @@ yarn-error.log
 # Filament published assets
 /public/js/filament/
 /public/css/filament/
-/public/js/dotswan/
-/public/css/dotswan/
+/public/js/filament-monaco-editor-styles/
+/public/css/filament-monaco-editor-styles/
