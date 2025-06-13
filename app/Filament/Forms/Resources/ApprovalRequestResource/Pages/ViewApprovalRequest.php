@@ -18,6 +18,7 @@ use Filament\Forms\Components\Textarea;
 class ViewApprovalRequest extends ViewRecord
 {
     protected static string $resource = ApprovalRequestResource::class;
+    protected ?string $heading = 'Approval Request Detail';
 
     protected function getHeaderActions(): array
     {

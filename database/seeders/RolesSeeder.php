@@ -10,13 +10,17 @@ class RolesSeeder extends Seeder
 {
     public function run()
     {
-        Role::create(['name' => 'admin']);
-        Role::create(['name' => 'bre']);
-        Role::create(['name' => 'fodig']);
-        Role::create(['name' => 'forms']);
-        Role::create(['name' => 'bre-view-only']);
-        Role::create(['name' => 'fodig-view-only']);
-        Role::create(['name' => 'forms-view-only']);
-        Role::create(['name' => 'form-developer']);
+        $roles = [
+            'admin',
+            'bre',
+            'fodig',
+            'forms',
+            'user',
+            'form-developer'
+        ];
+
+        foreach ($roles as $role) {
+            Role::firstOrCreate(['name' => $role]);
+        }
     }
 }

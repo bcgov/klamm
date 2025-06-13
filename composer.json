@@ -9,6 +9,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "abdelhamiderrahmouni/filament-monaco-editor": "^0.2.5",
         "althinect/filament-spatie-roles-permissions": "^2.2",
         "filament/filament": "^3.2",
         "laravel/framework": "^11.0",
@@ -40,7 +41,8 @@
             "Database\\Seeders\\": "database/seeders/"
         },
         "files": [
-            "app/Helpers/StringHelper.php"
+            "app/Helpers/StringHelper.php",
+            "app/Helpers/MailImageHelper.php"
         ]
     },
     "autoload-dev": {

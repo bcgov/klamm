@@ -11,7 +11,9 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Textarea;
 use Illuminate\Support\HtmlString;
 use App\Notifications\ApprovalDecisionNotification;
+use App\Notifications\ApprovalDecisionReviewerNotification;
 use App\Forms\Components\ShowMorePlaceholder;
+use Illuminate\Support\Facades\Notification;
 
 trait HandlesApprovalReview
 {
@@ -234,6 +236,19 @@ trait HandlesApprovalReview
             if ($formDeveloper) {
                 $formDeveloper->notify(new ApprovalDecisionNotification($record, $isApproved));
             }
+        }
+
+        // Send notification to the reviewer
+
+        if ($record->approver_id) {
+            $approver = $record->approver;
+            if ($approver) {
+                $approver->notify(new ApprovalDecisionReviewerNotification($record, $isApproved));
+            }
+        } elseif ($record->approver_email) {
+            // Send notification directly to the email address if not a user
+            Notification::route('mail', $record->approver_email)
+                ->notify(new ApprovalDecisionReviewerNotification($record, $isApproved));
         }
 
         $this->handlePostSubmissionActions();

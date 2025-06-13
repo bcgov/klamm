@@ -107,4 +107,14 @@ class FormDataSourceResource extends Resource
             'edit' => Pages\EditFormDataSource::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Databinding Source';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Databinding Sources';
+    }
 }

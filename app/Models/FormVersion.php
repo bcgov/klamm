@@ -156,6 +156,17 @@ class FormVersion extends Model
         return self::getStatusOptions()[$this->status] ?? $this->status;
     }
 
+    public static function getStatusColour($status): string
+    {
+        return match ($status) {
+            'Draft' => 'gray',
+            'Under Review' => 'warning',
+            'Approved' => 'success',
+            'Published' => 'primary',
+            'Archived' => 'danger',
+        };
+    }
+
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
@@ -179,6 +190,14 @@ class FormVersion extends Model
     public function containers(): HasMany
     {
         return $this->hasMany(Container::class);
+    }
+
+    public function styleSheets(): BelongsToMany
+    {
+        return $this->belongsToMany(StyleSheet::class, 'form_version_style_sheet')
+            ->withPivot('order', 'type')
+            ->withTimestamps()
+            ->orderBy('form_version_style_sheet.order');
     }
 
     public function formDataSources(): BelongsToMany

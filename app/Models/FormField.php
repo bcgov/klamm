@@ -54,16 +54,6 @@ class FormField extends Model
         return $this->hasMany(FormInstanceField::class);
     }
 
-    public function webStyles(): BelongsToMany
-    {
-        return $this->belongsToMany(Style::class, 'form_field_style_web', 'form_field_id', 'style_id');
-    }
-
-    public function pdfStyles(): BelongsToMany
-    {
-        return $this->belongsToMany(Style::class, 'form_field_style_pdf', 'form_field_id', 'style_id');
-    }
-
     public function validations(): HasMany
     {
         return $this->hasMany(FormFieldValidation::class);

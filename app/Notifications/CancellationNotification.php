@@ -61,6 +61,8 @@ class CancellationNotification extends Notification
                             return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
                         })
                         ->line('The form has been returned to draft status and can be modified if needed.')
+                        ->line('Regards,')
+                        ->salutation('**Forms Modernization Team**')
                         ->render()
                 ]);
         } else {
@@ -87,6 +89,8 @@ class CancellationNotification extends Notification
                             return $mail->line('**Original Request Note:** ' . $this->approvalRequest->requester_note);
                         })
                         ->line('No further action is required from you.')
+                        ->line('Regards,')
+                        ->salutation('**Forms Modernization Team**')
                         ->render()
                 ]);
         }

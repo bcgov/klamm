@@ -152,21 +152,6 @@ class FormFieldResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('fieldGroups', 'name'),
-                Select::make('webStyles')
-                    ->relationship('webStyles', 'name')
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(3)
-                    ->live()
-                    ->reactive(),
-                Select::make('pdfStyles')
-                    ->relationship('pdfStyles', 'name')
-                    ->label('PDF styles')
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(3)
-                    ->live()
-                    ->reactive(),
                 Repeater::make('validations')
                     ->label('Validations')
                     ->itemLabel(fn($state): ?string => $validationOptions[$state['type']] ?? 'New Validation')
@@ -266,5 +251,15 @@ class FormFieldResource extends Resource
             'view' => Pages\ViewFormField::route('/{record}'),
             'edit' => Pages\EditFormField::route('/{record}/edit'),
         ];
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Field';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Fields';
     }
 }

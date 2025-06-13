@@ -12,7 +12,6 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -21,8 +20,6 @@ class ContainerBlock
 {
     public static function make(Closure $calculateIDCallback): Block
     {
-        $styles = FormDataHelper::get('styles');
-
         return Block::make('container')
             ->label(function (?array $state): string {
                 if ($state === null) {
@@ -75,20 +72,6 @@ class ContainerBlock
                                     ->label('Visibility'),
                             ]),
                     ]),
-                Select::make('webStyles')
-                    ->label('Web Styles')
-                    ->options($styles->pluck('name', 'id'))
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(1)
-                    ->lazy(),
-                Select::make('pdfStyles')
-                    ->label('PDF Styles')
-                    ->options($styles->pluck('name', 'id'))
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(1)
-                    ->lazy(),
                 Section::make('Container Elements')
                     ->collapsible()
                     ->collapsed(true)

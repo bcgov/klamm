@@ -47,6 +47,13 @@ RUN useradd -m sail
 RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env /var/www/storage/logs/laravel.log
 RUN chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env /var/www/storage/logs/laravel.log
 
+# Create form_data directories and set permissions
+RUN mkdir -p /var/www/storage/app/form_data/stylesheets \
+    && mkdir -p /var/www/storage/app/form_data/scripts \
+    && chown -R sail:sail /var/www/storage/app/form_data \
+    && chmod -R 775 /var/www/storage/app/form_data \
+    && chmod g+s /var/www/storage/app/form_data
+    
 # Generate APP_KEY
 RUN php artisan key:generate
 
