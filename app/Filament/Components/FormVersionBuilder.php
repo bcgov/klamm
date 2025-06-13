@@ -18,7 +18,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\View;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Facades\Session;
@@ -30,6 +29,7 @@ use App\Models\StyleSheet;
 use Filament\Forms\Components\Repeater;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Alignment;
+use Illuminate\Support\Facades\Auth;
 
 class FormVersionBuilder
 {
@@ -90,6 +90,7 @@ class FormVersionBuilder
                                 'name',
                                 fn($query) => $query->whereHas('roles', fn($q) => $q->where('name', 'form-developer'))
                             )
+                            ->default(Auth::id())
                             ->searchable()
                             ->preload()
                             ->columnSpan(1),
