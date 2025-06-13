@@ -37,6 +37,8 @@ reverbWorker:
 
 pvc:
   storage: "100Mi"
+  formData:
+    storage: "100Mi"
 
 db:
   host: "patroni-cluster"

@@ -21,6 +21,7 @@ use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Tables\Columns\TextColumn;
 use Illuminate\Support\Facades\Session;
 
 class FormVersionResource extends Resource
@@ -110,24 +111,30 @@ class FormVersionResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('form.form_id_title')
+                TextColumn::make('form.form_id_title')
                     ->label('Form')
+                    ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('version_number')
+                TextColumn::make('version_number')
+                    ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('status')
+                TextColumn::make('status')
+                    ->sortable()
                     ->searchable()
+                    ->badge()
+                    ->color(fn($state) => FormVersion::getStatusColour($state))
                     ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
-                Tables\Columns\TextColumn::make('deployed_to')
+                TextColumn::make('deployed_to')
+                    ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('deployed_at')
+                TextColumn::make('deployed_at')
                     ->date('M j, Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
+                TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
