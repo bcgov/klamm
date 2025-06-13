@@ -20,6 +20,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Resources\FormVersionResource\Pages\ElementsTree;
 
 class FormVersionResource extends Resource
 {
@@ -204,6 +205,10 @@ class FormVersionResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+                Tables\Actions\Action::make('tree')
+                    ->label('Elements Tree')
+                    ->icon('heroicon-o-chart-bar')
+                    ->url(fn(FormVersion $record) => static::getUrl('tree', ['record' => $record])),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -225,6 +230,7 @@ class FormVersionResource extends Resource
             'index' => Pages\ListFormVersions::route('/'),
             'create' => Pages\CreateFormVersion::route('/create'),
             'edit' => Pages\EditFormVersion::route('/{record}/edit'),
+            'tree' => ElementsTree::route('/{record}/tree'),
         ];
     }
 }

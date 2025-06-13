@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use SolutionForest\FilamentTree\Concern\ModelTree;
 
 class Element extends Model
 {
-    use HasFactory;
+    use HasFactory, ModelTree;
 
     protected $fillable = [
         'form_version_id',
@@ -131,5 +132,25 @@ class Element extends Model
     public function asField()
     {
         return $this->isField() ? new Field($this->attributes) : null;
+    }
+
+    public function determineOrderColumnName(): string
+    {
+        return "order";
+    }
+
+    public function determineParentColumnName(): string
+    {
+        return "parent_element_id";
+    }
+
+    public function determineTitleColumnName(): string
+    {
+        return 'custom_label';
+    }
+
+    public static function defaultParentKey()
+    {
+        return null;
     }
 }

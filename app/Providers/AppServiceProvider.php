@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
             $this->app['request']->server->set('HTTPS', true);
         } else {
-            Model::preventLazyLoading(true);
+            //Model::preventLazyLoading(true);
         }
 
         Gate::define('admin', function (User $user) {
