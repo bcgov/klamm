@@ -21,8 +21,6 @@ class FormInstanceSeeder extends Seeder
             'status' => 'Active',
             'form_requester_name' => 'John Doe',
             'form_requester_email' => 'john@example.com',
-            'form_developer_name' => 'Jane Developer',
-            'form_developer_email' => 'jane@example.com',
             'form_approver_name' => 'Approver Name',
             'form_approver_email' => 'approver@example.com',
         ]);

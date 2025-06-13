@@ -40,6 +40,21 @@ class User extends Authenticatable implements FilamentUser
         'api_token',
     ];
 
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // if a user doesn't have a role, give them the user role
+        static::created(function ($user) {
+            if (!$user->hasAnyRole()) {
+                $user->assignRole('user');
+            }
+        });
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         //TODO: Make good authentication

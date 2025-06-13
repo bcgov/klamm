@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
 use Filament\Actions\DeleteAction;
+use App\Helpers\FormTemplateHelper;
 
 class EditFieldGroup extends EditRecord
 {
@@ -41,5 +42,10 @@ class EditFieldGroup extends EditRecord
                     }
                 }),
         ];
+    }
+
+    protected function afterSave(): void
+    {
+        FormTemplateHelper::clearAllFormTemplateCaches();
     }
 }

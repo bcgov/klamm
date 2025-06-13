@@ -77,4 +77,14 @@ class FormSoftwareSourceResource extends Resource
             'edit' => Pages\EditFormSoftwareSource::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Software Source';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Software Sources';
+    }
 }

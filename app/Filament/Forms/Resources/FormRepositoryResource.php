@@ -78,4 +78,13 @@ class FormRepositoryResource extends Resource
             'edit' => Pages\EditFormRepository::route('/{record}/edit'),
         ];
     }
+    public static function getModelLabel(): string
+    {
+        return 'Repository';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Repositories';
+    }
 }

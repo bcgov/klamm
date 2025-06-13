@@ -62,6 +62,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: MAIL_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: klamm-cache-redis
+                  key: redis-password
           volumeMounts:
             - name: storage-volume
               mountPath: /var/www/storage

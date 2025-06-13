@@ -12,10 +12,12 @@
         "althinect/filament-spatie-roles-permissions": "^2.2",
         "filament/filament": "^3.2",
         "laravel/framework": "^11.0",
+        "laravel/reverb": "^1.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "mallardduck/blade-lucide-icons": "^1.23",
         "orangehill/iseed": "^3.0",
+        "predis/predis": "^2.0",
         "rmsramos/activitylog": "^1.0",
         "spatie/laravel-activitylog": "^4.10"
     },
@@ -38,7 +40,8 @@
             "Database\\Seeders\\": "database/seeders/"
         },
         "files": [
-            "app/Helpers/StringHelper.php"
+            "app/Helpers/StringHelper.php",
+            "app/Helpers/MailImageHelper.php"
         ]
     },
     "autoload-dev": {

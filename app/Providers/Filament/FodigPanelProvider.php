@@ -78,7 +78,7 @@ class FodigPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                CheckRole::class . ':fodig,fodig-view-only,admin',
+                CheckRole::class . ':fodig,user,admin',
             ]);
     }
 }

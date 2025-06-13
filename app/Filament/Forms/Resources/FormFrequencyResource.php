@@ -77,4 +77,14 @@ class FormFrequencyResource extends Resource
             'edit' => Pages\EditFormFrequency::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Usage Frequency';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Usage Frequencies';
+    }
 }

@@ -77,4 +77,14 @@ class FormReachResource extends Resource
             'edit' => Pages\EditFormReach::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Audience Size';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Audience Sizes';
+    }
 }

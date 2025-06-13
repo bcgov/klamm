@@ -170,9 +170,10 @@ class PermissionsSeeder extends Seeder
             'delete BoundarySystem',
         ])->where('guard_name', 'web')->get());
 
-        // Assign fodig-read-only with read only access to fodig resources
-        $fodigReadOnlyRole = Role::firstOrCreate(['name' => 'fodig-view-only']);
-        $fodigReadOnlyRole->syncPermissions(Permission::whereIn('name', [
+        // Assign user role with read-only access to all resources
+        $userRole = Role::firstOrCreate(['name' => 'user']);
+        $userRole->syncPermissions(Permission::whereIn('name', [
+            // FODIG view permissions
             'view-any SiebelApplet',
             'view SiebelApplet',
             'view-any SiebelApplication',
@@ -231,6 +232,56 @@ class PermissionsSeeder extends Seeder
             'view BoundarySystemContact',
             'view-any BoundarySystem',
             'view BoundarySystem',
+            // FORMS view permissions
+            'view-any FormVersion',
+            'view FormVersion',
+            'view-any Form',
+            'view Form',
+            'view-any ValueType',
+            'view ValueType',
+            'view-any UserType',
+            'view UserType',
+            'view-any SelectOptions',
+            'view SelectOptions',
+            'view-any FormTag',
+            'view FormTag',
+            'view-any FormSoftwareSource',
+            'view FormSoftwareSource',
+            'view-any FormRepository',
+            'view FormRepository',
+            'view-any FormReach',
+            'view FormReach',
+            'view-any FormLocation',
+            'view FormLocation',
+            'view-any FormFrequency',
+            'view FormFrequency',
+            'view-any FormField',
+            'view FormField',
+            'view-any FillType',
+            'view FillType',
+            'view-any FieldGroup',
+            'view FieldGroup',
+            'view-any DataType',
+            'view DataType',
+            'view-any BusinessArea',
+            'view BusinessArea',
+            // BRE view permissions
+            'view-any BREField',
+            'view BREField',
+            'view-any BREFieldGroup',
+            'view BREFieldGroup',
+            'view-any BRERule',
+            'view BRERule',
+            'view-any BREValueType',
+            'view BREValueType',
+            'view-any BREICMCDWField',
+            'view BREICMCDWField',
+            'view-any BREValidationType',
+            'view BREValidationType',
+            'view-any BREDataValidation',
+            'view BREDataValidation',
+            'view-any BREDataType',
+            'view BREDataType',
         ])->where('guard_name', 'web')->get());
 
         // Assign forms with full access to forms resources
@@ -315,43 +366,6 @@ class PermissionsSeeder extends Seeder
             'delete BusinessArea',
         ])->where('guard_name', 'web')->get());
 
-        // Assign forms-read-only with ready only access to forms resources
-        $formsReadOnlyRole = Role::firstOrCreate(['name' => 'forms-view-only']);
-        $formsReadOnlyRole->syncPermissions(Permission::whereIn('name', [
-            'view-any FormVersion',
-            'view FormVersion',
-            'view-any Form',
-            'view Form',
-            'view-any ValueType',
-            'view ValueType',
-            'view-any UserType',
-            'view UserType',
-            'view-any SelectOptions',
-            'view SelectOptions',
-            'view-any FormTag',
-            'view FormTag',
-            'view-any FormSoftwareSource',
-            'view FormSoftwareSource',
-            'view-any FormRepository',
-            'view FormRepository',
-            'view-any FormReach',
-            'view FormReach',
-            'view-any FormLocation',
-            'view FormLocation',
-            'view-any FormFrequency',
-            'view FormFrequency',
-            'view-any FormField',
-            'view FormField',
-            'view-any FillType',
-            'view FillType',
-            'view-any FieldGroup',
-            'view FieldGroup',
-            'view-any DataType',
-            'view DataType',
-            'view-any BusinessArea',
-            'view BusinessArea',
-        ])->where('guard_name', 'web')->get());
-
         // Assign bre with access to bre resources
         $breRole = Role::firstOrCreate(['name' => 'bre']);
         $breRole->syncPermissions(Permission::whereIn('name', [
@@ -396,27 +410,6 @@ class PermissionsSeeder extends Seeder
             'update BREDataType',
             'delete BREDataType',
 
-        ])->where('guard_name', 'web')->get());
-
-        // Assign bre-read-only with ready only access to bre resources
-        $breReadOnlyRole = Role::firstOrCreate(['name' => 'bre-view-only']);
-        $breReadOnlyRole->syncPermissions(Permission::whereIn('name', [
-            'view-any BREField',
-            'view BREField',
-            'view-any BREFieldGroup',
-            'view BREFieldGroup',
-            'view-any BRERule',
-            'view BRERule',
-            'view-any BREValueType',
-            'view BREValueType',
-            'view-any BREICMCDWField',
-            'view BREICMCDWField',
-            'view-any BREValidationType',
-            'view BREValidationType',
-            'view-any BREDataValidation',
-            'view BREDataValidation',
-            'view-any BREDataType',
-            'view BREDataType',
         ])->where('guard_name', 'web')->get());
 
         // Role for Form Developers to edit forms
