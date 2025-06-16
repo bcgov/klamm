@@ -110,7 +110,7 @@ class CustomActivitylogResource extends ActivitylogResource
             ->label('Causer')
             ->multiple()
             ->options(function () {
-                return \Spatie\Activitylog\Models\Activity::query()
+                return Activity::query()
                     ->select('causer_id')
                     ->distinct()
                     ->whereNotNull('causer_id')
@@ -137,6 +137,7 @@ class CustomActivitylogResource extends ActivitylogResource
         if (static::$enabledColumns['log_name']) {
             $columns[] = ActivitylogResource::getLogNameColumnComponent()
                 ->label('Log Type')
+                ->formatStateUsing(fn($state) => Str::of($state)->replace('_', ' ')->title())
                 ->toggleable();
         }
 
@@ -210,11 +211,15 @@ class CustomActivitylogResource extends ActivitylogResource
                 ->label('Log Type')
                 ->multiple()
                 ->options(function () {
-                    return \Spatie\Activitylog\Models\Activity::query()
+                    return Activity::query()
                         ->select('log_name')
                         ->distinct()
                         ->get()
-                        ->pluck('log_name', 'log_name');
+                        ->mapWithKeys(function ($activity) {
+                            $logName = $activity->log_name;
+                            $displayName = Str::of($logName)->replace('_', ' ')->title();
+                            return [$logName => $displayName];
+                        });
                 })
                 ->query(function (Builder $query, array $data): Builder {
                     return $query->when(

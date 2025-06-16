@@ -66,6 +66,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: MAIL_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: klamm-cache-redis
+                  key: redis-password
           resources:
             limits:
               cpu: {{ .Values.resources.limits.cpu }}

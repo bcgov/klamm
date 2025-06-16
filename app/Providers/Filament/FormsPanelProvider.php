@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Forms\Widgets\FormMigrationWidget;
 use App\Filament\Forms\Widgets\FormsStatsWidget;
 use App\Filament\Forms\Widgets\YourFormsWidget;
 use App\Filament\Forms\Widgets\FormsDescriptionWidget;
@@ -10,7 +11,6 @@ use App\Filament\Forms\Widgets\YourFormsLogsWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -61,6 +61,7 @@ class FormsPanelProvider extends PanelProvider
             ])
             ->widgets([
                 FormsDescriptionWidget::class,
+                FormMigrationWidget::class,
                 YourFormsWidget::class,
                 YourFormsLogsWidget::class,
                 FormsStatsWidget::class,
@@ -98,7 +99,7 @@ class FormsPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                CheckRole::class . ':forms,forms-view-only,admin',
+                CheckRole::class . ':forms,user,admin',
             ]);
     }
 }

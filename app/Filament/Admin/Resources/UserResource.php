@@ -37,6 +37,10 @@ class UserResource extends Resource
                     ->multiple()
                     ->preload()
                     ->relationship('roles', 'name')
+                    ->default(function () {
+                        $userRole = \Spatie\Permission\Models\Role::where('name', 'user')->first();
+                        return $userRole ? [$userRole->id] : [];
+                    })
             ]);
     }
 

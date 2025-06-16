@@ -267,4 +267,14 @@ class FormFieldResource extends Resource
             'edit' => Pages\EditFormField::route('/{record}/edit'),
         ];
     }
+
+    public static function getModelLabel(): string
+    {
+        return 'Field';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Fields';
+    }
 }
