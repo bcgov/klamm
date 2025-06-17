@@ -89,7 +89,7 @@ class FormVersionRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make()
-                    ->url(fn() => FormVersionResource::getUrl('create')),
+                    ->url(fn() => FormVersionResource::getUrl('create', ['form_id' => $this->ownerRecord->id])),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
