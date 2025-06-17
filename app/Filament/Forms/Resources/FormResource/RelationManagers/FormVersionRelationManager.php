@@ -84,7 +84,7 @@ class FormVersionRelationManager extends RelationManager
                     ->icon('heroicon-o-archive-box-arrow-down')
                     ->visible(fn($record) => $record->status === 'published')
                     ->action(function ($record) {
-                        $record->update(['status' => 'archived']);
+                        $record->update(['status' => 'archived'] && Gate::allows('form-developer'));
                     })
                     ->requiresConfirmation()
                     ->color('danger')
