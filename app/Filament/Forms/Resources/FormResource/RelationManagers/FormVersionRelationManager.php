@@ -103,7 +103,7 @@ class FormVersionRelationManager extends RelationManager
                         $newVersion->form_developer_id = Auth::id();
                         $newVersion->save();
 
-                        foreach ($record->formInstanceFields()->whereNull('field_group_instance_id')->get() as $field) {
+                        foreach ($record->formInstanceFields()->with(['validations', 'conditionals'])->whereNull('field_group_instance_id')->get() as $field) {
                             $newField = $field->replicate();
                             $newField->form_version_id = $newVersion->id;
                             $newField->save();
@@ -121,7 +121,7 @@ class FormVersionRelationManager extends RelationManager
                             }
                         }
 
-                        foreach ($record->fieldGroupInstances as $groupInstance) {
+                        foreach ($record->fieldGroupInstances()->with(['formInstanceFields.validations', 'formInstanceFields.conditionals'])->get() as $groupInstance) {
                             $newGroupInstance = $groupInstance->replicate();
                             $newGroupInstance->form_version_id = $newVersion->id;
                             $newGroupInstance->save();
