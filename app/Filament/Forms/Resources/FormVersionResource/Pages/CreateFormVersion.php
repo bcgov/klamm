@@ -48,7 +48,11 @@ class CreateFormVersion extends CreateRecord
 
         $formId = request()->query('form_id');
         if ($formId) {
-            $this->form->fill(['form_id' => $formId]);
+            $this->form->fill([
+                'form_id' => $formId,
+                'status' => 'draft',
+                'form_developer_id' => Auth::id(),
+            ]);
         }
     }
 
