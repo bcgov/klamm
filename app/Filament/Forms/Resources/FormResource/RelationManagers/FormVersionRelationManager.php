@@ -8,6 +8,7 @@ use Filament\Tables;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Forms\Components\DatePicker;
+use Illuminate\Support\Facades\Auth;
 
 class FormVersionRelationManager extends RelationManager
 {
@@ -93,12 +94,13 @@ class FormVersionRelationManager extends RelationManager
                     ->icon('heroicon-o-document-plus')
                     ->requiresConfirmation()
                     ->tooltip('Create a new version from this version')
-                    ->visible(fn($record) => (Gate::allows('form-developer') && in_array($record->status, ['published', 'archived'])))
+                    ->visible(fn() => (Gate::allows('form-developer')))
                     ->action(function ($record, $livewire) {
                         $newVersion = $record->replicate();
                         $newVersion->status = 'draft';
                         $newVersion->deployed_to = null;
                         $newVersion->deployed_at = null;
+                        $newVersion->form_developer_id = Auth::id();
                         $newVersion->save();
 
                         foreach ($record->formInstanceFields()->whereNull('field_group_instance_id')->get() as $field) {
