@@ -3,29 +3,43 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\SelectOptionFormElementResource\Pages;
-use App\Filament\Forms\Resources\SelectOptionFormElementResource\RelationManagers;
 use App\Models\SelectOptionFormElement;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class SelectOptionFormElementResource extends Resource
 {
     protected static ?string $model = SelectOptionFormElement::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-list-bullet';
 
-    protected static ?string $navigationGroup = 'Form Building';
+    protected static ?string $navigationGroup = 'Form Builder';
+
+    protected static ?string $navigationLabel = 'Select Options';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                //
+                Forms\Components\Select::make('select_input_form_elements_id')
+                    ->relationship('selectInputFormElement', 'id')
+                    ->required()
+                    ->searchable()
+                    ->preload(),
+                Forms\Components\TextInput::make('label')
+                    ->required()
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('value')
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('order')
+                    ->numeric()
+                    ->default(0),
+                Forms\Components\Textarea::make('description')
+                    ->maxLength(65535)
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -33,20 +47,32 @@ class SelectOptionFormElementResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('selectInputFormElement.id')
+                    ->label('Select Element ID')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('label')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('value')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('order')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->limit(50),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('order');
     }
 
     public static function getRelations(): array
@@ -61,7 +87,6 @@ class SelectOptionFormElementResource extends Resource
         return [
             'index' => Pages\ListSelectOptionFormElements::route('/'),
             'create' => Pages\CreateSelectOptionFormElement::route('/create'),
-            'view' => Pages\ViewSelectOptionFormElement::route('/{record}'),
             'edit' => Pages\EditSelectOptionFormElement::route('/{record}/edit'),
         ];
     }

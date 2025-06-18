@@ -3,29 +3,35 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormFieldValidatorResource\Pages;
-use App\Filament\Forms\Resources\FormFieldValidatorResource\RelationManagers;
 use App\Models\FormFieldValidator;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class FormFieldValidatorResource extends Resource
 {
     protected static ?string $model = FormFieldValidator::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-shield-check';
 
-    protected static ?string $navigationGroup = 'Form Building';
+    protected static ?string $navigationGroup = 'Form Management';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                //
+                Forms\Components\TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
+                Forms\Components\Textarea::make('regex')
+                    ->label('Regular Expression')
+                    ->maxLength(65535)
+                    ->columnSpanFull(),
+                Forms\Components\Textarea::make('description')
+                    ->maxLength(65535)
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -33,14 +39,27 @@ class FormFieldValidatorResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('regex')
+                    ->label('Regular Expression')
+                    ->limit(50)
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('description')
+                    ->limit(50)
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -61,7 +80,6 @@ class FormFieldValidatorResource extends Resource
         return [
             'index' => Pages\ListFormFieldValidators::route('/'),
             'create' => Pages\CreateFormFieldValidator::route('/create'),
-            'view' => Pages\ViewFormFieldValidator::route('/{record}'),
             'edit' => Pages\EditFormFieldValidator::route('/{record}/edit'),
         ];
     }
