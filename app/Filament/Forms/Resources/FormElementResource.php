@@ -19,9 +19,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use SolutionForest\FilamentTree\Resources\Resource as TreeResource;
 
-class FormElementResource extends TreeResource
+class FormElementResource extends Resource
 {
     protected static ?string $model = FormElement::class;
 
@@ -173,6 +172,7 @@ class FormElementResource extends TreeResource
             'index' => Pages\ListFormElements::route('/'),
             'create' => Pages\CreateFormElement::route('/create'),
             'edit' => Pages\EditFormElement::route('/{record}/edit'),
+            'tree' => Pages\TreeFormElements::route('/tree'),
         ];
     }
 
@@ -183,6 +183,11 @@ class FormElementResource extends TreeResource
     }
 
     public static function getTreeRecordChildrenKeyName(): string
+    {
+        return 'parent_id';
+    }
+
+    public static function getParentKeyName(): string
     {
         return 'parent_id';
     }
