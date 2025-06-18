@@ -31,7 +31,7 @@ class FormVersionResource extends Resource
                     ->reactive()
                     ->preload()
                     ->searchable()
-                    ->default(request()->query('form_id_title'))
+                    ->default(request()->query('form_id'))
                     ->getSearchResultsUsing(function (string $search) {
                         return DB::table('forms')
                             ->where('form_id_title', 'like', "%{$search}%")
