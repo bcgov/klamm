@@ -154,4 +154,36 @@ class FormVersion extends Model
     {
         return $this->hasMany(FormApprovalRequest::class);
     }
+
+    /**
+     * Get the stylesheets for the form version.
+     */
+    public function stylesheets(): HasMany
+    {
+        return $this->hasMany(FormStylesheet::class);
+    }
+
+    /**
+     * Get the scripts for the form version.
+     */
+    public function scripts(): HasMany
+    {
+        return $this->hasMany(FormScript::class);
+    }
+
+    /**
+     * Get the form elements for the form version.
+     */
+    public function formElements(): HasMany
+    {
+        return $this->hasMany(FormElement::class, 'form_versions_id');
+    }
+
+    /**
+     * Get the deployments for the form version.
+     */
+    public function deployments(): HasMany
+    {
+        return $this->hasMany(FormDeployment::class);
+    }
 }
