@@ -72,7 +72,6 @@ class ApprovalRequestNotification extends Notification
                     ->when(!$isInternal, function ($mail) {
                         return $mail->line('*Note: This is a secure link that is unique to you. Please do not share this link with others.*');
                     })
-                    ->line('If you have any issue accessing the updated form, please email us directly at Klamm@gov.bc.ca.')
                     ->line('')
                     ->line('Thanks for your collaboration.')
                     ->line('')
