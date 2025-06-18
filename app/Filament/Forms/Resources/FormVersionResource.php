@@ -29,7 +29,7 @@ class FormVersionResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-inbox-stack';
 
-    protected static bool $shouldRegisterNavigation = true;
+    protected static bool $shouldRegisterNavigation = false;
 
     // Function to get the current counter value from the session
     public static function getElementCounter(): int
