@@ -5,11 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
-use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
 
 class FormVersion extends Model
@@ -23,13 +21,7 @@ class FormVersion extends Model
         'form_developer_id',
         'footer',
         'comments',
-        'deployed_to',
-        'deployed_at',
         'components'
-    ];
-
-    protected $casts = [
-        'deployed_at' => 'datetime',
     ];
 
     protected static $logAttributes = [
@@ -38,8 +30,6 @@ class FormVersion extends Model
         'status',
         'form_developer_id',
         'comments',
-        'deployed_to',
-        'deployed_at',
     ];
 
     public static function boot()
@@ -57,8 +47,6 @@ class FormVersion extends Model
         // After saving a form version, invalidate related caches and dispatch event
         static::saved(function ($formVersion) {
             if ($formVersion->form_id) {
-                // FormDataHelper::invalidateFormCache($formVersion->form_id);
-
                 // Determine what fields were updated
                 $updateType = 'general';
                 $componentsUpdated = false;
@@ -68,8 +56,6 @@ class FormVersion extends Model
                     $componentsUpdated = true;
                 } elseif ($formVersion->isDirty('status') || $formVersion->wasChanged('status')) {
                     $updateType = 'status';
-                } elseif ($formVersion->isDirty('deployed_to') || $formVersion->isDirty('deployed_at')) {
-                    $updateType = 'deployment';
                 }
 
                 // Dispatch the update event
@@ -86,8 +72,6 @@ class FormVersion extends Model
         // When a form version is deleted
         static::deleted(function ($formVersion) {
             if ($formVersion->form_id) {
-                // FormDataHelper::invalidateFormCache($formVersion->form_id);
-
                 // Dispatch deletion event
                 event(new FormVersionUpdateEvent(
                     $formVersion->id,
@@ -164,26 +148,6 @@ class FormVersion extends Model
     public function formDeveloper(): BelongsTo
     {
         return $this->belongsTo(User::class, 'form_developer_id');
-    }
-
-    public function formInstanceFields(): HasMany
-    {
-        return $this->hasMany(FormInstanceField::class);
-    }
-
-    public function fieldGroupInstances(): HasMany
-    {
-        return $this->hasMany(FieldGroupInstance::class);
-    }
-
-    public function containers(): HasMany
-    {
-        return $this->hasMany(Container::class);
-    }
-
-    public function formDataSources(): BelongsToMany
-    {
-        return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');
     }
 
     public function approvalRequests(): HasMany

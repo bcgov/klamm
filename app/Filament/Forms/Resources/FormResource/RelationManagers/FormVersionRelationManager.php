@@ -98,53 +98,8 @@ class FormVersionRelationManager extends RelationManager
                     ->action(function ($record, $livewire) {
                         $newVersion = $record->replicate();
                         $newVersion->status = 'draft';
-                        $newVersion->deployed_to = null;
-                        $newVersion->deployed_at = null;
                         $newVersion->form_developer_id = Auth::id();
                         $newVersion->save();
-
-                        foreach ($record->formInstanceFields()->with(['validations', 'conditionals'])->whereNull('field_group_instance_id')->get() as $field) {
-                            $newField = $field->replicate();
-                            $newField->form_version_id = $newVersion->id;
-                            $newField->save();
-
-                            foreach ($field->validations as $validation) {
-                                $newValidation = $validation->replicate();
-                                $newValidation->form_instance_field_id = $newField->id;
-                                $newValidation->save();
-                            }
-
-                            foreach ($field->conditionals as $conditional) {
-                                $newConditional = $conditional->replicate();
-                                $newConditional->form_instance_field_id = $newField->id;
-                                $newConditional->save();
-                            }
-                        }
-
-                        foreach ($record->fieldGroupInstances()->with(['formInstanceFields.validations', 'formInstanceFields.conditionals'])->get() as $groupInstance) {
-                            $newGroupInstance = $groupInstance->replicate();
-                            $newGroupInstance->form_version_id = $newVersion->id;
-                            $newGroupInstance->save();
-
-                            foreach ($groupInstance->formInstanceFields as $field) {
-                                $newField = $field->replicate();
-                                $newField->form_version_id = $newVersion->id;
-                                $newField->field_group_instance_id = $newGroupInstance->id;
-                                $newField->save();
-
-                                foreach ($field->validations as $validation) {
-                                    $newValidation = $validation->replicate();
-                                    $newValidation->form_instance_field_id = $newField->id;
-                                    $newValidation->save();
-                                }
-
-                                foreach ($field->conditionals as $conditional) {
-                                    $newConditional = $conditional->replicate();
-                                    $newConditional->form_instance_field_id = $newField->id;
-                                    $newConditional->save();
-                                }
-                            }
-                        }
                         $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
                     }),
             ])
