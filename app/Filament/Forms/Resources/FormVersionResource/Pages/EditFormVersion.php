@@ -2,7 +2,6 @@
 
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
-use App\Events\FormVersionUpdateEvent;
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
@@ -20,7 +19,7 @@ use Illuminate\Support\Facades\Cache;
 use App\Jobs\GenerateFormTemplateJob;
 use App\Helpers\FormTemplateHelper;
 use Illuminate\Support\Facades\Log;
-use App\Helpers\FormDataHelper;
+use App\Models\StyleSheet;
 
 class EditFormVersion extends EditRecord
 {
@@ -97,16 +96,7 @@ class EditFormVersion extends EditRecord
             $formVersion->containers()->delete();
         }
 
-        // Attach stylesheets
-        $styleSheets = $this->form->getState()['style_sheets'] ?? [];
-        $formVersion->styleSheets()->detach();
-        foreach ($styleSheets as $index => $item) {
-            $formVersion->styleSheets()->attach($item['id'], [
-                'order' => $index,
-                'type' => $item['type'],
-            ]);
-        }
-
+        // Build
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
                 $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
@@ -116,6 +106,12 @@ class EditFormVersion extends EditRecord
                 $this->createContainer($formVersion, $order, $block['data']);
             }
         }
+
+        // Style
+        $css_content_web = $this->form->getState()['css_content_web'] ?? '';
+        $css_content_pdf = $this->form->getState()['css_content_pdf'] ?? '';
+        StyleSheet::createStyleSheet($formVersion, $css_content_web, 'web');
+        StyleSheet::createStyleSheet($formVersion, $css_content_pdf, 'pdf');
 
         // Invalidate all caches explicitly
         FormTemplateHelper::clearFormTemplateCache($formVersion->id);
@@ -135,7 +131,8 @@ class EditFormVersion extends EditRecord
     {
         // Eager load required records
         $this->record->load([
-            'styleSheets',
+            'webStyleSheet',
+            'pdfStyleSheet',
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
                 $query->with([
@@ -235,12 +232,12 @@ class EditFormVersion extends EditRecord
         }
 
         $data['components'] = $components;
-        $data['style_sheets'] = $this->record->styleSheets->map(function ($styleSheet) {
-            return [
-                'id' => $styleSheet->id,
-                'type' => $styleSheet->pivot->type,
-            ];
-        })->toArray();
+
+        // Load CSS content from file
+        $cssContentWeb = $this->record->webStyleSheet?->getCssContent();
+        $cssContentPdf = $this->record->pdfStyleSheet?->getCssContent();
+        $data['css_content_web'] = $cssContentWeb ?? '';
+        $data['css_content_pdf'] = $cssContentPdf ?? '';
 
         return $data;
     }

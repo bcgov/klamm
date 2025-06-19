@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -18,9 +19,9 @@ class StyleSheet extends Model
      * @var array
      */
     protected $fillable = [
-        'name',
+        'form_version_id',
         'filename',
-        'description',
+        'type',
     ];
 
     /**
@@ -36,10 +37,6 @@ class StyleSheet extends Model
     {
         parent::boot();
 
-        // Create UUID and add to record
-        static::creating(function ($styleSheet) {
-            $styleSheet->filename = $styleSheet->id . '_' . Str::uuid()->toString();
-        });
 
         // If StyleSheet is deleted, delete the associated CSS file. 
         static::deleting(function ($styleSheet) {
@@ -47,20 +44,58 @@ class StyleSheet extends Model
         });
     }
 
-
     public static function booted()
     {
         static::saving(function ($styleSheet) {
-            if ($styleSheet->formVersions()->where('status', ['approved', 'published'])->exists()) {
+            if ($styleSheet->formVersion()->where('status', ['approved', 'published'])->exists()) {
                 throw new \Exception("Cannot edit a StyleSheet used in an approved or published Form Version.");
             }
         });
 
         static::deleting(function ($styleSheet) {
-            if ($styleSheet->formVersions()->where('status', ['approved', 'published'])->exists()) {
+            if ($styleSheet->formVersion()->where('status', ['approved', 'published'])->exists()) {
                 throw new \Exception("Cannot delete a StyleSheet used in an approved or published Form Version.");
             }
         });
+    }
+
+    public static function createStyleSheet($formVersion, string $css_content, string $type)
+    {
+        // Delete record if no CSS content
+        if (!$css_content) {
+            $styleSheet = StyleSheet::where('form_version_id', $formVersion->id)->where('type', $type)->first();
+            $styleSheet?->deleteCssFile();
+            $styleSheet?->delete();
+            return;
+        }
+
+        // Create record
+        $filename = StyleSheet::createCssFilename($formVersion, $type);
+        if ($type === 'web' && $formVersion->webStyleSheet) {
+            $filename = $formVersion->webStyleSheet->filename;
+        } else if ($type === 'pdf' && $formVersion->pdfStyleSheet) {
+            $filename = $formVersion->pdfStyleSheet->filename;
+        }
+        $styleSheet = StyleSheet::updateOrCreate(
+            ['form_version_id' => $formVersion->id, 'type' => $type],
+            [
+                'form_version_id' => $formVersion->id,
+                'filename' => $filename,
+                'type' => $type,
+            ]
+        );
+
+        // Create CSS file
+        $styleSheet->saveCssContent($css_content);
+    }
+
+    public static function createCssFilename($formVersion, string $type): string
+    {
+        $formId = Str::slug($formVersion->form->form_id);
+        $versionNumber = $formVersion->version_number;
+        $uuid = Str::uuid()->toString();
+        $filename = "{$formId}-{$versionNumber}-{$type}-{$uuid}";
+        return $filename;
     }
 
     /**
@@ -83,18 +118,7 @@ class StyleSheet extends Model
      */
     public function saveCssContent(string $content): bool
     {
-        return Storage::disk('stylesheets')->put($this->filename . '.css', $content);
-    }
-
-    public function handleCssFileSave(?string $cssContent): void
-    {
-        if (!is_null($cssContent)) {
-            if (!empty(trim($cssContent))) {
-                $this->saveCssContent($cssContent);
-            } else {
-                $this->deleteCssFile();
-            }
-        }
+        return Storage::disk('stylesheets')->put($this->filename . '.css', trim($content));
     }
 
     /**
@@ -103,7 +127,6 @@ class StyleSheet extends Model
     public function deleteCssFile(): bool
     {
         $filename = $this->filename . '.css';
-
         if (Storage::disk('stylesheets')->exists($filename)) {
             return Storage::disk('stylesheets')->delete($filename);
         }
@@ -133,10 +156,8 @@ class StyleSheet extends Model
         return self::getTypes()[$type] ?? ucfirst($type);
     }
 
-    public function formVersions(): BelongsToMany
+    public function formVersion(): BelongsTo
     {
-        return $this->belongsToMany(FormVersion::class)
-            ->withPivot('order as pivot_order', 'type')
-            ->orderBy('form_version_style_sheet.order');
+        return $this->belongsTo(FormVersion::class);
     }
 }

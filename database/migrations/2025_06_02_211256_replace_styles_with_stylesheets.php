@@ -22,22 +22,10 @@ return new class extends Migration
         // Create the new style_sheets table
         Schema::create('style_sheets', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique(); // web | pdf
-            $table->string('filename');
-            $table->string('description')->nullable();
-            $table->timestamps();
-        });
-
-        // Pivot table for many-to-many with form_versions
-        Schema::create('form_version_style_sheet', function (Blueprint $table) {
-            $table->id();
             $table->foreignId('form_version_id')->constrained()->onDelete('cascade');
-            $table->foreignId('style_sheet_id')->constrained()->onDelete('cascade');
-            $table->string('type');
-            $table->integer('order');
+            $table->string('filename');
+            $table->enum('type', ['web', 'pdf']);
             $table->timestamps();
-            $table->index(['form_version_id', 'style_sheet_id']);
-            $table->unique(['form_version_id', 'style_sheet_id', 'type']);
         });
     }
 
@@ -47,7 +35,6 @@ return new class extends Migration
     public function down(): void
     {
         // Rollback: drop the new table and optionally recreate the old one
-        Schema::dropIfExists('form_version_style_sheet');
         Schema::dropIfExists('style_sheets');
 
         Schema::create('styles', function (Blueprint $table) {

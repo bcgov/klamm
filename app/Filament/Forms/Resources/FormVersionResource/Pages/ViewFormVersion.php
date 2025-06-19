@@ -70,7 +70,8 @@ class ViewFormVersion extends ViewRecord
     {
         // Eager load required records
         $this->record->load([
-            'styleSheets',
+            'webStyleSheet',
+            'pdfStyleSheet',
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
                 $query->with([
@@ -174,14 +175,12 @@ class ViewFormVersion extends ViewRecord
         }
 
         $data['components'] = $components;
-        $data['style_sheets'] = $this->record?->styleSheets
-            ->map(function ($styleSheet) {
-                return [
-                    'id' => $styleSheet->id,
-                    'type' => $styleSheet->pivot->type ?? null,
-                ];
-            })
-            ->toArray();
+
+        // Load CSS content from file
+        $cssContentWeb = $this->record->webStyleSheet?->getCssContent();
+        $cssContentPdf = $this->record->pdfStyleSheet?->getCssContent();
+        $data['css_content_web'] = $cssContentWeb ?? '';
+        $data['css_content_pdf'] = $cssContentPdf ?? '';
 
         return $data;
     }

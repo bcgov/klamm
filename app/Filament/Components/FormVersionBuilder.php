@@ -2,6 +2,7 @@
 
 namespace App\Filament\Components;
 
+use AbdelhamidErrahmouni\FilamentMonacoEditor\MonacoEditor;
 use App\Helpers\FormTemplateHelper;
 use App\Helpers\FormDataHelper;
 use App\Filament\Components\ContainerBlock;
@@ -27,7 +28,10 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Models\StyleSheet;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Tabs;
+use Filament\Forms\Components\Tabs\Tab;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Support\Facades\Auth;
 
@@ -40,8 +44,13 @@ class FormVersionBuilder
         gc_collect_cycles();
 
         FormDataHelper::load();
-        $styleSheets = FormDataHelper::get('styleSheets');
-        $styleSheetTypes = StyleSheet::getTypes();
+
+        $styleSheetOptions = FormDataHelper::get('styleSheets')->mapWithKeys(function ($sheet) {
+            $form = $sheet->formVersion->form;
+            $version = $sheet->formVersion;
+            $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$sheet->type})";
+            return [$sheet->id => $label];
+        })->toArray();
 
         return Grid::make()
             ->columns(3)
@@ -112,30 +121,6 @@ class FormVersionBuilder
                         DateTimePicker::make('deployed_at')
                             ->label('Deployment Date')
                             ->columnSpan(1),
-                        Repeater::make('style_sheets')
-                            ->label('Style sheets')
-                            ->addActionAlignment(Alignment::Left)
-                            ->collapsible()
-                            ->collapsed()
-                            ->defaultItems(0)
-                            ->columnSpanFull()
-                            ->itemLabel(function (array $state) use ($styleSheets, $styleSheetTypes) {
-                                $name = $styleSheets->find($state['id'] ?? null)?->name ?? 'New Style';
-                                $type = $styleSheetTypes[$state['type'] ?? null] ?? 'no type';
-                                return "{$name} ({$type})";
-                            })
-                            ->schema([
-                                Select::make('id')
-                                    ->label('Style sheet')
-                                    ->preload()
-                                    ->options($styleSheets->mapWithKeys(fn($s) => [$s->id => $s->name]))
-                                    ->live()
-                                    ->required(),
-                                Select::make('type')
-                                    ->options($styleSheetTypes)
-                                    ->live()
-                                    ->required(),
-                            ]),
                         Select::make('form_data_sources')
                             ->multiple()
                             ->preload()
@@ -163,130 +148,229 @@ class FormVersionBuilder
                             ->columnSpanFull()
                             ->maxLength(500),
                     ]),
-                Builder::make('components')
-                    ->label('Form Elements')
-                    ->addActionLabel('Add to Form Elements')
-                    ->addBetweenActionLabel('Insert between elements')
-                    ->cloneAction(UniqueIDsHelper::cloneElement())
+                Tabs::make()
                     ->columnSpanFull()
-                    ->blockNumbers(false)
-                    ->blockPreviews()
-                    ->live(onBlur: true)
-                    ->editAction(
-                        fn(Action $action) => $action
-                            ->visible(fn() => true)
-                            ->icon(function ($livewire) {
-                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
-                                    ? 'heroicon-o-eye'
-                                    : 'heroicon-o-pencil';
-                            })
-                            ->label(function ($livewire) {
-                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
-                                    ? 'View'
-                                    : 'Edit';
-                            })
-                            ->disabledForm(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord)) // Disable the form
-                            ->modalHeading('View Form Field')
-                            ->modalSubmitAction(function ($action, $livewire) {
-                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
-                                    return false;
-                                } else {
-                                    $action->label('Save');
-                                }
-                            })
-                            ->modalCancelAction(function ($action, $livewire) {
-                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
-                                    $action->label('Close');
-                                } else {
-                                    $action->label('Cancel');
-                                }
-                            })
+                    ->tabs([
+                        Tab::make('Build')
+                            ->icon('heroicon-o-cog')
+                            ->schema(([
+                                Builder::make('components')
+                                    ->label('Form Elements')
+                                    ->addActionLabel('Add to Form Elements')
+                                    ->addBetweenActionLabel('Insert between elements')
+                                    ->addActionAlignment(Alignment::Left)
+                                    ->cloneAction(UniqueIDsHelper::cloneElement())
+                                    ->columnSpanFull()
+                                    ->blockNumbers(false)
+                                    ->blockPreviews()
+                                    ->live(onBlur: true)
+                                    ->editAction(
+                                        fn(Action $action) => $action
+                                            ->visible(fn() => true)
+                                            ->icon(function ($livewire) {
+                                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
+                                                    ? 'heroicon-o-eye'
+                                                    : 'heroicon-o-pencil';
+                                            })
+                                            ->label(function ($livewire) {
+                                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
+                                                    ? 'View'
+                                                    : 'Edit';
+                                            })
+                                            ->disabledForm(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord)) // Disable the form
+                                            ->modalHeading('View Form Field')
+                                            ->modalSubmitAction(function ($action, $livewire) {
+                                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
+                                                    return false;
+                                                } else {
+                                                    $action->label('Save');
+                                                }
+                                            })
+                                            ->modalCancelAction(function ($action, $livewire) {
+                                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
+                                                    $action->label('Close');
+                                                } else {
+                                                    $action->label('Cancel');
+                                                }
+                                            })
+                                    )
+                                    ->cloneable()
+                                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                        $formVersionId = $get('id');
+                                        // handle when form version ID is not yet set
+                                        if (!$formVersionId) return;
 
-                    )
+                                        $components = $get('components');
+                                        // Free memory before template generation
+                                        gc_collect_cycles();
 
-                    ->cloneable()
-                    ->afterStateUpdated(function (Get $get, Set $set, $state) {
-                        $formVersionId = $get('id');
-                        // handle when form version ID is not yet set
-                        if (!$formVersionId) return;
+                                        $requestedAt = now()->unix();
 
-                        $components = $get('components');
-                        // Free memory before template generation
-                        gc_collect_cycles();
+                                        // Throttled template generation to avoid excessive processing
+                                        $lastRequestedAt = Cache::get("formtemplate:{$formVersionId}:draft_requested_at", 0);
+                                        if ($requestedAt - $lastRequestedAt < 5) return;
 
-                        $requestedAt = now()->unix();
+                                        // Stores the requested timestamp for job deduplication and throttling
+                                        Cache::tags(['form-template'])->put(
+                                            "formtemplate:{$formVersionId}:draft_requested_at",
+                                            $requestedAt,
+                                            now()->addDay()
+                                        );
 
-                        // Throttled template generation to avoid excessive processing
-                        $lastRequestedAt = Cache::get("formtemplate:{$formVersionId}:draft_requested_at", 0);
-                        if ($requestedAt - $lastRequestedAt < 5) return;
+                                        // Dispatch form generation job in the background with the updated components
+                                        // Submits as draft; New job will be created for final version on save
+                                        GenerateFormTemplateJob::dispatch($formVersionId, $requestedAt, $components, true);
+                                    })
+                                    ->blockPreviews()
+                                    ->editAction(
+                                        fn(Action $action) => $action
+                                            ->visible(fn() => true)
+                                            ->icon(function ($livewire) {
+                                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
+                                                    ? 'heroicon-o-eye'
+                                                    : 'heroicon-o-pencil';
+                                            })
+                                            ->label(function ($livewire) {
+                                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
+                                                    ? 'View'
+                                                    : 'Edit';
+                                            })
+                                            ->disabledForm(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord)) // Disable the form
+                                            ->modalHeading('View Form Field')
+                                            ->modalSubmitAction(function ($action, $livewire) {
+                                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
+                                                    return false;
+                                                } else {
+                                                    $action->label('Save');
+                                                }
+                                            })
+                                            ->modalCancelAction(function ($action, $livewire) {
+                                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
+                                                    $action->label('Close');
+                                                } else {
+                                                    $action->label('Cancel');
+                                                }
+                                            })
+                                    )
+                                    ->afterStateHydrated(function (Set $set, Get $get) {
+                                        // Get components data and cache it to avoid repeated processing
+                                        $components = $get('components') ?? [];
+                                        $formVersionId = $get('id');
 
-                        // Stores the requested timestamp for job deduplication and throttling
-                        Cache::tags(['form-template'])->put(
-                            "formtemplate:{$formVersionId}:draft_requested_at",
-                            $requestedAt,
-                            now()->addDay()
-                        );
+                                        // Calculate highest ID efficiently with memory optimization
+                                        if ($formVersionId) {
+                                            $highestId = Cache::remember("form_version:{$formVersionId}:highest_id", self::CACHE_TTL, function () use ($components) {
+                                                // Process in chunks to avoid memory issues with large forms
+                                                return self::getHighestIDChunked($components) + 1;
+                                            });
+                                        } else {
+                                            $highestId = self::getHighestIDChunked($components) + 1;
+                                        }
 
-                        // Dispatch form generation job in the background with the updated components
-                        // Submits as draft; New job will be created for final version on save
-                        GenerateFormTemplateJob::dispatch($formVersionId, $requestedAt, $components, true);
-                    })
-                    ->blockPreviews()
-                    ->editAction(
-                        fn(Action $action) => $action
-                            ->visible(fn() => true)
-                            ->icon(function ($livewire) {
-                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
-                                    ? 'heroicon-o-eye'
-                                    : 'heroicon-o-pencil';
-                            })
-                            ->label(function ($livewire) {
-                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
-                                    ? 'View'
-                                    : 'Edit';
-                            })
-                            ->disabledForm(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord)) // Disable the form
-                            ->modalHeading('View Form Field')
-                            ->modalSubmitAction(function ($action, $livewire) {
-                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
-                                    return false;
-                                } else {
-                                    $action->label('Save');
-                                }
-                            })
-                            ->modalCancelAction(function ($action, $livewire) {
-                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
-                                    $action->label('Close');
-                                } else {
-                                    $action->label('Cancel');
-                                }
-                            })
-                    )
-                    ->afterStateHydrated(function (Set $set, Get $get) {
-                        // Get components data and cache it to avoid repeated processing
-                        $components = $get('components') ?? [];
-                        $formVersionId = $get('id');
+                                        Session::put('elementCounter', $highestId);
 
-                        // Calculate highest ID efficiently with memory optimization
-                        if ($formVersionId) {
-                            $highestId = Cache::remember("form_version:{$formVersionId}:highest_id", self::CACHE_TTL, function () use ($components) {
-                                // Process in chunks to avoid memory issues with large forms
-                                return self::getHighestIDChunked($components) + 1;
-                            });
-                        } else {
-                            $highestId = self::getHighestIDChunked($components) + 1;
-                        }
-
-                        Session::put('elementCounter', $highestId);
-
-                        // Clean up after processing
-                        gc_collect_cycles();
-                        FormDataHelper::ensureFullyLoaded();
-                    })
-                    ->blocks([
-                        FormFieldBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
-                        FieldGroupBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
-                        ContainerBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                                        // Clean up after processing
+                                        gc_collect_cycles();
+                                        FormDataHelper::ensureFullyLoaded();
+                                    })
+                                    ->blocks([
+                                        FormFieldBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                                        FieldGroupBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                                        ContainerBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                                    ]),
+                            ])),
+                        Tab::make('Style')
+                            ->icon('heroicon-o-paint-brush')
+                            ->schema([
+                                Hidden::make('selectedStyleSheetName'),
+                                Tabs::make('style_sheet_type')
+                                    ->contained(false)
+                                    ->tabs([
+                                        Tab::make('web_style_sheet')
+                                            ->label('Web')
+                                            ->icon('heroicon-o-globe-alt')
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_css_content_web')
+                                                        ->label('Insert CSS')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->form([
+                                                            Select::make('selectedStyleSheetId')
+                                                                ->label('Select a Style Sheet')
+                                                                ->options($styleSheetOptions)
+                                                                ->required()
+                                                                ->live()
+                                                                ->reactive()
+                                                                ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
+                                                                    $displayName = $styleSheetOptions[$state];
+                                                                    $set('selectedStyleSheetName', $displayName);
+                                                                }),
+                                                        ])
+                                                        ->action(function (array $data, callable $get, callable $set) use ($styleSheetOptions) {
+                                                            $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
+                                                            $existing = $get('css_content_web');
+                                                            $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
+                                                            $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+                                                            $set('css_content_web', $appended);
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+                                                MonacoEditor::make('css_content_web')
+                                                    ->label(false)
+                                                    ->language('css')
+                                                    ->placeholderText('Your CSS here...')
+                                                    ->disablePreview()
+                                                    ->hideFullScreenButton()
+                                                    ->columnSpanFull(),
+                                            ]),
+                                        Tab::make('pdf_style_sheet')
+                                            ->label('PDF')
+                                            ->icon('heroicon-o-document-text')
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_css_content_pdf')
+                                                        ->label('Insert CSS')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->form([
+                                                            Select::make('selectedStyleSheetId')
+                                                                ->label('Select a Style Sheet')
+                                                                ->options($styleSheetOptions)
+                                                                ->required()
+                                                                ->live()
+                                                                ->reactive()
+                                                                ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
+                                                                    $displayName = $styleSheetOptions[$state];
+                                                                    $set('selectedStyleSheetName', $displayName);
+                                                                }),
+                                                        ])
+                                                        ->action(function (array $data, callable $get, callable $set) use ($styleSheetOptions) {
+                                                            $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
+                                                            $existing = $get('css_content_pdf');
+                                                            $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
+                                                            $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+                                                            $set('css_content_pdf', $appended);
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+                                                MonacoEditor::make('css_content_pdf')
+                                                    ->label(false)
+                                                    ->language('css')
+                                                    ->placeholderText('Your CSS here...')
+                                                    ->disablePreview()
+                                                    ->hideFullScreenButton()
+                                                    ->columnSpanFull(),
+                                            ]),
+                                    ])
+                            ]),
+                        Tab::make('Scripts')
+                            ->icon('heroicon-o-code-bracket-square')
+                            ->schema([
+                                // 
+                            ]),
                     ]),
                 // Used by the Create and Edit pages to store IDs in session, so that Blocks can validate their rules.
                 Hidden::make('all_instance_ids')

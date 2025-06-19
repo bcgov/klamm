@@ -57,14 +57,17 @@ class FormVersionResource extends Resource
                 Tabs::make('Tabs')
                     ->visible(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\CreateRecord))
                     ->columnSpanFull()
+                    ->contained(false)
                     ->activeTab(1)
                     ->reactive()
                     ->tabs([
                         Tab::make('Build')
+                            ->icon('heroicon-o-cog')
                             ->schema([
                                 FormVersionBuilder::schema(),
                             ]),
                         Tab::make('Import')
+                            ->icon('heroicon-o-document-arrow-down')
                             ->columnSpanFull()
                             ->schema([
                                 Split::make([
@@ -125,6 +128,9 @@ class FormVersionResource extends Resource
                     ->color(fn($state) => FormVersion::getStatusColour($state))
                     ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
                 TextColumn::make('deployed_to')
+                    ->badge()
+                    ->color(fn($state) => FormVersion::getDeployedToColour($state))
+                    ->getStateUsing(fn($record) => $record->getFormattedDeployedToName())
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('deployed_at')

@@ -153,14 +153,8 @@ class FormTemplateHelper
                     'host' => $dataSource->host,
                 ];
             })->toArray(),
-            "stylesheets" => $formVersion->styleSheets->map(function ($styleSheet) {
-                return [
-                    'name' => $styleSheet->name,
-                    'order' => $styleSheet->pivot->order,
-                    'type' => $styleSheet->pivot->type,
-                    'styles' => $styleSheet->styles,
-                ];
-            })->toArray(),
+            "webStyleSheet" => $formVersion->webStyleSheet?->filename ?? null,
+            "pdfStyleSheet" => $formVersion->pdfStyleSheet?->filename ?? null,
             "data" => [
                 "items" => $items,
             ],
