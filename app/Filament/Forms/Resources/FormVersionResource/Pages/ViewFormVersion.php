@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Forms\Resources\FormVersionResource\RelationManagers\ApprovalRequestRelationManager;
+use App\Filament\Forms\Resources\FormVersionResource\RelationManagers\FormCommentsRelationManager;
 use App\Traits\HasBusinessAreaAccess;
 
 class ViewFormVersion extends ViewRecord
@@ -48,6 +49,7 @@ class ViewFormVersion extends ViewRecord
 
     protected const DEFAULT_RELATION_MANAGERS = [
         ApprovalRequestRelationManager::class,
+        FormCommentsRelationManager::class,
     ];
 
     public function getRelationManagers(): array

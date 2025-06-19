@@ -190,4 +190,9 @@ class FormVersion extends Model
     {
         return $this->hasMany(FormApprovalRequest::class);
     }
+
+    public function formComments(): HasMany
+    {
+        return $this->hasMany(FormComment::class, 'form_version_id');
+    }
 }

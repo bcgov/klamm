@@ -7,6 +7,7 @@ use App\Models\WebhookSubscription;
 use App\Helpers\FormTemplateHelper;
 use App\Helpers\DraftCacheHelper;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormComment;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -103,6 +104,33 @@ class FormVersionController extends Controller
         }
     }
 
+    public function getFormVersionComments($id)
+    {
+        try {
+            // Find the form version
+            $formVersion = FormVersion::findOrFail($id);
+
+            $comments = FormComment::where('form_version_id', $id)
+                ->with(['parent', 'children', 'element'])
+                ->get();
+
+            return response()->json([
+                'comments' => $comments,
+                'form_version' => [
+                    'id' => $formVersion->id,
+                    'form_id' => $formVersion->form_id,
+                    'version_number' => $formVersion->version_number,
+                    'status' => $formVersion->status
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to retrieve form version comments',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getFormData($id, Request $request)
     {
         try {
@@ -118,6 +146,12 @@ class FormVersionController extends Controller
                 ->where('subject_id', $id)
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
+                ->get();
+            // Get comments for this form version
+            $comments = FormComment::where('form_version_id', $id)
+                ->with(['parent', 'children', 'element'])
+                ->orderBy('created_at', 'desc')
+
                 ->get();
 
             $isDraft = $request->query('draft', false);
@@ -157,7 +191,8 @@ class FormVersionController extends Controller
 
             // Return a properly formatted response with both logs and form template
             return response()->json([
-                'logs' => $logs,
+                'logs' => $logs ?? [],
+                'comments' => $comments ?? [],
                 'form_version' => [
                     'id' => $formVersion->id,
                     'form_id' => $formVersion->form_id,
