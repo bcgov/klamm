@@ -47,7 +47,6 @@ class FormTemplateHelper
                 'formField.dataType',
                 'formField.formFieldValue',
                 'formField.formFieldDateFormat',
-                'styleInstances.style',
                 'validations',
                 'conditionals',
                 'formInstanceFieldValue',
@@ -66,7 +65,7 @@ class FormTemplateHelper
         $fieldGroups = $formVersion->fieldGroupInstances()
             ->whereNull('container_id')
             ->orderBy('order')
-            ->with(['fieldGroup', 'styleInstances.style'])
+            ->with(['fieldGroup'])
             ->get();
 
         foreach ($fieldGroups as $group) {
@@ -80,10 +79,8 @@ class FormTemplateHelper
         $containers = $formVersion->containers()
             ->orderBy('order')
             ->with([
-                'styleInstances.style',
                 'formInstanceFields.formField.dataType',
                 'formInstanceFields.formField.formFieldValue',
-                'formInstanceFields.styleInstances.style',
                 'formInstanceFields.validations',
                 'formInstanceFields.conditionals',
                 'formInstanceFields.formInstanceFieldValue',
@@ -91,13 +88,11 @@ class FormTemplateHelper
                 'fieldGroupInstances' => function ($query) {
                     $query->orderBy('order')->with([
                         'fieldGroup',
-                        'styleInstances.style',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')->with([
                                 'formField.dataType',
                                 'formField.formFieldValue',
                                 'formInstanceFieldValue',
-                                'styleInstances.style',
                                 'validations',
                                 'conditionals'
                             ]);
@@ -158,6 +153,8 @@ class FormTemplateHelper
                     'host' => $dataSource->host,
                 ];
             })->toArray(),
+            "webStyleSheet" => $formVersion->webStyleSheet?->filename ?? null,
+            "pdfStyleSheet" => $formVersion->pdfStyleSheet?->filename ?? null,
             "data" => [
                 "items" => $items,
             ],
@@ -541,20 +538,6 @@ class FormTemplateHelper
     {
         $field = $fieldInstance->formField;
 
-        $webStyle = [];
-        foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
-                $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
-            }
-        }
-
-        $pdfStyle = [];
-        foreach ($fieldInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
-                $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
-            }
-        }
-
         $validation = $fieldInstance->validations->map(function ($validation) {
             return [
                 'type' => $validation->type,
@@ -595,14 +578,6 @@ class FormTemplateHelper
                 "name" => $field->name,
             ],
         ];
-
-        if (!empty($webStyle)) {
-            $base["webStyles"] = $webStyle;
-        }
-
-        if (!empty($pdfStyle)) {
-            $base["pdfStyles"] = $pdfStyle;
-        }
 
         if (!empty($validation) > 0) {
             $base["validation"] = $validation;
@@ -680,25 +655,10 @@ class FormTemplateHelper
                 'formField.formFieldDateFormat',
                 'formInstanceFieldValue',
                 'formInstanceFieldDateFormat',
-                'styleInstances.style',
                 'validations',
                 'conditionals'
             ])
             ->get();
-
-        $webStyle = [];
-        foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
-                $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
-            }
-        }
-
-        $pdfStyle = [];
-        foreach ($groupInstance->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
-                $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
-            }
-        }
 
         $visibility = [];
         if ($groupInstance->visibility) {
@@ -741,14 +701,6 @@ class FormTemplateHelper
             ],
         ];
 
-        if (!empty($webStyle)) {
-            $base["webStyles"] = $webStyle;
-        }
-
-        if (!empty($pdfStyle)) {
-            $base["pdfStyles"] = $pdfStyle;
-        }
-
         if ($groupInstance->repeater) {
             $label = $groupInstance->custom_repeater_item_label ?? $groupInstance->fieldGroup->repeater_item_label;
             $base = array_merge($base, ["repeaterItemLabel" => $label]);
@@ -777,7 +729,6 @@ class FormTemplateHelper
             ->orderBy('order')
             ->with([
                 'formField',
-                'styleInstances',
                 'validations',
                 'conditionals',
             ])
@@ -786,13 +737,11 @@ class FormTemplateHelper
             ->orderBy('order')
             ->with([
                 'fieldGroup',
-                'styleInstances',
                 'formInstanceFields' => function ($query) {
                     $query->orderBy('order')->with([
                         'formField.dataType',
                         'formField.formFieldValue',
                         'formInstanceFieldValue',
-                        'styleInstances.style',
                         'validations',
                         'conditionals'
                     ]);
@@ -830,20 +779,6 @@ class FormTemplateHelper
             $index++;
         }
 
-        $webStyle = [];
-        foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
-                $webStyle[$styleInstance->style->property] = $styleInstance->style->value;
-            }
-        }
-
-        $pdfStyle = [];
-        foreach ($container->styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'pdf' && $styleInstance->relationLoaded('style') && $styleInstance->style) {
-                $pdfStyle[$styleInstance->style->property] = $styleInstance->style->value;
-            }
-        }
-
         $visibility = [];
         if ($container->visibility) {
             $visibility = [
@@ -863,14 +798,6 @@ class FormTemplateHelper
                 "name" => 'container',
             ],
         ];
-
-        if (!empty($webStyle)) {
-            $base["webStyles"] = $webStyle;
-        }
-
-        if (!empty($pdfStyle)) {
-            $base["pdfStyles"] = $pdfStyle;
-        }
 
         if (!empty($visibility)) {
             $base["conditions"] = $visibility;

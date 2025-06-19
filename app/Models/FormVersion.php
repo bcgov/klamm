@@ -11,6 +11,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FormVersion extends Model
 {
@@ -156,6 +157,40 @@ class FormVersion extends Model
         return self::getStatusOptions()[$this->status] ?? $this->status;
     }
 
+    public static function getStatusColour($status): string
+    {
+        return match ($status) {
+            'Draft' => 'gray',
+            'Under Review' => 'warning',
+            'Approved' => 'success',
+            'Published' => 'primary',
+            'Archived' => 'danger',
+        };
+    }
+
+    public static function getDeployedToOptions(): array
+    {
+        return [
+            'dev' => 'Development',
+            'test' => 'Testing',
+            'prod' => 'Production',
+        ];
+    }
+
+    public function getFormattedDeployedToName(): string
+    {
+        return self::getDeployedToOptions()[$this->deployed_to] ?? '';
+    }
+
+    public static function getDeployedToColour($deployedTo): string
+    {
+        return match ($deployedTo) {
+            'Development' => 'gray',
+            'Testing' => 'warning',
+            'Production' => 'success',
+        };
+    }
+
     public function form(): BelongsTo
     {
         return $this->belongsTo(Form::class);
@@ -179,6 +214,16 @@ class FormVersion extends Model
     public function containers(): HasMany
     {
         return $this->hasMany(Container::class);
+    }
+
+    public function webStyleSheet(): HasOne
+    {
+        return $this->hasOne(StyleSheet::class)->where('type', 'web');
+    }
+
+    public function pdfStyleSheet(): HasOne
+    {
+        return $this->hasOne(StyleSheet::class)->where('type', 'pdf');
     }
 
     public function formDataSources(): BelongsToMany

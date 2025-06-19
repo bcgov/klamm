@@ -2,13 +2,11 @@
 
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
-use App\Events\FormVersionUpdateEvent;
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
 use App\Models\FieldGroupInstance;
@@ -17,12 +15,11 @@ use App\Models\FormInstanceFieldConditionals;
 use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
-use App\Models\StyleInstance;
 use Illuminate\Support\Facades\Cache;
 use App\Jobs\GenerateFormTemplateJob;
 use App\Helpers\FormTemplateHelper;
 use Illuminate\Support\Facades\Log;
-use App\Helpers\FormDataHelper;
+use App\Models\StyleSheet;
 
 class EditFormVersion extends EditRecord
 {
@@ -99,6 +96,7 @@ class EditFormVersion extends EditRecord
             $formVersion->containers()->delete();
         }
 
+        // Build
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
                 $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
@@ -108,6 +106,12 @@ class EditFormVersion extends EditRecord
                 $this->createContainer($formVersion, $order, $block['data']);
             }
         }
+
+        // Style
+        $css_content_web = $this->form->getState()['css_content_web'] ?? '';
+        $css_content_pdf = $this->form->getState()['css_content_pdf'] ?? '';
+        StyleSheet::createStyleSheet($formVersion, $css_content_web, 'web');
+        StyleSheet::createStyleSheet($formVersion, $css_content_pdf, 'pdf');
 
         // Invalidate all caches explicitly
         FormTemplateHelper::clearFormTemplateCache($formVersion->id);
@@ -127,6 +131,8 @@ class EditFormVersion extends EditRecord
     {
         // Eager load required records
         $this->record->load([
+            'webStyleSheet',
+            'pdfStyleSheet',
             'formInstanceFields' => function ($query) {
                 $query->whereNull('field_group_instance_id')->whereNull('container_id');
                 $query->with([
@@ -139,7 +145,6 @@ class EditFormVersion extends EditRecord
                     'selectOptionInstances',
                     'validations',
                     'conditionals',
-                    'styleInstances',
                     'formInstanceFieldValue',
                     'formInstanceFieldDateFormat',
                 ]);
@@ -148,7 +153,6 @@ class EditFormVersion extends EditRecord
                 $query
                     ->whereNull('container_id')
                     ->with([
-                        'styleInstances',
                         'fieldGroup',
                         'formInstanceFields' => function ($query) {
                             $query->orderBy('order')
@@ -162,7 +166,6 @@ class EditFormVersion extends EditRecord
                                     'selectOptionInstances',
                                     'validations',
                                     'conditionals',
-                                    'styleInstances',
                                     'formInstanceFieldValue',
                                     'formInstanceFieldDateFormat',
                                 ]);
@@ -171,7 +174,6 @@ class EditFormVersion extends EditRecord
             },
             'containers' => function ($query) {
                 $query->with([
-                    'styleInstances',
                     'formInstanceFields' => function ($query) {
                         $query->orderBy('order')
                             ->with([
@@ -184,14 +186,12 @@ class EditFormVersion extends EditRecord
                                 'selectOptionInstances',
                                 'validations',
                                 'conditionals',
-                                'styleInstances',
                                 'formInstanceFieldValue',
                                 'formInstanceFieldDateFormat',
                             ]);
                     },
                     'fieldGroupInstances' => function ($query) {
                         $query->with([
-                            'styleInstances',
                             'fieldGroup',
                             'formInstanceFields' => function ($query) {
                                 $query->orderBy('order')
@@ -205,7 +205,6 @@ class EditFormVersion extends EditRecord
                                         'selectOptionInstances',
                                         'validations',
                                         'conditionals',
-                                        'styleInstances',
                                         'formInstanceFieldValue',
                                         'formInstanceFieldDateFormat',
                                     ]);
@@ -234,29 +233,16 @@ class EditFormVersion extends EditRecord
 
         $data['components'] = $components;
 
+        // Load CSS content from file
+        $cssContentWeb = $this->record->webStyleSheet?->getCssContent();
+        $cssContentPdf = $this->record->pdfStyleSheet?->getCssContent();
+        $data['css_content_web'] = $cssContentWeb ?? '';
+        $data['css_content_pdf'] = $cssContentPdf ?? '';
+
         return $data;
     }
 
     // Helper functions to create records
-    private function createStyles($component, $id, $instanceType)
-    {
-        foreach ($component['webStyles'] ?? [] as $styleId) {
-            StyleInstance::create([
-                'style_id' => $styleId,
-                'type' => 'web',
-                $instanceType => $id,
-            ]);
-        }
-
-        foreach ($component['pdfStyles'] ?? [] as $styleId) {
-            StyleInstance::create([
-                'style_id' => $styleId,
-                'type' => 'pdf',
-                $instanceType => $id,
-            ]);
-        }
-    }
-
     private function createFieldValidations($component, $formInstanceField)
     {
         foreach ($component['validations'] ?? [] as $validationData) {
@@ -331,7 +317,6 @@ class EditFormVersion extends EditRecord
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
         ]);
 
-        $this->createStyles($component, $formInstanceField->id, 'form_instance_field_id');
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
@@ -358,8 +343,6 @@ class EditFormVersion extends EditRecord
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
         ]);
 
-        $this->createStyles($component, $fieldGroupInstance->id, 'field_group_instance_id');
-
         $formFields = $component['form_fields'] ?? [];
         foreach ($formFields as $field) {
             $this->createField($formVersion, $order, $field['data'], fieldGroupInstanceID: $fieldGroupInstance->id, containerID: null);
@@ -377,8 +360,6 @@ class EditFormVersion extends EditRecord
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
         ]);
 
-        $this->createStyles($component, $container->id, 'container_id');
-
         $blocks = $component['components'] ?? [];
         foreach ($blocks as $order => $block) {
             if ($block['type'] === 'form_field') {
@@ -390,22 +371,6 @@ class EditFormVersion extends EditRecord
     }
 
     // Helper functions to fill data
-    private function fillStyles($styleInstances)
-    {
-        $styles = [
-            'webStyles' => [],
-            'pdfStyles' => [],
-        ];
-        foreach ($styleInstances as $styleInstance) {
-            if ($styleInstance->type === 'web') {
-                $styles['webStyles'][] = $styleInstance->style_id;
-            } elseif ($styleInstance->type === 'pdf') {
-                $styles['pdfStyles'][] = $styleInstance->style_id;
-            }
-        }
-        return $styles;
-    }
-
     private function fillValidations($validations)
     {
         $data = [];
@@ -450,7 +415,6 @@ class EditFormVersion extends EditRecord
     {
         $components = [];
         foreach ($formFields as $field) {
-            $styles = $this->fillStyles($field->styleInstances);
             $validations = $this->fillValidations($field->validations);
             $conditionals = $this->fillConditionals($field->conditionals);
             $selectOptionInstances = $this->fillSelectOptionInstances($field->selectOptionInstances);
@@ -478,8 +442,6 @@ class EditFormVersion extends EditRecord
                     'customize_instance_id' => $field->custom_instance_id ?? null,
                     'custom_field_value' => $field->formInstanceFieldValue?->custom_value,
                     'customize_field_value' => $field->formInstanceFieldValue?->custom_value ?? null,
-                    'webStyles' => $styles['webStyles'],
-                    'pdfStyles' => $styles['pdfStyles'],
                     'validations' => $validations,
                     'conditionals' => $conditionals,
                     'select_option_instances' => $selectOptionInstances,
@@ -496,8 +458,6 @@ class EditFormVersion extends EditRecord
         foreach ($fieldGroups as $group) {
             $groupFields = $group->formInstanceFields;
             $formFieldsData = $this->fillFields($groupFields);
-
-            $styles = $this->fillStyles($group->styleInstances);
 
             $fieldGroup = $group->fieldGroup;
             $components[] = [
@@ -520,8 +480,6 @@ class EditFormVersion extends EditRecord
                     'custom_instance_id' => $group->custom_instance_id,
                     'customize_instance_id' => $group->custom_instance_id,
                     'visibility' => $group->visibility,
-                    'webStyles' => $styles['webStyles'],
-                    'pdfStyles' => $styles['pdfStyles'],
                 ],
             ];
         }
@@ -532,7 +490,6 @@ class EditFormVersion extends EditRecord
     {
         $components = [];
         foreach ($containers as $container) {
-            $styles = $this->fillStyles($container->styleInstances);
 
             $blocks = array_merge(
                 $this->fillFields($container->formInstanceFields),
@@ -551,8 +508,6 @@ class EditFormVersion extends EditRecord
                     'customize_instance_id' => $container->custom_instance_id ?? null,
                     'clear_button' => $container->clear_button ?? false,
                     'components' => $blocks,
-                    'webStyles' => $styles['webStyles'],
-                    'pdfStyles' => $styles['pdfStyles'],
                     'visibility' => $container->visibility,
                     'order' => $container->order,
                 ],

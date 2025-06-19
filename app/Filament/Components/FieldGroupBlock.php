@@ -23,7 +23,6 @@ class FieldGroupBlock
     public static function make(Closure $calculateIDCallback): Block
     {
         $groups = FormDataHelper::get('groups');
-        $styles = FormDataHelper::get('styles');
         $dataSources = FormDataHelper::get('dataSources');
 
         return Block::make('field_group')
@@ -63,8 +62,6 @@ class FieldGroupBlock
                         $fieldGroup = $groups->get($state);
                         if ($fieldGroup) {
                             $formFields = $fieldGroup->formFields()->get()->map(function ($field) {
-                                $webStyles = $field->webStyles()->pluck('styles.id')->toArray();
-                                $pdfStyles = $field->pdfStyles()->pluck('styles.id')->toArray();
                                 $validations = $field->validations()->get()->map(function ($validation) {
                                     return [
                                         'type' => $validation->type,
@@ -80,8 +77,6 @@ class FieldGroupBlock
                                         'data_binding_path' => $field->data_binding_path,
                                         'data_binding' => $field->data_binding,
                                         'help_text' => $field->help_text,
-                                        'webStyles' => $webStyles,
-                                        'pdfStyles' => $pdfStyles,
                                         'mask' => $field->mask,
                                         'validations' => $validations,
                                         'conditionals' => [],
@@ -92,15 +87,11 @@ class FieldGroupBlock
                                 ];
                             })->toArray();
                             $set('form_fields', $formFields);
-                            $set('webStyles', $fieldGroup->webStyles()->pluck('styles.id')->toArray());
-                            $set('pdfStyles', $fieldGroup->pdfStyles()->pluck('styles.id')->toArray());
                             $set('repeater', $fieldGroup->repeater);
                             $set('clear_button', $fieldGroup->clear_button);
                             $set('custom_repeater_item_label', $fieldGroup->repeater_item_label);
                         } else {
                             $set('form_fields', []);
-                            $set('webStyles', []);
-                            $set('pdfStyles', []);
                         }
                     }),
                 Section::make('Group Properties')
@@ -233,18 +224,6 @@ class FieldGroupBlock
                                     ->label('Visibility'),
                             ]),
                     ]),
-                Select::make('webStyles')
-                    ->label('Web Styles')
-                    ->options($styles->pluck('name', 'id'))
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(1),
-                Select::make('pdfStyles')
-                    ->label('PDF Styles')
-                    ->options($styles->pluck('name', 'id'))
-                    ->multiple()
-                    ->preload()
-                    ->columnSpan(1),
                 Section::make('Group Elements')
                     ->collapsible()
                     ->collapsed(true)

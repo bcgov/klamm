@@ -60,6 +60,9 @@ class FieldGroupInstancesRelationManager extends RelationManager
                         ->searchable(),
                     TextColumn::make('formVersion.status')
                         ->label('Status')
+                        ->badge()
+                        ->color(fn($state) => FormVersion::getStatusColour($state))
+                        ->getStateUsing(fn($record) => $record->formVersion->getFormattedStatusName())
                         ->toggleable()
                         ->sortable()
                         ->searchable(),
