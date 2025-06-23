@@ -307,14 +307,6 @@ class FormTemplateHelper
             ],
         ];
 
-        // Add styles if present
-        if (!empty($componentData['webStyles'])) {
-            $base["webStyles"] = $componentData['webStyles'];
-        }
-        if (!empty($componentData['pdfStyles'])) {
-            $base["pdfStyles"] = $componentData['pdfStyles'];
-        }
-
         // Add validations if present
         if (!empty($componentData['validations'])) {
             $base["validation"] = array_values(array_map(function ($validation) {

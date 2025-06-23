@@ -92,14 +92,6 @@ class StyleSheetResource extends Resource
                         ->getStateUsing(fn($record) => $record->formVersion->getFormattedStatusName())
                         ->toggleable()
                         ->sortable(),
-                    TextColumn::make('formVersion.deployed_to')
-                        ->label('Deployed to')
-                        ->badge()
-                        ->color(fn($state) => FormVersion::getDeployedToColour($state))
-                        ->getStateUsing(fn($record) => $record->formVersion->getFormattedDeployedToName())
-                        ->toggleable()
-                        ->sortable()
-                        ->searchable(),
                 ])
 
             ])
@@ -124,10 +116,9 @@ class StyleSheetResource extends Resource
                     ->openUrlInNewTab()
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+                // 
+            ])
+            ->paginated([10, 25, 50, 100]);
     }
 
     public static function getRelations(): array
@@ -141,8 +132,6 @@ class StyleSheetResource extends Resource
     {
         return [
             'index' => Pages\ListStyleSheets::route('/'),
-            'create' => Pages\CreateStyleSheet::route('/create'),
-            'edit' => Pages\EditStyleSheet::route('/{record}/edit'),
         ];
     }
 }
