@@ -307,13 +307,15 @@ class FormVersionBuilder
                                                                     $set('selectedStyleSheetName', $displayName);
                                                                 }),
                                                         ])
-                                                        ->action(function (array $data, callable $get, callable $set) use ($styleSheetOptions) {
+                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
                                                             $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
                                                             $existing = $get('css_content_web');
                                                             $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
                                                             $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
                                                             $appended = rtrim($existing) . "\n\n" . $comment . $content;
+
                                                             $set('css_content_web', $appended);
+                                                            self::updateMonacoEditor($livewire, 'css_content_web', $appended);
                                                         }),
                                                 ])
                                                     ->alignment(Alignment::Center),
@@ -346,13 +348,15 @@ class FormVersionBuilder
                                                                     $set('selectedStyleSheetName', $displayName);
                                                                 }),
                                                         ])
-                                                        ->action(function (array $data, callable $get, callable $set) use ($styleSheetOptions) {
+                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
                                                             $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
                                                             $existing = $get('css_content_pdf');
                                                             $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
                                                             $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
                                                             $appended = rtrim($existing) . "\n\n" . $comment . $content;
+
                                                             $set('css_content_pdf', $appended);
+                                                            self::updateMonacoEditor($livewire, 'css_content_pdf', $appended);
                                                         }),
                                                 ])
                                                     ->alignment(Alignment::Center),
@@ -441,6 +445,28 @@ class FormVersionBuilder
                     ->rows(15)
                     ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
             ]);
+    }
+
+    protected static function updateMonacoEditor($livewire, string $field, string $content): void
+    {
+        $livewire->js("
+        setTimeout(() => {
+            const fieldWrapper = document.querySelector('[wire\\\\:key*=\"{$field}\"]');
+            if (fieldWrapper) {
+                const monacoEditor = fieldWrapper.querySelector('.monaco-editor');
+                if (monacoEditor && window.monaco) {
+                    const editors = window.monaco.editor.getEditors();
+                    for (let editor of editors) {
+                        if (editor.getDomNode() === monacoEditor) {
+                            editor.setValue(" . json_encode($content) . ");
+                            editor.focus();
+                            break;
+                        }
+                    }
+                }
+            }
+        }, 300);
+    ");
     }
 
     /**
