@@ -153,14 +153,8 @@ class FormTemplateHelper
                     'host' => $dataSource->host,
                 ];
             })->toArray(),
-            "stylesheets" => $formVersion->styleSheets->map(function ($styleSheet) {
-                return [
-                    'name' => $styleSheet->name,
-                    'order' => $styleSheet->pivot->order,
-                    'type' => $styleSheet->pivot->type,
-                    'styles' => $styleSheet->styles,
-                ];
-            })->toArray(),
+            "webStyleSheet" => $formVersion->webStyleSheet?->filename ?? null,
+            "pdfStyleSheet" => $formVersion->pdfStyleSheet?->filename ?? null,
             "data" => [
                 "items" => $items,
             ],
@@ -312,14 +306,6 @@ class FormTemplateHelper
                 "name" => $formField?->name ?? 'field-' . $index,
             ],
         ];
-
-        // Add styles if present
-        if (!empty($componentData['webStyles'])) {
-            $base["webStyles"] = $componentData['webStyles'];
-        }
-        if (!empty($componentData['pdfStyles'])) {
-            $base["pdfStyles"] = $componentData['pdfStyles'];
-        }
 
         // Add validations if present
         if (!empty($componentData['validations'])) {

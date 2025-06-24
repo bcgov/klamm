@@ -15,6 +15,7 @@ use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
+use App\Models\StyleSheet;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -46,7 +47,11 @@ class CreateFormVersion extends CreateRecord
 
         $formId = request()->query('form_id');
         if ($formId) {
-            $this->form->fill(['form_id' => $formId]);
+            $this->form->fill([
+                'form_id' => $formId,
+                'status' => 'draft',
+                'form_developer_id' => Auth::id(),
+            ]);
         }
     }
 
@@ -66,16 +71,7 @@ class CreateFormVersion extends CreateRecord
             $formVersion->containers()->delete();
         }
 
-        // Attach stylesheets
-        $styleSheets = $this->form->getState()['style_sheets'] ?? [];
-        $formVersion->styleSheets()->detach();
-        foreach ($styleSheets as $index => $item) {
-            $formVersion->styleSheets()->attach($item['id'], [
-                'order' => $index,
-                'type' => $item['type'],
-            ]);
-        }
-
+        // Build
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
                 $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
@@ -85,6 +81,12 @@ class CreateFormVersion extends CreateRecord
                 $this->createContainer($formVersion, $order, $block['data']);
             }
         }
+
+        // Style
+        $css_content_web = $this->form->getState()['css_content_web'] ?? '';
+        $css_content_pdf = $this->form->getState()['css_content_pdf'] ?? '';
+        StyleSheet::createStyleSheet($formVersion, $css_content_web, 'web');
+        StyleSheet::createStyleSheet($formVersion, $css_content_pdf, 'pdf');
     }
 
     // Helper functions

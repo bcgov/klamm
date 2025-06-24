@@ -55,7 +55,7 @@ class FormDataHelper
             'groups' => $groups,
             'dataSources' => FormDataSource::select(['id', 'name'])->get()->keyBy('id'),
             'selectOptions' => SelectOptions::select(['id', 'label'])->get()->keyBy('id'),
-            'styleSheets' => StyleSheet::select(['id', 'name'])->get()->keyBy('id'),
+            'styleSheets' => StyleSheet::with('formVersion.form')->select(['id', 'form_version_id', 'filename', 'type'])->get()->keyBy('id'),
         ];
 
         // For non-view pages that need full data, load additional relationships
