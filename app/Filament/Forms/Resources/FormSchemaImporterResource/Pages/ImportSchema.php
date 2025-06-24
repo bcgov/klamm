@@ -2,6 +2,8 @@
 
 namespace App\Filament\Forms\Resources\FormSchemaImporterResource\Pages;
 
+use App\Filament\Forms\Helpers\SchemaFormatter;
+use App\Filament\Forms\Helpers\SchemaParser;
 use App\Filament\Forms\Imports\FormSchemaImporter;
 use App\Filament\Forms\Resources\FormSchemaImporterResource;
 use App\Models\Form as FormModel;
@@ -16,7 +18,15 @@ use Filament\Forms\Set;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
+/**
+ * Form Schema Importer Page
+ *
+ * This class manages the import of form schemas with field mapping capabilities.
+ * It works with SchemaParser to parse and extract fields from schemas,
+ * and SchemaFormatter to format and display field information.
+ */
 class ImportSchema extends Page implements HasForms
 {
     use \Filament\Forms\Concerns\InteractsWithForms;
@@ -34,6 +44,14 @@ class ImportSchema extends Page implements HasForms
     public ?array $formFieldOptions = [];
     public array $fieldDetails = [];
     public bool $loadingFieldDetails = false;
+    public array $jobStatus = ['status' => 'idle', 'message' => ''];
+    public array $fieldMappingOptions = [];
+
+    // New properties for pagination
+    public int $currentPage = 1;
+    public int $perPage = 10;
+    public int $totalFields = 0;
+    public array $paginatedFields = [];
 
     public function mount(?FormModel $record = null): void
     {
@@ -49,8 +67,23 @@ class ImportSchema extends Page implements HasForms
             ]);
         }
 
+        // Check if there's an ongoing import job
+        if (isset($this->data['schema_import_job_id'])) {
+            $status = $this->checkSchemaImportStatus();
+            if ($status) {
+                $this->jobStatus = $status;
+            }
+        }
+
         // Load form field options for mapping
         $this->loadFormFieldOptions();
+
+        // Initialize pagination properties
+        $this->currentPage = 1;
+        $this->perPage = 10; // Adjust this number as needed for UI performance
+
+        // Cache field mapping options once for all fields - using lightweight labels
+        $this->fieldMappingOptions = \App\Filament\Forms\Helpers\SchemaFormatter::getAllMappingOptions(true);
     }
 
     protected function loadFormFieldOptions(): void
@@ -188,11 +221,35 @@ class ImportSchema extends Page implements HasForms
                             ->schema([
                                 \Filament\Forms\Components\Placeholder::make('preview')
                                     ->label('Import Preview')
-                                    ->content(fn() => new HtmlString(
-                                        '<pre style="background:#f9fafb;border-radius:6px;padding:1em;overflow:auto;font-size:0.95em;">' .
-                                            htmlspecialchars($this->getImportPreviewJson()) .
-                                            '</pre>'
-                                    ))
+                                    ->content(function () {
+                                        if ($this->parsedSchema === null) {
+                                            return 'No schema has been parsed yet. Please upload and parse a schema first.';
+                                        }
+
+                                        try {
+                                            // Ensure we have valid data for the preview
+                                            $previewData = $this->data ?? [];
+
+                                            // Safety check before generating the preview
+                                            if (!is_array($this->parsedSchema)) {
+                                                Log::warning('Attempted to generate preview with invalid schema type: ' . gettype($this->parsedSchema));
+                                                return 'Invalid schema format. Please try uploading the file again.';
+                                            }
+
+                                            return new HtmlString(
+                                                '<pre style="background:#f9fafb;border-radius:6px;padding:1em;overflow:auto;font-size:0.95em;">' .
+                                                    htmlspecialchars((new SchemaFormatter())->getImportPreviewJson($this->parsedSchema, $previewData)) .
+                                                    '</pre>'
+                                            );
+                                        } catch (\Exception $e) {
+                                            Log::error('Error generating import preview: ' . $e->getMessage(), [
+                                                'exception' => $e,
+                                                'has_schema' => isset($this->parsedSchema),
+                                                'schema_type' => isset($this->parsedSchema) ? gettype($this->parsedSchema) : 'null'
+                                            ]);
+                                            return 'Error generating preview: ' . $e->getMessage();
+                                        }
+                                    })
                                     ->columnSpanFull(),
                             ]),
                     ])
@@ -228,38 +285,40 @@ class ImportSchema extends Page implements HasForms
         }
 
         try {
-            $json = json_decode($content, true);
+            $schemaParser = new SchemaParser();
 
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            // Parse the schema
+            $this->parsedSchema = $schemaParser->parseSchema($content);
+
+            // Check if parsing was successful before continuing
+            if ($this->parsedSchema === null) {
                 Notification::make()
-                    ->title('Invalid JSON')
-                    ->body('The schema is not valid JSON: ' . json_last_error_msg())
                     ->danger()
+                    ->title('Schema Parsing Error')
+                    ->body('Could not parse the uploaded schema file. Please check the file format and try again.')
                     ->send();
-
                 return;
             }
 
-            $this->parsedSchema = $json;
-
-            // Determine schema format and log it
-            $format = 'legacy';
-            if (isset($json['data']) && isset($json['data']['elements'])) {
-                $format = 'adze-template';
-                Log::info("Detected Adze-template format schema");
-            } elseif (isset($json['fields'])) {
-                Log::info("Detected legacy format schema");
-            } else {
-                Log::warning("Unknown schema format detected");
-            }
-
             // Extract fields and build mappings
-            $this->extractFields();
+            $extractedData = $schemaParser->extractFieldMappings($this->parsedSchema);
+            $this->fieldMappings = $extractedData['mappings'] ?? [];
+            $this->selectOptions = $extractedData['selectOptions'] ?? [];
+
+            // Reset pagination to first page
+            $this->currentPage = 1;
 
             // Initialize field properties in data array to prevent Livewire Entangle errors
+            // This also sets up totalFields for pagination
             $this->initializeFieldProperties();
 
             $fieldCount = count($this->fieldMappings);
+
+            // Determine schema format for notification
+            $format = 'legacy';
+            if (isset($this->parsedSchema['data']) && isset($this->parsedSchema['data']['elements'])) {
+                $format = 'adze-template';
+            }
 
             Notification::make()
                 ->title('Schema parsed successfully')
@@ -277,94 +336,63 @@ class ImportSchema extends Page implements HasForms
     }
 
     /**
-     * Extract fields from the schema for mapping
+     * Extract fields from a schema
+     *
+     * @param array $parsedSchema The parsed schema to extract fields from
+     * @return array The extracted fields
      */
-    protected function extractFields(): void
+    protected function extractFieldsFromSchema(array $parsedSchema): array
     {
-        $this->fieldMappings = [];
+        $schemaParser = new SchemaParser();
+        $fields = [];
 
-        // Handle the new format that has a data.elements structure
-        if (isset($this->parsedSchema['data']['elements'])) {
-            $this->extractFieldsRecursively($this->parsedSchema['data']['elements']);
+        if (isset($parsedSchema['data']) && isset($parsedSchema['data']['elements'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($parsedSchema['data']['elements']);
+        } elseif (isset($parsedSchema['fields'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($parsedSchema['fields']);
         }
-        // Handle older format with fields directly
-        elseif (isset($this->parsedSchema['fields'])) {
-            $this->extractFieldsRecursively($this->parsedSchema['fields']);
-        }
-    }
 
-    /**
-     * Extract fields recursively from the schema
-     * @param array $elements - The elements to process
-     */
-    protected function extractFieldsRecursively(array $elements): void
-    {
-        foreach ($elements as $element) {
-            // If this is a container with child elements, process recursively
-            if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements' && isset($element['elements'])) {
-                $this->extractFieldsRecursively($element['elements']);
-            }
-            // If this is a field (not a container), add to mappings
-            elseif (isset($element['elementType']) && $element['elementType'] !== 'ContainerFormElements') {
-                $id = $element['token'] ?? md5(json_encode($element));
-                $this->fieldMappings[$id] = 'new';
-
-                // For select fields, extract options if available
-                if (
-                    isset($element['dataFormat']) && in_array($element['dataFormat'], ['dropdown', 'radio', 'checkbox', 'select'])
-                    && isset($element['options'])
-                ) {
-                    $this->selectOptions[$id] = $element['options'];
-                }
-            }
-        }
-    }
-
-    /**
-     * Recursively extract all fields (not containers) from the parsed schema JSON.
-     */
-    protected function extractFieldsFromSchema(array $elements, array &$result = []): array
-    {
-        foreach ($elements as $element) {
-            // Handle new format with elementType
-            if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements' && isset($element['elements'])) {
-                $this->extractFieldsFromSchema($element['elements'], $result);
-            }
-            // Handle old format with type=container
-            elseif (isset($element['type']) && $element['type'] === 'container' && isset($element['children'])) {
-                $this->extractFieldsFromSchema($element['children'], $result);
-            }
-            // Handle new format actual field
-            elseif (isset($element['elementType']) && $element['elementType'] !== 'ContainerFormElements') {
-                $result[] = $element;
-            }
-            // Handle old format actual field
-            elseif (isset($element['type']) && $element['type'] !== 'container') {
-                $result[] = $element;
-            }
-        }
-        return $result;
+        return $fields;
     }
 
     public function getFieldMappingSchema(): array
     {
         // Log current state for debugging
-        logger()->debug("🔄 Building field mapping schema. Data keys: " . json_encode(array_keys($this->data)));
-        logger()->debug("📊 Parsed schema has " . (isset($this->parsedSchema['data']['elements']) ? count($this->parsedSchema['data']['elements']) : 0) . " elements");
+        logger()->debug("🔄 Building field mapping schema with pagination. Page {$this->currentPage}, showing {$this->perPage} per page");
 
         $schema = [];
         $fields = [];
 
-        // Handle new format with data.elements
-        if (isset($this->parsedSchema['data']) && isset($this->parsedSchema['data']['elements'])) {
-            $fields = $this->extractFieldsFromSchema($this->parsedSchema['data']['elements']);
-        }
-        // Handle older format with fields directly
-        elseif (isset($this->parsedSchema['fields'])) {
-            $fields = $this->extractFieldsFromSchema($this->parsedSchema['fields']);
+        // Only extract fields if we have a parsed schema
+        if ($this->parsedSchema !== null) {
+            // Extract all fields first
+            $allFields = $this->extractFieldsFromSchema($this->parsedSchema);
+            $this->totalFields = count($allFields);
+
+            logger()->debug("📊 Parsed schema has {$this->totalFields} total fields");
+
+            // Apply pagination
+            $start = ($this->currentPage - 1) * $this->perPage;
+            $fields = array_slice($allFields, $start, $this->perPage);
+
+            // Store the paginated fields in component state for efficient re-rendering
+            $this->paginatedFields = $fields;
+
+            logger()->debug("📄 Showing fields " . ($start + 1) . "-" . min($start + $this->perPage, $this->totalFields) . " of {$this->totalFields}");
+        } else {
+            logger()->debug("⚠️ No parsed schema available");
         }
 
         if (empty($fields)) {
+            if ($this->totalFields > 0) {
+                // This means we're on an empty page but have fields
+                return [
+                    \Filament\Forms\Components\Placeholder::make('no_fields_on_page')
+                        ->label('No fields on this page')
+                        ->content('No fields are available on this page. Try changing the page number.')
+                ];
+            }
+
             return [
                 \Filament\Forms\Components\Placeholder::make('no_fields')
                     ->label('No fields found')
@@ -372,231 +400,156 @@ class ImportSchema extends Page implements HasForms
             ];
         }
 
+        // Add pagination controls at the top
+        $schema[] = \Filament\Forms\Components\Grid::make(3)
+            ->schema([
+                \Filament\Forms\Components\Placeholder::make('pagination_info')
+                    ->label('')
+                    ->content(fn() => "Showing " . (($this->currentPage - 1) * $this->perPage + 1) . "-" .
+                        min($this->currentPage * $this->perPage, $this->totalFields) . " of {$this->totalFields} fields"),
+
+                \Filament\Forms\Components\Actions::make([
+                    \Filament\Forms\Components\Actions\Action::make('prev_page')
+                        ->label('Previous')
+                        ->icon('heroicon-o-chevron-left')
+                        ->color('gray')
+                        ->visible(fn() => $this->currentPage > 1)
+                        ->action(fn() => $this->prevPage()),
+
+                    \Filament\Forms\Components\Actions\Action::make('current_page')
+                        ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
+                        ->color('gray')
+                        ->disabled(),
+
+                    \Filament\Forms\Components\Actions\Action::make('next_page')
+                        ->label('Next')
+                        ->icon('heroicon-o-chevron-right')
+                        ->iconPosition('after')
+                        ->color('gray')
+                        ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
+                        ->action(fn() => $this->nextPage()),
+                ]),
+
+                \Filament\Forms\Components\Select::make('per_page')
+                    ->label('Fields per page')
+                    ->options([
+                        5 => '5 fields',
+                        10 => '10 fields',
+                        15 => '15 fields',
+                        25 => '25 fields',
+                        50 => '50 fields',
+                    ])
+                    ->default($this->perPage)
+                    ->afterStateUpdated(function ($state) {
+                        $this->perPage = (int) $state;
+                        $this->currentPage = 1; // Reset to first page on per-page change
+                        $this->dispatch('refresh');
+                    })
+                    ->live()
+                    ->selectablePlaceholder(false)
+                    ->columnSpan(1),
+            ]);
+
         foreach ($fields as $index => $field) {
             // Generate stable field ID based on the available field identifier
             $fieldId = $field['token'] ?? $field['id'] ?? md5($field['name'] ?? "field_$index");
             $selectFieldName = "field_mapping_{$fieldId}";
             $previewFieldName = "mapping_preview_{$fieldId}";
 
-            // Extract field properties from either format
+            // Extract basic field properties for minimal UI
             $label = $field['label'] ?? '';
             $name = $field['name'] ?? '';
 
-            // Type determination based on format
-            $type = '';
-            if (isset($field['elementType'])) {
-                $type = $field['elementType'];
-                // Additional details for data format if available
-                if (isset($field['dataFormat'])) {
-                    $type .= " ({$field['dataFormat']})";
-                }
-            } else {
-                $type = $field['type'] ?? 'text-input';
-            }
+            // Simplified type determination
+            $type = isset($field['elementType'])
+                ? $field['elementType'] . (isset($field['dataFormat']) ? " ({$field['dataFormat']})" : '')
+                : ($field['type'] ?? 'text-input');
 
-            // Handle repeating fields in either format
-            $repeating = false;
-            if (isset($field['repeats'])) {
-                $repeating = $field['repeats'];
-            } elseif (isset($field['repeating'])) {
-                $repeating = $field['repeating'];
-            } elseif (isset($field['is_repeating'])) {
-                $repeating = $field['is_repeating'];
-            }
-
-            // Extract other common properties
-            $helpText = $field['help_text'] ?? $field['helpText'] ?? '';
-            $description = $field['description'] ?? '';
-            $validations = [];
-
-            // Extract validations from either format
-            if (isset($field['validations'])) {
-                $validations = $field['validations'];
-            } elseif (isset($field['validation'])) {
-                $validations = $field['validation'];
-            }
-
-            $validationsText = is_array($validations) ? json_encode($validations) : '';
-
-            // Get mapping options with field details
-            $options = $this->getMappingOptionsWithDetails($type, $label, $name, $repeating);
-
-            // Extract options for select-type fields
-            $fieldOptions = '';
-            if (isset($field['options'])) {
-                $fieldOptions = collect($field['options'])->map(function ($opt) {
-                    return is_array($opt)
-                        ? ($opt['label'] ?? $opt['name'] ?? $opt['value'] ?? json_encode($opt))
-                        : $opt;
-                })->implode(', ');
-            }
-
-            // Generate a better formatted HTML overview of the imported field
-            $importFieldDetailsHtml = $this->generateImportFieldOverview($field);
-
-            // Create schema components for this field
+            // Create a simplified version of the field card with lazy-loaded details
             $schema[] = \Filament\Forms\Components\Card::make()
                 ->schema([
+                    // Header with basic info
+                    \Filament\Forms\Components\Grid::make(2)
+                        ->schema([
+                            \Filament\Forms\Components\Placeholder::make("field_info_{$fieldId}")
+                                ->label('')
+                                ->content(new HtmlString(
+                                    '<div class="text-lg font-medium">' . htmlspecialchars($label) . '</div>' .
+                                        '<div class="text-sm text-gray-500">Name: ' . htmlspecialchars($name) . ' | Type: ' . htmlspecialchars($type) . '</div>'
+                                )),
 
-                    // ✅ Placeholder with HTML content overview
-                    \Filament\Forms\Components\Placeholder::make("import_field_overview_{$fieldId}")
-                        ->label('Import Field Overview')
-                        ->content(fn() => new HtmlString($importFieldDetailsHtml)),
+                            // ✅ Main Select Field - Simplified
+                            \Filament\Forms\Components\Select::make($selectFieldName)
+                                ->label('Map to')
+                                ->searchable()
+                                ->searchPrompt('Search fields...')
+                                ->placeholder('Select a field or create new')
+                                ->default('new')
+                                ->live()
+                                ->options($this->fieldMappingOptions)
+                                ->afterStateUpdated(function ($state, \Livewire\Component $livewire) use ($fieldId) {
+                                    // Store selection but don't generate preview yet
+                                    $livewire->setMappingSelection($fieldId, $state);
+                                })
+                        ]),
 
-                    // ✅ Main Select Field - Actual Logic
-                    \Filament\Forms\Components\Select::make($selectFieldName)
-                        ->label('Map to Existing Field or Create New')
-                        ->searchable()
-                        ->searchPrompt('Search by ID, name, or label...')
-                        ->placeholder('Select a field or create new')
-                        ->optionsLimit(100)
-                        ->default('new')
-                        ->reactive()
-                        ->afterStateHydrated(function ($state, Set $set, \Livewire\Component $livewire) use ($selectFieldName, $previewFieldName, $fieldId) {
-                            // Set default to 'new' and set preview HTML for new field
-                            if ($state === null || $state === 'new') {
-                                $set($selectFieldName, 'new');
-                                if (method_exists($livewire, 'getImportFieldDetailsForPreview')) {
-                                    $previewHtml = $livewire->getImportFieldDetailsForPreview($fieldId);
-                                    $set($previewFieldName, $previewHtml);
-                                }
+                    // ✅ Toggle for field details - optimized to load on demand
+                    \Filament\Forms\Components\Toggle::make("show_details_{$fieldId}")
+                        ->label('Show field details')
+                        ->default(false)
+                        ->live()
+                        ->afterStateUpdated(function ($state, Set $set, \Livewire\Component $livewire) use ($fieldId, $previewFieldName) {
+                            if ($state) {
+                                // Only load details when the toggle is turned on
+                                $livewire->loadFieldDetails($fieldId, $previewFieldName);
+                            } else {
+                                // Clear details when toggled off to save memory
+                                $set($previewFieldName, null);
                             }
-                        })
-                        ->getSearchResultsUsing(function ($search) {
-                            $options = [
-                                'new' => 'Create New Field',
-                            ];
-                            $query = \App\Models\FormField::with('dataType');
-                            if ($search) {
-                                $query->where(function ($q) use ($search) {
-                                    $q->where('name', 'like', "%{$search}%")
-                                        ->orWhere('label', 'like', "%{$search}%")
-                                        ->orWhereRaw('CAST(id AS CHAR) LIKE ?', ["%{$search}%"]);
-                                });
-                            }
-                            $fields = $query->orderBy('label')->orderBy('id')->get();
-                            foreach ($fields as $field) {
-                                $dataType = $field->dataType->name ?? 'unknown';
-                                $typeIcon = match ($dataType) {
-                                    'text' => '✏️',
-                                    'number' => '🔢',
-                                    'email' => '📧',
-                                    'password' => '🔒',
-                                    'date' => '📅',
-                                    'datetime' => '🕒',
-                                    'checkbox' => '✅',
-                                    'radio' => '🔘',
-                                    'select' => '🔽',
-                                    'multiselect' => '📋',
-                                    'textarea' => '📝',
-                                    'tel' => '📞',
-                                    'file' => '📎',
-                                    'image' => '🖼️',
-                                    'url' => '🔗',
-                                    'hidden' => '👁️',
-                                    'container' => '📦',
-                                    default => '📄'
-                                };
-                                $optionLabel = "<span style='display:flex;align-items:center;'>" .
-                                    "<span style='color:#666;min-width:50px;'>#$field->id</span>" .
-                                    "<strong style='margin-right:8px;'>{$field->label}</strong> " .
-                                    "<span style='color:#777;margin-right:8px;'>({$field->name})</span>" .
-                                    "<span style='color:#444;background:#f3f4f6;padding:2px 6px;border-radius:4px;'>" .
-                                    "$typeIcon $dataType</span>" .
-                                    "</span>";
-                                $options[(string)$field->id] = $optionLabel;
-                            }
-                            return $options;
-                        })
-                        ->live(debounce: 0) // Ensure immediate updates without debounce
-                        ->preload() // Preloads the options for faster performance
-                        ->allowHtml() // Allow HTML in the options for better formatting
-                        ->selectablePlaceholder(false) // Makes placeholder non-selectable
-                        ->helperText('Choose "Create New" or search for an existing field by name, ID or label')
-                        ->afterStateUpdated(function ($state, Set $set, \Livewire\Component $livewire) use ($previewFieldName, $fieldId) {
-                            $livewire->startLoadingFieldDetails();
-                            try {
-                                if ($state === 'new') {
-                                    if (method_exists($livewire, 'getImportFieldDetailsForPreview')) {
-                                        $previewHtml = $livewire->getImportFieldDetailsForPreview($fieldId);
-                                        $set($previewFieldName, $previewHtml);
-                                    } else {
-                                        $set($previewFieldName, 'Field details will appear here when a field is selected');
-                                    }
-                                } else {
-                                    if (method_exists($livewire, 'getExistingFieldDetailsForPreview')) {
-                                        $previewHtml = $livewire->getExistingFieldDetailsForPreview((int)$state);
-                                        $set($previewFieldName, $previewHtml);
-                                    } else {
-                                        // fallback to plain text
-                                        $details = $livewire->getFormFieldDetails((int)$state);
-                                        $formattedDetails = collect($details)->map(function ($value, $key) {
-                                            if ($value === '') {
-                                                return "**{$key}**";
-                                            }
-                                            return "**{$key}:** {$value}";
-                                        })->implode("\n");
-                                        $set($previewFieldName, $formattedDetails);
-                                    }
-                                }
-                            } catch (\Exception $e) {
-                                $set($previewFieldName, "**❌ Error:** " . $e->getMessage());
-                            }
-                            $livewire->stopLoadingFieldDetails();
-                        })
-                        ->options(function (?string $search = null) {
-                            $options = [
-                                'new' => 'Create New Field',
-                            ];
-                            $query = \App\Models\FormField::with('dataType');
-                            if ($search) {
-                                $query->where(function ($q) use ($search) {
-                                    $q->where('name', 'like', "%{$search}%")
-                                        ->orWhere('label', 'like', "%{$search}%")
-                                        ->orWhereRaw('CAST(id AS CHAR) LIKE ?', ["%{$search}%"]);
-                                });
-                            }
-                            // Remove or increase the limit to avoid missing fields
-                            $fields = $query->orderBy('label')->orderBy('id')->get();
-                            foreach ($fields as $field) {
-                                $dataType = $field->dataType->name ?? 'unknown';
-                                $typeIcon = match ($dataType) {
-                                    'text' => '✏️',
-                                    'number' => '🔢',
-                                    'email' => '📧',
-                                    'password' => '🔒',
-                                    'date' => '📅',
-                                    'datetime' => '🕒',
-                                    'checkbox' => '✅',
-                                    'radio' => '🔘',
-                                    'select' => '🔽',
-                                    'multiselect' => '📋',
-                                    'textarea' => '📝',
-                                    'tel' => '📞',
-                                    'file' => '📎',
-                                    'image' => '🖼️',
-                                    'url' => '🔗',
-                                    'hidden' => '👁️',
-                                    'container' => '📦',
-                                    default => '📄'
-                                };
-                                $optionLabel = "<span style='display:flex;align-items:center;'>" .
-                                    "<span style='color:#666;min-width:50px;'>#$field->id</span>" .
-                                    "<strong style='margin-right:8px;'>{$field->label}</strong> " .
-                                    "<span style='color:#777;margin-right:8px;'>({$field->name})</span>" .
-                                    "<span style='color:#444;background:#f3f4f6;padding:2px 6px;border-radius:4px;'>" .
-                                    "$typeIcon $dataType</span>" .
-                                    "</span>";
-                                $options[(string)$field->id] = $optionLabel;
-                            }
-                            return $options;
                         }),
 
-                    // ✅ Field Preview Output (render as HTML)
-                    \Filament\Forms\Components\Placeholder::make("preview_placeholder_{$fieldId}")
-                        ->label('Selected Field Details 🔍')
-                        ->content(fn(Get $get) => new HtmlString($get($previewFieldName) ?: '<div class="text-gray-500 italic">Field details will appear here when a field is selected</div>'))
+                    // ✅ Field Preview Output - only shown when toggle is on
+                    \Filament\Forms\Components\Placeholder::make($previewFieldName)
+                        ->label('Field Details')
+                        ->content(fn(Get $get) => new HtmlString($get($previewFieldName) ?: '<div class="text-gray-500 italic">Toggle switch above to view field details</div>'))
+                        ->visible(fn(Get $get) => $get("show_details_{$fieldId}"))
                         ->columnSpanFull(),
+                ]);
+        }
+
+        // Add pagination controls at the bottom too if we have multiple pages
+        if ($this->totalFields > $this->perPage) {
+            $schema[] = \Filament\Forms\Components\Grid::make(3)
+                ->schema([
+                    \Filament\Forms\Components\Placeholder::make('pagination_info_bottom')
+                        ->label('')
+                        ->content(''),
+
+                    \Filament\Forms\Components\Actions::make([
+                        \Filament\Forms\Components\Actions\Action::make('prev_page_bottom')
+                            ->label('Previous')
+                            ->icon('heroicon-o-chevron-left')
+                            ->color('gray')
+                            ->visible(fn() => $this->currentPage > 1)
+                            ->action(fn() => $this->prevPage()),
+
+                        \Filament\Forms\Components\Actions\Action::make('current_page_bottom')
+                            ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
+                            ->color('gray')
+                            ->disabled(),
+
+                        \Filament\Forms\Components\Actions\Action::make('next_page_bottom')
+                            ->label('Next')
+                            ->icon('heroicon-o-chevron-right')
+                            ->iconPosition('after')
+                            ->color('gray')
+                            ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
+                            ->action(fn() => $this->nextPage()),
+                    ]),
+
+                    \Filament\Forms\Components\Placeholder::make('bottom_spacer')
+                        ->label('')
+                        ->content(''),
                 ]);
         }
 
@@ -606,151 +559,28 @@ class ImportSchema extends Page implements HasForms
 
     /**
      * Get mapping options for a field: existing fields (by label/type) or 'new', with details for preview.
+     *
+     * @param string $type Field type
+     * @param string $label Field label
+     * @param string $name Field name
+     * @param bool $repeating Whether field is repeating
+     * @return array Options array for field mapping
      */
     protected function getMappingOptionsWithDetails($type, $label, $name, $repeating = false): array
     {
-        // Map the field type from import format to system format
-        $mappedType = $this->mapFieldType($type);
-
-        // Get all form fields with all needed relationships eager loaded to avoid lazy loading errors
-        $allFields = \App\Models\FormField::with([
-            'dataType',
-            'validations',
-            'fieldGroups',
-            'webStyles',
-            'pdfStyles',
-            'formFieldDateFormat',
-            'formFieldValue',
-            'selectOptionInstances'
-        ])->get();
-
-        // Initialize options with "Create New" option at the top with visual styling
-        $options = [
-            'new' => 'Create New Field',
-        ];
-
-        // Helper function to add a field to options and details with visual formatting
-        $addFieldOption = function ($field) use (&$options) {
-            // Store the field ID as a string key to prevent type conversion issues
-            $id = (string) $field->id;
-
-            // Get the field type for visual identification
-            $dataType = $field->dataType->name ?? 'unknown';
-
-            // Add icon based on field type for better visual identification
-            $typeIcon = match ($dataType) {
-                'text' => '✏️',
-                'number' => '🔢',
-                'email' => '📧',
-                'password' => '🔒',
-                'date' => '📅',
-                'datetime' => '🕒',
-                'checkbox' => '✅',
-                'radio' => '🔘',
-                'select' => '🔽',
-                'multiselect' => '📋',
-                'textarea' => '📝',
-                'tel' => '📞',
-                'file' => '📎',
-                'image' => '🖼️',
-                'url' => '🔗',
-                'hidden' => '👁️',
-                'container' => '📦',
-                default => '📄'
-            };
-
-            // Create a visually formatted option label with color and spacing
-            $optionLabel = "<span style='display:flex;align-items:center;'>" .
-                "<span style='color:#666;min-width:50px;'>#$field->id</span>" .
-                "<strong style='margin-right:8px;'>{$field->label}</strong> " .
-                "<span style='color:#777;margin-right:8px;'>({$field->name})</span>" .
-                "<span style='color:#444;background:#f3f4f6;padding:2px 6px;border-radius:4px;'>" .
-                "$typeIcon $dataType</span>" .
-                "</span>";
-
-            // Store with the ID as both the key and the value to ensure consistent type handling
-            $options[$id] = $optionLabel;
-        };
-
-        // Add all fields alphabetically by label for consistent ordering
-        $sortedFields = $allFields->sortBy('label');
-        foreach ($sortedFields as $field) {
-            $addFieldOption($field);
-        }
-
-        logger()->debug("📋 Field mapping options created: " . count($options) . " options available for selection");
-        return $options;
+        // Use cached options if available
+        return $this->fieldMappingOptions;
     }
 
     /**
      * Map field types to system data types
+     *
+     * @param string $type The field type to map
+     * @return string The mapped data type
      */
-    protected function mapFieldType($type): string
+    protected function mapFieldType(string $type): string
     {
-        // Extract the core type from combined types like "ContainerFormElements (text)"
-        $baseType = $type;
-        if (preg_match('/\((.*?)\)/', $type, $matches)) {
-            $baseType = trim($matches[1]);
-        }
-
-        // First check if we're dealing with an elementType
-        if (strpos($type, 'ContainerFormElements') !== false) {
-            return 'container';
-        }
-
-        // Handle adze-specific types
-        if (strpos($type, 'InputFormElement') !== false) {
-            if (strpos($type, 'text') !== false) return 'text';
-            if (strpos($type, 'number') !== false) return 'number';
-            if (strpos($type, 'date') !== false) return 'date';
-            if (strpos($type, 'email') !== false) return 'email';
-            if (strpos($type, 'tel') !== false) return 'tel';
-            return 'text';
-        }
-
-        if (strpos($type, 'SelectFormElement') !== false) {
-            return 'select';
-        }
-
-        if (strpos($type, 'CheckboxFormElement') !== false) {
-            return 'checkbox';
-        }
-
-        if (strpos($type, 'RadioFormElement') !== false) {
-            return 'radio';
-        }
-
-        if (strpos($type, 'TextareaFormElement') !== false) {
-            return 'textarea';
-        }
-
-        // Legacy type mapping
-        $mapping = [
-            'text-input' => 'text',
-            'text' => 'text',
-            'dropdown' => 'select',
-            'select' => 'select',
-            'radio' => 'radio',
-            'checkbox' => 'checkbox',
-            'textarea' => 'textarea',
-            'date' => 'date',
-            'time' => 'time',
-            'datetime' => 'datetime',
-            'number' => 'number',
-            'email' => 'email',
-            'tel' => 'tel',
-            'phone' => 'tel',
-            'url' => 'url',
-            'file' => 'file',
-            'image' => 'image',
-        ];
-
-        if (isset($mapping[$baseType])) {
-            return $mapping[$baseType];
-        }
-
-        // Default to text if no matching type is found
-        return 'text';
+        return (new SchemaParser())->mapFieldType($type);
     }
 
     /**
@@ -819,9 +649,73 @@ class ImportSchema extends Page implements HasForms
     {
         return [
             Action::make('parse_schema')
-                ->label('Parse Schema')
-                ->action('parseSchema')
-                ->color('gray'),
+                ->label('Parse Schema (Queued)')
+                ->requiresConfirmation(false)
+                ->action(function () {
+                    $content = $this->data['schema_content'] ?? null;
+                    if (!$content) {
+                        Notification::make()
+                            ->title('No schema content')
+                            ->body('Please upload or paste a schema before parsing.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    // Ensure the tmp directory exists
+                    $tmpDir = storage_path('app/tmp');
+                    if (!is_dir($tmpDir)) {
+                        if (!mkdir($tmpDir, 0755, true)) {
+                            Notification::make()
+                                ->title('Error creating temporary directory')
+                                ->body('Could not create temporary directory for schema processing.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+                    }
+
+                    // Save content to a temp file
+                    $tempPath = $tmpDir . '/schema_import_' . uniqid() . '.json';
+                    if (file_put_contents($tempPath, $content) === false) {
+                        Notification::make()
+                            ->title('Error saving schema')
+                            ->body('Could not save schema to temporary file.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    // Generate a unique job ID
+                    $jobId = 'schema_import_' . uniqid();
+
+                    // Remove any previous cache for this job
+                    Cache::forget("schema_import_status_{$jobId}");
+
+                    // Dispatch the job to the queue
+                    try {
+                        \App\Jobs\FormSchemaImportJob::dispatch($tempPath, $jobId);
+                        // Store the job ID in the component state for polling
+                        $this->data['schema_import_job_id'] = $jobId;
+                        $this->jobStatus = ['status' => 'pending', 'message' => 'Job submitted to queue'];
+
+                        Notification::make()
+                            ->title('Schema parsing started')
+                            ->body('The schema is being parsed in the background. You can continue working and check back for results.')
+                            ->success()
+                            ->send();
+                    } catch (\Exception $e) {
+                        Log::error("FormSchemaImportJob dispatch failed: " . $e->getMessage(), [
+                            'exception' => $e,
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        Notification::make()
+                            ->title('Error')
+                            ->body('Failed to dispatch schema import job: ' . $e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
 
             Action::make('import')
                 ->label('Import Schema')
@@ -833,41 +727,37 @@ class ImportSchema extends Page implements HasForms
 
     /**
      * Initialize data array with field properties after schema parsing
-     * This fixes the "Livewire Entangle Error" by ensuring all dynamic fields have data properties
+     * Memory-optimized version that only stores essential field state
      */
     protected function initializeFieldProperties(): void
     {
         $fields = [];
 
-        // Handle new format with data.elements
-        if (isset($this->parsedSchema['data']) && isset($this->parsedSchema['data']['elements'])) {
-            $fields = $this->extractFieldsFromSchema($this->parsedSchema['data']['elements']);
-        }
-        // Handle older format with fields directly
-        elseif (isset($this->parsedSchema['fields'])) {
-            $fields = $this->extractFieldsFromSchema($this->parsedSchema['fields']);
+        if ($this->parsedSchema !== null) {
+            $fields = $this->extractFieldsFromSchema($this->parsedSchema);
         }
 
-        // Initialize data properties for all fields
+        // Store the total number of fields for pagination
+        $this->totalFields = count($fields);
+
+        // Memory optimization: only initialize mappings, not full previews
         foreach ($fields as $index => $field) {
             // Generate stable field ID based on available field identifier
             $fieldId = $field['token'] ?? $field['id'] ?? md5($field['name'] ?? "field_$index");
             $selectFieldName = "field_mapping_{$fieldId}";
-            $previewFieldName = "mapping_preview_{$fieldId}";
-            $debugSelectName = "debug_select_{$fieldId}";
 
-            // Initialize select field with 'new' default
+            // Initialize select field with 'new' default in fieldMappings array
+            $this->fieldMappings[$fieldId] = 'new';
+
+            // Initialize just the select field in data to prevent Livewire errors
             $this->data[$selectFieldName] = 'new';
 
-            // Initialize preview field with empty string
-            $this->data[$previewFieldName] = 'Field details will appear here when a field is selected';
-
-            // Initialize debug select field
-            $this->data[$debugSelectName] = null;
-
-            // Log to debug console for visibility
-            logger()->debug("📝 Initialized field properties: {$selectFieldName}, {$previewFieldName}");
+            // Don't initialize preview fields until they're requested
+            // This saves substantial memory when there are many fields
         }
+
+        // Log how many fields were initialized
+        logger()->debug("📝 Memory-optimized initialization complete for {$this->totalFields} fields");
     }
 
     /**
@@ -1115,33 +1005,215 @@ class ImportSchema extends Page implements HasForms
     }
 
     /**
-     * Set loading state when fetching field details
+     * Check the status of a schema import job
+     *
+     * @return array|null The job status or null if no job ID is set
      */
-    public function startLoadingFieldDetails()
+    public function checkSchemaImportStatus()
     {
-        $this->loadingFieldDetails = true;
+        $jobId = $this->data['schema_import_job_id'] ?? null;
+
+        if (!$jobId) {
+            return null;
+        }
+
+        $status = Cache::get("schema_import_status_{$jobId}");
+
+        // Debug cache retrieval
+        Log::debug('Schema import status check', [
+            'job_id' => $jobId,
+            'cache_key' => "schema_import_status_{$jobId}",
+            'status_found' => $status !== null,
+            'status_value' => $status['status'] ?? 'not set'
+        ]);
+
+        if (!$status) {
+            return ['status' => 'pending', 'message' => 'Job is still in queue'];
+        }
+        if (isset($status['status']) && $status['status'] === 'processing') {
+            // Return processing status with progress
+            return [
+                'status' => 'processing',
+                'message' => $status['message'] ?? 'Processing schema...',
+                'progress' => $status['progress'] ?? 0
+            ];
+        }
+
+        if (isset($status['status']) && $status['status'] === 'success') {
+            Log::debug('Processing successful schema import', [
+                'has_schema' => isset($status['schema']),
+                'schema_type' => isset($status['schema']) ? gettype($status['schema']) : 'not set',
+                'has_content' => isset($status['raw_content']) && !empty($status['raw_content']),
+                'is_chunked' => $status['chunked'] ?? false
+            ]);
+
+            // Apply the parsed schema to the component state
+            try {
+                // Get the structure information
+                $structure = Cache::get("schema_structure_{$jobId}");
+                if (!$structure) {
+                    Log::warning("Schema structure not found in cache", ['job_id' => $jobId]);
+                    return [
+                        'status' => 'error',
+                        'message' => 'Schema structure not found in cache. Please try again.'
+                    ];
+                }
+
+                // Start building a complete schema
+                $parsedSchema = $status['schema'] ?? [];
+
+                // Check if data is stored in chunks
+                if (isset($status['chunked']) && $status['chunked']) {
+                    Log::info("Loading chunked schema data", ['job_id' => $jobId]);
+
+                    // Get the reassembled schema
+                    $this->parsedSchema = $this->reassembleChunkedSchema($jobId, $parsedSchema);
+                } else {
+                    // Get elements directly if not chunked
+                    $elements = Cache::get("schema_elements_{$jobId}");
+                    if ($elements) {
+                        if ($structure['type'] === 'adze-template') {
+                            if (!isset($parsedSchema['data'])) {
+                                $parsedSchema['data'] = [];
+                            }
+                            $parsedSchema['data']['elements'] = $elements;
+                        } else {
+                            $parsedSchema['fields'] = $elements;
+                        }
+                        $this->parsedSchema = $parsedSchema;
+                    } else {
+                        Log::error("Schema elements not found in cache", ['job_id' => $jobId]);
+                        return [
+                            'status' => 'error',
+                            'message' => 'Schema elements not found in cache. Please try again.'
+                        ];
+                    }
+                }
+
+                // Store the raw content
+                $this->data['schema_content'] = $status['raw_content'] ?? '';
+
+                // Check if we have a valid schema before continuing
+                if ($this->parsedSchema === null || empty($this->parsedSchema)) {
+                    Log::warning("Invalid or empty parsed schema after reassembly", [
+                        'job_id' => $jobId,
+                        'schema_type' => gettype($this->parsedSchema)
+                    ]);
+
+                    Notification::make()
+                        ->warning()
+                        ->title('Schema Not Available')
+                        ->body('The parsed schema is not available or incomplete. The import job may have failed.')
+                        ->send();
+
+                    // Return error status
+                    return [
+                        'status' => 'error',
+                        'message' => 'The parsed schema is not available or incomplete. The import job may have failed.'
+                    ];
+                }
+
+                // Extract field mappings
+                $schemaParser = new \App\Filament\Forms\Helpers\SchemaParser();
+                $extractedData = $schemaParser->extractFieldMappings($this->parsedSchema);
+                $this->fieldMappings = $extractedData['mappings'] ?? [];
+                $this->selectOptions = $extractedData['selectOptions'] ?? [];
+
+                // Initialize field properties
+                $this->initializeFieldProperties();
+
+                // Log success of schema processing
+                Log::info("Schema successfully processed and applied to component", [
+                    'job_id' => $jobId,
+                    'field_count' => count($this->fieldMappings),
+                    'has_parsed_schema' => !empty($this->parsedSchema)
+                ]);
+
+                // Return success status
+                return [
+                    'status' => 'success',
+                    'message' => 'Schema import completed successfully',
+                    'summary' => $status['summary'] ?? []
+                ];
+            } catch (\Exception $e) {
+                Log::error("Error processing successful schema import: " . $e->getMessage(), [
+                    'exception' => $e,
+                    'job_id' => $jobId
+                ]);
+
+                return [
+                    'status' => 'error',
+                    'message' => 'Error processing schema: ' . $e->getMessage()
+                ];
+            }
+        }
+
+        if (isset($status['status']) && $status['status'] === 'error') {
+            return [
+                'status' => 'error',
+                'message' => $status['message'] ?? 'An error occurred during schema import'
+            ];
+        }
+
+        return $status;
     }
 
     /**
-     * Set loading state to false when field details are loaded
+     * Reassemble schema data that was stored in chunks
+     *
+     * @param string $jobId The job ID
+     * @param array $baseSchema The base schema structure
+     * @return array The reassembled schema
      */
-    public function stopLoadingFieldDetails(): void
+    protected function reassembleChunkedSchema(string $jobId, array $baseSchema): array
     {
-        $this->loadingFieldDetails = false;
+        try {
+            // Get structure data
+            $structure = Cache::get("schema_structure_{$jobId}");
+            if (!$structure) {
+                Log::warning("Schema structure not found in cache", ['job_id' => $jobId]);
+                return $baseSchema;
+            }
+
+            // Check if elements are chunked
+            $chunksCount = Cache::get("schema_elements_chunks_{$jobId}");
+            if ($chunksCount) {
+                // Reassemble from chunks
+                Log::debug("Reassembling schema from {$chunksCount} chunks", ['job_id' => $jobId]);
+                $elements = [];
+
+                for ($i = 0; $i < $chunksCount; $i++) {
+                    $chunk = Cache::get("schema_elements_chunk_{$jobId}_{$i}");
+                    if ($chunk) {
+                        $elements = array_merge($elements, $chunk);
+                    } else {
+                        Log::warning("Schema chunk {$i} missing", ['job_id' => $jobId]);
+                    }
+                    // Free memory after processing each chunk
+                    gc_collect_cycles();
+                }
+            } else {
+                // Get elements directly
+                $elements = Cache::get("schema_elements_{$jobId}");
+            }
+
+            // Rebuild the schema with correct structure
+            if ($structure['type'] === 'adze-template') {
+                $baseSchema['data']['elements'] = $elements;
+            } else {
+                $baseSchema['fields'] = $elements;
+            }
+
+            return $baseSchema;
+        } catch (\Exception $e) {
+            Log::error("Error reassembling chunked schema: " . $e->getMessage(), [
+                'exception' => $e,
+                'job_id' => $jobId
+            ]);
+            return $baseSchema;
+        }
     }
 
-    /**
-     * Check if field details are currently loading
-     */
-    public function isLoadingFieldDetails(): bool
-    {
-        return $this->loadingFieldDetails ?? false;
-    }
-
-    /**
-     * Generate a rich HTML overview of the imported field
-     * This replaces the older flat table approach with a more structured and visually appealing display
-     */
     public function generateImportFieldOverview(array $importField): string
     {
         // Extract essential field properties
@@ -1163,31 +1235,70 @@ class ImportSchema extends Page implements HasForms
         $helpText = $importField['help_text'] ?? $importField['helpText'] ?? '';
         $description = $importField['description'] ?? '';
 
-        // Process validations
-        $validations = [];
-        if (isset($importField['validations'])) {
-            $validations = $importField['validations'];
-        } elseif (isset($importField['validation'])) {
-            $validations = $importField['validation'];
-        }
-        $validationsText = is_array($validations)
-            ? collect($validations)->map(function ($v, $k) {
-                return is_array($v) ? "$k: " . json_encode($v) : "$k: $v";
-            })->implode(', ')
-            : $validations;
+        // Process validations - but limit size
+        $validationsText = 'None';
+        if (isset($importField['validations']) || isset($importField['validation'])) {
+            $validations = isset($importField['validations']) ? $importField['validations'] : $importField['validation'];
 
-        // Extract options for select-type fields (legacy and Adze)
+            if (is_array($validations)) {
+                // Memory optimization: limit validation text size
+                $validationItems = [];
+                $count = 0;
+                foreach ($validations as $k => $v) {
+                    if ($count < 5) { // Only show first 5 validations
+                        $valueText = is_array($v) ? json_encode($v) : $v;
+                        // Truncate long validation values
+                        if (strlen($valueText) > 50) {
+                            $valueText = substr($valueText, 0, 47) . '...';
+                        }
+                        $validationItems[] = "$k: $valueText";
+                        $count++;
+                    } else {
+                        $validationItems[] = "... " . (count($validations) - 5) . " more";
+                        break;
+                    }
+                }
+                $validationsText = implode(', ', $validationItems);
+            } else {
+                $validationsText = (string) $validations;
+                if (strlen($validationsText) > 100) {
+                    $validationsText = substr($validationsText, 0, 97) . '...';
+                }
+            }
+        }
+
+        // Extract options for select-type fields - but limit size
         $fieldOptions = '';
+        $optionsCount = 0;
+
         if (isset($importField['options'])) {
-            $fieldOptions = collect($importField['options'])->map(function ($opt) {
-                return is_array($opt)
-                    ? ($opt['label'] ?? $opt['name'] ?? $opt['value'] ?? json_encode($opt))
-                    : $opt;
-            })->implode(', ');
+            $options = $importField['options'];
+            $optionsCount = count($options);
+
+            // Memory optimization: only show a limited number of options
+            $showOptions = array_slice($options, 0, 5);
+            $optionTexts = [];
+
+            foreach ($showOptions as $opt) {
+                if (is_array($opt)) {
+                    $optionTexts[] = $opt['label'] ?? $opt['name'] ?? $opt['value'] ?? '(option)';
+                } else {
+                    $optionTexts[] = $opt;
+                }
+            }
+
+            if ($optionsCount > 5) {
+                $optionTexts[] = "... " . ($optionsCount - 5) . " more";
+            }
+
+            $fieldOptions = implode(', ', $optionTexts);
         } elseif (isset($importField['listItems']) && is_array($importField['listItems'])) {
-            // Adze format: render as bullet list
+            // Simplified list items presentation
+            $listItems = $importField['listItems'];
+            $optionsCount = count($listItems);
+
             $fieldOptions = '<ul class="list-disc pl-5">';
-            foreach ($importField['listItems'] as $item) {
+            foreach (array_slice($listItems, 0, 5) as $item) {
                 $label = $item['text'] ?? $item['label'] ?? $item['name'] ?? '';
                 $value = $item['value'] ?? '';
                 $fieldOptions .= '<li><span class="font-medium">' . htmlspecialchars($label) . '</span>';
@@ -1196,10 +1307,15 @@ class ImportSchema extends Page implements HasForms
                 }
                 $fieldOptions .= '</li>';
             }
+
+            if ($optionsCount > 5) {
+                $fieldOptions .= '<li><span class="text-gray-500">... ' . ($optionsCount - 5) . ' more options</span></li>';
+            }
+
             $fieldOptions .= '</ul>';
         }
 
-        // Build field details array with emojis for better visual scanning
+        // Build simplified field details array
         $fieldDetails = [
             '🔑 Basic Info' => [
                 'Name' => $name,
@@ -1208,11 +1324,11 @@ class ImportSchema extends Page implements HasForms
                 'Repeating' => $repeating ? 'Yes' : 'No',
             ],
             '📝 Content' => [
-                'Help Text' => $helpText ?: 'None',
-                'Description' => $description ?: 'None',
+                'Help Text' => mb_strlen($helpText) > 100 ? mb_substr($helpText, 0, 97) . '...' : ($helpText ?: 'None'),
+                'Description' => mb_strlen($description) > 100 ? mb_substr($description, 0, 97) . '...' : ($description ?: 'None'),
             ],
             '✓ Validation' => [
-                'Rules' => $validationsText ?: 'None',
+                'Rules' => $validationsText,
             ],
         ];
 
@@ -1220,12 +1336,13 @@ class ImportSchema extends Page implements HasForms
         if ($fieldOptions) {
             $fieldDetails['🔽 Options'] = [
                 'Options' => $fieldOptions,
-                'Count' => isset($importField['options']) ? count($importField['options']) : (isset($importField['listItems']) ? count($importField['listItems']) : 0),
+                'Count' => $optionsCount,
             ];
         }
 
-        // Add additional properties section for anything else
+        // Add a limited number of additional properties
         $additional = [];
+        $additionalCount = 0;
         foreach ($importField as $key => $value) {
             // Skip keys we've already processed
             if (!in_array($key, [
@@ -1243,12 +1360,28 @@ class ImportSchema extends Page implements HasForms
                 'description',
                 'validations',
                 'validation',
-                'options'
+                'options',
+                'listItems'
             ])) {
-                if (is_array($value)) {
-                    $additional[$key] = json_encode($value);
-                } elseif (!empty($value) || $value === '0' || $value === 0) {
-                    $additional[$key] = $value;
+                // Only show a limited number of additional properties
+                if ($additionalCount < 5) {
+                    if (is_array($value)) {
+                        $jsonValue = json_encode($value);
+                        // Truncate long JSON strings
+                        if (strlen($jsonValue) > 50) {
+                            $additional[$key] = substr($jsonValue, 0, 47) . '...';
+                        } else {
+                            $additional[$key] = $jsonValue;
+                        }
+                    } elseif (!empty($value) || $value === '0' || $value === 0) {
+                        $strValue = (string) $value;
+                        if (strlen($strValue) > 50) {
+                            $additional[$key] = substr($strValue, 0, 47) . '...';
+                        } else {
+                            $additional[$key] = $strValue;
+                        }
+                    }
+                    $additionalCount++;
                 }
             }
         }
@@ -1257,28 +1390,29 @@ class ImportSchema extends Page implements HasForms
             $fieldDetails['⚙️ Additional Properties'] = $additional;
         }
 
-        // Generate HTML with collapsible sections for better organization
+        // Generate simplified HTML with fewer DOM elements
         $html = '<div class="space-y-4 p-2 overflow-auto max-h-64">';
 
         foreach ($fieldDetails as $section => $items) {
             $html .= '<div class="border rounded-md bg-gray-50">';
-            $html .= '<div class="font-medium text-lg p-2 bg-gray-100 border-b">' . $section . '</div>';
-            $html .= '<table class="min-w-full">';
+            $html .= '<div class="font-medium p-2 bg-gray-100 border-b">' . $section . '</div>';
+            $html .= '<div class="divide-y divide-gray-200">';
 
             foreach ($items as $key => $value) {
-                $html .= '<tr class="border-t border-gray-200">';
-                $html .= '<td class="py-2 px-4 font-medium text-gray-700 w-1/3">' . htmlspecialchars($key) . '</td>';
+                $html .= '<div class="flex p-2">';
+                $html .= '<div class="w-1/3 font-medium text-gray-700">' . htmlspecialchars($key) . '</div>';
+
                 if ($key === 'Options') {
-                    $html .= '<td class="py-2 px-4 text-gray-800">' . $value . '</td>'; // allow HTML for options
+                    $html .= '<div class="w-2/3">' . $value . '</div>'; // allow HTML for options
                 } elseif (empty($value) && $value !== '0' && $value !== 0) {
-                    $html .= '<td class="py-2 px-4 text-gray-500 italic">empty</td>';
+                    $html .= '<div class="w-2/3 text-gray-500 italic">empty</div>';
                 } else {
-                    $html .= '<td class="py-2 px-4 text-gray-800">' . htmlspecialchars($value) . '</td>';
+                    $html .= '<div class="w-2/3">' . htmlspecialchars($value) . '</div>';
                 }
-                $html .= '</tr>';
+                $html .= '</div>';
             }
 
-            $html .= '</table>';
+            $html .= '</div>';
             $html .= '</div>';
         }
 
@@ -1330,7 +1464,7 @@ class ImportSchema extends Page implements HasForms
 
     public function generateExistingFieldOverview($field): string
     {
-        // Basic info
+        // Basic info - more minimal format
         $fieldDetails = [
             '🔑 Basic Info' => [
                 'Field ID' => $field->id,
@@ -1338,40 +1472,44 @@ class ImportSchema extends Page implements HasForms
                 'Type' => $field->dataType->name ?? 'unknown',
                 'Label' => $field->label,
                 'Created' => $field->created_at ? $field->created_at->format('Y-m-d') : '',
-                'Updated' => $field->updated_at ? $field->updated_at->format('Y-m-d') : '',
             ],
             '📝 Content & Display' => [
-                'Help Text' => $field->help_text ?: 'None',
-                'Description' => $field->description ?: 'None',
+                'Help Text' => mb_strlen($field->help_text ?? '') > 100 ? mb_substr($field->help_text, 0, 97) . '...' : ($field->help_text ?: 'None'),
+                'Description' => mb_strlen($field->description ?? '') > 100 ? mb_substr($field->description, 0, 97) . '...' : ($field->description ?: 'None'),
                 'Data Binding' => $field->data_binding ?: 'None',
-                'Mask' => $field->mask ?: 'None',
-            ],
-            '✓ Validation' => [
-                'Rules' => ($field->validations && $field->validations->count() > 0)
-                    ? $field->validations->map(fn($v) => "$v->type: $v->value")->join(', ')
-                    : 'None',
-            ],
-            '🗂️ Organization' => [
-                'Field Groups' => ($field->fieldGroups && $field->fieldGroups->count() > 0)
-                    ? $field->fieldGroups->pluck('name')->join(', ')
-                    : 'Not assigned to any groups',
-            ],
-            '🎨 Styling' => [
-                'Web Styles' => ($field->webStyles && $field->webStyles->count() > 0)
-                    ? $field->webStyles->pluck('name')->join(', ')
-                    : 'No web styles applied',
-                'PDF Styles' => ($field->pdfStyles && $field->pdfStyles->count() > 0)
-                    ? $field->pdfStyles->pluck('name')->join(', ')
-                    : 'No PDF styles applied',
             ],
         ];
 
-        // Options for select/radio/checkbox
+        // Validation with limits
+        if ($field->validations && $field->validations->count() > 0) {
+            $validations = $field->validations->take(5)->map(fn($v) => "$v->type: $v->value")->join(', ');
+            if ($field->validations->count() > 5) {
+                $validations .= ', ... ' . ($field->validations->count() - 5) . ' more';
+            }
+            $fieldDetails['✓ Validation'] = ['Rules' => $validations];
+        } else {
+            $fieldDetails['✓ Validation'] = ['Rules' => 'None'];
+        }
+
+        // Organization info with limits
+        if ($field->fieldGroups && $field->fieldGroups->count() > 0) {
+            $groups = $field->fieldGroups->take(3)->pluck('name')->join(', ');
+            if ($field->fieldGroups->count() > 3) {
+                $groups .= ', ... ' . ($field->fieldGroups->count() - 3) . ' more';
+            }
+            $fieldDetails['🗂️ Organization'] = ['Field Groups' => $groups];
+        } else {
+            $fieldDetails['🗂️ Organization'] = ['Field Groups' => 'Not assigned to any groups'];
+        }
+
+        // Options for select/radio/checkbox - with limits
         if (in_array($field->dataType->name ?? '', ['select', 'multiselect', 'radio', 'checkbox'])) {
-            $optionsHtml = '';
-            if ($field->selectOptionInstances && $field->selectOptionInstances->count() > 0) {
+            $optionsCount = $field->selectOptionInstances ? $field->selectOptionInstances->count() : 0;
+
+            if ($optionsCount > 0) {
                 $optionsHtml = '<ul class="list-disc pl-5">';
-                foreach ($field->selectOptionInstances as $opt) {
+                // Only show first 5 options
+                foreach ($field->selectOptionInstances->take(5) as $opt) {
                     $label = $opt->label ?? $opt->value ?? '';
                     $value = $opt->value ?? '';
                     $optionsHtml .= '<li><span class="font-medium">' . htmlspecialchars($label) . '</span>';
@@ -1380,29 +1518,26 @@ class ImportSchema extends Page implements HasForms
                     }
                     $optionsHtml .= '</li>';
                 }
+
+                // Show count of remaining options
+                if ($optionsCount > 5) {
+                    $optionsHtml .= '<li><span class="text-gray-500">... ' . ($optionsCount - 5) . ' more options</span></li>';
+                }
+
                 $optionsHtml .= '</ul>';
+
+                $fieldDetails['� Options'] = [
+                    'Count' => $optionsCount,
+                    'Options' => $optionsHtml,
+                ];
             } else {
-                $optionsHtml = 'No options defined';
+                $fieldDetails['🔽 Options'] = [
+                    'Options' => 'No options defined',
+                ];
             }
-            $fieldDetails['🔽 Options'] = [
-                'Options' => $optionsHtml,
-                'Count' => $field->selectOptionInstances ? $field->selectOptionInstances->count() : 0,
-            ];
         }
 
-        // Date format
-        if (in_array($field->dataType->name ?? '', ['date', 'datetime'])) {
-            $fieldDetails['📅 Date Settings'] = [
-                'Date Format' => $field->formFieldDateFormat ? ($field->formFieldDateFormat->format ?? 'Default') : 'Default system format',
-            ];
-        }
-
-        // Default value
-        $fieldDetails['⚙️ Default Settings'] = [
-            'Default Value' => $field->formFieldValue ? ($field->formFieldValue->value ?? 'None') : 'None',
-        ];
-
-        // Usage
+        // Usage statistics
         $formsCount = $field->formVersions ? $field->formVersions->count() : 0;
         $usage = [
             'Used In' => $formsCount . ' form version(s)',
@@ -1421,25 +1556,28 @@ class ImportSchema extends Page implements HasForms
             'Action' => 'Will use this existing field for mapping',
         ];
 
-        // Render as HTML (same as generateImportFieldOverview)
+        // Render as HTML with fewer DOM elements (div-based layout instead of tables)
         $html = '<div class="space-y-4 p-2 overflow-auto max-h-64">';
         foreach ($fieldDetails as $section => $items) {
             $html .= '<div class="border rounded-md bg-gray-50">';
-            $html .= '<div class="font-medium text-lg p-2 bg-gray-100 border-b">' . $section . '</div>';
-            $html .= '<table class="min-w-full">';
+            $html .= '<div class="font-medium p-2 bg-gray-100 border-b">' . $section . '</div>';
+            $html .= '<div class="divide-y divide-gray-200">';
+
             foreach ($items as $key => $value) {
-                $html .= '<tr class="border-t border-gray-200">';
-                $html .= '<td class="py-2 px-4 font-medium text-gray-700 w-1/3">' . htmlspecialchars($key) . '</td>';
+                $html .= '<div class="flex p-2">';
+                $html .= '<div class="w-1/3 font-medium text-gray-700">' . htmlspecialchars($key) . '</div>';
+
                 if ($key === 'Options') {
-                    $html .= '<td class="py-2 px-4 text-gray-800">' . $value . '</td>'; // allow HTML for options
+                    $html .= '<div class="w-2/3">' . $value . '</div>'; // allow HTML for options
                 } elseif (empty($value) && $value !== '0' && $value !== 0) {
-                    $html .= '<td class="py-2 px-4 text-gray-500 italic">empty</td>';
+                    $html .= '<div class="w-2/3 text-gray-500 italic">empty</div>';
                 } else {
-                    $html .= '<td class="py-2 px-4 text-gray-800">' . htmlspecialchars($value) . '</td>';
+                    $html .= '<div class="w-2/3">' . htmlspecialchars($value) . '</div>';
                 }
-                $html .= '</tr>';
+                $html .= '</div>';
             }
-            $html .= '</table>';
+
+            $html .= '</div>';
             $html .= '</div>';
         }
         $html .= '</div>';
@@ -1448,65 +1586,167 @@ class ImportSchema extends Page implements HasForms
 
     /**
      * Generate a simplified JSON preview of the imported form
+
+
+    /**
+     * Poll schema import status - can be called from frontend to check status
+     *
+     * @return array Status information
      */
-    public function getImportPreviewJson(): string
+    public function pollSchemaImportStatus(): array
     {
-        // If no schema, show message
-        if (!$this->parsedSchema) {
-            return json_encode(['error' => 'No schema loaded'], JSON_PRETTY_PRINT);
+        $jobId = $this->data['schema_import_job_id'] ?? null;
+
+        if (!$jobId) {
+            $this->jobStatus = ['status' => 'idle', 'message' => ''];
+            return $this->jobStatus;
         }
 
-        // Gather basic form info
-        $formId = $this->data['form_id'] ?? $this->parsedSchema['form_id'] ?? null;
-        $formTitle = $this->data['form_title'] ?? $this->parsedSchema['title'] ?? null;
-        $ministryId = $this->data['ministry_id'] ?? null;
+        $status = $this->checkSchemaImportStatus();
 
-        // Gather mapped fields
-        $fields = [];
-        $importFields = [];
-        if (isset($this->parsedSchema['data']) && isset($this->parsedSchema['data']['elements'])) {
-            $importFields = $this->extractFieldsFromSchema($this->parsedSchema['data']['elements']);
-        } elseif (isset($this->parsedSchema['fields'])) {
-            $importFields = $this->extractFieldsFromSchema($this->parsedSchema['fields']);
+        if (!$status) {
+            $this->jobStatus = ['status' => 'pending', 'message' => 'Job is still in queue'];
+            return $this->jobStatus;
         }
 
-        foreach ($importFields as $index => $importField) {
-            $fieldId = $importField['token'] ?? $importField['id'] ?? md5($importField['name'] ?? "field_$index");
-            $mappingKey = "field_mapping_{$fieldId}";
-            $mapping = $this->data[$mappingKey] ?? 'new';
+        // Update the job status property for UI display
+        $this->jobStatus = $status;
 
-            // If mapped to existing, show a summary of the mapping
-            if ($mapping !== 'new') {
-                // Try to get the existing field
-                $existing = \App\Models\FormField::find($mapping);
-                $fields[] = [
-                    'import_field' => $importField['label'] ?? $importField['name'] ?? $fieldId,
-                    'mapped_to' => $existing ? [
-                        'id' => $existing->id,
-                        'name' => $existing->name,
-                        'label' => $existing->label,
-                        'type' => $existing->dataType->name ?? null,
-                    ] : $mapping,
-                    'action' => 'map_existing',
-                ];
-            } else {
-                // Show what will be created
-                $fields[] = [
-                    'import_field' => $importField['label'] ?? $importField['name'] ?? $fieldId,
-                    'type' => $importField['elementType'] ?? $importField['type'] ?? null,
-                    'action' => 'create_new',
-                ];
+        // Debugging to help diagnose issues
+        Log::debug("📊 Polling job status", [
+            'jobId' => $jobId,
+            'status' => $status['status'] ?? 'unknown',
+            'has_schema' => isset($this->parsedSchema) && $this->parsedSchema !== null
+        ]);
+
+        // If status is success, call $refresh to ensure UI updates
+        if (($status['status'] ?? '') === 'success' || ($status['status'] ?? '') === 'complete') {
+            $this->dispatch('refresh');
+
+            // Force refresh of component
+            $this->reset(['jobStatus']);
+            $this->jobStatus = $status;
+        }
+
+        return $status;
+    }
+
+    /**
+     * Start polling when a job is active
+     */
+    public function bootedComponent(): void
+    {
+        if (isset($this->data['schema_import_job_id'])) {
+            $this->pollJobStatus();
+        }
+    }
+
+    /**
+     * Livewire polling method for job status
+     * Called by Livewire's poller every 3 seconds when active
+     */
+    public function pollJobStatus(): void
+    {
+        $jobId = $this->data['schema_import_job_id'] ?? null;
+
+        if (!$jobId) {
+            $this->stopPolling();
+            return;
+        }
+
+        $status = $this->checkSchemaImportStatus();
+
+        if ($status) {
+            $this->jobStatus = $status;
+
+            // If job is complete or failed, stop polling
+            if (in_array($status['status'] ?? '', ['success', 'error', 'complete'])) {
+                $this->stopPolling();
             }
         }
+    }
 
-        // Build preview JSON
-        $preview = [
-            'form_id' => $formId,
-            'form_title' => $formTitle,
-            'ministry_id' => $ministryId,
-            'fields' => $fields,
-        ];
+    /**
+     * Stop the polling
+     */
+    private function stopPolling(): void
+    {
+        $this->dispatch('stop-polling');
+    }
 
-        return json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+
+    /**
+     * Navigate to the next page of fields
+     */
+    public function nextPage(): void
+    {
+        $maxPage = ceil($this->totalFields / $this->perPage);
+        if ($this->currentPage < $maxPage) {
+            $this->currentPage++;
+            $this->dispatch('refresh');
+        }
+    }
+
+    /**
+     * Navigate to the previous page of fields
+     */
+    public function prevPage(): void
+    {
+        if ($this->currentPage > 1) {
+            $this->currentPage--;
+            $this->dispatch('refresh');
+        }
+    }
+
+    /**
+     * Store field mapping selection without generating full preview
+     * This reduces memory usage by only storing the minimal state
+     */
+    public function setMappingSelection(string $fieldId, string $selectedValue): void
+    {
+        // Store the mapping choice in component state
+        $this->fieldMappings[$fieldId] = $selectedValue;
+
+        // Log the selection for debugging
+        logger()->debug("📍 Field mapping stored: {$fieldId} => {$selectedValue}");
+    }
+
+    /**
+     * Load field details on demand when requested
+     * This is called when a user toggles to view details
+     */
+    public function loadFieldDetails(string $fieldId, string $previewFieldName): void
+    {
+        $this->startLoadingFieldDetails();
+
+        try {
+            // Get the current mapping selection for this field
+            $selectedValue = $this->fieldMappings[$fieldId] ?? 'new';
+
+            if ($selectedValue === 'new') {
+                // Generate preview for the import field
+                $previewHtml = $this->getImportFieldDetailsForPreview($fieldId);
+            } else {
+                // Generate preview for existing field
+                $previewHtml = $this->getExistingFieldDetailsForPreview((int)$selectedValue);
+            }
+
+            // Update the form data with the preview HTML
+            $this->data[$previewFieldName] = $previewHtml;
+
+            logger()->debug("🔍 Loaded details for field {$fieldId} with mapping {$selectedValue}");
+        } catch (\Exception $e) {
+            // Handle errors
+            $errorHtml = '<div class="text-red-500 p-2">' .
+                '<p class="font-medium">Error loading field details:</p>' .
+                '<p>' . htmlspecialchars($e->getMessage()) . '</p>' .
+                '</div>';
+
+            $this->data[$previewFieldName] = $errorHtml;
+            logger()->error("❌ Error loading field details: " . $e->getMessage());
+        }
+
+        $this->stopLoadingFieldDetails();
     }
 }

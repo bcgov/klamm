@@ -202,9 +202,18 @@ class FormSchemaImporterResource extends Resource
     }
 
     /**
-     * Parse schema and return summary information
+     * Parse schema and return summary information (for UI, synchronous)
      */
     public static function parseSchema($content): ?array
+    {
+        return self::parseSchemaContent($content);
+    }
+
+    /**
+     * Parse schema and return summary information (for queue/job, or UI)
+     * This is the original parseSchema logic, moved here for use by jobs and UI.
+     */
+    public static function parseSchemaContent($content): ?array
     {
         try {
             $data = json_decode($content, true);
