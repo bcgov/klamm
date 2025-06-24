@@ -63,45 +63,6 @@ class FormVersionResource extends Resource
                             ->schema([
                                 FormVersionBuilder::schema(),
                             ]),
-                        Tab::make('Import')
-                            ->columnSpanFull()
-                            ->schema([
-                                Split::make([
-                                    Textarea::make('json')
-                                        ->label('Import JSON')
-                                        ->afterStateUpdated(fn(Set $set) => $set('jsonModified', true))
-                                        ->rows(15),
-                                    MarkdownEditor::make('messages')
-                                        ->label('Validation messages')
-                                        ->disabled(),
-                                ]),
-                                Actions::make([
-                                    Action::make('Scan JSON')
-                                        ->label('Scan JSON')
-                                        ->action(function (Set $set, $state) {
-                                            $validation = ScanTemplateHelper::validateForm($state['json']);
-                                            $set('messages', $validation['messages']);
-                                            $set('isValid', $validation['isValid']);
-                                            $set('jsonModified', false);
-                                        }),
-                                    Action::make('Import JSON')
-                                        ->label('Import JSON')
-                                        ->disabled(fn(Get $get) => !$get('isValid') || $get('jsonModified'))
-                                        ->action(function (Set $set, $state, $livewire) {
-                                            $formVersion = ImportTemplateHelper::importForm($state['json']);
-                                            if ($formVersion->id) {
-                                                $set('formVersion', $formVersion);
-                                            }
-                                        }),
-                                    Action::make('View Imported Form')
-                                        ->label('View Imported Form')
-                                        ->disabled(fn(Get $get) => !$get('formVersion')) // Only enable when formVersionId is set
-                                        ->action(
-                                            fn(Get $get, $livewire) =>
-                                            $livewire->redirect(FormVersionResource::getUrl('view', ['record' => $get('formVersion')]))
-                                        ),
-                                ]),
-                            ]),
                     ]),
             ]);
     }

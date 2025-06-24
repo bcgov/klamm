@@ -17,6 +17,8 @@ use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
 use App\Models\StyleInstance;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -37,6 +39,29 @@ class CreateFormVersion extends CreateRecord
         return $data;
     }
 
+    public ?int $formId = null;
+
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('Import')
+                ->label('Import')
+                ->url(function () {
+                    if ($this->formId) {
+                        return url("/forms/form-schema-import/import/{$this->formId}?step=import-source");
+                    }
+                    return Notification::make()
+                        ->title('No Form Selected')
+                        ->body('Please refresh page to select a form.')
+                        ->danger()
+                        ->send();
+                })
+                ->openUrlInNewTab(false),
+        ];
+    }
+
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
@@ -48,6 +73,7 @@ class CreateFormVersion extends CreateRecord
 
         $formId = request()->query('form_id');
         if ($formId) {
+            $this->formId = $formId;
             $this->form->fill([
                 'form_id' => $formId,
                 'status' => 'draft',

@@ -140,12 +140,11 @@ class FormFieldBlock
                                             ->lazy(),
                                         TextInput::make('custom_instance_id')
                                             ->label(false)
-                                            ->alphanum()
                                             ->lazy()
                                             ->distinct()
-                                            ->alphaNum()
                                             ->rule(fn() => UniqueIDsHelper::uniqueIDsRule())
-                                            ->visible(fn($get) => $get('customize_instance_id')),
+                                            ->visible(fn($get) => $get('customize_instance_id'))
+                                            ->regex('/^[A-Za-z0-9-]+$/'),
                                     ]),
                                 Fieldset::make('Label')
                                     ->columns(1)

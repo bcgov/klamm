@@ -12,6 +12,8 @@ use App\Helpers\DraftCacheHelper;
 
 class FormTemplateHelper
 {
+    protected static $preloadedDataTypes = null;
+
     public static function clearFormTemplateCache(int $formVersionId): void
     {
         $formVersion = FormVersion::find($formVersionId);
@@ -540,6 +542,22 @@ class FormTemplateHelper
     protected static function formatField($fieldInstance, $index)
     {
         $field = $fieldInstance->formField;
+        if (!$field) {
+            return [
+                "type" => "text-input",
+                "id" => $fieldInstance->custom_instance_id ?? $fieldInstance->instance_id,
+                "label" => null,
+                "codeContext" => [
+                    "name" => null,
+                ],
+            ];
+        }
+        // Ensure dataType is loaded
+        if (!$field->relationLoaded('dataType')) {
+            $field->loadMissing('dataType');
+        }
+        // Ensure we have all data types loaded
+        self::ensureDataTypesLoaded();
 
         $webStyle = [];
         foreach ($fieldInstance->styleInstances as $styleInstance) {
@@ -879,6 +897,13 @@ class FormTemplateHelper
         return array_merge($base, [
             "containerItems" => $containerItems,
         ]);
+    }
+
+    protected static function ensureDataTypesLoaded(): void
+    {
+        if (self::$preloadedDataTypes === null) {
+            self::$preloadedDataTypes = \App\Models\DataType::all()->keyBy('id');
+        }
     }
 
     public static function calculateElementID(): string
