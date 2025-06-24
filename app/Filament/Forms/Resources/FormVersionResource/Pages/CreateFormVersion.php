@@ -6,7 +6,6 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\UniqueIDsHelper;
 use App\Models\Container;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Session;
 use App\Models\FormInstanceField;
@@ -16,7 +15,8 @@ use App\Models\FormInstanceFieldDateFormat;
 use App\Models\FormInstanceFieldValidation;
 use App\Models\FormInstanceFieldValue;
 use App\Models\SelectOptionInstance;
-use App\Models\StyleInstance;
+use App\Models\StyleSheet;
+use Illuminate\Support\Facades\Auth;
 
 class CreateFormVersion extends CreateRecord
 {
@@ -72,6 +72,7 @@ class CreateFormVersion extends CreateRecord
             $formVersion->containers()->delete();
         }
 
+        // Build
         foreach ($components as $order => $block) {
             if ($block['type'] === 'form_field') {
                 $this->createField($formVersion, $order, $block['data'], fieldGroupInstanceID: null, containerID: null);
@@ -81,28 +82,15 @@ class CreateFormVersion extends CreateRecord
                 $this->createContainer($formVersion, $order, $block['data']);
             }
         }
+
+        // Style
+        $css_content_web = $this->form->getState()['css_content_web'] ?? '';
+        $css_content_pdf = $this->form->getState()['css_content_pdf'] ?? '';
+        StyleSheet::createStyleSheet($formVersion, $css_content_web, 'web');
+        StyleSheet::createStyleSheet($formVersion, $css_content_pdf, 'pdf');
     }
 
     // Helper functions
-    private function createStyles($component, $id, $instanceType)
-    {
-        foreach ($component['webStyles'] ?? [] as $styleId) {
-            StyleInstance::create([
-                'style_id' => $styleId,
-                'type' => 'web',
-                $instanceType => $id,
-            ]);
-        }
-
-        foreach ($component['pdfStyles'] ?? [] as $styleId) {
-            StyleInstance::create([
-                'style_id' => $styleId,
-                'type' => 'pdf',
-                $instanceType => $id,
-            ]);
-        }
-    }
-
     private function createFieldValidations($component, $formInstanceField)
     {
         foreach ($component['validations'] ?? [] as $validationData) {
@@ -182,7 +170,6 @@ class CreateFormVersion extends CreateRecord
             'custom_instance_id' => $component['custom_instance_id'] ?? null,
         ]);
 
-        $this->createStyles($component, $formInstanceField->id, 'form_instance_field_id');
         $this->createFieldValidations($component, $formInstanceField);
         $this->createFieldConditionals($component, $formInstanceField);
         $this->createFieldValue($component, $formInstanceField);
@@ -209,8 +196,6 @@ class CreateFormVersion extends CreateRecord
             'custom_instance_id' => $component['custom_instance_id'] ?? null,
         ]);
 
-        $this->createStyles($component, $fieldGroupInstance->id, 'field_group_instance_id');
-
         $formFields = $component['form_fields'] ?? [];
         foreach ($formFields as $fieldOrder => $field) {
             $this->createField($formVersion, $order, $field['data'], $fieldGroupInstance->id, containerID: null);
@@ -227,8 +212,6 @@ class CreateFormVersion extends CreateRecord
             'custom_instance_id' => $component['customize_instance_id'] ? $component['custom_instance_id'] : null,
             'visibility' => $component['visibility'] ? $component['visibility'] : null,
         ]);
-
-        $this->createStyles($component, $container->id, 'container_id');
 
         $blocks = $component['components'] ?? [];
         foreach ($blocks as $order => $block) {
