@@ -93,8 +93,7 @@ class FormSchemaImporter
                                 // Dynamic content will be generated based on the fields found
                             ])
                     ])
-                    ->beforeFormFilled(function (Get $get, Set $set) {
-                    }),
+                    ->beforeFormFilled(function (Get $get, Set $set) {}),
 
                 Step::make('Import Preview')
                     ->description('Preview the form structure before importing')
@@ -148,6 +147,12 @@ class FormSchemaImporter
             // Set field mappings if provided
             if (isset($data['field_mappings'])) {
                 $this->fieldMappings = $data['field_mappings'];
+                Log::info("📋 Field mappings received for import", [
+                    'mapping_count' => count($this->fieldMappings),
+                    'mappings' => $this->fieldMappings
+                ]);
+            } else {
+                Log::warning("⚠️ No field mappings provided to import process");
             }
 
             // Create or get the form
@@ -196,26 +201,41 @@ class FormSchemaImporter
 
             // Check if this is a container
             if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements') {
-                // Create container
-                $container = $this->createContainer([
-                    'id' => $element['token'] ?? null,
-                    'name' => $element['name'] ?? '',
-                    'label' => $element['label'] ?? '',
-                    'webStyles' => $element['webStyles'] ?? [],
-                    'pdfStyles' => $element['pdfStyles'] ?? [],
-                    'conditions' => $element['conditions'] ?? null,
-                    'visibility' => isset($element['isVisible']) ? ($element['isVisible'] ? 'visible' : 'hidden') : 'visible',
-                ], $currentOrder);
-
-                // Process child elements if they exist
+                // Check if container has any non-skipped children before creating it
+                $hasNonSkippedChildren = false;
                 if (isset($element['elements']) && is_array($element['elements'])) {
+                    $hasNonSkippedChildren = $this->hasNonSkippedChildren($element['elements']);
+                }
+
+                // Only create container if it has non-skipped children
+                if ($hasNonSkippedChildren) {
+                    $container = $this->createContainer([
+                        'id' => $element['token'] ?? null,
+                        'name' => $element['name'] ?? '',
+                        'label' => $element['label'] ?? '',
+                        'webStyles' => $element['webStyles'] ?? [],
+                        'pdfStyles' => $element['pdfStyles'] ?? [],
+                        'conditions' => $element['conditions'] ?? null,
+                        'visibility' => isset($element['isVisible']) ? ($element['isVisible'] ? 'visible' : 'hidden') : 'visible',
+                    ], $currentOrder);
+
+                    // Process child elements
                     $this->processElements($element['elements'], $container->id, null, 0);
+                } else {
+                    Log::info("Skipping empty container '{$element['name']}' - all children are skipped");
                 }
             }
             // Otherwise it's a field
             else {
                 $fieldId = $element['token'] ?? md5(json_encode($element));
-                $mapping = $this->fieldMappings[$fieldId] ?? 'new';
+                $mappingKey = "field_mapping_{$fieldId}";
+                $mapping = $this->fieldMappings[$mappingKey] ?? 'new';
+
+                // Skip field if user chose to skip it
+                if ($mapping === 'skip') {
+                    Log::info("Skipping field '{$element['name']}' (ID: {$fieldId}) as requested by user");
+                    continue;
+                }
 
                 // Determine field type using improved mapping
                 $fieldType = $this->mapType(
@@ -321,24 +341,59 @@ class FormSchemaImporter
         foreach ($fields as $index => $field) {
             $order = $index;
 
+            // Generate field ID and check mapping
+            $fieldId = $field['id'] ?? md5($field['name'] ?? "field_$index");
+            $mappingKey = "field_mapping_{$fieldId}";
+            $mapping = $this->fieldMappings[$mappingKey] ?? 'new';
+
+            // Skip field if user chose to skip it
+            if ($mapping === 'skip') {
+                Log::info("Skipping field '{$field['name']}' (ID: {$fieldId}) as requested by user");
+                continue;
+            }
+
             switch ($field['type']) {
                 case 'container':
-                    $container = $this->createContainer($field, $order);
+                    // Check if container has any non-skipped children before creating it
+                    $hasNonSkippedChildren = false;
+                    if (isset($field['children']) && is_array($field['children'])) {
+                        $hasNonSkippedChildren = $this->hasNonSkippedChildrenLegacy($field['children']);
+                    }
 
-                    if (isset($field['children'])) {
+                    // Only create container if it has non-skipped children
+                    if ($hasNonSkippedChildren) {
+                        $container = $this->createContainer($field, $order);
                         $this->processFields($field['children'], $container, null, 0);
+                    } else {
+                        Log::info("Skipping empty container '{$field['name']}' - all children are skipped");
                     }
                     break;
 
                 case 'dropdown':
                 case 'radio':
                 case 'checkbox':
-                    $formField = $this->findOrCreateField($field);
+                    // Find or create field according to mapping
+                    if ($mapping !== 'new' && is_numeric($mapping)) {
+                        $formField = FormField::find($mapping);
+                        if (!$formField) {
+                            throw new \Exception("Mapped field ID {$mapping} not found");
+                        }
+                    } else {
+                        $formField = $this->findOrCreateField($field);
+                    }
                     $this->createFormInstanceField($field, $formField, $order, $parentContainer, $parentGroup);
                     break;
 
                 default:
-                    $formField = $this->findOrCreateField($field);
+                    // Find or create field according to mapping
+                    if ($mapping !== 'new' && is_numeric($mapping)) {
+                        $formField = FormField::find($mapping);
+                        if (!$formField) {
+                            throw new \Exception("Mapped field ID {$mapping} not found");
+                        }
+                    } else {
+                        $formField = $this->findOrCreateField($field);
+                    }
                     $this->createFormInstanceField($field, $formField, $order, $parentContainer, $parentGroup);
                     break;
             }
@@ -663,5 +718,55 @@ class FormSchemaImporter
         ];
 
         return $mapping[$type] ?? 'text-input';
+    }
+
+    /**
+     * Check if a container has any non-skipped children
+     */
+    protected function hasNonSkippedChildren(array $elements): bool
+    {
+        foreach ($elements as $element) {
+            // If it's a container, check recursively
+            if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements') {
+                if (isset($element['elements']) && $this->hasNonSkippedChildren($element['elements'])) {
+                    return true;
+                }
+            } else {
+                // It's a field - check if it's skipped
+                $fieldId = $element['token'] ?? md5(json_encode($element));
+                $mappingKey = "field_mapping_{$fieldId}";
+                $mapping = $this->fieldMappings[$mappingKey] ?? 'new';
+
+                if ($mapping !== 'skip') {
+                    return true; // Found at least one non-skipped field
+                }
+            }
+        }
+        return false; // All children are skipped or no children
+    }
+
+    /**
+     * Check if a legacy container has any non-skipped children
+     */
+    protected function hasNonSkippedChildrenLegacy(array $fields): bool
+    {
+        foreach ($fields as $index => $field) {
+            if ($field['type'] === 'container') {
+                // If it's a container, check recursively
+                if (isset($field['children']) && $this->hasNonSkippedChildrenLegacy($field['children'])) {
+                    return true;
+                }
+            } else {
+                // It's a field - check if it's skipped
+                $fieldId = $field['id'] ?? md5($field['name'] ?? "field_$index");
+                $mappingKey = "field_mapping_{$fieldId}";
+                $mapping = $this->fieldMappings[$mappingKey] ?? 'new';
+
+                if ($mapping !== 'skip') {
+                    return true; // Found at least one non-skipped field
+                }
+            }
+        }
+        return false; // All children are skipped or no children
     }
 }

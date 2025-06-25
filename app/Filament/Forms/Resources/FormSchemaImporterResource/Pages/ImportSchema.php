@@ -226,14 +226,24 @@ class ImportSchema extends Page implements HasForms
                             ->schema([
                                 \Filament\Forms\Components\Placeholder::make('preview')
                                     ->label('Import Preview')
+                                    ->reactive()
+                                    ->live()
                                     ->content(function () {
                                         if ($this->parsedSchema === null) {
                                             return 'No schema has been parsed yet. Please upload and parse a schema first.';
                                         }
 
                                         try {
-                                            // Ensure we have valid data for the preview
-                                            $previewData = $this->data ?? [];
+                                            // Get form data including field mappings
+                                            $formData = $this->data ?? [];
+
+                                            // Extract field mapping data from form
+                                            $fieldMappings = [];
+                                            foreach ($formData as $key => $value) {
+                                                if (str_starts_with($key, 'field_mapping_')) {
+                                                    $fieldMappings[$key] = $value;
+                                                }
+                                            }
 
                                             // Safety check before generating the preview
                                             if (!is_array($this->parsedSchema)) {
@@ -241,9 +251,15 @@ class ImportSchema extends Page implements HasForms
                                                 return 'Invalid schema format. Please try uploading the file again.';
                                             }
 
+                                            // Use new method that considers field mappings
+                                            $schemaFormatter = new SchemaFormatter();
+                                            $previewJson = empty($fieldMappings)
+                                                ? $schemaFormatter->getImportPreviewJson($this->parsedSchema, $formData)
+                                                : $schemaFormatter->getImportPreviewWithMappings($this->parsedSchema, $fieldMappings, $formData);
+
                                             return new HtmlString(
                                                 '<pre style="background:#f9fafb;border-radius:6px;padding:1em;overflow:auto;font-size:0.95em;">' .
-                                                    htmlspecialchars((new SchemaFormatter())->getImportPreviewJson($this->parsedSchema, $previewData)) .
+                                                    htmlspecialchars($previewJson) .
                                                     '</pre>'
                                             );
                                         } catch (\Exception $e) {
@@ -586,6 +602,20 @@ class ImportSchema extends Page implements HasForms
             // Create new FormSchemaImporter instance
             $importer = new FormSchemaImporter($this->data['schema_content']);
 
+            // Extract current field mappings from form data
+            $currentFieldMappings = [];
+            foreach ($this->data as $key => $value) {
+                if (str_starts_with($key, 'field_mapping_')) {
+                    $currentFieldMappings[$key] = $value;
+                }
+            }
+
+            Log::info("🔄 Starting import with field mappings", [
+                'total_form_data_keys' => count($this->data),
+                'field_mapping_keys_found' => count($currentFieldMappings),
+                'mappings' => $currentFieldMappings
+            ]);
+
             // Process the import
             $result = $importer->processImport([
                 'form_id' => $this->data['form_id'],
@@ -593,7 +623,7 @@ class ImportSchema extends Page implements HasForms
                 'ministry_id' => $this->data['ministry_id'],
                 'create_new_form' => (bool)$this->data['create_new_form'],
                 'create_new_version' => (bool)$this->data['create_new_version'],
-                'field_mappings' => $this->fieldMappings,
+                'field_mappings' => $currentFieldMappings,
             ]);
 
             if ($result['success']) {

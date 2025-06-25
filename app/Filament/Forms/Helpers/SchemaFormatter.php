@@ -685,6 +685,120 @@ class SchemaFormatter
     }
 
     /**
+     * Generate a JSON preview based on field mapping choices
+     * Shows only fields that will actually be created, excluding skipped and mapped fields
+     *
+     * @param array $schema The parsed schema array
+     * @param array $fieldMappings The user's field mapping choices
+     * @param array $data Additional data for rendering
+     * @return string JSON representation of fields that will be created
+     */
+    public function getImportPreviewWithMappings(array $schema, array $fieldMappings = [], array $data = []): string
+    {
+        // Extract fields from the schema
+        $schemaParser = new SchemaParser();
+        $fields = [];
+
+        // Handle new format with data.elements
+        if (isset($schema['data']) && isset($schema['data']['elements'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($schema['data']['elements']);
+            $format = 'adze-template';
+        }
+        // Handle older format with fields directly
+        elseif (isset($schema['fields'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($schema['fields']);
+            $format = 'legacy';
+        }
+
+        if (empty($fields)) {
+            return json_encode(['notice' => 'No fields found in schema'], JSON_PRETTY_PRINT);
+        }
+
+        // Filter fields based on mapping choices
+        $fieldsToCreate = [];
+        $fieldsMapped = [];
+        $fieldsSkipped = [];
+
+        foreach ($fields as $index => $field) {
+            $fieldId = $field['token'] ?? $field['id'] ?? md5($field['name'] ?? "field_$index");
+            $mappingKey = "field_mapping_{$fieldId}";
+            $mapping = $fieldMappings[$mappingKey] ?? 'new'; // Default to 'new' if not set
+
+            if ($mapping === 'skip') {
+                $fieldsSkipped[] = [
+                    'name' => $field['name'] ?? '',
+                    'label' => $field['label'] ?? '',
+                    'reason' => 'User chose to skip this field'
+                ];
+            } elseif ($mapping === 'new' || empty($mapping)) {
+                // Will create new field - include in preview
+                $fieldsToCreate[] = array_intersect_key($field, array_flip([
+                    'name',
+                    'type',
+                    'label',
+                    'id',
+                    'token',
+                    'uuid',
+                    'repeating',
+                    'repeats',
+                    'is_repeating',
+                    'data_type',
+                    'dataType',
+                    'elementType',
+                    'dataFormat',
+                    'description',
+                    'help_text',
+                    'helpText',
+                ]));
+            } else {
+                // Will map to existing field
+                $fieldsMapped[] = [
+                    'name' => $field['name'] ?? '',
+                    'label' => $field['label'] ?? '',
+                    'mapped_to_field_id' => $mapping,
+                    'action' => 'Map to existing field'
+                ];
+            }
+        }
+
+        // Build comprehensive preview
+        $preview = [
+            'title' => $schema['title'] ?? 'Imported Form',
+            'format' => $format,
+            'import_summary' => [
+                'total_fields_in_schema' => count($fields),
+                'new_fields_to_create' => count($fieldsToCreate),
+                'fields_mapped_to_existing' => count($fieldsMapped),
+                'fields_skipped' => count($fieldsSkipped)
+            ]
+        ];
+
+        // Add helpful message
+        if (count($fieldsToCreate) === 0 && count($fieldsMapped) > 0) {
+            $preview['message'] = 'No new fields will be created. All fields are either mapped to existing fields or skipped.';
+        } elseif (count($fieldsToCreate) > 0) {
+            $preview['message'] = count($fieldsToCreate) . ' new field(s) will be created in the system.';
+        }
+
+        // Only include fields that will actually be created
+        if (!empty($fieldsToCreate)) {
+            $preview['new_fields'] = array_values($fieldsToCreate);
+        }
+
+        // Include mapping information if any
+        if (!empty($fieldsMapped)) {
+            $preview['mapped_fields'] = $fieldsMapped;
+        }
+
+        // Include skipped information if any
+        if (!empty($fieldsSkipped)) {
+            $preview['skipped_fields'] = $fieldsSkipped;
+        }
+
+        return json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
      * Parse boolean values consistently across different input formats
      *
      * @param mixed $value The value to parse as boolean
