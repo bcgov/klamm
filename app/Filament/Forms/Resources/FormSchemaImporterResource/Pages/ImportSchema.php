@@ -50,6 +50,7 @@ class ImportSchema extends Page implements HasForms
     public int $perPage = 10;
     public int $totalFields = 0;
     public array $paginatedFields = [];
+    public int $schemaVersion = 1; // Cache buster for form schema
 
     public function mount(?FormModel $record = null): void
     {
@@ -80,6 +81,10 @@ class ImportSchema extends Page implements HasForms
         $this->currentPage = 1;
         $this->perPage = 10; // Adjust this number as needed for UI performance
         $this->totalFields = 0;
+        $this->schemaVersion = 1;
+
+        // Initialize pagination control in form data
+        $this->data['pagination_per_page'] = $this->perPage;
 
         // Cache field mapping options once for all fields - using lightweight labels
         $this->fieldMappingOptions = \App\Filament\Forms\Helpers\SchemaFormatter::getAllMappingOptions(true);
@@ -209,6 +214,7 @@ class ImportSchema extends Page implements HasForms
                         \Filament\Forms\Components\Section::make('Field Mapping')
                             ->description('Map fields from the imported schema to existing fields in the system')
                             ->schema($this->getFieldMappingSchema())
+                            ->extraAttributes(['wire:key' => 'field-mapping-section-' . $this->schemaVersion])
                             ->columnSpanFull(),
                     ])
                     ->visible(function (Get $get) {
@@ -424,7 +430,7 @@ class ImportSchema extends Page implements HasForms
                             }
                             return "Showing {$paginationStart}-{$paginationEnd} of {$this->totalFields} fields";
                         })
-                        ->extraAttributes(['wire:key' => 'pagination-info-' . $this->currentPage]),
+                        ->extraAttributes(['wire:key' => 'pagination-info-' . $this->currentPage . '-' . $this->perPage . '-' . $this->schemaVersion]),
 
                     \Filament\Forms\Components\Actions::make([
                         \Filament\Forms\Components\Actions\Action::make('prev_page')
@@ -439,7 +445,8 @@ class ImportSchema extends Page implements HasForms
                                 return "Page {$this->currentPage} of {$totalPages}";
                             })
                             ->color('gray')
-                            ->disabled(),
+                            ->disabled()
+                            ->extraAttributes(['wire:key' => 'current-page-top-' . $this->currentPage . '-' . $this->perPage . '-' . $this->schemaVersion]),
 
                         \Filament\Forms\Components\Actions\Action::make('next_page')
                             ->label('Next')
@@ -452,7 +459,7 @@ class ImportSchema extends Page implements HasForms
                             ->action('nextPage'),
                     ]),
 
-                    \Filament\Forms\Components\Select::make('per_page')
+                    \Filament\Forms\Components\Select::make('pagination_per_page')
                         ->label('Fields per page')
                         ->options([
                             5 => '5 fields',
@@ -466,7 +473,9 @@ class ImportSchema extends Page implements HasForms
                             $this->changePerPage((int) $state);
                         })
                         ->live()
+                        ->reactive()
                         ->selectablePlaceholder(false)
+                        ->extraAttributes(['wire:key' => 'per-page-select-' . $this->schemaVersion])
                         ->columnSpan(1),
                 ])
         ];
@@ -508,7 +517,8 @@ class ImportSchema extends Page implements HasForms
                                 return "Page {$this->currentPage} of {$totalPages}";
                             })
                             ->color('gray')
-                            ->disabled(),
+                            ->disabled()
+                            ->extraAttributes(['wire:key' => 'current-page-bottom-' . $this->currentPage . '-' . $this->perPage . '-' . $this->schemaVersion]),
 
                         \Filament\Forms\Components\Actions\Action::make('next_page_bottom')
                             ->label('Next')
@@ -1399,6 +1409,7 @@ class ImportSchema extends Page implements HasForms
         $maxPage = max(1, (int) ceil($this->totalFields / $this->perPage));
         if ($this->currentPage < $maxPage) {
             $this->currentPage++;
+            $this->schemaVersion++; // Force refresh when page changes
         }
     }
 
@@ -1406,13 +1417,30 @@ class ImportSchema extends Page implements HasForms
     {
         if ($this->currentPage > 1) {
             $this->currentPage--;
+            $this->schemaVersion++; // Force refresh when page changes
         }
     }
 
     public function changePerPage(int $perPage): void
     {
+        $oldPerPage = $this->perPage;
         $this->perPage = max(1, $perPage); // Ensure perPage is at least 1
         $this->currentPage = 1; // Reset to first page when changing per page
+
+        // Update the form data to keep it in sync
+        $this->data['pagination_per_page'] = $this->perPage;
+
+        // Force a re-render of the form schema to update pagination controls and field list
+        if ($oldPerPage !== $this->perPage) {
+            // Increment schema version to force cache-bust
+            $this->schemaVersion++;
+
+            // Dispatch a custom event to trigger form refresh
+            $this->dispatch('refresh-field-mapping');
+
+            // Also trigger a general component refresh
+            $this->js('$wire.$refresh()');
+        }
     }
 
     /**
@@ -1421,6 +1449,7 @@ class ImportSchema extends Page implements HasForms
     public function resetPagination(): void
     {
         $this->currentPage = 1;
+        $this->schemaVersion++; // Increment to force refresh
         // Don't reset perPage as user may have set their preference
     }
 
@@ -1439,7 +1468,6 @@ class ImportSchema extends Page implements HasForms
             $this->currentPage = $maxPage;
         }
     }
-
     /**
      * Livewire property updater for perPage
      */
@@ -1451,6 +1479,16 @@ class ImportSchema extends Page implements HasForms
         if ($this->perPage < 1) {
             $this->perPage = 10;
         }
+
+        // Update the form data to keep it in sync
+        $this->data['pagination_per_page'] = $this->perPage;
+
+        // Increment schema version to force cache-bust
+        $this->schemaVersion++;
+
+        // Force refresh to update pagination display and field list
+        $this->dispatch('refresh-field-mapping');
+        $this->js('$wire.$refresh()');
     }
 
 
