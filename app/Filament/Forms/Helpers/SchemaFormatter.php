@@ -4,8 +4,6 @@ namespace App\Filament\Forms\Helpers;
 
 use App\Models\FormField;
 use App\Filament\Forms\Helpers\SchemaParser;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
 
 class SchemaFormatter
@@ -141,23 +139,6 @@ class SchemaFormatter
                     ->content(new HtmlString($this->generateImportFieldOverview($field)))
                     ->columnSpanFull(),
 
-                // Label and info about the field being imported (simplified)
-                \Filament\Forms\Components\Group::make()
-                    ->schema([
-                        \Filament\Forms\Components\TextInput::make("field_name_{$fieldId}")
-                            ->label('Field Name')
-                            ->default($name)
-                            ->disabled()
-                            ->columnSpan(1),
-
-                        \Filament\Forms\Components\TextInput::make("field_type_{$fieldId}")
-                            ->label('Field Type')
-                            ->default($type)
-                            ->disabled()
-                            ->columnSpan(1),
-                    ])
-                    ->columns(2),
-
                 // ✅ Main Select Field - Enhanced with better search and responsiveness
                 \Filament\Forms\Components\Select::make($selectFieldName)
                     ->label('Map to Existing Field or Create New')
@@ -223,6 +204,21 @@ class SchemaFormatter
                     ->options($precomputedOptions)
             ];
 
+            $fieldComponents[] = \Filament\Forms\Components\Placeholder::make("action_summary_{$fieldId}")
+                ->label('Import Action')
+                ->content(function (callable $get) use ($fieldId) {
+                    $selectedMapping = $get("field_mapping_{$fieldId}");
+
+                    if (!$selectedMapping || $selectedMapping === 'new') {
+                        return new HtmlString('<div class="p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm">✅ <strong>Will create new field</strong> - A new field will be created in the system</div>');
+                    } else {
+                        return new HtmlString('<div class="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">🔗 <strong>Will map to existing field</strong> - Import data will be mapped to field #' . htmlspecialchars($selectedMapping) . '</div>');
+                    }
+                })
+                ->reactive()
+                ->live()
+                ->columnSpanFull();
+
             // Dynamic preview that updates when selection changes - always visible and reactive
             $fieldComponents[] = \Filament\Forms\Components\Placeholder::make($previewFieldName)
                 ->label('Selection Preview')
@@ -283,20 +279,7 @@ class SchemaFormatter
                 ->columnSpanFull();
 
             // Summary action that will be taken
-            $fieldComponents[] = \Filament\Forms\Components\Placeholder::make("action_summary_{$fieldId}")
-                ->label('Import Action')
-                ->content(function (callable $get) use ($fieldId) {
-                    $selectedMapping = $get("field_mapping_{$fieldId}");
 
-                    if (!$selectedMapping || $selectedMapping === 'new') {
-                        return new HtmlString('<div class="p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm">✅ <strong>Will create new field</strong> - A new field will be created in the system</div>');
-                    } else {
-                        return new HtmlString('<div class="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">🔗 <strong>Will map to existing field</strong> - Import data will be mapped to field #' . htmlspecialchars($selectedMapping) . '</div>');
-                    }
-                })
-                ->reactive()
-                ->live()
-                ->columnSpanFull();
 
             // Add the field card to the schema
             $schema[] = \Filament\Forms\Components\Section::make("Field: {$label}")
@@ -319,17 +302,28 @@ class SchemaFormatter
     {
         // Extract essential field properties
         $name = $importField['name'] ?? $importField['uuid'] ?? '';
-        $label = $importField['label'] ?? '';
-        $type = $importField['type'] ?? $importField['dataType'] ?? $importField['data_type'] ?? '';
 
-        // Handle repeating fields in either format
+        // FIXED: Ensure we're getting the actual field label, not option values
+        $label = '';
+        if (isset($importField['label']) && is_string($importField['label'])) {
+            $label = $importField['label'];
+        } elseif (isset($importField['text']) && is_string($importField['text'])) {
+            $label = $importField['text'];
+        } elseif (isset($importField['title']) && is_string($importField['title'])) {
+            $label = $importField['title'];
+        }
+
+        // Better type determination - include elementType for Adze format
+        $type = $importField['type'] ?? $importField['dataType'] ?? $importField['data_type'] ?? $importField['elementType'] ?? '';
+
+        // Handle repeating fields in either format (with better boolean handling)
         $repeating = false;
         if (isset($importField['repeats'])) {
-            $repeating = $importField['repeats'];
+            $repeating = $this->parseBooleanValue($importField['repeats']);
         } elseif (isset($importField['repeating'])) {
-            $repeating = $importField['repeating'];
+            $repeating = $this->parseBooleanValue($importField['repeating']);
         } elseif (isset($importField['is_repeating'])) {
-            $repeating = $importField['is_repeating'];
+            $repeating = $this->parseBooleanValue($importField['is_repeating']);
         }
 
         // Extract other common properties
@@ -361,9 +355,9 @@ class SchemaFormatter
             // Adze format: render as bullet list
             $fieldOptions = '<ul class="list-disc pl-5">';
             foreach ($importField['listItems'] as $item) {
-                $label = $item['text'] ?? $item['label'] ?? $item['name'] ?? '';
+                $optionLabel = $item['text'] ?? $item['label'] ?? $item['name'] ?? '';
                 $value = $item['value'] ?? '';
-                $fieldOptions .= '<li><span class="font-medium">' . htmlspecialchars($label) . '</span>';
+                $fieldOptions .= '<li><span class="font-medium">' . htmlspecialchars($optionLabel) . '</span>';
                 if ($value !== '') {
                     $fieldOptions .= ' <span class="text-gray-500">(' . htmlspecialchars($value) . ')</span>';
                 }
@@ -379,6 +373,9 @@ class SchemaFormatter
                 'Type' => $type,
                 'Label' => $label,
                 'Repeating' => $repeating ? 'Yes' : 'No',
+                'Visible' => isset($importField['isVisible']) ? ($this->parseBooleanValue($importField['isVisible']) ? 'Yes' : 'No') : 'Not specified',
+                'Enabled' => isset($importField['isEnabled']) ? ($this->parseBooleanValue($importField['isEnabled']) ? 'Yes' : 'No') : 'Not specified',
+                'Read Only' => isset($importField['isReadOnly']) ? ($this->parseBooleanValue($importField['isReadOnly']) ? 'Yes' : 'No') : 'Not specified',
             ],
             '📝 Content' => [
                 'Help Text' => $helpText ?: 'None',
@@ -416,7 +413,14 @@ class SchemaFormatter
                 'description',
                 'validations',
                 'validation',
-                'options'
+                'options',
+                'listItems',
+                'token',
+                'parentId',
+                'elementType',
+                'isVisible',
+                'isEnabled',
+                'isReadOnly',
             ])) {
                 if (is_array($value)) {
                     $additional[$key] = json_encode($value);
@@ -617,6 +621,12 @@ class SchemaFormatter
             $filtered['format'] = 'legacy';
         }
 
+        // Debug field order in preview
+        $fieldNames = array_map(function ($field) {
+            return $field['name'] ?? $field['label'] ?? $field['id'] ?? 'unknown';
+        }, array_slice($fields, 0, 5));
+        logger()->debug("🔍 Import preview field order - First 5: " . implode(', ', $fieldNames));
+
         // Check if we have fields and if it's an array we can display
         if (empty($fields) || !is_array($fields)) {
             return ['notice' => 'No fields found in schema or invalid format'];
@@ -661,5 +671,16 @@ class SchemaFormatter
         $result['fields'] = array_values($filtered['fields']); // Reset keys for cleaner JSON
 
         return $result;
+    }
+
+    /**
+     * Parse boolean values consistently across different input formats
+     *
+     * @param mixed $value The value to parse as boolean
+     * @return bool True if the value represents true, false otherwise
+     */
+    protected function parseBooleanValue($value): bool
+    {
+        return $value === true || $value === 1 || $value === '1' || strtolower((string)$value) === 'true';
     }
 }

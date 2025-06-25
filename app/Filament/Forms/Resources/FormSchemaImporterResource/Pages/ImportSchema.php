@@ -45,9 +45,7 @@ class ImportSchema extends Page implements HasForms
     public array $fieldDetails = [];
     public bool $loadingFieldDetails = false;
     public array $jobStatus = ['status' => 'idle', 'message' => ''];
-    public array $fieldMappingOptions = [];
-
-    // New properties for pagination
+    public array $fieldMappingOptions = [];    // Pagination properties - public for Livewire state management
     public int $currentPage = 1;
     public int $perPage = 10;
     public int $totalFields = 0;
@@ -81,6 +79,7 @@ class ImportSchema extends Page implements HasForms
         // Initialize pagination properties
         $this->currentPage = 1;
         $this->perPage = 10; // Adjust this number as needed for UI performance
+        $this->totalFields = 0;
 
         // Cache field mapping options once for all fields - using lightweight labels
         $this->fieldMappingOptions = \App\Filament\Forms\Helpers\SchemaFormatter::getAllMappingOptions(true);
@@ -306,7 +305,7 @@ class ImportSchema extends Page implements HasForms
             $this->selectOptions = $extractedData['selectOptions'] ?? [];
 
             // Reset pagination to first page
-            $this->currentPage = 1;
+            $this->resetPagination();
 
             // Initialize field properties in data array to prevent Livewire Entangle errors
             // This also sets up totalFields for pagination
@@ -357,12 +356,8 @@ class ImportSchema extends Page implements HasForms
 
     public function getFieldMappingSchema(): array
     {
-        // Log current state for debugging
-        logger()->debug("🔄 Building field mapping schema with pagination. Page {$this->currentPage}, showing {$this->perPage} per page");
-
         // Only continue if we have a parsed schema
         if ($this->parsedSchema === null) {
-            logger()->debug("⚠️ No parsed schema available");
             return [
                 \Filament\Forms\Components\Placeholder::make('no_schema')
                     ->label('No schema loaded')
@@ -377,7 +372,15 @@ class ImportSchema extends Page implements HasForms
         $allFields = $this->extractFieldsFromSchema($this->parsedSchema);
         $this->totalFields = count($allFields);
 
-        logger()->debug("📊 Parsed schema has {$this->totalFields} total fields");
+        // Ensure currentPage is valid
+        if ($this->currentPage < 1) {
+            $this->currentPage = 1;
+        }
+
+        $maxPage = $this->totalFields > 0 ? (int) ceil($this->totalFields / $this->perPage) : 1;
+        if ($this->currentPage > $maxPage) {
+            $this->currentPage = $maxPage;
+        }
 
         // Apply pagination
         $start = ($this->currentPage - 1) * $this->perPage;
@@ -386,16 +389,10 @@ class ImportSchema extends Page implements HasForms
         // Store the paginated fields in component state for efficient re-rendering
         $this->paginatedFields = $fields;
 
-        logger()->debug("📄 Showing fields " . ($start + 1) . "-" . min($start + $this->perPage, $this->totalFields) . " of {$this->totalFields}");
-
-        // Create a mini-schema with just the paginated fields to optimize memory usage
-        $paginatedSchema = $this->parsedSchema;
-
-        if (isset($paginatedSchema['data']) && isset($paginatedSchema['data']['elements'])) {
-            $paginatedSchema['data']['elements'] = $fields;
-        } elseif (isset($paginatedSchema['fields'])) {
-            $paginatedSchema['fields'] = $fields;
-        }
+        // Calculate pagination info
+        $paginationStart = ($this->currentPage - 1) * $this->perPage + 1;
+        $paginationEnd = min($this->currentPage * $this->perPage, $this->totalFields);
+        $totalPages = max(1, (int) ceil($this->totalFields / $this->perPage));
 
         // Handle empty fields case
         if (empty($fields)) {
@@ -421,8 +418,13 @@ class ImportSchema extends Page implements HasForms
                 ->schema([
                     \Filament\Forms\Components\Placeholder::make('pagination_info')
                         ->label('')
-                        ->content(fn() => "Showing " . (($this->currentPage - 1) * $this->perPage + 1) . "-" .
-                            min($this->currentPage * $this->perPage, $this->totalFields) . " of {$this->totalFields} fields"),
+                        ->content(function () use ($paginationStart, $paginationEnd) {
+                            if ($this->totalFields === 0) {
+                                return "No fields to display";
+                            }
+                            return "Showing {$paginationStart}-{$paginationEnd} of {$this->totalFields} fields";
+                        })
+                        ->extraAttributes(['wire:key' => 'pagination-info-' . $this->currentPage]),
 
                     \Filament\Forms\Components\Actions::make([
                         \Filament\Forms\Components\Actions\Action::make('prev_page')
@@ -430,13 +432,12 @@ class ImportSchema extends Page implements HasForms
                             ->icon('heroicon-o-chevron-left')
                             ->color('gray')
                             ->visible(fn() => $this->currentPage > 1)
-                            ->action(function () {
-                                $this->prevPage();
-                                // Use $refresh event to rebuild form without losing state
-                            }),
+                            ->action('prevPage'),
 
                         \Filament\Forms\Components\Actions\Action::make('current_page')
-                            ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
+                            ->label(function () use ($totalPages) {
+                                return "Page {$this->currentPage} of {$totalPages}";
+                            })
                             ->color('gray')
                             ->disabled(),
 
@@ -445,11 +446,10 @@ class ImportSchema extends Page implements HasForms
                             ->icon('heroicon-o-chevron-right')
                             ->iconPosition('after')
                             ->color('gray')
-                            ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
-                            ->action(function () {
-                                $this->nextPage();
-                                // Use $refresh event to rebuild form without losing state
-                            }),
+                            ->visible(function () use ($totalPages) {
+                                return $this->currentPage < $totalPages;
+                            })
+                            ->action('nextPage'),
                     ]),
 
                     \Filament\Forms\Components\Select::make('per_page')
@@ -463,16 +463,22 @@ class ImportSchema extends Page implements HasForms
                         ])
                         ->default($this->perPage)
                         ->afterStateUpdated(function ($state) {
-                            $this->perPage = (int) $state;
-                            $this->currentPage = 1; // Reset to first page on per-page change
-                            // Use $refresh event to rebuild form without losing state
-                            $this->dispatch('$refresh');
+                            $this->changePerPage((int) $state);
                         })
                         ->live()
                         ->selectablePlaceholder(false)
                         ->columnSpan(1),
                 ])
         ];
+
+        // Create a mini-schema with just the paginated fields to optimize memory usage
+        $paginatedSchema = $this->parsedSchema;
+
+        if (isset($paginatedSchema['data']) && isset($paginatedSchema['data']['elements'])) {
+            $paginatedSchema['data']['elements'] = $fields;
+        } elseif (isset($paginatedSchema['fields'])) {
+            $paginatedSchema['fields'] = $fields;
+        }
 
         // Use the SchemaFormatter to get the field mapping schema with our paginated fields
         // Always show previews since the toggle has been removed in favor of always-on optimized previews
@@ -495,13 +501,12 @@ class ImportSchema extends Page implements HasForms
                             ->icon('heroicon-o-chevron-left')
                             ->color('gray')
                             ->visible(fn() => $this->currentPage > 1)
-                            ->action(function () {
-                                $this->prevPage();
-                                // Use $refresh event to rebuild form without losing state
-                            }),
+                            ->action('prevPage'),
 
                         \Filament\Forms\Components\Actions\Action::make('current_page_bottom')
-                            ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
+                            ->label(function () use ($totalPages) {
+                                return "Page {$this->currentPage} of {$totalPages}";
+                            })
                             ->color('gray')
                             ->disabled(),
 
@@ -510,11 +515,10 @@ class ImportSchema extends Page implements HasForms
                             ->icon('heroicon-o-chevron-right')
                             ->iconPosition('after')
                             ->color('gray')
-                            ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
-                            ->action(function () {
-                                $this->nextPage();
-                                // Use $refresh event to rebuild form without losing state
-                            }),
+                            ->visible(function () use ($totalPages) {
+                                return $this->currentPage < $totalPages;
+                            })
+                            ->action('nextPage'),
                     ]),
 
                     \Filament\Forms\Components\Placeholder::make('bottom_spacer')
@@ -1390,30 +1394,66 @@ class ImportSchema extends Page implements HasForms
         return $html;
     }
 
-    /**
-     * Pagination methods for field mapping
-     */
     public function nextPage(): void
     {
-        $maxPage = ceil($this->totalFields / $this->perPage);
+        $maxPage = max(1, (int) ceil($this->totalFields / $this->perPage));
         if ($this->currentPage < $maxPage) {
             $this->currentPage++;
-            // Refresh form schema but preserve existing form state
-            $this->dispatch('$refresh');
         }
     }
 
-    /**
-     * Navigate to the previous page of fields
-     */
     public function prevPage(): void
     {
         if ($this->currentPage > 1) {
             $this->currentPage--;
-            // Refresh form schema but preserve existing form state
-            $this->dispatch('$refresh');
         }
     }
+
+    public function changePerPage(int $perPage): void
+    {
+        $this->perPage = max(1, $perPage); // Ensure perPage is at least 1
+        $this->currentPage = 1; // Reset to first page when changing per page
+    }
+
+    /**
+     * Reset pagination to initial state
+     */
+    public function resetPagination(): void
+    {
+        $this->currentPage = 1;
+        // Don't reset perPage as user may have set their preference
+    }
+
+    /**
+     * Livewire property updater for currentPage
+     */
+    public function updatedCurrentPage(): void
+    {
+        // Ensure currentPage is within valid bounds
+        if ($this->currentPage < 1) {
+            $this->currentPage = 1;
+        }
+
+        $maxPage = $this->totalFields > 0 ? (int) ceil($this->totalFields / $this->perPage) : 1;
+        if ($this->currentPage > $maxPage) {
+            $this->currentPage = $maxPage;
+        }
+    }
+
+    /**
+     * Livewire property updater for perPage
+     */
+    public function updatedPerPage(): void
+    {
+        $this->currentPage = 1;
+
+        // Ensure perPage is reasonable
+        if ($this->perPage < 1) {
+            $this->perPage = 10;
+        }
+    }
+
+
 
     /**
      * Store field mapping selection without generating full preview
