@@ -39,6 +39,11 @@ class FormSchemaImporter
     protected $form = null;
     protected $elementCounter = 1;
     protected $user;
+    protected $containersCreated = 0;
+    protected $containersSkipped = 0;
+    protected $fieldsCreated = 0;
+    protected $fieldsMapped = 0;
+    protected $fieldsSkipped = 0;
 
     public function __construct($formData)
     {
@@ -174,6 +179,9 @@ class FormSchemaImporter
                 throw new \Exception("No valid fields structure found in import data");
             }
 
+            // Log import summary
+            $this->logImportSummary();
+
             return [
                 'success' => true,
                 'message' => "Form '{$this->form->form_title}' imported successfully.",
@@ -201,11 +209,21 @@ class FormSchemaImporter
 
             // Check if this is a container
             if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements') {
+                // Check if container has any children at all
+                $hasChildren = isset($element['elements']) && is_array($element['elements']) && count($element['elements']) > 0;
+
                 // Check if container has any non-skipped children before creating it
                 $hasNonSkippedChildren = false;
-                if (isset($element['elements']) && is_array($element['elements'])) {
+                if ($hasChildren) {
                     $hasNonSkippedChildren = $this->hasNonSkippedChildren($element['elements']);
                 }
+
+                Log::info("📦 Container analysis", [
+                    'container_name' => $element['name'] ?? 'unnamed',
+                    'has_children' => $hasChildren,
+                    'children_count' => isset($element['elements']) ? count($element['elements']) : 0,
+                    'has_non_skipped_children' => $hasNonSkippedChildren
+                ]);
 
                 // Only create container if it has non-skipped children
                 if ($hasNonSkippedChildren) {
@@ -219,10 +237,26 @@ class FormSchemaImporter
                         'visibility' => isset($element['isVisible']) ? ($element['isVisible'] ? 'visible' : 'hidden') : 'visible',
                     ], $currentOrder);
 
+                    $this->containersCreated++;
+                    Log::info("✅ Created container '{$element['name']}' with ID: {$container->id}");
+
                     // Process child elements
                     $this->processElements($element['elements'], $container->id, null, 0);
                 } else {
-                    Log::info("Skipping empty container '{$element['name']}' - all children are skipped");
+                    $this->containersSkipped++;
+                    if (!$hasChildren) {
+                        Log::info("⏭️ CONTAINER SKIPPED: '{$element['name']}' - no children at all", [
+                            'container_id' => $element['token'] ?? 'unknown',
+                            'reason' => 'no_children'
+                        ]);
+                    } else {
+                        $childCount = isset($element['elements']) ? count($element['elements']) : 0;
+                        Log::info("⏭️ CONTAINER SKIPPED: '{$element['name']}' - all {$childCount} children are skipped or mapped", [
+                            'container_id' => $element['token'] ?? 'unknown',
+                            'children_count' => $childCount,
+                            'reason' => 'all_children_skipped_or_mapped'
+                        ]);
+                    }
                 }
             }
             // Otherwise it's a field
@@ -233,7 +267,8 @@ class FormSchemaImporter
 
                 // Skip field if user chose to skip it
                 if ($mapping === 'skip') {
-                    Log::info("Skipping field '{$element['name']}' (ID: {$fieldId}) as requested by user");
+                    $this->fieldsSkipped++;
+                    Log::info("⏭️ Field skipped: '{$element['name']}' (ID: {$fieldId}) as requested by user");
                     continue;
                 }
 
@@ -262,12 +297,16 @@ class FormSchemaImporter
 
                 // Find or create the field according to mapping
                 if ($mapping !== 'new' && is_numeric($mapping)) {
+                    $this->fieldsMapped++;
                     $formField = FormField::find($mapping);
                     if (!$formField) {
                         throw new \Exception("Mapped field ID {$mapping} not found");
                     }
+                    Log::info("🔗 Field mapped to existing: '{$element['name']}' -> Field ID {$mapping}");
                 } else {
+                    $this->fieldsCreated++;
                     $formField = $this->findOrCreateField($field);
+                    Log::info("✨ New field created: '{$element['name']}' -> Field ID {$formField->id}");
                 }
 
                 // Always associate the field to the new version
@@ -348,24 +387,50 @@ class FormSchemaImporter
 
             // Skip field if user chose to skip it
             if ($mapping === 'skip') {
-                Log::info("Skipping field '{$field['name']}' (ID: {$fieldId}) as requested by user");
+                $this->fieldsSkipped++;
+                Log::info("⏭️ Legacy field skipped: '{$field['name']}' (ID: {$fieldId}) as requested by user");
                 continue;
             }
 
             switch ($field['type']) {
                 case 'container':
+                    // Check if container has any children at all
+                    $hasChildren = isset($field['children']) && is_array($field['children']) && count($field['children']) > 0;
+
                     // Check if container has any non-skipped children before creating it
                     $hasNonSkippedChildren = false;
-                    if (isset($field['children']) && is_array($field['children'])) {
+                    if ($hasChildren) {
                         $hasNonSkippedChildren = $this->hasNonSkippedChildrenLegacy($field['children']);
                     }
 
+                    Log::info("📦 Legacy container analysis", [
+                        'container_name' => $field['name'] ?? 'unnamed',
+                        'has_children' => $hasChildren,
+                        'children_count' => isset($field['children']) ? count($field['children']) : 0,
+                        'has_non_skipped_children' => $hasNonSkippedChildren
+                    ]);
+
                     // Only create container if it has non-skipped children
                     if ($hasNonSkippedChildren) {
+                        $this->containersCreated++;
                         $container = $this->createContainer($field, $order);
+                        Log::info("✅ Created legacy container '{$field['name']}' with ID: {$container->id}");
                         $this->processFields($field['children'], $container, null, 0);
                     } else {
-                        Log::info("Skipping empty container '{$field['name']}' - all children are skipped");
+                        $this->containersSkipped++;
+                        if (!$hasChildren) {
+                            Log::info("⏭️ LEGACY CONTAINER SKIPPED: '{$field['name']}' - no children at all", [
+                                'container_id' => $field['id'] ?? 'unknown',
+                                'reason' => 'no_children'
+                            ]);
+                        } else {
+                            $childCount = count($field['children']);
+                            Log::info("⏭️ LEGACY CONTAINER SKIPPED: '{$field['name']}' - all {$childCount} children are skipped or mapped", [
+                                'container_id' => $field['id'] ?? 'unknown',
+                                'children_count' => $childCount,
+                                'reason' => 'all_children_skipped_or_mapped'
+                            ]);
+                        }
                     }
                     break;
 
@@ -374,12 +439,16 @@ class FormSchemaImporter
                 case 'checkbox':
                     // Find or create field according to mapping
                     if ($mapping !== 'new' && is_numeric($mapping)) {
+                        $this->fieldsMapped++;
                         $formField = FormField::find($mapping);
                         if (!$formField) {
                             throw new \Exception("Mapped field ID {$mapping} not found");
                         }
+                        Log::info("🔗 Legacy field mapped to existing: '{$field['name']}' -> Field ID {$mapping}");
                     } else {
+                        $this->fieldsCreated++;
                         $formField = $this->findOrCreateField($field);
+                        Log::info("✨ New legacy field created: '{$field['name']}' -> Field ID {$formField->id}");
                     }
                     $this->createFormInstanceField($field, $formField, $order, $parentContainer, $parentGroup);
                     break;
@@ -387,12 +456,16 @@ class FormSchemaImporter
                 default:
                     // Find or create field according to mapping
                     if ($mapping !== 'new' && is_numeric($mapping)) {
+                        $this->fieldsMapped++;
                         $formField = FormField::find($mapping);
                         if (!$formField) {
                             throw new \Exception("Mapped field ID {$mapping} not found");
                         }
+                        Log::info("🔗 Legacy field mapped to existing: '{$field['name']}' -> Field ID {$mapping}");
                     } else {
+                        $this->fieldsCreated++;
                         $formField = $this->findOrCreateField($field);
+                        Log::info("✨ New legacy field created: '{$field['name']}' -> Field ID {$formField->id}");
                     }
                     $this->createFormInstanceField($field, $formField, $order, $parentContainer, $parentGroup);
                     break;
@@ -737,11 +810,21 @@ class FormSchemaImporter
                 $mappingKey = "field_mapping_{$fieldId}";
                 $mapping = $this->fieldMappings[$mappingKey] ?? 'new';
 
+                Log::debug("🔍 Checking field for skip status", [
+                    'field_name' => $element['name'] ?? 'unnamed',
+                    'field_id' => $fieldId,
+                    'mapping_key' => $mappingKey,
+                    'mapping_value' => $mapping,
+                    'is_skipped' => $mapping === 'skip'
+                ]);
+
                 if ($mapping !== 'skip') {
+                    Log::debug("✅ Found non-skipped field: {$element['name']}");
                     return true; // Found at least one non-skipped field
                 }
             }
         }
+        Log::debug("❌ All children are skipped or no children found");
         return false; // All children are skipped or no children
     }
 
@@ -768,5 +851,34 @@ class FormSchemaImporter
             }
         }
         return false; // All children are skipped or no children
+    }
+
+    /**
+     * Log import summary showing containers and fields created vs skipped
+     */
+    protected function logImportSummary(): void
+    {
+        Log::info("📊 IMPORT SUMMARY COMPLETE", [
+            'containers' => [
+                'created' => $this->containersCreated,
+                'skipped' => $this->containersSkipped,
+                'total_analyzed' => $this->containersCreated + $this->containersSkipped
+            ],
+            'fields' => [
+                'created' => $this->fieldsCreated,
+                'mapped_to_existing' => $this->fieldsMapped,
+                'skipped' => $this->fieldsSkipped,
+                'total_analyzed' => $this->fieldsCreated + $this->fieldsMapped + $this->fieldsSkipped
+            ],
+            'form_version_id' => $this->formVersion->id ?? 'unknown'
+        ]);
+
+        if ($this->containersSkipped > 0) {
+            Log::info("✅ EMPTY CONTAINER HANDLING: {$this->containersSkipped} empty containers were successfully skipped and NOT created in the database");
+        }
+
+        if ($this->containersCreated > 0) {
+            Log::info("📦 CONTAINER CREATION: {$this->containersCreated} containers were created because they contain non-skipped fields");
+        }
     }
 }

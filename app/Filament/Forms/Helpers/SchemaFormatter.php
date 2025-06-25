@@ -698,15 +698,18 @@ class SchemaFormatter
         // Extract fields from the schema
         $schemaParser = new SchemaParser();
         $fields = [];
+        $containers = [];
 
         // Handle new format with data.elements
         if (isset($schema['data']) && isset($schema['data']['elements'])) {
             $fields = $schemaParser->extractFieldsFromSchema($schema['data']['elements']);
+            $containers = $this->extractContainersFromElements($schema['data']['elements']);
             $format = 'adze-template';
         }
         // Handle older format with fields directly
         elseif (isset($schema['fields'])) {
             $fields = $schemaParser->extractFieldsFromSchema($schema['fields']);
+            $containers = $this->extractContainersFromFields($schema['fields']);
             $format = 'legacy';
         }
 
@@ -761,6 +764,28 @@ class SchemaFormatter
             }
         }
 
+        // Analyze containers - determine which will be created vs skipped
+        $containersToCreate = [];
+        $containersSkipped = [];
+
+        foreach ($containers as $container) {
+            $hasNonSkippedChildren = $this->containerHasNonSkippedChildren($container, $fieldMappings);
+
+            if ($hasNonSkippedChildren) {
+                $containersToCreate[] = [
+                    'name' => $container['name'] ?? 'Unnamed Container',
+                    'label' => $container['label'] ?? '',
+                    'reason' => 'Has at least one non-skipped field'
+                ];
+            } else {
+                $containersSkipped[] = [
+                    'name' => $container['name'] ?? 'Unnamed Container',
+                    'label' => $container['label'] ?? '',
+                    'reason' => 'All child fields are skipped or mapped to existing fields'
+                ];
+            }
+        }
+
         // Build comprehensive preview
         $preview = [
             'title' => $schema['title'] ?? 'Imported Form',
@@ -769,7 +794,10 @@ class SchemaFormatter
                 'total_fields_in_schema' => count($fields),
                 'new_fields_to_create' => count($fieldsToCreate),
                 'fields_mapped_to_existing' => count($fieldsMapped),
-                'fields_skipped' => count($fieldsSkipped)
+                'fields_skipped' => count($fieldsSkipped),
+                'total_containers_in_schema' => count($containers),
+                'containers_to_create' => count($containersToCreate),
+                'containers_skipped' => count($containersSkipped)
             ]
         ];
 
@@ -778,6 +806,14 @@ class SchemaFormatter
             $preview['message'] = 'No new fields will be created. All fields are either mapped to existing fields or skipped.';
         } elseif (count($fieldsToCreate) > 0) {
             $preview['message'] = count($fieldsToCreate) . ' new field(s) will be created in the system.';
+        }
+
+        // Add container handling message
+        if (count($containersSkipped) > 0) {
+            $containerMessage = count($containersSkipped) . ' container(s) will be skipped because all their child fields are skipped or mapped.';
+            $preview['message'] = isset($preview['message'])
+                ? $preview['message'] . ' ' . $containerMessage
+                : $containerMessage;
         }
 
         // Only include fields that will actually be created
@@ -795,7 +831,128 @@ class SchemaFormatter
             $preview['skipped_fields'] = $fieldsSkipped;
         }
 
+        // Include container information
+        if (!empty($containersToCreate)) {
+            $preview['containers_to_create'] = $containersToCreate;
+        }
+
+        if (!empty($containersSkipped)) {
+            $preview['containers_skipped'] = $containersSkipped;
+        }
+
         return json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Extract containers from adze-template format elements
+     */
+    protected function extractContainersFromElements(array $elements): array
+    {
+        $containers = [];
+
+        foreach ($elements as $element) {
+            if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements') {
+                $containers[] = $element;
+
+                // Recursively check for nested containers
+                if (isset($element['elements']) && is_array($element['elements'])) {
+                    $nestedContainers = $this->extractContainersFromElements($element['elements']);
+                    $containers = array_merge($containers, $nestedContainers);
+                }
+            }
+        }
+
+        return $containers;
+    }
+
+    /**
+     * Extract containers from legacy format fields
+     */
+    protected function extractContainersFromFields(array $fields): array
+    {
+        $containers = [];
+
+        foreach ($fields as $field) {
+            if (isset($field['type']) && $field['type'] === 'container') {
+                $containers[] = $field;
+
+                // Recursively check for nested containers
+                if (isset($field['children']) && is_array($field['children'])) {
+                    $nestedContainers = $this->extractContainersFromFields($field['children']);
+                    $containers = array_merge($containers, $nestedContainers);
+                }
+            }
+        }
+
+        return $containers;
+    }
+
+    /**
+     * Check if a container has any non-skipped children
+     */
+    protected function containerHasNonSkippedChildren(array $container, array $fieldMappings): bool
+    {
+        // Handle adze-template format
+        if (isset($container['elements'])) {
+            return $this->elementsHaveNonSkippedChildren($container['elements'], $fieldMappings);
+        }
+
+        // Handle legacy format
+        if (isset($container['children'])) {
+            return $this->fieldsHaveNonSkippedChildren($container['children'], $fieldMappings);
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if elements have any non-skipped children (adze-template format)
+     */
+    protected function elementsHaveNonSkippedChildren(array $elements, array $fieldMappings): bool
+    {
+        foreach ($elements as $element) {
+            // If it's a container, check recursively
+            if (isset($element['elementType']) && $element['elementType'] === 'ContainerFormElements') {
+                if (isset($element['elements']) && $this->elementsHaveNonSkippedChildren($element['elements'], $fieldMappings)) {
+                    return true;
+                }
+            } else {
+                // It's a field - check if it's skipped
+                $fieldId = $element['token'] ?? md5(json_encode($element));
+                $mappingKey = "field_mapping_{$fieldId}";
+                $mapping = $fieldMappings[$mappingKey] ?? 'new';
+
+                if ($mapping !== 'skip') {
+                    return true; // Found at least one non-skipped field
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if fields have any non-skipped children (legacy format)
+     */
+    protected function fieldsHaveNonSkippedChildren(array $fields, array $fieldMappings): bool
+    {
+        foreach ($fields as $index => $field) {
+            if (isset($field['type']) && $field['type'] === 'container') {
+                // If it's a container, check recursively
+                if (isset($field['children']) && $this->fieldsHaveNonSkippedChildren($field['children'], $fieldMappings)) {
+                    return true;
+                }
+            } else {
+                // It's a field - check if it's skipped
+                $fieldId = $field['id'] ?? md5($field['name'] ?? "field_$index");
+                $mappingKey = "field_mapping_{$fieldId}";
+                $mapping = $fieldMappings[$mappingKey] ?? 'new';
+
+                if ($mapping !== 'skip') {
+                    return true; // Found at least one non-skipped field
+                }
+            }
+        }
+        return false;
     }
 
     /**
