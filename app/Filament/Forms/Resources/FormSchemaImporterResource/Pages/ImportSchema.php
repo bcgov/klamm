@@ -115,12 +115,18 @@ class ImportSchema extends Page implements HasForms
                                 \Filament\Forms\Components\Tabs::make('source_tabs')
                                     ->tabs([
                                         \Filament\Forms\Components\Tabs\Tab::make('Upload File')
+                                            ->label(fn() => $this->parsedSchema !== null ? 'Upload File (Disabled)' : 'Upload File')
                                             ->schema([
                                                 \Filament\Forms\Components\FileUpload::make('schema_file')
                                                     ->label('Schema File')
                                                     ->acceptedFileTypes(['application/json'])
                                                     ->maxSize(5120)
-                                                    ->helperText('Upload a JSON file with form schema (max 5MB)')
+                                                    ->helperText(function () {
+                                                        return $this->parsedSchema !== null
+                                                            ? 'Schema already parsed - upload disabled'
+                                                            : 'Upload a JSON file with form schema (max 5MB)';
+                                                    })
+                                                    ->disabled(fn() => $this->parsedSchema !== null)
                                                     ->reactive()
                                                     ->afterStateUpdated(function (Set $set, ?\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $state) {
                                                         if ($state) {
@@ -134,10 +140,16 @@ class ImportSchema extends Page implements HasForms
                                                     }),
                                             ]),
                                         \Filament\Forms\Components\Tabs\Tab::make('Paste JSON')
+                                            ->label(fn() => $this->parsedSchema !== null ? 'Paste JSON (Disabled)' : 'Paste JSON')
                                             ->schema([
                                                 \Filament\Forms\Components\Textarea::make('schema_content')
                                                     ->label('Schema Content')
-                                                    ->placeholder('Paste JSON form schema here...')
+                                                    ->placeholder(function () {
+                                                        return $this->parsedSchema !== null
+                                                            ? 'Schema already parsed - editing disabled'
+                                                            : 'Paste JSON form schema here...';
+                                                    })
+                                                    ->disabled(fn() => $this->parsedSchema !== null)
                                                     ->rows(15)
                                                     ->columnSpanFull()
                                                     ->reactive()
@@ -150,6 +162,19 @@ class ImportSchema extends Page implements HasForms
                                                     }),
                                             ]),
                                     ]),
+
+                                // Status message when schema is parsed and inputs are locked
+                                \Filament\Forms\Components\Section::make('Schema Locked')
+                                    ->description('Schema has been parsed successfully. To change the source data, use the "Parse Schema" action to reset and parse a new schema.')
+                                    ->schema([
+                                        \Filament\Forms\Components\Placeholder::make('lock_message')
+                                            ->content('🔒 Schema source is now locked to prevent accidental changes. All field mappings and configurations are preserved.')
+                                            ->columnSpanFull(),
+                                    ])
+                                    ->collapsed(false)
+                                    ->collapsible(false)
+                                    ->visible(fn() => $this->parsedSchema !== null),
+
                                 \Filament\Forms\Components\Section::make('Schema Summary')
                                     ->schema([
                                         \Filament\Forms\Components\TextInput::make('parsed_content.form_id')
@@ -663,8 +688,10 @@ class ImportSchema extends Page implements HasForms
     {
         return [
             Action::make('parse_schema')
-                ->label('Parse Schema (Queued)')
+                ->label(fn() => $this->parsedSchema !== null ? 'Parse Schema (Already Parsed)' : 'Parse Schema (Queued)')
                 ->requiresConfirmation(false)
+                ->disabled(fn() => $this->parsedSchema !== null)
+                ->color(fn() => $this->parsedSchema !== null ? 'gray' : 'primary')
                 ->action(function () {
                     $content = $this->data['schema_content'] ?? null;
                     if (!$content) {
