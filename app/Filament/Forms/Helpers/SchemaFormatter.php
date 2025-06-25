@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Helpers;
 
 use App\Models\FormField;
+use App\Filament\Forms\Helpers\SchemaParser;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\HtmlString;
@@ -75,92 +76,237 @@ class SchemaFormatter
     }
 
     /**
-     * Get mapping options for a field, optionally using precomputed options.
+     * Generate schema for field mapping with preview option
      *
-     * @param string $type
-     * @param string $label
-     * @param string $name
-     * @param bool $repeating
-     * @param array|null $precomputedOptions
-     * @return array
+     * @param array $parsedSchema Parsed schema data
+     * @param bool $showPreview Whether to enable field preview by default
+     * @return array Field mapping schema components
      */
-    public function getMappingOptionsWithDetails(string $type, string $label, string $name, bool $repeating = false, ?array $precomputedOptions = null): array
+    public function getFieldMappingSchemaWithPreview(array $parsedSchema, bool $showPreview = true): array
     {
-        if ($precomputedOptions !== null) {
-            return $precomputedOptions;
+        $schema = [];
+        $fields = [];
+        $schemaParser = new SchemaParser();
+
+        // Handle new format with data.elements
+        if (isset($parsedSchema['data']) && isset($parsedSchema['data']['elements'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($parsedSchema['data']['elements']);
+        }
+        // Handle older format with fields directly
+        elseif (isset($parsedSchema['fields'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($parsedSchema['fields']);
         }
 
-        // Map the field type from import format to system format
-        $mappedType = (new SchemaParser())->mapFieldType($type);
-
-        // Get all form fields with all needed relationships eager loaded to avoid lazy loading errors
-        $allFields = FormField::with([
-            'dataType',
-            'validations',
-            'fieldGroups',
-            'webStyles',
-            'pdfStyles',
-            'formFieldDateFormat',
-            'formFieldValue',
-            'selectOptionInstances'
-        ])->get();
-
-        // Initialize options with "Create New" option at the top with visual styling
-        $options = [
-            'new' => 'Create New Field',
-        ];
-
-        // Helper function to add a field to options and details with visual formatting
-        $addFieldOption = function ($field) use (&$options) {
-            // Store the field ID as a string key to prevent type conversion issues
-            $id = (string) $field->id;
-
-            // Get the field type for visual identification
-            $dataType = $field->dataType->name ?? 'unknown';
-
-            // Add icon based on field type for better visual identification
-            $typeIcon = match ($dataType) {
-                'text' => '✏️',
-                'number' => '🔢',
-                'email' => '📧',
-                'password' => '🔒',
-                'date' => '📅',
-                'datetime' => '🕒',
-                'checkbox' => '✅',
-                'radio' => '🔘',
-                'select' => '🔽',
-                'multiselect' => '📋',
-                'textarea' => '📝',
-                'tel' => '📞',
-                'file' => '📎',
-                'image' => '🖼️',
-                'url' => '🔗',
-                'hidden' => '👁️',
-                'container' => '📦',
-                default => '📄'
-            };
-
-            // Create a visually formatted option label with color and spacing
-            $optionLabel = "<span style='display:flex;align-items:center;'>" .
-                "<span style='color:#666;min-width:50px;'>#$field->id</span>" .
-                "<strong style='margin-right:8px;'>{$field->label}</strong> " .
-                "<span style='color:#777;margin-right:8px;'>({$field->name})</span>" .
-                "<span style='color:#444;background:#f3f4f6;padding:2px 6px;border-radius:4px;'>" .
-                "$typeIcon $dataType</span>" .
-                "</span>";
-
-            // Store with the ID as both the key and the value to ensure consistent type handling
-            $options[$id] = $optionLabel;
-        };
-
-        // Add all fields alphabetically by label for consistent ordering
-        $sortedFields = $allFields->sortBy('label');
-        foreach ($sortedFields as $field) {
-            $addFieldOption($field);
+        if (empty($fields)) {
+            return [
+                \Filament\Forms\Components\Placeholder::make('no_fields')
+                    ->label('No fields found')
+                    ->content('No fields were found in the schema or schema has not been parsed yet.')
+            ];
         }
 
-        Log::debug("📋 Field mapping options created: " . count($options) . " options available for selection");
-        return $options;
+        // Get precomputed options for efficiency - use lightweight format for options list
+        $precomputedOptions = self::getAllMappingOptions(true);
+
+        // Note: Field previews are now always enabled for better UX
+        // They are memory-optimized and only render when a field is selected
+
+        foreach ($fields as $index => $field) {
+            // Generate stable field ID based on the available field identifier
+            $fieldId = $field['token'] ?? $field['id'] ?? md5($field['name'] ?? "field_$index");
+            $selectFieldName = "field_mapping_{$fieldId}";
+            $previewFieldName = "preview_field_{$fieldId}";
+
+            // Extract field properties from either format
+            $label = $field['label'] ?? '';
+            $name = $field['name'] ?? '';
+
+            // Type determination based on format
+            $type = '';
+            if (isset($field['elementType'])) {
+                $type = $field['elementType'];
+                // Additional details for data format if available
+                if (isset($field['dataFormat'])) {
+                    $type .= " ({$field['dataFormat']})";
+                }
+            } else {
+                $type = $field['type'] ?? 'text-input';
+            }
+
+            // Create schema components for this field
+            $fieldComponents = [
+                // Import field overview - always shown
+                \Filament\Forms\Components\Placeholder::make("import_field_overview_{$fieldId}")
+                    ->label('Import Field Overview')
+                    ->content(new HtmlString($this->generateImportFieldOverview($field)))
+                    ->columnSpanFull(),
+
+                // Label and info about the field being imported (simplified)
+                \Filament\Forms\Components\Group::make()
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make("field_name_{$fieldId}")
+                            ->label('Field Name')
+                            ->default($name)
+                            ->disabled()
+                            ->columnSpan(1),
+
+                        \Filament\Forms\Components\TextInput::make("field_type_{$fieldId}")
+                            ->label('Field Type')
+                            ->default($type)
+                            ->disabled()
+                            ->columnSpan(1),
+                    ])
+                    ->columns(2),
+
+                // ✅ Main Select Field - Enhanced with better search and responsiveness
+                \Filament\Forms\Components\Select::make($selectFieldName)
+                    ->label('Map to Existing Field or Create New')
+                    ->searchable()
+                    ->searchPrompt('Search by ID, name, or label...')
+                    ->placeholder('Select a field or create new')
+                    ->default('new')
+                    ->reactive()
+                    ->live(onBlur: true) // Update on blur for better performance
+                    ->preload()
+                    ->allowHtml()
+                    ->selectablePlaceholder(false)
+                    ->helperText('Choose "Create New" or search for an existing field by name, ID or label')
+                    ->getSearchResultsUsing(function ($search) {
+                        $options = [
+                            'new' => '🆕 Create New Field',
+                        ];
+
+                        $query = \App\Models\FormField::with('dataType:id,name');
+                        if ($search) {
+                            $query->where(function ($q) use ($search) {
+                                $q->where('name', 'like', "%{$search}%")
+                                    ->orWhere('label', 'like', "%{$search}%")
+                                    ->orWhereRaw('CAST(id AS CHAR) LIKE ?', ["%{$search}%"]);
+                            });
+                        }
+
+                        $fields = $query->orderBy('label')->orderBy('id')->limit(50)->get();
+                        foreach ($fields as $field) {
+                            $dataType = $field->dataType->name ?? 'unknown';
+                            $typeIcon = match ($dataType) {
+                                'text' => '✏️',
+                                'number' => '🔢',
+                                'email' => '📧',
+                                'password' => '🔒',
+                                'date' => '📅',
+                                'datetime' => '🕒',
+                                'checkbox' => '✅',
+                                'radio' => '🔘',
+                                'select' => '🔽',
+                                'multiselect' => '📋',
+                                'textarea' => '📝',
+                                'tel' => '📞',
+                                'file' => '📎',
+                                'image' => '🖼️',
+                                'url' => '🔗',
+                                'hidden' => '👁️',
+                                'container' => '📦',
+                                default => '📄'
+                            };
+
+                            $optionLabel = "<span style='display:flex;align-items:center;'>" .
+                                "<span style='color:#666;min-width:50px;'>#$field->id</span>" .
+                                "<strong style='margin-right:8px;'>{$field->label}</strong> " .
+                                "<span style='color:#777;margin-right:8px;'>({$field->name})</span>" .
+                                "<span style='color:#444;background:#f3f4f6;padding:2px 6px;border-radius:4px;'>" .
+                                "$typeIcon $dataType</span>" .
+                                "</span>";
+                            $options[(string)$field->id] = $optionLabel;
+                        }
+                        return $options;
+                    })
+                    ->options($precomputedOptions)
+            ];
+
+            // Dynamic preview that updates when selection changes - always visible and reactive
+            $fieldComponents[] = \Filament\Forms\Components\Placeholder::make($previewFieldName)
+                ->label('Selection Preview')
+                ->content(function (callable $get) use ($fieldId, $field) {
+                    $selectedMapping = $get("field_mapping_{$fieldId}");
+
+                    // Debug logging to help troubleshoot
+                    \Illuminate\Support\Facades\Log::debug("Preview update for field {$fieldId}", [
+                        'selected_mapping' => $selectedMapping,
+                        'field_data' => $field
+                    ]);
+
+                    if (!$selectedMapping || $selectedMapping === '') {
+                        return new HtmlString('<div class="text-gray-500 text-sm italic p-3 bg-gray-50 rounded border">👆 Select a field above to see preview</div>');
+                    }
+
+                    if ($selectedMapping === 'new') {
+                        // Show preview indicating this will create a new field
+                        $newFieldPreview = '<div class="p-3 bg-green-50 border border-green-200 rounded">' .
+                            '<div class="flex items-center mb-2"><span class="text-green-600 font-semibold">🆕 Creating New Field</span></div>' .
+                            '<div class="text-sm text-green-700 mb-3">This will create a new field based on the import data:</div>' .
+                            $this->generateImportFieldOverview($field) .
+                            '</div>';
+                        return new HtmlString($newFieldPreview);
+                    } else {
+                        // Show preview of existing field when mapping to existing
+                        try {
+                            $existingField = \App\Models\FormField::with([
+                                'dataType',
+                                'formFieldValue',
+                                'formFieldDateFormat',
+                                'selectOptionInstances',
+                                'formVersions'
+                            ])->find((int)$selectedMapping);
+
+                            if ($existingField) {
+                                $mappingPreview = '<div class="p-3 bg-blue-50 border border-blue-200 rounded">' .
+                                    '<div class="flex items-center mb-2"><span class="text-blue-600 font-semibold">🔗 Mapping to Existing Field</span></div>' .
+                                    '<div class="text-sm text-blue-700 mb-3">Import data will be mapped to this existing field:</div>' .
+                                    $this->generateExistingFieldOverview($existingField) .
+                                    '</div>';
+                                return new HtmlString($mappingPreview);
+                            } else {
+                                return new HtmlString('<div class="text-red-500 text-sm p-3 bg-red-50 border border-red-200 rounded">⚠️ Selected field not found (ID: ' . htmlspecialchars($selectedMapping) . ')</div>');
+                            }
+                        } catch (\Exception $e) {
+                            \Illuminate\Support\Facades\Log::error('Error loading field preview', [
+                                'field_id' => $selectedMapping,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                            return new HtmlString('<div class="text-red-500 text-sm p-3 bg-red-50 border border-red-200 rounded">⚠️ Error loading field: ' . htmlspecialchars($e->getMessage()) . '</div>');
+                        }
+                    }
+                })
+                ->reactive()
+                ->live()
+                ->columnSpanFull();
+
+            // Summary action that will be taken
+            $fieldComponents[] = \Filament\Forms\Components\Placeholder::make("action_summary_{$fieldId}")
+                ->label('Import Action')
+                ->content(function (callable $get) use ($fieldId) {
+                    $selectedMapping = $get("field_mapping_{$fieldId}");
+
+                    if (!$selectedMapping || $selectedMapping === 'new') {
+                        return new HtmlString('<div class="p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm">✅ <strong>Will create new field</strong> - A new field will be created in the system</div>');
+                    } else {
+                        return new HtmlString('<div class="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">🔗 <strong>Will map to existing field</strong> - Import data will be mapped to field #' . htmlspecialchars($selectedMapping) . '</div>');
+                    }
+                })
+                ->reactive()
+                ->live()
+                ->columnSpanFull();
+
+            // Add the field card to the schema
+            $schema[] = \Filament\Forms\Components\Section::make("Field: {$label}")
+                ->description("Configure mapping for field: {$name}")
+                ->schema($fieldComponents)
+                ->collapsible()
+                ->collapsed(false);
+        }
+
+        return $schema;
     }
 
     /**
@@ -428,274 +574,92 @@ class SchemaFormatter
     }
 
     /**
-     * Get detailed information about a specific form field
+     * Generate a JSON preview of the parsed schema
      *
-     * @param mixed $fieldId ID of the field
-     * @return array Array of field details
+     * @param array $schema The parsed schema array
+     * @param array $data Additional data for rendering
+     * @return string JSON representation of the schema
      */
-    public function getFormFieldDetails($fieldId): array
+    public function getImportPreviewJson(array $schema, array $data = []): string
     {
-        try {
-            Log::debug("🔍 getFormFieldDetails called with ID: {$fieldId} (type: " . gettype($fieldId) . ")");
+        // Filter out sensitive or unnecessary information
+        $filteredSchema = $this->filterSchemaForPreview($schema);
 
-            // Handle "Create New" option with explicit string comparison
-            if ($fieldId === 'new') {
-                Log::debug("📝 Creating details for NEW field");
-                return [
-                    '✅ New Field Will Be Created' => '',
-                    'Action' => 'Will create new field from import data',
-                ];
-            }
-
-            // Convert to integer if it's a numeric string to ensure consistent type handling
-            if (is_string($fieldId) && is_numeric($fieldId)) {
-                $fieldId = (int)$fieldId;
-                Log::debug("🔄 Converting string fieldId to int: {$fieldId}");
-            }
-
-            // Now make sure we have a valid integer ID for database lookup
-            if (!is_int($fieldId) || $fieldId <= 0) {
-                throw new \Exception("Invalid field ID: {$fieldId}");
-            }
-
-            // Get the field with all its relationships
-            Log::debug("🔎 Looking up field with ID: {$fieldId} (type: " . gettype($fieldId) . ")");
-
-            try {
-                // Get with relationships
-                $field = FormField::with([
-                    'dataType',
-                    'validations',
-                    'fieldGroups',
-                    'webStyles',
-                    'pdfStyles',
-                    'formFieldDateFormat',
-                    'formFieldValue',
-                    'selectOptionInstances',
-                    'formVersions'  // Eager load form versions to avoid N+1 queries
-                ])->findOrFail($fieldId);
-
-                Log::debug("✅ Found field: {$field->name} (ID: {$field->id}) with type: " . ($field->dataType->name ?? 'unknown'));
-            } catch (\Exception $e) {
-                Log::error("❌ Error finding field: " . $e->getMessage());
-                return [
-                    'Error ⚠️' => 'Field not found: ' . $e->getMessage(),
-                    'Suggestion 💡' => 'Try selecting a different field or creating a new one',
-                ];
-            }
-
-            // Build a comprehensive details array with all field attributes, grouped by category
-            $details = [
-                '✅ Existing Form Field Selected' => '',
-                '🔍 Basic Information' => '',
-                'Field ID' => $field->id,
-                'Name' => $field->name,
-                'Type' => $field->dataType->name ?? 'unknown',
-                'Label' => $field->label,
-                'Created' => $field->created_at->format('Y-m-d'),
-                'Updated' => $field->updated_at->format('Y-m-d'),
-                'Action' => 'Will use this existing field for mapping',
-            ];
-
-            // Add other properties when they exist under Content section
-            $details['📝 Content & Display'] = '';
-            if ($field->help_text) $details['Help Text'] = $field->help_text;
-            if ($field->description) $details['Description'] = $field->description;
-            if ($field->data_binding) $details['Data Binding'] = $field->data_binding;
-            if ($field->mask) $details['Mask'] = $field->mask;
-
-            Log::debug("📋 Added content details for field {$field->id}");
-
-            // Add validations under Validation section
-            $details['✓ Validation Rules'] = '';
-            if ($field->validations && $field->validations->count() > 0) {
-                $validations = $field->validations->map(function ($validation) {
-                    return "$validation->type: $validation->value";
-                })->join(', ');
-                $details['Validation Rules'] = $validations;
-            } else {
-                $details['Validation Rules'] = 'None specified';
-            }
-
-            // Add field groups under Organization section
-            $details['🗂️ Organization'] = '';
-            if ($field->fieldGroups && $field->fieldGroups->count() > 0) {
-                $details['Field Groups'] = $field->fieldGroups->pluck('name')->join(', ');
-            } else {
-                $details['Field Groups'] = 'Not assigned to any groups';
-            }
-
-            // Add styles under Styling section
-            $details['🎨 Styling'] = '';
-            if ($field->webStyles && $field->webStyles->count() > 0) {
-                $details['Web Styles'] = $field->webStyles->pluck('name')->join(', ');
-            } else {
-                $details['Web Styles'] = 'No web styles applied';
-            }
-
-            if ($field->pdfStyles && $field->pdfStyles->count() > 0) {
-                $details['PDF Styles'] = $field->pdfStyles->pluck('name')->join(', ');
-            } else {
-                $details['PDF Styles'] = 'No PDF styles applied';
-            }
-
-            // Add select options under Options section if applicable
-            if (in_array($field->dataType->name ?? '', ['select', 'multiselect', 'radio', 'checkbox'])) {
-                $details['🔽 Options'] = '';
-                if ($field->selectOptionInstances && $field->selectOptionInstances->count() > 0) {
-                    $details['Options Count'] = $field->selectOptionInstances->count();
-                    $options = $field->selectOptionInstances->take(5)->map(function ($opt) {
-                        return $opt->label . ($opt->value ? " ({$opt->value})" : '');
-                    })->join(', ');
-                    if ($field->selectOptionInstances->count() > 5) {
-                        $options .= ' and ' . ($field->selectOptionInstances->count() - 5) . ' more';
-                    }
-                    $details['Options'] = $options;
-                } else {
-                    $details['Options'] = 'No options defined';
-                }
-            }
-
-            // Add date format if applicable
-            if (in_array($field->dataType->name ?? '', ['date', 'datetime'])) {
-                $details['📅 Date Settings'] = '';
-                if ($field->formFieldDateFormat) {
-                    $details['Date Format'] = $field->formFieldDateFormat->format ?? 'Default';
-                } else {
-                    $details['Date Format'] = 'Default system format';
-                }
-            }
-
-            // Add form field default value if available
-            $details['⚙️ Default Settings'] = '';
-            if ($field->formFieldValue) {
-                $details['Default Value'] = $field->formFieldValue->value ?? 'None';
-            } else {
-                $details['Default Value'] = 'None';
-            }
-
-            // Info about usage
-            $details['📊 Usage Statistics'] = '';
-            try {
-                $formsCount = $field->formVersions->count();
-                $details['Used In'] = $formsCount . ' form version(s)';
-
-                if ($formsCount > 0) {
-                    $formNames = $field->formVersions->pluck('form_title')->unique()->take(3)->join(', ');
-                    if ($field->formVersions->count() > 3) {
-                        $formNames .= ' and ' . ($field->formVersions->count() - 3) . ' more';
-                    }
-                    $details['Form Names'] = $formNames;
-                }
-            } catch (\Exception $e) {
-                $details['Used In'] = 'Error calculating usage';
-            }
-
-            // Action info
-            $details['🔄 Action'] = 'Will use this existing field for mapping';
-
-            Log::debug("✅ Returning " . count($details) . " details for field ID {$field->id}");
-            return $details;
-        } catch (\Exception $e) {
-            Log::error("❌ Error in getFormFieldDetails: " . $e->getMessage());
-            Log::debug("🔍 Stack trace: " . $e->getTraceAsString());
-
-            return [
-                'Error ⚠️' => $e->getMessage(),
-                'Stack Trace 🔍' => substr($e->getTraceAsString(), 0, 200) . '...',
-                'Suggestion 💡' => 'Please report this error to the development team',
-                'Debug Info 🐛' => 'Field ID: ' . $fieldId . ' | Type: ' . gettype($fieldId)
-            ];
-        }
+        // Format the schema as JSON with proper indentation for readability
+        return json_encode($filteredSchema, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
-     * Generate a simplified JSON preview of the imported form
+     * Filter schema for preview to remove sensitive data and reduce size
      *
-     * @param array $parsedSchema Parsed schema data
-     * @param array $formData Form data including field mappings
-     * @return string JSON string
+     * @param array $schema The complete schema
+     * @return array Filtered schema
      */
-    public function getImportPreviewJson(array $parsedSchema, array $formData = []): string
+    protected function filterSchemaForPreview(array $schema): array
     {
-        // If no schema or invalid schema, show message
-        if (empty($parsedSchema)) {
-            return json_encode(['error' => 'No schema loaded'], JSON_PRETTY_PRINT);
-        }
+        // Create a deep copy to avoid modifying the original
+        $filtered = $schema;
 
-        // Ensure formData is an array
-        $formData = $formData ?? [];
-
+        // Extract fields from the schema using the same logic as field mapping
         $schemaParser = new SchemaParser();
-
-        // Gather basic form info
-        $formId = $formData['form_id'] ?? $parsedSchema['form_id'] ?? null;
-        $formTitle = $formData['form_title'] ?? $parsedSchema['title'] ?? null;
-        $ministryId = $formData['ministry_id'] ?? null;
-
-        // Gather mapped fields
         $fields = [];
-        $importFields = [];
-        if (isset($parsedSchema['data']) && isset($parsedSchema['data']['elements']) && is_array($parsedSchema['data']['elements'])) {
-            $importFields = $schemaParser->extractFieldsFromSchema($parsedSchema['data']['elements']);
-        } elseif (isset($parsedSchema['fields']) && is_array($parsedSchema['fields'])) {
-            $importFields = $schemaParser->extractFieldsFromSchema($parsedSchema['fields']);
+
+        // Handle new format with data.elements
+        if (isset($schema['data']) && isset($schema['data']['elements'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($schema['data']['elements']);
+            $filtered['fields'] = $fields; // Normalize to 'fields' for preview
+            $filtered['format'] = 'adze-template';
+        }
+        // Handle older format with fields directly
+        elseif (isset($schema['fields'])) {
+            $fields = $schemaParser->extractFieldsFromSchema($schema['fields']);
+            $filtered['fields'] = $fields;
+            $filtered['format'] = 'legacy';
         }
 
-        // Ensure we have valid fields
-        $importFields = is_array($importFields) ? $importFields : [];
-
-        foreach ($importFields as $index => $importField) {
-            $fieldId = $importField['token'] ?? $importField['id'] ?? md5($importField['name'] ?? "field_$index");
-            $mappingKey = "field_mapping_{$fieldId}";
-            $mapping = $formData[$mappingKey] ?? 'new';
-
-            // If mapped to existing, show a summary of the mapping
-            if ($mapping !== 'new') {
-                // Try to get the existing field
-                $existing = FormField::find($mapping);
-                if ($existing) {
-                    $fields[] = [
-                        'id' => $fieldId,
-                        'name' => $importField['name'] ?? '',
-                        'label' => $importField['label'] ?? '',
-                        'type' => $importField['type'] ?? $importField['elementType'] ?? '',
-                        'mapping' => [
-                            'type' => 'existing',
-                            'field_id' => $existing->id,
-                            'field_name' => $existing->name,
-                            'field_label' => $existing->label,
-                            'field_type' => $existing->dataType->name ?? 'unknown',
-                        ],
-                    ];
-                }
-            } else {
-                // Show what will be created
-                $fields[] = [
-                    'id' => $fieldId,
-                    'name' => $importField['name'] ?? '',
-                    'label' => $importField['label'] ?? '',
-                    'type' => $importField['type'] ?? $importField['elementType'] ?? '',
-                    'mapping' => [
-                        'type' => 'new',
-                        'importDetails' => [
-                            'name' => $importField['name'] ?? '',
-                            'label' => $importField['label'] ?? '',
-                            'type' => $schemaParser->mapFieldType($importField['type'] ?? $importField['elementType'] ?? ''),
-                        ],
-                    ],
-                ];
-            }
+        // Check if we have fields and if it's an array we can display
+        if (empty($fields) || !is_array($fields)) {
+            return ['notice' => 'No fields found in schema or invalid format'];
         }
 
-        // Build preview JSON
-        $preview = [
-            'form_id' => $formId,
-            'form_title' => $formTitle,
-            'ministry_id' => $ministryId,
-            'fields' => $fields,
-        ];
+        // Keep only the essential information about each field
+        foreach ($filtered['fields'] as $key => $field) {
+            // Ensure it's an array we can work with
+            if (!is_array($field)) continue;
 
-        return json_encode($preview, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            // Keep only essential field properties for preview
+            $filtered['fields'][$key] = array_intersect_key($field, array_flip([
+                'name',
+                'type',
+                'label',
+                'id',
+                'token',
+                'uuid',
+                'repeating',
+                'repeats',
+                'is_repeating',
+                'data_type',
+                'dataType',
+                'elementType',
+                'dataFormat',
+                'description',
+                'help_text',
+                'helpText',
+            ]));
+        }
+
+        // Only include basic form metadata
+        $allowedKeys = ['title', 'description', 'version', 'type', 'fieldCount', 'format'];
+        $filteredMeta = array_intersect_key($filtered, array_flip($allowedKeys));
+
+        // Add field count explicitly if missing
+        $fieldCount = count($filtered['fields'] ?? []);
+        $filteredMeta['fieldCount'] = $fieldCount;
+
+        // Merge metadata with filtered fields
+        $result = $filteredMeta;
+        $result['fields'] = array_values($filtered['fields']); // Reset keys for cleaner JSON
+
+        return $result;
     }
 }

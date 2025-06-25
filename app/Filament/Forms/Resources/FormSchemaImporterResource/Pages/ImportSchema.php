@@ -360,29 +360,44 @@ class ImportSchema extends Page implements HasForms
         // Log current state for debugging
         logger()->debug("🔄 Building field mapping schema with pagination. Page {$this->currentPage}, showing {$this->perPage} per page");
 
-        $schema = [];
-        $fields = [];
-
-        // Only extract fields if we have a parsed schema
-        if ($this->parsedSchema !== null) {
-            // Extract all fields first
-            $allFields = $this->extractFieldsFromSchema($this->parsedSchema);
-            $this->totalFields = count($allFields);
-
-            logger()->debug("📊 Parsed schema has {$this->totalFields} total fields");
-
-            // Apply pagination
-            $start = ($this->currentPage - 1) * $this->perPage;
-            $fields = array_slice($allFields, $start, $this->perPage);
-
-            // Store the paginated fields in component state for efficient re-rendering
-            $this->paginatedFields = $fields;
-
-            logger()->debug("📄 Showing fields " . ($start + 1) . "-" . min($start + $this->perPage, $this->totalFields) . " of {$this->totalFields}");
-        } else {
+        // Only continue if we have a parsed schema
+        if ($this->parsedSchema === null) {
             logger()->debug("⚠️ No parsed schema available");
+            return [
+                \Filament\Forms\Components\Placeholder::make('no_schema')
+                    ->label('No schema loaded')
+                    ->content('No schema has been parsed yet. Please upload and parse a schema first.')
+            ];
         }
 
+        // Initialize SchemaFormatter for field mapping
+        $schemaFormatter = new \App\Filament\Forms\Helpers\SchemaFormatter();
+
+        // Extract all fields first for pagination
+        $allFields = $this->extractFieldsFromSchema($this->parsedSchema);
+        $this->totalFields = count($allFields);
+
+        logger()->debug("📊 Parsed schema has {$this->totalFields} total fields");
+
+        // Apply pagination
+        $start = ($this->currentPage - 1) * $this->perPage;
+        $fields = array_slice($allFields, $start, $this->perPage);
+
+        // Store the paginated fields in component state for efficient re-rendering
+        $this->paginatedFields = $fields;
+
+        logger()->debug("📄 Showing fields " . ($start + 1) . "-" . min($start + $this->perPage, $this->totalFields) . " of {$this->totalFields}");
+
+        // Create a mini-schema with just the paginated fields to optimize memory usage
+        $paginatedSchema = $this->parsedSchema;
+
+        if (isset($paginatedSchema['data']) && isset($paginatedSchema['data']['elements'])) {
+            $paginatedSchema['data']['elements'] = $fields;
+        } elseif (isset($paginatedSchema['fields'])) {
+            $paginatedSchema['fields'] = $fields;
+        }
+
+        // Handle empty fields case
         if (empty($fields)) {
             if ($this->totalFields > 0) {
                 // This means we're on an empty page but have fields
@@ -400,122 +415,71 @@ class ImportSchema extends Page implements HasForms
             ];
         }
 
-        // Add pagination controls at the top
-        $schema[] = \Filament\Forms\Components\Grid::make(3)
-            ->schema([
-                \Filament\Forms\Components\Placeholder::make('pagination_info')
-                    ->label('')
-                    ->content(fn() => "Showing " . (($this->currentPage - 1) * $this->perPage + 1) . "-" .
-                        min($this->currentPage * $this->perPage, $this->totalFields) . " of {$this->totalFields} fields"),
-
-                \Filament\Forms\Components\Actions::make([
-                    \Filament\Forms\Components\Actions\Action::make('prev_page')
-                        ->label('Previous')
-                        ->icon('heroicon-o-chevron-left')
-                        ->color('gray')
-                        ->visible(fn() => $this->currentPage > 1)
-                        ->action(fn() => $this->prevPage()),
-
-                    \Filament\Forms\Components\Actions\Action::make('current_page')
-                        ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
-                        ->color('gray')
-                        ->disabled(),
-
-                    \Filament\Forms\Components\Actions\Action::make('next_page')
-                        ->label('Next')
-                        ->icon('heroicon-o-chevron-right')
-                        ->iconPosition('after')
-                        ->color('gray')
-                        ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
-                        ->action(fn() => $this->nextPage()),
-                ]),
-
-                \Filament\Forms\Components\Select::make('per_page')
-                    ->label('Fields per page')
-                    ->options([
-                        5 => '5 fields',
-                        10 => '10 fields',
-                        15 => '15 fields',
-                        25 => '25 fields',
-                        50 => '50 fields',
-                    ])
-                    ->default($this->perPage)
-                    ->afterStateUpdated(function ($state) {
-                        $this->perPage = (int) $state;
-                        $this->currentPage = 1; // Reset to first page on per-page change
-                        $this->dispatch('refresh');
-                    })
-                    ->live()
-                    ->selectablePlaceholder(false)
-                    ->columnSpan(1),
-            ]);
-
-        foreach ($fields as $index => $field) {
-            // Generate stable field ID based on the available field identifier
-            $fieldId = $field['token'] ?? $field['id'] ?? md5($field['name'] ?? "field_$index");
-            $selectFieldName = "field_mapping_{$fieldId}";
-            $previewFieldName = "mapping_preview_{$fieldId}";
-
-            // Extract basic field properties for minimal UI
-            $label = $field['label'] ?? '';
-            $name = $field['name'] ?? '';
-
-            // Simplified type determination
-            $type = isset($field['elementType'])
-                ? $field['elementType'] . (isset($field['dataFormat']) ? " ({$field['dataFormat']})" : '')
-                : ($field['type'] ?? 'text-input');
-
-            // Create a simplified version of the field card with lazy-loaded details
-            $schema[] = \Filament\Forms\Components\Card::make()
+        // Initialize schema with pagination controls at the top
+        $schema = [
+            \Filament\Forms\Components\Grid::make(3)
                 ->schema([
-                    // Header with basic info
-                    \Filament\Forms\Components\Grid::make(2)
-                        ->schema([
-                            \Filament\Forms\Components\Placeholder::make("field_info_{$fieldId}")
-                                ->label('')
-                                ->content(new HtmlString(
-                                    '<div class="text-lg font-medium">' . htmlspecialchars($label) . '</div>' .
-                                        '<div class="text-sm text-gray-500">Name: ' . htmlspecialchars($name) . ' | Type: ' . htmlspecialchars($type) . '</div>'
-                                )),
+                    \Filament\Forms\Components\Placeholder::make('pagination_info')
+                        ->label('')
+                        ->content(fn() => "Showing " . (($this->currentPage - 1) * $this->perPage + 1) . "-" .
+                            min($this->currentPage * $this->perPage, $this->totalFields) . " of {$this->totalFields} fields"),
 
-                            // ✅ Main Select Field - Simplified
-                            \Filament\Forms\Components\Select::make($selectFieldName)
-                                ->label('Map to')
-                                ->searchable()
-                                ->searchPrompt('Search fields...')
-                                ->placeholder('Select a field or create new')
-                                ->default('new')
-                                ->live()
-                                ->options($this->fieldMappingOptions)
-                                ->afterStateUpdated(function ($state, \Livewire\Component $livewire) use ($fieldId) {
-                                    // Store selection but don't generate preview yet
-                                    $livewire->setMappingSelection($fieldId, $state);
-                                })
-                        ]),
+                    \Filament\Forms\Components\Actions::make([
+                        \Filament\Forms\Components\Actions\Action::make('prev_page')
+                            ->label('Previous')
+                            ->icon('heroicon-o-chevron-left')
+                            ->color('gray')
+                            ->visible(fn() => $this->currentPage > 1)
+                            ->action(function () {
+                                $this->prevPage();
+                                // Use $refresh event to rebuild form without losing state
+                            }),
 
-                    // ✅ Toggle for field details - optimized to load on demand
-                    \Filament\Forms\Components\Toggle::make("show_details_{$fieldId}")
-                        ->label('Show field details')
-                        ->default(false)
+                        \Filament\Forms\Components\Actions\Action::make('current_page')
+                            ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
+                            ->color('gray')
+                            ->disabled(),
+
+                        \Filament\Forms\Components\Actions\Action::make('next_page')
+                            ->label('Next')
+                            ->icon('heroicon-o-chevron-right')
+                            ->iconPosition('after')
+                            ->color('gray')
+                            ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
+                            ->action(function () {
+                                $this->nextPage();
+                                // Use $refresh event to rebuild form without losing state
+                            }),
+                    ]),
+
+                    \Filament\Forms\Components\Select::make('per_page')
+                        ->label('Fields per page')
+                        ->options([
+                            5 => '5 fields',
+                            10 => '10 fields',
+                            15 => '15 fields',
+                            25 => '25 fields',
+                            50 => '50 fields',
+                        ])
+                        ->default($this->perPage)
+                        ->afterStateUpdated(function ($state) {
+                            $this->perPage = (int) $state;
+                            $this->currentPage = 1; // Reset to first page on per-page change
+                            // Use $refresh event to rebuild form without losing state
+                            $this->dispatch('$refresh');
+                        })
                         ->live()
-                        ->afterStateUpdated(function ($state, Set $set, \Livewire\Component $livewire) use ($fieldId, $previewFieldName) {
-                            if ($state) {
-                                // Only load details when the toggle is turned on
-                                $livewire->loadFieldDetails($fieldId, $previewFieldName);
-                            } else {
-                                // Clear details when toggled off to save memory
-                                $set($previewFieldName, null);
-                            }
-                        }),
+                        ->selectablePlaceholder(false)
+                        ->columnSpan(1),
+                ])
+        ];
 
-                    // ✅ Field Preview Output - only shown when toggle is on
-                    \Filament\Forms\Components\Placeholder::make($previewFieldName)
-                        ->label('Field Details')
-                        ->content(fn(Get $get) => new HtmlString($get($previewFieldName) ?: '<div class="text-gray-500 italic">Toggle switch above to view field details</div>'))
-                        ->visible(fn(Get $get) => $get("show_details_{$fieldId}"))
-                        ->columnSpanFull(),
-                ]);
-        }
+        // Use the SchemaFormatter to get the field mapping schema with our paginated fields
+        // Always show previews since the toggle has been removed in favor of always-on optimized previews
+        $fieldSchemaComponents = $schemaFormatter->getFieldMappingSchemaWithPreview($paginatedSchema, true);
+
+        // Merge the pagination controls with the field schema
+        $schema = array_merge($schema, $fieldSchemaComponents);
 
         // Add pagination controls at the bottom too if we have multiple pages
         if ($this->totalFields > $this->perPage) {
@@ -531,7 +495,10 @@ class ImportSchema extends Page implements HasForms
                             ->icon('heroicon-o-chevron-left')
                             ->color('gray')
                             ->visible(fn() => $this->currentPage > 1)
-                            ->action(fn() => $this->prevPage()),
+                            ->action(function () {
+                                $this->prevPage();
+                                // Use $refresh event to rebuild form without losing state
+                            }),
 
                         \Filament\Forms\Components\Actions\Action::make('current_page_bottom')
                             ->label("Page {$this->currentPage} of " . ceil($this->totalFields / $this->perPage))
@@ -544,7 +511,10 @@ class ImportSchema extends Page implements HasForms
                             ->iconPosition('after')
                             ->color('gray')
                             ->visible(fn() => $this->currentPage < ceil($this->totalFields / $this->perPage))
-                            ->action(fn() => $this->nextPage()),
+                            ->action(function () {
+                                $this->nextPage();
+                                // Use $refresh event to rebuild form without losing state
+                            }),
                     ]),
 
                     \Filament\Forms\Components\Placeholder::make('bottom_spacer')
@@ -1421,172 +1391,34 @@ class ImportSchema extends Page implements HasForms
     }
 
     /**
-     * Get import field details for preview in the same format as existing fields
+     * Pagination methods for field mapping
      */
-    public function getImportFieldDetailsForPreview($fieldId)
+    public function nextPage(): void
     {
-        // Find the imported field by $fieldId in the parsed schema
-        $fields = [];
-        if (isset($this->parsedSchema['data']) && isset($this->parsedSchema['data']['elements'])) {
-            $fields = $this->extractFieldsFromSchema($this->parsedSchema['data']['elements']);
-        } elseif (isset($this->parsedSchema['fields'])) {
-            $fields = $this->extractFieldsFromSchema($this->parsedSchema['fields']);
+        $maxPage = ceil($this->totalFields / $this->perPage);
+        if ($this->currentPage < $maxPage) {
+            $this->currentPage++;
+            // Refresh form schema but preserve existing form state
+            $this->dispatch('$refresh');
         }
-        foreach ($fields as $index => $field) {
-            $importFieldId = $field['token'] ?? $field['id'] ?? md5($field['name'] ?? "field_$index");
-            if ($importFieldId == $fieldId) {
-                return $this->generateImportFieldOverview($field);
-            }
-        }
-        return '<div class="text-gray-500 italic">No import field data found for preview.</div>';
-    }
-
-    public function getExistingFieldDetailsForPreview($fieldId)
-    {
-        try {
-            $field = \App\Models\FormField::with([
-                'dataType',
-                'validations',
-                'fieldGroups',
-                'webStyles',
-                'pdfStyles',
-                'formFieldDateFormat',
-                'formFieldValue',
-                'selectOptionInstances',
-                'formVersions'
-            ])->findOrFail($fieldId);
-
-            return $this->generateExistingFieldOverview($field);
-        } catch (\Exception $e) {
-            return '<div class="text-red-500">Error loading field: ' . htmlspecialchars($e->getMessage()) . '</div>';
-        }
-    }
-
-    public function generateExistingFieldOverview($field): string
-    {
-        // Basic info - more minimal format
-        $fieldDetails = [
-            '🔑 Basic Info' => [
-                'Field ID' => $field->id,
-                'Name' => $field->name,
-                'Type' => $field->dataType->name ?? 'unknown',
-                'Label' => $field->label,
-                'Created' => $field->created_at ? $field->created_at->format('Y-m-d') : '',
-            ],
-            '📝 Content & Display' => [
-                'Help Text' => mb_strlen($field->help_text ?? '') > 100 ? mb_substr($field->help_text, 0, 97) . '...' : ($field->help_text ?: 'None'),
-                'Description' => mb_strlen($field->description ?? '') > 100 ? mb_substr($field->description, 0, 97) . '...' : ($field->description ?: 'None'),
-                'Data Binding' => $field->data_binding ?: 'None',
-            ],
-        ];
-
-        // Validation with limits
-        if ($field->validations && $field->validations->count() > 0) {
-            $validations = $field->validations->take(5)->map(fn($v) => "$v->type: $v->value")->join(', ');
-            if ($field->validations->count() > 5) {
-                $validations .= ', ... ' . ($field->validations->count() - 5) . ' more';
-            }
-            $fieldDetails['✓ Validation'] = ['Rules' => $validations];
-        } else {
-            $fieldDetails['✓ Validation'] = ['Rules' => 'None'];
-        }
-
-        // Organization info with limits
-        if ($field->fieldGroups && $field->fieldGroups->count() > 0) {
-            $groups = $field->fieldGroups->take(3)->pluck('name')->join(', ');
-            if ($field->fieldGroups->count() > 3) {
-                $groups .= ', ... ' . ($field->fieldGroups->count() - 3) . ' more';
-            }
-            $fieldDetails['🗂️ Organization'] = ['Field Groups' => $groups];
-        } else {
-            $fieldDetails['🗂️ Organization'] = ['Field Groups' => 'Not assigned to any groups'];
-        }
-
-        // Options for select/radio/checkbox - with limits
-        if (in_array($field->dataType->name ?? '', ['select', 'multiselect', 'radio', 'checkbox'])) {
-            $optionsCount = $field->selectOptionInstances ? $field->selectOptionInstances->count() : 0;
-
-            if ($optionsCount > 0) {
-                $optionsHtml = '<ul class="list-disc pl-5">';
-                // Only show first 5 options
-                foreach ($field->selectOptionInstances->take(5) as $opt) {
-                    $label = $opt->label ?? $opt->value ?? '';
-                    $value = $opt->value ?? '';
-                    $optionsHtml .= '<li><span class="font-medium">' . htmlspecialchars($label) . '</span>';
-                    if ($value !== '' && $value !== $label) {
-                        $optionsHtml .= ' <span class="text-gray-500">(' . htmlspecialchars($value) . ')</span>';
-                    }
-                    $optionsHtml .= '</li>';
-                }
-
-                // Show count of remaining options
-                if ($optionsCount > 5) {
-                    $optionsHtml .= '<li><span class="text-gray-500">... ' . ($optionsCount - 5) . ' more options</span></li>';
-                }
-
-                $optionsHtml .= '</ul>';
-
-                $fieldDetails['� Options'] = [
-                    'Count' => $optionsCount,
-                    'Options' => $optionsHtml,
-                ];
-            } else {
-                $fieldDetails['🔽 Options'] = [
-                    'Options' => 'No options defined',
-                ];
-            }
-        }
-
-        // Usage statistics
-        $formsCount = $field->formVersions ? $field->formVersions->count() : 0;
-        $usage = [
-            'Used In' => $formsCount . ' form version(s)',
-        ];
-        if ($formsCount > 0) {
-            $formNames = $field->formVersions->pluck('form_title')->unique()->take(3)->join(', ');
-            if ($field->formVersions->count() > 3) {
-                $formNames .= ' and ' . ($field->formVersions->count() - 3) . ' more';
-            }
-            $usage['Form Names'] = $formNames;
-        }
-        $fieldDetails['📊 Usage Statistics'] = $usage;
-
-        // Action
-        $fieldDetails['🔄 Action'] = [
-            'Action' => 'Will use this existing field for mapping',
-        ];
-
-        // Render as HTML with fewer DOM elements (div-based layout instead of tables)
-        $html = '<div class="space-y-4 p-2 overflow-auto max-h-64">';
-        foreach ($fieldDetails as $section => $items) {
-            $html .= '<div class="border rounded-md bg-gray-50">';
-            $html .= '<div class="font-medium p-2 bg-gray-100 border-b">' . $section . '</div>';
-            $html .= '<div class="divide-y divide-gray-200">';
-
-            foreach ($items as $key => $value) {
-                $html .= '<div class="flex p-2">';
-                $html .= '<div class="w-1/3 font-medium text-gray-700">' . htmlspecialchars($key) . '</div>';
-
-                if ($key === 'Options') {
-                    $html .= '<div class="w-2/3">' . $value . '</div>'; // allow HTML for options
-                } elseif (empty($value) && $value !== '0' && $value !== 0) {
-                    $html .= '<div class="w-2/3 text-gray-500 italic">empty</div>';
-                } else {
-                    $html .= '<div class="w-2/3">' . htmlspecialchars($value) . '</div>';
-                }
-                $html .= '</div>';
-            }
-
-            $html .= '</div>';
-            $html .= '</div>';
-        }
-        $html .= '</div>';
-        return $html;
     }
 
     /**
-     * Generate a simplified JSON preview of the imported form
+     * Navigate to the previous page of fields
+     */
+    public function prevPage(): void
+    {
+        if ($this->currentPage > 1) {
+            $this->currentPage--;
+            // Refresh form schema but preserve existing form state
+            $this->dispatch('$refresh');
+        }
+    }
 
+    /**
+     * Store field mapping selection without generating full preview
+     * This reduces memory usage by only storing the minimal state
+     */
 
     /**
      * Poll schema import status - can be called from frontend to check status
@@ -1672,81 +1504,5 @@ class ImportSchema extends Page implements HasForms
     private function stopPolling(): void
     {
         $this->dispatch('stop-polling');
-    }
-
-
-
-    /**
-     * Navigate to the next page of fields
-     */
-    public function nextPage(): void
-    {
-        $maxPage = ceil($this->totalFields / $this->perPage);
-        if ($this->currentPage < $maxPage) {
-            $this->currentPage++;
-            $this->dispatch('refresh');
-        }
-    }
-
-    /**
-     * Navigate to the previous page of fields
-     */
-    public function prevPage(): void
-    {
-        if ($this->currentPage > 1) {
-            $this->currentPage--;
-            $this->dispatch('refresh');
-        }
-    }
-
-    /**
-     * Store field mapping selection without generating full preview
-     * This reduces memory usage by only storing the minimal state
-     */
-    public function setMappingSelection(string $fieldId, string $selectedValue): void
-    {
-        // Store the mapping choice in component state
-        $this->fieldMappings[$fieldId] = $selectedValue;
-
-        // Log the selection for debugging
-        logger()->debug("📍 Field mapping stored: {$fieldId} => {$selectedValue}");
-    }
-
-    /**
-     * Load field details on demand when requested
-     * This is called when a user toggles to view details
-     */
-    public function loadFieldDetails(string $fieldId, string $previewFieldName): void
-    {
-        $this->startLoadingFieldDetails();
-
-        try {
-            // Get the current mapping selection for this field
-            $selectedValue = $this->fieldMappings[$fieldId] ?? 'new';
-
-            if ($selectedValue === 'new') {
-                // Generate preview for the import field
-                $previewHtml = $this->getImportFieldDetailsForPreview($fieldId);
-            } else {
-                // Generate preview for existing field
-                $previewHtml = $this->getExistingFieldDetailsForPreview((int)$selectedValue);
-            }
-
-            // Update the form data with the preview HTML
-            $this->data[$previewFieldName] = $previewHtml;
-
-            logger()->debug("🔍 Loaded details for field {$fieldId} with mapping {$selectedValue}");
-        } catch (\Exception $e) {
-            // Handle errors
-            $errorHtml = '<div class="text-red-500 p-2">' .
-                '<p class="font-medium">Error loading field details:</p>' .
-                '<p>' . htmlspecialchars($e->getMessage()) . '</p>' .
-                '</div>';
-
-            $this->data[$previewFieldName] = $errorHtml;
-            logger()->error("❌ Error loading field details: " . $e->getMessage());
-        }
-
-        $this->stopLoadingFieldDetails();
     }
 }
