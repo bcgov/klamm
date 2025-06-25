@@ -24,6 +24,7 @@ class SchemaFormatter
 
         $options = [
             'new' => 'Create New Field',
+            'skip' => 'Skip This Field',
         ];
 
         $sortedFields = $allFields->sortBy('label');
@@ -144,17 +145,18 @@ class SchemaFormatter
                     ->label('Map to Existing Field or Create New')
                     ->searchable()
                     ->searchPrompt('Search by ID, name, or label...')
-                    ->placeholder('Select a field or create new')
+                    ->placeholder('Create new, skip, or select existing field')
                     ->default('new')
                     ->reactive()
                     ->live(onBlur: true) // Update on blur for better performance
                     ->preload()
                     ->allowHtml()
                     ->selectablePlaceholder(false)
-                    ->helperText('Choose "Create New" or search for an existing field by name, ID or label')
+                    ->helperText('Choose "Create New" to import this field, "Skip This Field" to exclude it from import, or search for an existing field by name, ID or label')
                     ->getSearchResultsUsing(function ($search) {
                         $options = [
                             'new' => '🆕 Create New Field',
+                            'skip' => '⏭️ Skip This Field',
                         ];
 
                         $query = \App\Models\FormField::with('dataType:id,name');
@@ -211,6 +213,8 @@ class SchemaFormatter
 
                     if (!$selectedMapping || $selectedMapping === 'new') {
                         return new HtmlString('<div class="p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm">✅ <strong>Will create new field</strong> - A new field will be created in the system</div>');
+                    } elseif ($selectedMapping === 'skip') {
+                        return new HtmlString('<div class="p-2 bg-gray-50 border border-gray-200 rounded text-gray-700 text-sm">⏭️ <strong>Skipping import of this field</strong> - This field will not be imported or created</div>');
                     } else {
                         return new HtmlString('<div class="p-2 bg-blue-50 border border-blue-200 rounded text-blue-700 text-sm">🔗 <strong>Will map to existing field</strong> - Import data will be mapped to field #' . htmlspecialchars($selectedMapping) . '</div>');
                     }
@@ -243,6 +247,13 @@ class SchemaFormatter
                             $this->generateImportFieldOverview($field) .
                             '</div>';
                         return new HtmlString($newFieldPreview);
+                    } elseif ($selectedMapping === 'skip') {
+                        // Show simple message for skipped fields without detailed preview
+                        $skipPreview = '<div class="p-3 bg-gray-50 border border-gray-200 rounded">' .
+                            '<div class="flex items-center mb-2"><span class="text-gray-600 font-semibold">⏭️ Skipping Field</span></div>' .
+                            '<div class="text-sm text-gray-700">This field will be skipped during import and will not be created in the system.</div>' .
+                            '</div>';
+                        return new HtmlString($skipPreview);
                     } else {
                         // Show preview of existing field when mapping to existing
                         try {
