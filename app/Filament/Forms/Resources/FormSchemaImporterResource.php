@@ -3,202 +3,146 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormSchemaImporterResource\Pages;
-use App\Models\Form as FormModel;
+use App\Models\FormSchemaImportSession;
 use App\Models\Ministry;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Tabs;
-use Filament\Forms\Components\Tabs\Tab;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Wizard;
-use Filament\Forms\Components\Wizard\Step;
-use Filament\Forms\Form;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class FormSchemaImporterResource extends Resource
 {
-    protected static ?string $model = FormModel::class;
+    protected static ?string $model = FormSchemaImportSession::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-up-tray';
 
     protected static ?string $navigationGroup = 'Form Administration';
 
-    protected static ?string $navigationLabel = 'Form Schema Import';
+    protected static ?string $navigationLabel = 'Schema Import';
 
-    protected static ?string $slug = 'form-schema-import';
+    protected static ?string $slug = 'schema-import';
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static ?string $recordTitleAttribute = 'session_name';
 
-    public static function getFormSchema(): array
+    // Explicitly set the panel to forms
+    public static function canAccess(): bool
     {
-        return [
-            Wizard::make([
-                Step::make('Import Source')
-                    ->schema([
-                        Section::make('Form Schema Source')
-                            ->schema([
-                                Tabs::make('source_tabs')
-                                    ->tabs([
-                                        Tab::make('Upload File')
-                                            ->schema([
-                                                FileUpload::make('schema_file')
-                                                    ->label('Schema File')
-                                                    ->acceptedFileTypes(['application/json'])
-                                                    ->maxSize(5120) // 5MB
-                                                    ->helperText('Upload a JSON file with form schema (max 5MB)')
-                                                    ->reactive()
-                                                    ->afterStateUpdated(function (Set $set, ?TemporaryUploadedFile $state) {
-                                                        if ($state) {
-                                                            $content = file_get_contents($state->getRealPath());
-                                                            $set('schema_content', $content);
-                                                            $set('parsed_content', self::parseSchema($content));
-                                                        } else {
-                                                            $set('schema_content', null);
-                                                            $set('parsed_content', null);
-                                                        }
-                                                    }),
-                                            ]),
+        return \Filament\Facades\Filament::getCurrentPanel()?->getId() === 'forms';
+    }
 
-                                        Tab::make('Paste JSON')
-                                            ->schema([
-                                                Textarea::make('schema_content')
-                                                    ->label('Schema Content')
-                                                    ->placeholder('Paste JSON form schema here...')
-                                                    ->rows(15)
-                                                    ->columnSpanFull()
-                                                    ->reactive()
-                                                    ->afterStateUpdated(function (Set $set, ?string $state) {
-                                                        if ($state) {
-                                                            $set('parsed_content', self::parseSchema($state));
-                                                        } else {
-                                                            $set('parsed_content', null);
-                                                        }
-                                                    }),
-                                            ]),
-                                    ]),
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::forCurrentUser()->active()->count();
+    }
 
-                                Section::make('Schema Summary')
-                                    ->schema([
-                                        TextInput::make('parsed_content.form_id')
-                                            ->label('Form ID')
-                                            ->disabled(),
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        $count = static::getNavigationBadge();
+        return $count > 0 ? 'primary' : null;
+    }
 
-                                        TextInput::make('parsed_content.field_count')
-                                            ->label('Field Count')
-                                            ->disabled(),
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('session_name')
+                    ->label('Import Session')
+                    ->searchable()
+                    ->sortable()
+                    ->limit(40),
 
-                                        TextInput::make('parsed_content.container_count')
-                                            ->label('Container Count')
-                                            ->disabled(),
-
-                                        TextInput::make('parsed_content.format')
-                                            ->label('Format')
-                                            ->disabled(),
-                                    ])
-                                    ->columns(2)
-                                    ->visible(fn(Get $get): bool => (bool) $get('parsed_content')),
-                            ]),
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('Status')
+                    ->colors([
+                        'gray' => 'draft',
+                        'blue' => 'in_progress',
+                        'green' => 'completed',
+                        'red' => 'failed',
+                        'orange' => 'cancelled',
                     ]),
 
-                Step::make('Form Details')
-                    ->schema([
-                        Section::make('Form Configuration')
-                            ->schema([
-                                TextInput::make('form_id')
-                                    ->label('Form ID')
-                                    ->required()
-                                    ->default(fn(Get $get) => $get('parsed_content.form_id'))
-                                    ->maxLength(255),
+                Tables\Columns\TextColumn::make('target_form_id')
+                    ->label('Target Form')
+                    ->searchable()
+                    ->sortable()
+                    ->limit(30),
 
-                                TextInput::make('form_title')
-                                    ->label('Form Title')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->default(fn(Get $get) => $get('parsed_content.title')),
+                Tables\Columns\TextColumn::make('targetMinistry.name')
+                    ->label('Ministry')
+                    ->searchable()
+                    ->sortable()
+                    ->limit(25),
 
-                                Select::make('ministry_id')
-                                    ->label('Ministry')
-                                    ->options(Ministry::pluck('name', 'id'))
-                                    ->searchable()
-                                    ->preload(),
+                Tables\Columns\TextColumn::make('total_fields')
+                    ->label('Total Fields')
+                    ->sortable()
+                    ->alignCenter(),
 
-                                Select::make('form')
-                                    ->label('Use existing form?')
-                                    ->options(FormModel::pluck('form_title', 'id'))
-                                    ->searchable()
-                                    ->preload()
-                                    ->helperText('Select an existing form or create a new one'),
-                            ])
-                            ->columns(2),
-
-                        Section::make('Import Options')
-                            ->schema([
-                                Toggle::make('create_new_form')
-                                    ->label('Create a new form if one doesn\'t exist')
-                                    ->default(true)
-                                    ->reactive(),
-
-                                Toggle::make('create_new_version')
-                                    ->label('Create a new form version')
-                                    ->default(true)
-                                    ->reactive(),
-                            ])
-                            ->columns(2),
-                    ]),
-
-                Step::make('Field Mapping')
-                    ->schema([
-                        Section::make('Field Mapping')
-                            ->description('Map fields from the imported schema to existing fields in the system')
-                            ->schema([
-                                // Dynamic content will be filled in by the Livewire component
-                            ])
-                            ->columnSpanFull(),
-                    ])
-                    ->visible(function (Get $get) {
-                        // Only show step if parsed content exists
-                        return (bool) $get('parsed_content');
+                Tables\Columns\TextColumn::make('mapped_fields')
+                    ->label('Mapped')
+                    ->sortable()
+                    ->alignCenter()
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($record->total_fields > 0) {
+                            $percentage = round(($state / $record->total_fields) * 100);
+                            return "{$state}/{$record->total_fields} ({$percentage}%)";
+                        }
+                        return $state;
                     }),
 
-                Step::make('Import Preview')
-                    ->schema([
-                        Section::make('Preview')
-                            ->schema([
-                                Textarea::make('preview')
-                                    ->label('Import Preview')
-                                    ->disabled()
-                                    ->rows(20)
-                                    ->columnSpanFull(),
-                            ]),
-                    ])
-                    ->visible(function (Get $get) {
-                        // Only show step if parsed content exists
-                        return (bool) $get('parsed_content');
-                    }),
+                Tables\Columns\TextColumn::make('last_activity_at')
+                    ->label('Last Activity')
+                    ->since()
+                    ->sortable(),
 
-                Step::make('Confirm Import')
-                    ->schema([
-                        Section::make('Final Confirmation')
-                            ->schema([
-                                Toggle::make('confirm_import')
-                                    ->label('I confirm this import')
-                                    ->required()
-                                    ->helperText('Please confirm you want to proceed with this import'),
-                            ]),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Created')
+                    ->date()
+                    ->sortable(),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'in_progress' => 'In Progress',
+                        'completed' => 'Completed',
+                        'failed' => 'Failed',
+                        'cancelled' => 'Cancelled',
                     ]),
             ])
-                ->skippable()
-                ->persistStepInQueryString(),
-        ];
+            ->actions([
+                Tables\Actions\Action::make('resume')
+                    ->label('Resume')
+                    ->icon('heroicon-o-play')
+                    ->color('primary')
+                    ->visible(fn(FormSchemaImportSession $record): bool => $record->canBeResumed())
+                    ->url(
+                        fn(FormSchemaImportSession $record): string =>
+                        static::getUrl('import_session', ['session' => $record->session_token])
+                    ),
+
+                Tables\Actions\Action::make('view_result')
+                    ->label('View Result')
+                    ->icon('heroicon-o-eye')
+                    ->color('success')
+                    ->visible(
+                        fn(FormSchemaImportSession $record): bool =>
+                        $record->status === 'completed' && $record->result_form_version_id
+                    )
+                    ->url(
+                        fn(FormSchemaImportSession $record): string =>
+                        route('filament.forms.resources.form-versions.view', ['record' => $record->result_form_version_id])
+                    )
+                    ->openUrlInNewTab(),
+
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn(FormSchemaImportSession $record): bool => $record->canBeDeleted()),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('last_activity_at', 'desc');
     }
 
     /**
@@ -288,53 +232,12 @@ class FormSchemaImporterResource extends Resource
         }
     }
 
-    public static function form(Form $form): Form
-    {
-        return $form
-            ->schema(self::getFormSchema());
-    }
-
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->columns([
-                TextColumn::make('form_id')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('form_title')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('ministry.name')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('formVersions_count')
-                    ->counts('formVersions')
-                    ->label('Versions')
-                    ->sortable(),
-            ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\Action::make('import')
-                    ->label('Import Schema')
-                    ->icon('heroicon-o-arrow-up-tray')
-                    ->url(fn(FormModel $record): string => static::getUrl('import', ['record' => $record]))
-                    ->openUrlInNewTab(),
-            ])
-            ->bulkActions([
-                //
-            ]);
-    }
-
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListSchemaImport::route('/'),
-            'import' => Pages\ImportSchema::route('/import/{record?}'),
+            'import' => Pages\ImportSchema::route('/import'),
+            'import_session' => Pages\ImportSchema::route('/import/{session}'),
         ];
     }
 }

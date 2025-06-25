@@ -49,7 +49,7 @@ class CreateFormVersion extends CreateRecord
                 ->label('Import')
                 ->url(function () {
                     if ($this->formId) {
-                        return url("/forms/form-schema-import/import/{$this->formId}?step=import-source");
+                        return route('filament.forms.resources.schema-import.import', ['form_id' => $this->formId]);
                     }
                     return Notification::make()
                         ->title('No Form Selected')

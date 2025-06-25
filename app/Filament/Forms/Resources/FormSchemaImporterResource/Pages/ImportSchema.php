@@ -8,6 +8,7 @@ use App\Filament\Forms\Imports\FormSchemaImporter;
 use App\Filament\Forms\Resources\FormSchemaImporterResource;
 use App\Models\Form as FormModel;
 use App\Models\FormField;
+use App\Models\FormSchemaImportSession;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
@@ -51,19 +52,74 @@ class ImportSchema extends Page implements HasForms
     public int $totalFields = 0;
     public array $paginatedFields = [];
     public int $schemaVersion = 1; // Cache buster for form schema
+    public ?FormSchemaImportSession $importSession = null; // Current import session
 
-    public function mount(?FormModel $record = null): void
+    public function mount(?string $session = null): void
     {
-        // Initialize form with record data if provided
-        if ($record) {
-            $this->form->fill([
-                'form_id' => $record->form_id,
-                'form_title' => $record->form_title,
-                'ministry_id' => $record->ministry_id,
-                'form' => $record->id,
-                'create_new_form' => false,
-                'create_new_version' => true,
-            ]);
+        // Try to load an existing session first
+        if ($session) {
+            $this->importSession = FormSchemaImportSession::where('session_token', $session)
+                ->forCurrentUser()
+                ->first();
+
+            if ($this->importSession) {
+                // Restore session data
+                $sessionData = $this->importSession->toImportState();
+
+                // Restore component state
+                $this->parsedSchema = $this->importSession->getParsedSchemaAttribute();
+                $this->fieldMappings = $this->importSession->field_mappings ?? [];
+                $this->currentPage = $sessionData['current_page'] ?? 1;
+                $this->perPage = $sessionData['per_page'] ?? 10;
+
+                // Convert field mappings to form data format
+                foreach ($this->fieldMappings as $fieldId => $mappingValue) {
+                    $sessionData["field_mapping_{$fieldId}"] = $mappingValue;
+                }
+
+                // Fill the form with the enhanced session data
+                $this->form->fill($sessionData);
+
+                // Ensure the data property is properly set (this is what Filament uses internally)
+                if (!isset($this->data)) {
+                    $this->data = [];
+                }
+                $this->data = array_merge($this->data, $sessionData);
+
+                // Load form field options since we have a parsed schema
+                $this->loadFormFieldOptions();
+
+                // Mark session as in progress
+                $this->importSession->markInProgress();
+
+                Notification::make()
+                    ->title('Session Resumed')
+                    ->body("Resumed import session: {$this->importSession->session_name}")
+                    ->success()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Session Not Found')
+                    ->body('The requested import session could not be found or you do not have access to it.')
+                    ->warning()
+                    ->send();
+            }
+        }
+
+        // Handle form_id parameter from CreateFormVersion (query string fallback)
+        $formId = request()->query('form_id');
+        if ($formId && !$this->importSession) {
+            $form = FormModel::find($formId);
+            if ($form) {
+                $this->form->fill([
+                    'form_id' => $form->form_id,
+                    'form_title' => $form->form_title,
+                    'ministry_id' => $form->ministry_id,
+                    'form' => $form->id,
+                    'create_new_form' => false,
+                    'create_new_version' => true,
+                ]);
+            }
         }
 
         // Check if there's an ongoing import job
@@ -107,6 +163,48 @@ class ImportSchema extends Page implements HasForms
     public function form(FilamentForm $form): FilamentForm
     {
         return $form->schema([
+            // Session status info panel (only show if we have an active session)
+            \Filament\Forms\Components\Section::make('Session Information')
+                ->schema([
+                    \Filament\Forms\Components\Placeholder::make('session_info')
+                        ->hiddenLabel()
+                        ->content(function () {
+                            if (!$this->importSession) {
+                                return new HtmlString('<div class="text-sm text-gray-600">No active session - your progress will not be saved automatically. Use "Save Progress" to create a session.</div>');
+                            }
+
+                            $statusColor = match ($this->importSession->status) {
+                                'completed' => 'text-green-600',
+                                'failed' => 'text-red-600',
+                                'cancelled' => 'text-orange-600',
+                                'in_progress' => 'text-blue-600',
+                                default => 'text-gray-600'
+                            };
+
+                            $lastActivity = $this->importSession->last_activity_at ? $this->importSession->last_activity_at->diffForHumans() : 'Unknown';
+                            $progress = $this->importSession->completion_percentage;
+
+                            return new HtmlString("
+                                <div class='space-y-2'>
+                                    <div class='flex items-center justify-between'>
+                                        <div>
+                                            <span class='font-medium'>Session:</span> {$this->importSession->session_name}
+                                            <span class='ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 {$statusColor}'>{$this->importSession->status_label}</span>
+                                        </div>
+                                        <div class='text-sm text-gray-500'>Last activity: {$lastActivity}</div>
+                                    </div>
+                                    <div class='w-full bg-gray-200 rounded-full h-2'>
+                                        <div class='bg-blue-600 h-2 rounded-full' style='width: {$progress}%'></div>
+                                    </div>
+                                    <div class='text-xs text-gray-500'>Progress: {$progress}% complete</div>
+                                </div>
+                            ");
+                        }),
+                ])
+                ->visible(fn() => $this->importSession !== null)
+                ->collapsible()
+                ->collapsed(false),
+
             \Filament\Forms\Components\Wizard::make([
                 \Filament\Forms\Components\Wizard\Step::make('Import Source')
                     ->schema([
@@ -608,82 +706,6 @@ class ImportSchema extends Page implements HasForms
         return (new SchemaParser())->mapFieldType($type);
     }
 
-    /**
-     * Import the schema with the provided mappings
-     */
-    public function import(): void
-    {
-        try {
-            if (empty($this->data['schema_content'])) {
-                Notification::make()
-                    ->title('No schema content')
-                    ->body('Please upload or paste a schema first')
-                    ->warning()
-                    ->send();
-
-                return;
-            }
-
-            // Create new FormSchemaImporter instance
-            $importer = new FormSchemaImporter($this->data['schema_content']);
-
-            // Extract current field mappings from form data
-            $currentFieldMappings = [];
-            foreach ($this->data as $key => $value) {
-                if (str_starts_with($key, 'field_mapping_')) {
-                    $currentFieldMappings[$key] = $value;
-                }
-            }
-
-            Log::info("🔄 Starting import with field mappings", [
-                'total_form_data_keys' => count($this->data),
-                'field_mapping_keys_found' => count($currentFieldMappings),
-                'mappings' => $currentFieldMappings
-            ]);
-
-            // Process the import
-            $result = $importer->processImport([
-                'form_id' => $this->data['form_id'],
-                'title' => $this->data['form_title'],
-                'ministry_id' => $this->data['ministry_id'],
-                'create_new_form' => (bool)$this->data['create_new_form'],
-                'create_new_version' => (bool)$this->data['create_new_version'],
-                'field_mappings' => $currentFieldMappings,
-            ]);
-
-            if ($result['success']) {
-                $formVersion = $result['formVersion'];
-
-                Notification::make()
-                    ->title('Import Successful')
-                    ->body($result['message'])
-                    ->success()
-                    ->actions([
-                        \Filament\Notifications\Actions\Action::make('view')
-                            ->label('View Form Version')
-                            ->url(route('filament.forms.resources.form-versions.view', ['record' => $formVersion->id]))
-                            ->openUrlInNewTab(),
-                    ])
-                    ->send();
-
-                // Redirect to the form version page
-                $this->redirect(route('filament.forms.resources.form-versions.view', ['record' => $formVersion->id]));
-            } else {
-                Notification::make()
-                    ->title('Import Failed')
-                    ->body($result['message'])
-                    ->danger()
-                    ->send();
-            }
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Error during import')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-        }
-    }
-
     protected function getActions(): array
     {
         return [
@@ -757,6 +779,38 @@ class ImportSchema extends Page implements HasForms
                             ->send();
                     }
                 }),
+
+            Action::make('save_session')
+                ->label('Save Progress')
+                ->icon('heroicon-o-bookmark')
+                ->color('gray')
+                ->visible(fn() => $this->parsedSchema !== null || !empty($this->data['schema_content']))
+                ->form([
+                    \Filament\Forms\Components\TextInput::make('session_name')
+                        ->label('Session Name')
+                        ->required()
+                        ->default(fn() => $this->importSession?->session_name ?? $this->generateDefaultSessionName())
+                        ->maxLength(255),
+                    \Filament\Forms\Components\Textarea::make('description')
+                        ->label('Description (Optional)')
+                        ->default(fn() => $this->importSession?->description)
+                        ->rows(3),
+                ])
+                ->action(function (array $data) {
+                    $this->saveImportSession($data['session_name'], $data['description']);
+                }),
+
+            Action::make('reset_import')
+                ->label('Reset Import Process')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Reset Import Process')
+                ->modalDescription('Are you sure you want to reset the entire import process? This will clear all uploaded data, field mappings, and start fresh. This action cannot be undone.')
+                ->modalSubmitActionLabel('Yes, Reset Everything')
+                ->modalCancelActionLabel('Cancel')
+                ->visible(fn() => $this->parsedSchema !== null || !empty($this->data['schema_content']))
+                ->action('resetImportProcess'),
 
             Action::make('import')
                 ->label('Import Schema')
@@ -1639,5 +1693,276 @@ class ImportSchema extends Page implements HasForms
     private function stopPolling(): void
     {
         $this->dispatch('stop-polling');
+    }
+
+    /**
+     * Save the current import progress as a session
+     */
+    public function saveImportSession(string $sessionName, ?string $description = null): void
+    {
+        try {
+            // Extract current field mappings from form data
+            $currentFieldMappings = [];
+            foreach ($this->data as $key => $value) {
+                if (str_starts_with($key, 'field_mapping_')) {
+                    $fieldId = str_replace('field_mapping_', '', $key);
+                    $currentFieldMappings[$fieldId] = $value;
+                }
+            }
+
+            if ($this->importSession) {
+                // Update existing session
+                $this->importSession->update([
+                    'session_name' => $sessionName,
+                    'description' => $description,
+                ]);
+                $this->importSession->updateFromImportState($this->data, $this->parsedSchema, $currentFieldMappings);
+                $message = 'Import session updated successfully';
+            } else {
+                // Create new session
+                $this->importSession = FormSchemaImportSession::createFromImportState(
+                    $this->data,
+                    $this->parsedSchema,
+                    $currentFieldMappings
+                );
+                $this->importSession->update([
+                    'session_name' => $sessionName,
+                    'description' => $description,
+                ]);
+                $message = 'Import session saved successfully';
+            }
+
+            Notification::make()
+                ->title('Session Saved')
+                ->body($message . '. You can now leave and return to continue your work.')
+                ->success()
+                ->actions([
+                    \Filament\Notifications\Actions\Action::make('view_sessions')
+                        ->label('View All Sessions')
+                        ->url(FormSchemaImporterResource::getUrl('index')),
+                ])
+                ->send();
+        } catch (\Exception $e) {
+            Log::error("Error saving import session: " . $e->getMessage());
+
+            Notification::make()
+                ->title('Save Error')
+                ->body('An error occurred while saving: ' . $e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
+     * Generate a default session name based on current data
+     */
+    protected function generateDefaultSessionName(): string
+    {
+        $name = 'Schema Import';
+
+        if (!empty($this->data['form_id'])) {
+            $name = "Import: {$this->data['form_id']}";
+        } elseif ($this->parsedSchema && isset($this->parsedSchema['form_id'])) {
+            $name = "Import: {$this->parsedSchema['form_id']}";
+        }
+
+        $name .= ' - ' . now()->format('M j, Y g:i A');
+
+        return $name;
+    }
+
+    /**
+     * Reset the entire import process including session
+     */
+    public function resetImportProcess(): void
+    {
+        try {
+            // Clear all component state
+            $this->data = [];
+            $this->parsedSchema = null;
+            $this->fieldMappings = [];
+            $this->selectOptions = [];
+            $this->formFieldOptions = [];
+            $this->fieldDetails = [];
+            $this->jobStatus = ['status' => 'idle', 'message' => ''];
+
+            // Reset pagination
+            $this->currentPage = 1;
+            $this->perPage = 10;
+            $this->totalFields = 0;
+            $this->paginatedFields = [];
+            $this->schemaVersion = 1;
+
+            // Re-initialize pagination control in form data
+            $this->data['pagination_per_page'] = $this->perPage;
+
+            // Clear any cached job data
+            if (isset($this->data['schema_import_job_id'])) {
+                $jobId = $this->data['schema_import_job_id'];
+
+                // Clean up cache entries for this job
+                Cache::forget("schema_import_status_{$jobId}");
+                Cache::forget("schema_structure_{$jobId}");
+                Cache::forget("schema_elements_{$jobId}");
+
+                // Clean up chunked data if it exists
+                $chunksCount = Cache::get("schema_elements_chunks_{$jobId}");
+                if ($chunksCount) {
+                    for ($i = 0; $i < $chunksCount; $i++) {
+                        Cache::forget("schema_elements_chunk_{$jobId}_{$i}");
+                    }
+                    Cache::forget("schema_elements_chunks_{$jobId}");
+                }
+            }
+
+            // Cancel current session if exists
+            if ($this->importSession) {
+                $this->importSession->cancel();
+                $this->importSession = null;
+            }
+
+            // Reload form field options
+            $this->loadFormFieldOptions();
+
+            // Reload cached field mapping options
+            $this->fieldMappingOptions = \App\Filament\Forms\Helpers\SchemaFormatter::getAllMappingOptions(true);
+
+            Notification::make()
+                ->title('Import Process Reset')
+                ->body('All data has been cleared. You can start fresh with a new schema.')
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Log::error("Error resetting import process: " . $e->getMessage());
+
+            Notification::make()
+                ->title('Reset Error')
+                ->body('An error occurred while resetting: ' . $e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
+     * Update the import method to handle session completion
+     */
+    public function import(): void
+    {
+        try {
+            if (empty($this->data['schema_content'])) {
+                Notification::make()
+                    ->title('No schema content')
+                    ->body('Please upload or paste a schema first')
+                    ->warning()
+                    ->send();
+
+                return;
+            }
+
+            // Create new FormSchemaImporter instance
+            $importer = new FormSchemaImporter($this->data['schema_content']);
+
+            // Extract current field mappings from form data
+            $currentFieldMappings = [];
+            foreach ($this->data as $key => $value) {
+                if (str_starts_with($key, 'field_mapping_')) {
+                    $currentFieldMappings[$key] = $value;
+                }
+            }
+
+            Log::info("🔄 Starting import with field mappings", [
+                'total_form_data_keys' => count($this->data),
+                'field_mapping_keys_found' => count($currentFieldMappings),
+                'mappings' => $currentFieldMappings
+            ]);
+
+            // Process the import
+            $result = $importer->processImport([
+                'form_id' => $this->data['form_id'],
+                'title' => $this->data['form_title'],
+                'ministry_id' => $this->data['ministry_id'],
+                'create_new_form' => (bool)$this->data['create_new_form'],
+                'create_new_version' => (bool)$this->data['create_new_version'],
+                'field_mappings' => $currentFieldMappings,
+            ]);
+
+            if ($result['success']) {
+                $formVersion = $result['formVersion'];
+
+                // Mark session as completed if exists
+                if ($this->importSession) {
+                    $this->importSession->markCompleted($result);
+                }
+
+                Notification::make()
+                    ->title('Import Successful')
+                    ->body($result['message'])
+                    ->success()
+                    ->actions([
+                        \Filament\Notifications\Actions\Action::make('view')
+                            ->label('View Form Version')
+                            ->url(route('filament.forms.resources.form-versions.view', ['record' => $formVersion->id]))
+                            ->openUrlInNewTab(),
+                    ])
+                    ->send();
+
+                // Redirect to the form version page
+                $this->redirect(route('filament.forms.resources.form-versions.view', ['record' => $formVersion->id]));
+            } else {
+                // Mark session as failed if exists
+                if ($this->importSession) {
+                    $this->importSession->markFailed($result['message']);
+                }
+
+                Notification::make()
+                    ->title('Import Failed')
+                    ->body($result['message'])
+                    ->danger()
+                    ->send();
+            }
+        } catch (\Exception $e) {
+            // Mark session as failed if exists
+            if ($this->importSession) {
+                $this->importSession->markFailed($e->getMessage());
+            }
+
+            Notification::make()
+                ->title('Error during import')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
+     * Auto-save session progress when significant state changes occur
+     */
+    protected function autoSaveSessionProgress(): void
+    {
+        if (!$this->importSession) {
+            return; // No session to save to
+        }
+
+        try {
+            // Extract current field mappings
+            $currentFieldMappings = [];
+            foreach ($this->data as $key => $value) {
+                if (str_starts_with($key, 'field_mapping_')) {
+                    $fieldId = str_replace('field_mapping_', '', $key);
+                    $currentFieldMappings[$fieldId] = $value;
+                }
+            }
+
+            // Update session with current state
+            $this->importSession->updateFromImportState($this->data, $this->parsedSchema, $currentFieldMappings);
+
+            Log::debug('Auto-saved session progress', [
+                'session_id' => $this->importSession->id,
+                'mappings_count' => count($currentFieldMappings)
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to auto-save session progress: ' . $e->getMessage());
+            // Don't throw error for auto-save failures to avoid disrupting user workflow
+        }
     }
 }
