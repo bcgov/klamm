@@ -195,7 +195,7 @@ class FormSchemaImportSession extends Model
             'target_form_title' => $data['form_title'] ?? null,
             'target_ministry_id' => $data['ministry_id'] ?? null,
             'target_form_record_id' => $data['form'] ?? null,
-            'create_new_form' => $data['create_new_form'] ?? true,
+            'create_new_form' => $data['create_new_form'] ?? false,
             'create_new_version' => $data['create_new_version'] ?? true,
             'field_mappings' => $fieldMappings,
             'total_fields' => count($fieldMappings),

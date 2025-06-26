@@ -292,45 +292,61 @@ class ImportSchema extends Page implements HasForms
                                     ->visible(fn(Get $get): bool => (bool) $get('parsed_content')),
                             ]),
                     ]),
-                \Filament\Forms\Components\Wizard\Step::make('Form Details')
+                \Filament\Forms\Components\Wizard\Step::make('Form Selection')
                     ->schema([
-                        \Filament\Forms\Components\Section::make('Form Configuration')
+                        \Filament\Forms\Components\Section::make('Target Form')
+                            ->description('Select the existing form to create a new version for')
                             ->schema([
-                                \Filament\Forms\Components\TextInput::make('form_id')
-                                    ->label('Form ID')
-                                    ->required()
-                                    ->default(fn(Get $get) => $get('parsed_content.form_id'))
-                                    ->maxLength(255),
-                                \Filament\Forms\Components\TextInput::make('form_title')
-                                    ->label('Form Title')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->default(fn(Get $get) => $get('parsed_content.title')),
-                                \Filament\Forms\Components\Select::make('ministry_id')
-                                    ->label('Ministry')
-                                    ->options(\App\Models\Ministry::pluck('name', 'id'))
-                                    ->searchable()
-                                    ->preload(),
                                 \Filament\Forms\Components\Select::make('form')
-                                    ->label('Use existing form?')
+                                    ->label('Select Existing Form')
                                     ->options(\App\Models\Form::pluck('form_title', 'id'))
                                     ->searchable()
                                     ->preload()
-                                    ->helperText('Select an existing form or create a new one'),
-                            ])
-                            ->columns(2),
-                        \Filament\Forms\Components\Section::make('Import Options')
-                            ->schema([
-                                \Filament\Forms\Components\Toggle::make('create_new_form')
-                                    ->label('Create a new form if one doesn\'t exist')
-                                    ->default(true)
-                                    ->reactive(),
-                                \Filament\Forms\Components\Toggle::make('create_new_version')
-                                    ->label('Create a new form version')
-                                    ->default(true)
-                                    ->reactive(),
-                            ])
-                            ->columns(2),
+                                    ->required()
+                                    ->helperText('A new version will be created for the selected form')
+                                    ->reactive()
+                                    ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                        if ($state) {
+                                            $form = \App\Models\Form::find($state);
+                                            if ($form) {
+                                                $set('form_id', $form->form_id);
+                                                $set('form_title', $form->form_title);
+                                                $set('ministry_id', $form->ministry_id);
+                                                // Always set to create new version
+                                                $set('create_new_form', false);
+                                                $set('create_new_version', true);
+                                            }
+                                        }
+                                    }),
+
+                                // Display fields - read-only to show what will be used
+                                \Filament\Forms\Components\Grid::make(2)
+                                    ->schema([
+                                        \Filament\Forms\Components\TextInput::make('form_id')
+                                            ->label('Form ID')
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->placeholder('Will be filled from selected form'),
+                                        \Filament\Forms\Components\TextInput::make('form_title')
+                                            ->label('Form Title')
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->placeholder('Will be filled from selected form'),
+                                    ]),
+
+                                \Filament\Forms\Components\Select::make('ministry_id')
+                                    ->label('Ministry')
+                                    ->options(\App\Models\Ministry::pluck('name', 'id'))
+                                    ->disabled()
+                                    ->dehydrated()
+                                    ->placeholder('Will be filled from selected form'),
+
+                                // Hidden fields to store the values
+                                \Filament\Forms\Components\Hidden::make('create_new_form')
+                                    ->default(false),
+                                \Filament\Forms\Components\Hidden::make('create_new_version')
+                                    ->default(true),
+                            ]),
                     ]),
                 \Filament\Forms\Components\Wizard\Step::make('Field Mapping')
                     ->schema([
