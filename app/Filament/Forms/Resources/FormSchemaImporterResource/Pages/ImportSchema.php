@@ -6,6 +6,7 @@ use App\Filament\Forms\Helpers\SchemaFormatter;
 use App\Filament\Forms\Helpers\SchemaParser;
 use App\Filament\Forms\Imports\FormSchemaImporter;
 use App\Filament\Forms\Resources\FormSchemaImporterResource;
+use App\Http\Middleware\CheckRole;
 use App\Models\Form as FormModel;
 use App\Models\FormField;
 use App\Models\FormSchemaImportSession;
@@ -58,9 +59,14 @@ class ImportSchema extends Page implements HasForms
     {
         // Try to load an existing session first
         if ($session) {
-            $this->importSession = FormSchemaImportSession::where('session_token', $session)
-                ->forCurrentUser()
-                ->first();
+            $query = FormSchemaImportSession::where('session_token', $session);
+
+            // Allow admins to access any session, others only their own
+            if (!CheckRole::hasRole(request(), 'admin')) {
+                $query->forCurrentUser();
+            }
+
+            $this->importSession = $query->first();
 
             if ($this->importSession) {
                 // Restore session data
@@ -206,7 +212,7 @@ class ImportSchema extends Page implements HasForms
                 ->collapsed(false),
 
             \Filament\Forms\Components\Wizard::make([
-                \Filament\Forms\Components\Wizard\Step::make('Import Source')
+                \Filament\Forms\Components\Wizard\Step::make('Import Source & Target')
                     ->schema([
                         \Filament\Forms\Components\Section::make('Form Schema Source')
                             ->schema([
@@ -225,6 +231,7 @@ class ImportSchema extends Page implements HasForms
                                                             : 'Upload a JSON file with form schema (max 5MB)';
                                                     })
                                                     ->disabled(fn() => $this->parsedSchema !== null)
+                                                    ->key('schema_file_' . $this->schemaVersion) // Force re-render when schema version changes
                                                     ->reactive()
                                                     ->afterStateUpdated(function (Set $set, ?\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $state) {
                                                         if ($state) {
@@ -248,6 +255,7 @@ class ImportSchema extends Page implements HasForms
                                                             : 'Paste JSON form schema here...';
                                                     })
                                                     ->disabled(fn() => $this->parsedSchema !== null)
+                                                    ->key('schema_content_' . $this->schemaVersion) // Force re-render when schema version changes
                                                     ->rows(15)
                                                     ->columnSpanFull()
                                                     ->reactive()
@@ -291,9 +299,7 @@ class ImportSchema extends Page implements HasForms
                                     ->columns(2)
                                     ->visible(fn(Get $get): bool => (bool) $get('parsed_content')),
                             ]),
-                    ]),
-                \Filament\Forms\Components\Wizard\Step::make('Form Selection')
-                    ->schema([
+
                         \Filament\Forms\Components\Section::make('Target Form')
                             ->description('Select the existing form to create a new version for')
                             ->schema([
@@ -346,7 +352,8 @@ class ImportSchema extends Page implements HasForms
                                     ->default(false),
                                 \Filament\Forms\Components\Hidden::make('create_new_version')
                                     ->default(true),
-                            ]),
+                            ])
+                            ->columns(1),
                     ]),
                 \Filament\Forms\Components\Wizard\Step::make('Field Mapping')
                     ->schema([
@@ -423,7 +430,22 @@ class ImportSchema extends Page implements HasForms
                                 \Filament\Forms\Components\Toggle::make('confirm_import')
                                     ->label('I confirm this import')
                                     ->required()
-                                    ->helperText('Please confirm you want to proceed with this import'),
+                                    ->helperText('Please confirm you want to proceed with this import')
+                                    ->live(),
+
+                                \Filament\Forms\Components\Actions::make([
+                                    \Filament\Forms\Components\Actions\Action::make('import_schema')
+                                        ->label('Import Schema')
+                                        ->icon('heroicon-o-arrow-down-tray')
+                                        ->color('success')
+                                        ->size('lg')
+                                        ->hidden(fn(Get $get) => !$get('confirm_import') || empty($this->parsedSchema))
+                                        ->action('import')
+                                        ->requiresConfirmation()
+                                        ->modalHeading('Confirm Schema Import')
+                                        ->modalDescription('Are you sure you want to import this schema? This will create a new form version with the mapped fields.')
+                                        ->modalSubmitActionLabel('Yes, Import Schema'),
+                                ]),
                             ]),
                     ]),
             ])->skippable()->persistStepInQueryString(),
@@ -816,23 +838,17 @@ class ImportSchema extends Page implements HasForms
                     $this->saveImportSession($data['session_name'], $data['description']);
                 }),
 
-            Action::make('reset_import')
-                ->label('Reset Import Process')
-                ->icon('heroicon-o-arrow-path')
-                ->color('warning')
-                ->requiresConfirmation()
-                ->modalHeading('Reset Import Process')
-                ->modalDescription('Are you sure you want to reset the entire import process? This will clear all uploaded data, field mappings, and start fresh. This action cannot be undone.')
-                ->modalSubmitActionLabel('Yes, Reset Everything')
-                ->modalCancelActionLabel('Cancel')
-                ->visible(fn() => $this->parsedSchema !== null || !empty($this->data['schema_content']))
-                ->action('resetImportProcess'),
-
-            Action::make('import')
-                ->label('Import Schema')
-                ->action('import')
-                ->color('success')
-                ->disabled(fn() => empty($this->parsedSchema)),
+            // Action::make('reset_import')
+            //     ->label('Reset Import Process')
+            //     ->icon('heroicon-o-arrow-path')
+            //     ->color('warning')
+            //     ->requiresConfirmation()
+            //     ->modalHeading('Reset Import Process')
+            //     ->modalDescription('Are you sure you want to reset the entire import process? This will clear all uploaded data, field mappings, and start fresh. This action cannot be undone.')
+            //     ->modalSubmitActionLabel('Yes, Reset Everything')
+            //     ->modalCancelActionLabel('Cancel')
+            //     ->visible(fn() => $this->parsedSchema !== null || !empty($this->data['schema_content']))
+            //     ->action('resetImportProcess'),
         ];
     }
 
@@ -1807,7 +1823,7 @@ class ImportSchema extends Page implements HasForms
             $this->perPage = 10;
             $this->totalFields = 0;
             $this->paginatedFields = [];
-            $this->schemaVersion = 1;
+            $this->schemaVersion++; // Increment to force UI refresh
 
             // Re-initialize pagination control in form data
             $this->data['pagination_per_page'] = $this->perPage;
@@ -1842,6 +1858,12 @@ class ImportSchema extends Page implements HasForms
 
             // Reload cached field mapping options
             $this->fieldMappingOptions = \App\Filament\Forms\Helpers\SchemaFormatter::getAllMappingOptions(true);
+
+            // Reset and refresh the form to ensure UI updates properly
+            $this->form->fill([]);
+
+            // Force full component refresh to ensure disabled state is properly updated
+            $this->dispatch('$refresh');
 
             Notification::make()
                 ->title('Import Process Reset')

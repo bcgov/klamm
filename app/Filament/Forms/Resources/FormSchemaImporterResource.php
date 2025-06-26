@@ -3,11 +3,13 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormSchemaImporterResource\Pages;
+use App\Http\Middleware\CheckRole;
 use App\Models\FormSchemaImportSession;
 use App\Models\Ministry;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Http\Request;
 
 class FormSchemaImporterResource extends Resource
 {
@@ -17,16 +19,43 @@ class FormSchemaImporterResource extends Resource
 
     protected static ?string $navigationGroup = 'Form Administration';
 
-    protected static ?string $navigationLabel = 'Schema Import';
+    protected static ?string $navigationLabel = 'Form Migrations';
 
     protected static ?string $slug = 'schema-import';
 
     protected static ?string $recordTitleAttribute = 'session_name';
 
+
+
     // Explicitly set the panel to forms
     public static function canAccess(): bool
     {
         return \Filament\Facades\Filament::getCurrentPanel()?->getId() === 'forms';
+    }
+
+    /**
+     * Navigation should only be visible for:
+     * - Admins (always)
+     * - Form developers who have any migrations (any status)
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        $request = request();
+
+        // Always show for admins
+        if (CheckRole::hasRole($request, 'admin')) {
+            return true;
+        }
+
+        // Show for form-developers who have any migrations
+        if (CheckRole::hasRole($request, 'form-developer')) {
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if ($user) {
+                return static::getModel()::where('user_id', $user->id)->exists();
+            }
+        }
+
+        return false;
     }
 
     public static function getNavigationBadge(): ?string

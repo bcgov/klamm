@@ -3,8 +3,11 @@
 namespace App\Filament\Forms\Resources\FormSchemaImporterResource\Pages;
 
 use App\Filament\Forms\Resources\FormSchemaImporterResource;
+use App\Http\Middleware\CheckRole;
 use App\Models\FormSchemaImportSession;
+use App\Models\User;
 use Filament\Actions;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
@@ -15,92 +18,149 @@ use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListSchemaImport extends ListRecords
 {
     protected static string $resource = FormSchemaImporterResource::class;
+    protected static ?string $title = 'Form Migrations';
+
+    public bool $showAllSessions = false;
+
+    public function mount(): void
+    {
+        // Initialize showAllSessions based on user role
+        $this->showAllSessions = CheckRole::hasRole(request(), 'admin');
+    }
 
     protected function getHeaderActions(): array
     {
-        return [
+        $actions = [
             Actions\Action::make('new_import')
-                ->label('New Schema Import')
+                ->label('New Migration')
                 ->icon('heroicon-o-plus')
                 ->color('primary')
                 ->url(route('filament.forms.resources.schema-import.import')),
         ];
+        return $actions;
     }
 
     public function table(Table $table): Table
     {
-        return $table
-            ->query(FormSchemaImportSession::query()->forCurrentUser()->latest())
-            ->columns([
-                TextColumn::make('session_name')
-                    ->label('Import Session')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(40),
+        $isAdmin = CheckRole::hasRole(request(), 'admin');
 
-                BadgeColumn::make('status')
-                    ->label('Status')
-                    ->colors([
-                        'gray' => 'draft',
-                        'blue' => 'in_progress',
-                        'green' => 'completed',
-                        'red' => 'failed',
-                        'orange' => 'cancelled',
-                    ]),
+        $query = FormSchemaImportSession::query();
 
-                TextColumn::make('target_form_id')
-                    ->label('Target Form')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(30),
+        // Apply user filtering based on admin status and toggle
+        if (!$isAdmin || !$this->showAllSessions) {
+            $query->forCurrentUser();
+        }
 
-                TextColumn::make('targetMinistry.name')
-                    ->label('Ministry')
-                    ->searchable()
-                    ->sortable()
-                    ->limit(25),
+        $columns = [
+            TextColumn::make('session_name')
+                ->label('Import Session')
+                ->searchable()
+                ->sortable()
+                ->limit(40),
 
-                TextColumn::make('total_fields')
-                    ->label('Total Fields')
-                    ->sortable()
-                    ->alignCenter(),
-
-                TextColumn::make('mapped_fields')
-                    ->label('Mapped')
-                    ->sortable()
-                    ->alignCenter()
-                    ->formatStateUsing(function ($state, $record) {
-                        if ($record->total_fields > 0) {
-                            $percentage = round(($state / $record->total_fields) * 100);
-                            return "{$state}/{$record->total_fields} ({$percentage}%)";
-                        }
-                        return $state;
-                    }),
-
-                TextColumn::make('last_activity_at')
-                    ->label('Last Activity')
-                    ->since()
-                    ->sortable(),
-
-                TextColumn::make('created_at')
-                    ->label('Created')
-                    ->date()
-                    ->sortable(),
-            ])
-            ->filters([
-                SelectFilter::make('status')
-                    ->options([
+            TextColumn::make('status')
+                ->label('Status')
+                ->badge()
+                ->alignCenter()
+                ->formatStateUsing(function ($state) {
+                    return match ($state) {
                         'draft' => 'Draft',
                         'in_progress' => 'In Progress',
                         'completed' => 'Completed',
                         'failed' => 'Failed',
                         'cancelled' => 'Cancelled',
-                    ]),
-            ])
+                        default => $state,
+                    };
+                })
+                ->colors([
+                    'gray' => 'draft',
+                    'primary' => 'in_progress',
+                    'success' => 'completed',
+                    'danger' => 'failed',
+                    'warning' => 'cancelled',
+                ]),
+
+            TextColumn::make('target_form_id')
+                ->label('Target Form')
+                ->searchable()
+                ->sortable()
+                ->limit(30),
+
+            TextColumn::make('targetMinistry.name')
+                ->label('Ministry')
+                ->searchable()
+                ->sortable()
+                ->limit(25),
+        ];
+
+        // Add user column for admins when showing all sessions
+        if ($isAdmin && $this->showAllSessions) {
+            $columns[] = TextColumn::make('user.name')
+                ->label('User')
+                ->searchable()
+                ->sortable()
+                ->limit(20);
+        }
+
+        $columns = array_merge($columns, [
+            TextColumn::make('total_fields')
+                ->label('Total Fields')
+                ->sortable()
+                ->alignCenter(),
+
+            TextColumn::make('mapped_fields')
+                ->label('Mapped')
+                ->sortable()
+                ->alignCenter()
+                ->formatStateUsing(function ($state, $record) {
+                    if ($record->total_fields > 0) {
+                        $percentage = round(($state / $record->total_fields) * 100);
+                        return "{$state}/{$record->total_fields} ({$percentage}%)";
+                    }
+                    return $state;
+                }),
+
+            TextColumn::make('last_activity_at')
+                ->label('Last Activity')
+                ->since()
+                ->sortable(),
+
+            TextColumn::make('created_at')
+                ->label('Created')
+                ->date()
+                ->sortable(),
+        ]);
+
+        $filters = [
+            SelectFilter::make('status')
+                ->options([
+                    'draft' => 'Draft',
+                    'in_progress' => 'In Progress',
+                    'completed' => 'Completed',
+                    'failed' => 'Failed',
+                    'cancelled' => 'Cancelled',
+                ]),
+        ];
+
+        // Add user filter for admins when showing all sessions
+        if ($isAdmin && $this->showAllSessions) {
+            $filters[] = SelectFilter::make('user_id')
+                ->label('User')
+                ->relationship('user', 'name')
+                ->searchable()
+                ->preload()
+                ->default(\Illuminate\Support\Facades\Auth::id());
+        }
+
+        return $table
+            ->query($query->latest())
+            ->columns($columns)
+            ->filters($filters)
             ->actions([
                 Action::make('resume')
                     ->label('Resume')
@@ -193,8 +253,7 @@ class ListSchemaImport extends ListRecords
     public function getBreadcrumbs(): array
     {
         return [
-            route('filament.forms.pages.forms-dashboard') => 'Forms Dashboard',
-            '#' => 'Schema Import Sessions',
+            //
         ];
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Http\Middleware\CheckRole;
 
 class FormSchemaImportSession extends Model
 {
@@ -412,7 +413,7 @@ class FormSchemaImportSession extends Model
      */
     public function canBeDeleted(): bool
     {
-        return in_array($this->status, ['draft', 'failed', 'cancelled']) ||
-            ($this->status === 'completed' && $this->completed_at->lt(now()->subDays(30)));
+        return in_array($this->status, ['draft', 'in_progress', 'cancelled']) ||
+            ($this->status === 'completed' && $this->completed_at->lt(now()->subDays(180))) || CheckRole::hasRole(request(), 'admin');
     }
 }
