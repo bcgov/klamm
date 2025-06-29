@@ -44,12 +44,16 @@ RUN composer install --no-dev --optimize-autoloader
 
 # Create sail user and set permissions
 RUN useradd -m sail
-RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env /var/www/storage/logs/laravel.log
-RUN chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env /var/www/storage/logs/laravel.log
 
-# Create form_data directories and set permissions
-RUN mkdir -p /var/www/storage/app/form_data/stylesheets \
-    && mkdir -p /var/www/storage/app/form_data/scripts \
+# Create necessary directories and files
+RUN mkdir -p /var/www/storage/logs \
+    && touch /var/www/storage/logs/laravel.log \
+    && mkdir -p /var/www/storage/app/form_data/stylesheets \
+    && mkdir -p /var/www/storage/app/form_data/scripts
+
+# Set permissions for directories and files
+RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
     && chown -R sail:sail /var/www/storage/app/form_data \
     && chmod -R 775 /var/www/storage/app/form_data \
     && chmod g+s /var/www/storage/app/form_data
