@@ -3,7 +3,6 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
-use App\Models\FormBuilding\StyleSheet;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;
@@ -34,16 +33,5 @@ class CreateFormVersion extends CreateRecord
                 'form_developer_id' => Auth::id(),
             ]);
         }
-    }
-
-    protected function afterCreate(): void
-    {
-        $formVersion = $this->record;
-
-        // Save CSS stylesheets
-        $css_content_web = $this->form->getState()['css_content_web'] ?? '';
-        $css_content_pdf = $this->form->getState()['css_content_pdf'] ?? '';
-        StyleSheet::createStyleSheet($formVersion, $css_content_web, 'web');
-        StyleSheet::createStyleSheet($formVersion, $css_content_pdf, 'pdf');
     }
 }

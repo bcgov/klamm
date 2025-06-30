@@ -4,8 +4,6 @@ namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
-use App\Models\FormBuilding\StyleSheet;
-use App\Models\FormBuilding\FormScript;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
 use Illuminate\Support\Facades\Gate;
@@ -29,6 +27,12 @@ class ViewFormVersion extends ViewRecord
                 ->button()
                 ->link()
                 ->extraAttributes(['class' => 'underline']),
+            Actions\Action::make('build')
+                ->label('Build')
+                ->icon('heroicon-o-wrench-screwdriver')
+                ->url(fn() => FormVersionResource::getUrl('build', ['record' => $this->record]))
+                ->color('primary')
+                ->outlined(),
             Actions\Action::make('Preview Form')
                 ->label('Preview Form')
                 ->icon('heroicon-o-rocket-launch')
@@ -48,26 +52,7 @@ class ViewFormVersion extends ViewRecord
         ];
     }
 
-    protected function mutateFormDataBeforeFill(array $data): array
-    {
-        // Load existing CSS content from stylesheets for view mode
-        $this->record->load(['webStyleSheet', 'pdfStyleSheet', 'webFormScript', 'pdfFormScript']);
 
-        $cssContentWeb = $this->record->webStyleSheet?->getCssContent();
-        $cssContentPdf = $this->record->pdfStyleSheet?->getCssContent();
-
-        $data['css_content_web'] = $cssContentWeb ?? '';
-        $data['css_content_pdf'] = $cssContentPdf ?? '';
-
-        // Load existing JavaScript content from form scripts for view mode
-        $jsContentWeb = $this->record->webFormScript?->getJsContent();
-        $jsContentPdf = $this->record->pdfFormScript?->getJsContent();
-
-        $data['js_content_web'] = $jsContentWeb ?? '';
-        $data['js_content_pdf'] = $jsContentPdf ?? '';
-
-        return $data;
-    }
 
     protected const DEFAULT_RELATION_MANAGERS = [
         ApprovalRequestRelationManager::class,

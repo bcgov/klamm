@@ -2,8 +2,8 @@
 
 namespace App\Filament\Forms\Resources;
 
-use App\Filament\Components\FormVersionBuilder;
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
+use App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion;
 use App\Models\FormBuilding\FormVersion;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -51,7 +51,6 @@ class FormVersionResource extends Resource
                             ->required(),
                         Section::make('Form Properties')
                             ->collapsible()
-                            ->collapsed()
                             ->columns(1)
                             ->compact()
                             ->columnSpanFull()
@@ -78,9 +77,6 @@ class FormVersionResource extends Resource
                                     ->columnSpanFull()
                                     ->maxLength(500),
                             ]),
-                        FormVersionBuilder::schema()
-                            ->columnSpanFull()
-                            ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
                     ]),
             ]);
     }
@@ -155,6 +151,7 @@ class FormVersionResource extends Resource
             'create' => Pages\CreateFormVersion::route('/create'),
             'edit' => Pages\EditFormVersion::route('/{record}/edit'),
             'view' => Pages\ViewFormVersion::route('/{record}'),
+            'build' => BuildFormVersion::route('/{record}/build'),
         ];
     }
 }
