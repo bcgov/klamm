@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use SolutionForest\FilamentTree\Concern\ModelTree;
 
@@ -30,6 +31,7 @@ class FormElement extends Model
         'save_on_submit',
         'visible_web',
         'visible_pdf',
+        'is_template',
     ];
 
     protected $casts = [
@@ -40,6 +42,7 @@ class FormElement extends Model
         'save_on_submit' => 'boolean',
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
+        'is_template' => 'boolean',
     ];
 
     public static function boot()
@@ -115,6 +118,14 @@ class FormElement extends Model
     }
 
     /**
+     * Get the tags associated with this form element.
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(FormElementTag::class, 'form_element_form_element_tag');
+    }
+
+    /**
      * Scope to get root elements (no parent)
      */
     public function scopeRoot($query)
@@ -187,6 +198,22 @@ class FormElement extends Model
     }
 
     /**
+     * Scope to get template elements
+     */
+    public function scopeTemplates($query)
+    {
+        return $query->where('is_template', true);
+    }
+
+    /**
+     * Scope to get non-template elements
+     */
+    public function scopeNonTemplates($query)
+    {
+        return $query->where('is_template', false);
+    }
+
+    /**
      * Scope to filter by element type
      */
     public function scopeOfType($query, $type)
@@ -230,6 +257,14 @@ class FormElement extends Model
     public function canHaveChildren(): bool
     {
         return $this->isContainer();
+    }
+
+    /**
+     * Check if this element is a template
+     */
+    public function isTemplate(): bool
+    {
+        return $this->is_template;
     }
 
     /**

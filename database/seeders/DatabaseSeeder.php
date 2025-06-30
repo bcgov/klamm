@@ -17,11 +17,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MinistrySeeder::class,
             ValueTypeSeeder::class,
-            DataTypeSeeder::class,
-            FormFieldSeeder::class,
             RolesSeeder::class,
             PermissionsSeeder::class,
-            SelectOptionsSeeder::class,
             BusinessAreaSeeder::class,
             FillTypeSeeder::class,
             FormFrequencySeeder::class,

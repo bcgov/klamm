@@ -20,6 +20,10 @@ class SelectInputFormElement extends Model
         'visible_label' => 'boolean',
     ];
 
+    protected $attributes = [
+        'visible_label' => true,
+    ];
+
     /**
      * Get the Filament form schema for this element type.
      */
