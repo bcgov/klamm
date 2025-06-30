@@ -69,6 +69,9 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->default(false),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()
@@ -143,6 +146,9 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->default(false),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()
@@ -211,6 +217,9 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->disabled(),
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
+                                ->disabled(),
+                            Toggle::make('is_template')
+                                ->label('Is Template')
                                 ->disabled(),
                             Select::make('tags')
                                 ->label('Tags')

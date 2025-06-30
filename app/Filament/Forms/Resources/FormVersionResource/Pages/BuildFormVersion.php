@@ -219,6 +219,9 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            \Filament\Forms\Components\Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->default(false),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()
