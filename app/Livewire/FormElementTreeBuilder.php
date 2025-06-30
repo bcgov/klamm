@@ -3,10 +3,12 @@
 namespace App\Livewire;
 
 use App\Models\FormBuilding\FormElement;
+use App\Models\FormBuilding\FormElementTag;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms;
 use Livewire\Component;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
@@ -67,6 +69,28 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->relationship('tags', 'name')
+                                ->createOptionAction(
+                                    fn(Forms\Components\Actions\Action $action) => $action
+                                        ->modalHeading('Create Tag')
+                                        ->modalWidth('md')
+                                )
+                                ->createOptionForm([
+                                    TextInput::make('name')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->unique(FormElementTag::class, 'name'),
+                                    Textarea::make('description')
+                                        ->rows(3),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    return FormElementTag::create($data)->id;
+                                })
+                                ->searchable()
+                                ->preload(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
@@ -119,6 +143,28 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->relationship('tags', 'name')
+                                ->createOptionAction(
+                                    fn(Forms\Components\Actions\Action $action) => $action
+                                        ->modalHeading('Create Tag')
+                                        ->modalWidth('md')
+                                )
+                                ->createOptionForm([
+                                    TextInput::make('name')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->unique(FormElementTag::class, 'name'),
+                                    Textarea::make('description')
+                                        ->rows(3),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    return FormElementTag::create($data)->id;
+                                })
+                                ->searchable()
+                                ->preload(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
@@ -166,6 +212,12 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->disabled(),
+                            Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->relationship('tags', 'name')
+                                ->disabled()
+                                ->searchable(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')

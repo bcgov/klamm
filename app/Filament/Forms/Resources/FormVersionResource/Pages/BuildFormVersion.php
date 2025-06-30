@@ -8,12 +8,14 @@ use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
+use App\Models\FormBuilding\FormElementTag;
 use App\Jobs\GenerateFormVersionJsonJob;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -57,6 +59,10 @@ class BuildFormVersion extends Page implements HasForms
                     try {
                         $data['form_version_id'] = $this->record->id;
 
+                        // Extract tags data before creating the element
+                        $tagIds = $data['tags'] ?? [];
+                        unset($data['tags']);
+
                         // Extract polymorphic data
                         $elementType = $data['elementable_type'];
                         $elementableData = $data['elementable_data'] ?? [];
@@ -84,6 +90,11 @@ class BuildFormVersion extends Page implements HasForms
 
                         // Create the main FormElement
                         $formElement = FormElement::create($data);
+
+                        // Attach tags if any were selected
+                        if (!empty($tagIds)) {
+                            $formElement->tags()->attach($tagIds);
+                        }
 
                         $this->getSavedNotification('Form element created successfully!')?->send();
 
@@ -208,6 +219,29 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            \Filament\Forms\Components\Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
+                                ->createOptionAction(
+                                    fn(Forms\Components\Actions\Action $action) => $action
+                                        ->modalHeading('Create Tag')
+                                        ->modalWidth('md')
+                                )
+                                ->createOptionForm([
+                                    \Filament\Forms\Components\TextInput::make('name')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->unique(FormElementTag::class, 'name'),
+                                    \Filament\Forms\Components\Textarea::make('description')
+                                        ->rows(3),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    $tag = FormElementTag::create($data);
+                                    return $tag->id;
+                                })
+                                ->searchable()
+                                ->preload(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')

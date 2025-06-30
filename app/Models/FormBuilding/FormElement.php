@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use SolutionForest\FilamentTree\Concern\ModelTree;
 
@@ -112,6 +113,14 @@ class FormElement extends Model
     public function descendants(): HasMany
     {
         return $this->children()->with('descendants');
+    }
+
+    /**
+     * Get the tags associated with this form element.
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(FormElementTag::class, 'form_element_form_element_tag');
     }
 
     /**
