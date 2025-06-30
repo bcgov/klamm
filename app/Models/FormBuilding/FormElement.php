@@ -22,10 +22,22 @@ class FormElement extends Model
         'form_version_id',
         'elementable_type',
         'elementable_id',
+        'help_text',
+        'calculated_value',
+        'is_visible',
+        'is_read_only',
+        'save_on_submit',
+        'visible_web',
+        'visible_pdf',
     ];
 
     protected $casts = [
         'order' => 'integer',
+        'is_visible' => 'boolean',
+        'is_read_only' => 'boolean',
+        'save_on_submit' => 'boolean',
+        'visible_web' => 'boolean',
+        'visible_pdf' => 'boolean',
     ];
 
     public static function boot()
@@ -101,6 +113,54 @@ class FormElement extends Model
     public function scopeOrdered($query)
     {
         return $query->orderBy('order');
+    }
+
+    /**
+     * Scope to get visible elements
+     */
+    public function scopeVisible($query)
+    {
+        return $query->where('is_visible', true);
+    }
+
+    /**
+     * Scope to get elements visible on web
+     */
+    public function scopeVisibleWeb($query)
+    {
+        return $query->where('visible_web', true);
+    }
+
+    /**
+     * Scope to get elements visible on PDF
+     */
+    public function scopeVisiblePdf($query)
+    {
+        return $query->where('visible_pdf', true);
+    }
+
+    /**
+     * Scope to get read-only elements
+     */
+    public function scopeReadOnly($query)
+    {
+        return $query->where('is_read_only', true);
+    }
+
+    /**
+     * Scope to get editable elements
+     */
+    public function scopeEditable($query)
+    {
+        return $query->where('is_read_only', false);
+    }
+
+    /**
+     * Scope to get elements that save on submit
+     */
+    public function scopeSaveOnSubmit($query)
+    {
+        return $query->where('save_on_submit', true);
     }
 
     /**
@@ -350,5 +410,67 @@ class FormElement extends Model
         }
 
         return collect();
+    }
+
+    /**
+     * Check if element is visible for a specific platform
+     */
+    public function isVisibleFor(string $platform): bool
+    {
+        if (!$this->is_visible) {
+            return false;
+        }
+
+        return match ($platform) {
+            'web' => $this->visible_web,
+            'pdf' => $this->visible_pdf,
+            default => false,
+        };
+    }
+
+    /**
+     * Check if element should be included in form submission
+     */
+    public function shouldSaveOnSubmit(): bool
+    {
+        return $this->save_on_submit && $this->is_visible && !$this->is_read_only;
+    }
+
+    /**
+     * Get computed value (calculated_value or default based on element type)
+     */
+    public function getComputedValue(): ?string
+    {
+        if ($this->calculated_value) {
+            return $this->calculated_value;
+        }
+
+        // Default values based on element type
+        if ($this->elementable) {
+            if ($this->elementable instanceof NumberInputFormElement && $this->elementable->default_value !== null) {
+                return (string) $this->elementable->default_value;
+            }
+
+            if ($this->elementable instanceof DateSelectInputFormElement && $this->elementable->default_date) {
+                return $this->elementable->default_date->format($this->elementable->date_format ?? 'Y-m-d');
+            }
+
+            if ($this->elementable instanceof RadioInputFormElement && $this->elementable->default_value) {
+                return $this->elementable->default_value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Set visibility for specific platforms
+     */
+    public function setVisibilityFor(array $platforms): self
+    {
+        $this->visible_web = in_array('web', $platforms);
+        $this->visible_pdf = in_array('pdf', $platforms);
+
+        return $this;
     }
 }
