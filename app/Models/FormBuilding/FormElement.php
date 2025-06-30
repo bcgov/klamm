@@ -146,6 +146,9 @@ class FormElement extends Model
             DateSelectInputFormElement::class => 'Date Select Input',
             ContainerFormElement::class => 'Container',
             HTMLFormElement::class => 'HTML',
+            CheckboxInputFormElement::class => 'Checkbox Input',
+            SelectInputFormElement::class => 'Select Input',
+            RadioInputFormElement::class => 'Radio Input',
         ];
     }
 
@@ -251,5 +254,101 @@ class FormElement extends Model
         $elementData['elementable_id'] = $html->id;
 
         return self::create($elementData);
+    }
+
+    /**
+     * Create a checkbox input form element
+     */
+    public static function createCheckbox(array $elementData, array $checkboxData): self
+    {
+        $checkbox = CheckboxInputFormElement::create($checkboxData);
+
+        $elementData['elementable_type'] = CheckboxInputFormElement::class;
+        $elementData['elementable_id'] = $checkbox->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create a select input form element
+     */
+    public static function createSelect(array $elementData, array $selectData, array $options = []): self
+    {
+        $select = SelectInputFormElement::create($selectData);
+
+        $elementData['elementable_type'] = SelectInputFormElement::class;
+        $elementData['elementable_id'] = $select->id;
+
+        $element = self::create($elementData);
+
+        // Add options if provided
+        foreach ($options as $index => $optionData) {
+            if (!isset($optionData['order'])) {
+                $optionData['order'] = $index + 1;
+            }
+            SelectOptionFormElement::createForSelect($select, $optionData);
+        }
+
+        return $element;
+    }
+
+    /**
+     * Create a radio input form element
+     */
+    public static function createRadio(array $elementData, array $radioData, array $options = []): self
+    {
+        $radio = RadioInputFormElement::create($radioData);
+
+        $elementData['elementable_type'] = RadioInputFormElement::class;
+        $elementData['elementable_id'] = $radio->id;
+
+        $element = self::create($elementData);
+
+        // Add options if provided
+        foreach ($options as $index => $optionData) {
+            if (!isset($optionData['order'])) {
+                $optionData['order'] = $index + 1;
+            }
+            SelectOptionFormElement::createForRadio($radio, $optionData);
+        }
+
+        return $element;
+    }
+
+    /**
+     * Add an option to a select or radio element
+     */
+    public function addOption(array $optionData): ?SelectOptionFormElement
+    {
+        if (!$this->elementable) {
+            return null;
+        }
+
+        if ($this->elementable instanceof SelectInputFormElement) {
+            return SelectOptionFormElement::createForSelect($this->elementable, $optionData);
+        } elseif ($this->elementable instanceof RadioInputFormElement) {
+            return SelectOptionFormElement::createForRadio($this->elementable, $optionData);
+        }
+
+        return null;
+    }
+
+    /**
+     * Get options for select or radio elements
+     */
+    public function getOptions()
+    {
+        if (!$this->elementable) {
+            return collect();
+        }
+
+        if (
+            $this->elementable instanceof SelectInputFormElement ||
+            $this->elementable instanceof RadioInputFormElement
+        ) {
+            return $this->elementable->options;
+        }
+
+        return collect();
     }
 }
