@@ -56,6 +56,12 @@ return [
             'throw' => false,
         ],
 
+        'templates' => [
+            'driver' => 'local',
+            'root' => storage_path('app/form_data/templates'),
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
