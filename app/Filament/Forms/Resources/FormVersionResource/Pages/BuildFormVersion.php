@@ -51,6 +51,7 @@ class BuildFormVersion extends Page implements HasForms
                 ->label('Add Form Element')
                 ->icon('heroicon-o-plus-circle')
                 ->color('success')
+                ->outlined()
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
                     try {
@@ -90,27 +91,12 @@ class BuildFormVersion extends Page implements HasForms
                             ->send();
                     }
                 }),
-            Actions\Action::make('save')
-                ->label('Save Changes')
-                ->icon('heroicon-o-check')
-                ->action('save')
-                ->extraAttributes([
-                    'style' => 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;'
-                ]),
-            Actions\Action::make('Preview Form')
-                ->label('Preview Form')
-                ->icon('heroicon-o-rocket-launch')
-                ->action(function ($livewire) {
-                    $formVersionId = $this->record->id;
-                    $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
-                    $livewire->js("window.open('$previewUrl', '_blank')");
-                })
-                ->color('primary'),
+
             Actions\Action::make('download_json')
-                ->label('Download JSON')
+                ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('info')
+                ->outlined()
                 ->action(function () {
                     $userId = Auth::id();
 
@@ -133,8 +119,20 @@ class BuildFormVersion extends Page implements HasForms
                         ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
                         ->send();
                 }),
+            Actions\Action::make('Preview Form')
+                ->label('Preview')
+                ->icon('heroicon-o-tv')
+                ->action(function ($livewire) {
+                    $formVersionId = $this->record->id;
+                    $previewBaseUrl = env('FORM_PREVIEW_URL', '');
+                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
+                    $livewire->js("window.open('$previewUrl', '_blank')");
+                })
+                ->color('primary'),
         ];
     }
+
+
 
     public function save(): void
     {

@@ -90,6 +90,25 @@ class FormVersionBuilder
 
                                                     $set('css_content_web', $appended);
                                                 }),
+                                            Action::make('save_styles_web')
+                                                ->label('Save Styles')
+                                                ->icon('heroicon-o-check')
+                                                ->color('success')
+                                                ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                ->action(function (callable $get, $livewire) {
+                                                    $record = $livewire->getRecord();
+                                                    $cssContentWeb = $get('css_content_web') ?? '';
+                                                    $cssContentPdf = $get('css_content_pdf') ?? '';
+
+                                                    StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                                                    StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
+
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->success()
+                                                        ->title('Styles Saved')
+                                                        ->body('CSS stylesheets have been saved successfully.')
+                                                        ->send();
+                                                }),
                                         ])
                                             ->alignment(Alignment::Center),
                                         MonacoEditor::make('css_content_web')
@@ -129,6 +148,25 @@ class FormVersionBuilder
                                                     $appended = rtrim($existing) . "\n\n" . $comment . $content;
 
                                                     $set('css_content_pdf', $appended);
+                                                }),
+                                            Action::make('save_styles_pdf')
+                                                ->label('Save Styles')
+                                                ->icon('heroicon-o-check')
+                                                ->color('success')
+                                                ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                ->action(function (callable $get, $livewire) {
+                                                    $record = $livewire->getRecord();
+                                                    $cssContentWeb = $get('css_content_web') ?? '';
+                                                    $cssContentPdf = $get('css_content_pdf') ?? '';
+
+                                                    StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                                                    StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
+
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->success()
+                                                        ->title('Styles Saved')
+                                                        ->body('CSS stylesheets have been saved successfully.')
+                                                        ->send();
                                                 }),
                                         ])
                                             ->alignment(Alignment::Center),
@@ -179,6 +217,25 @@ class FormVersionBuilder
 
                                                     $set('js_content_web', $appended);
                                                 }),
+                                            Action::make('save_scripts_web')
+                                                ->label('Save Scripts')
+                                                ->icon('heroicon-o-check')
+                                                ->color('success')
+                                                ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                ->action(function (callable $get, $livewire) {
+                                                    $record = $livewire->getRecord();
+                                                    $jsContentWeb = $get('js_content_web') ?? '';
+                                                    $jsContentPdf = $get('js_content_pdf') ?? '';
+
+                                                    FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                    FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->success()
+                                                        ->title('Scripts Saved')
+                                                        ->body('JavaScript form scripts have been saved successfully.')
+                                                        ->send();
+                                                }),
                                         ])
                                             ->alignment(Alignment::Center),
                                         MonacoEditor::make('js_content_web')
@@ -218,6 +275,25 @@ class FormVersionBuilder
                                                     $appended = rtrim($existing) . "\n\n" . $comment . $content;
 
                                                     $set('js_content_pdf', $appended);
+                                                }),
+                                            Action::make('save_scripts_pdf')
+                                                ->label('Save Scripts')
+                                                ->icon('heroicon-o-check')
+                                                ->color('success')
+                                                ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                ->action(function (callable $get, $livewire) {
+                                                    $record = $livewire->getRecord();
+                                                    $jsContentWeb = $get('js_content_web') ?? '';
+                                                    $jsContentPdf = $get('js_content_pdf') ?? '';
+
+                                                    FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                    FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->success()
+                                                        ->title('Scripts Saved')
+                                                        ->body('JavaScript form scripts have been saved successfully.')
+                                                        ->send();
                                                 }),
                                         ])
                                             ->alignment(Alignment::Center),
