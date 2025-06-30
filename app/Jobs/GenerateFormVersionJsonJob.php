@@ -36,8 +36,8 @@ class GenerateFormVersionJsonJob implements ShouldQueue
             $filename = "form_{$sanitizedTitle}_v{$this->formVersion->version_number}_{$this->formVersion->id}.json";
 
             // Store the JSON file
-            $filePath = "form-exports/{$filename}";
-            Storage::disk('public')->put($filePath, json_encode($jsonData, JSON_PRETTY_PRINT));
+            $filePath = "{$filename}";
+            Storage::disk('templates')->put($filePath, json_encode($jsonData, JSON_PRETTY_PRINT));
 
             // Create a download URL using our custom download route
             $downloadUrl = route('download.form-json', ['filename' => $filename]);
