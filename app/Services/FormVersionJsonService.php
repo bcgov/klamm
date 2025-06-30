@@ -48,14 +48,13 @@ class FormVersionJsonService
 
         return [
             'version' => $formVersion->version_number,
-            'ministry_id' => 2, // Default ministry ID - you may want to make this configurable
             'id' => $formVersion->uuid ?? $formVersion->id,
             'lastModified' => $formVersion->updated_at?->format('c') ?? now()->format('c'),
             'title' => $formVersion->form->form_title ?? 'Unknown Form',
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => null,
             'footer' => $formVersion->footer,
-            'dataSources' => $this->getDataSources(), // Placeholder for now
+            'dataSources' => $formVersion->formDataSources(),
             'data' => [
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
@@ -191,55 +190,6 @@ class FormVersionJsonService
         unset($attributes['id'], $attributes['created_at'], $attributes['updated_at']);
 
         return $attributes;
-    }
-
-    protected function getDataSources(): array
-    {
-        // Return default data sources - you may want to make this configurable
-        return [
-            [
-                'name' => 'Contact',
-                'type' => 'GET',
-                'endpoint' => '/fwd/v1.0/data/Forms Contact/DT Form Instance/@@attachmentId',
-                'params' => [
-                    'ViewMode' => 'Organization',
-                    'getChildren' => 'all'
-                ],
-                'body' => null,
-                'headers' => [
-                    'Authorization' => 'Bearer @@token@@'
-                ],
-                'host' => 'https://sieblab-data.api.gov.bc.ca'
-            ],
-            [
-                'name' => 'Service Request',
-                'type' => 'GET',
-                'endpoint' => '/fwd/v1.0/data/Forms Service Request/DT Form Instance/@@attachmentId',
-                'params' => [
-                    'ViewMode' => 'Organization',
-                    'getChildren' => 'all'
-                ],
-                'body' => null,
-                'headers' => [
-                    'Authorization' => 'Bearer @@token@@'
-                ],
-                'host' => 'https://sieblab-data.api.gov.bc.ca'
-            ],
-            [
-                'name' => 'Case',
-                'type' => 'GET',
-                'endpoint' => '/ICM REST Forms Case/DT Form Instance/@@attachmentId',
-                'params' => [
-                    'ViewMode' => 'Catalog',
-                    'getChildren' => 'all'
-                ],
-                'body' => null,
-                'headers' => [
-                    'Authorization' => 'Bearer @@token@@'
-                ],
-                'host' => 'SIEBEL_ICM_API_HOST'
-            ]
-        ];
     }
 
     protected function transformElementsToPreMigrationFormat(FormVersion $formVersion): array
@@ -380,8 +330,8 @@ class FormVersionJsonService
             'text-input' => 'text-input',
             'number-input' => 'number-input',
             'text-area' => 'textarea',
-            'textarea-input' => 'textarea',
-            'dropdown' => 'select',
+            'textarea-input' => 'text-area',
+            'dropdown' => 'dropdown',
             'select-input' => 'select',
             'checkbox-input' => 'checkbox',
             'checkbox' => 'checkbox',

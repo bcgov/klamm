@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\FormBuilding\FormElement;
+use App\Events\FormVersionUpdateEvent;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -148,7 +149,23 @@ class FormElementTreeBuilder extends BaseWidget
         return [
             ViewAction::make(),
             EditAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->after(function ($record) {
+                    // Fire update event for element deletion
+                    if ($this->formVersionId) {
+                        $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                        if ($formVersion) {
+                            FormVersionUpdateEvent::dispatch(
+                                $formVersion->id,
+                                $formVersion->form_id,
+                                $formVersion->version_number,
+                                ['deleted_element' => $record->toArray()],
+                                'element_deleted',
+                                false
+                            );
+                        }
+                    }
+                }),
         ];
     }
 
@@ -262,6 +279,38 @@ class FormElementTreeBuilder extends BaseWidget
         return $data;
     }
 
+    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+    {
+        // Create the main FormElement first
+        $record = static::getModel()::create($data);
+
+        // Handle polymorphic relationship
+        $elementType = $data['elementable_type'] ?? null;
+        $elementableData = $data['elementable_data'] ?? [];
+
+        if ($elementType && !empty($elementableData) && class_exists($elementType)) {
+            $elementableModel = new $elementType($elementableData);
+            $record->elementable()->save($elementableModel);
+        }
+
+        // Fire update event for element creation
+        if ($this->formVersionId) {
+            $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+            if ($formVersion) {
+                FormVersionUpdateEvent::dispatch(
+                    $formVersion->id,
+                    $formVersion->form_id,
+                    $formVersion->version_number,
+                    ['created_element' => $record->fresh()->toArray()],
+                    'element_created',
+                    false
+                );
+            }
+        }
+
+        return $record;
+    }
+
     protected function handleRecordUpdate($record, array $data): void
     {
         // Extract and store elementable data before updating the main record
@@ -284,6 +333,21 @@ class FormElementTreeBuilder extends BaseWidget
                     // Create new polymorphic model
                     $elementableModel = new $elementType($elementableData);
                     $record->elementable()->save($elementableModel);
+                }
+            }
+
+            // Fire update event for element modification
+            if ($this->formVersionId) {
+                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                if ($formVersion) {
+                    FormVersionUpdateEvent::dispatch(
+                        $formVersion->id,
+                        $formVersion->form_id,
+                        $formVersion->version_number,
+                        ['updated_element' => $record->fresh()->toArray()],
+                        'element_updated',
+                        false
+                    );
                 }
             }
         } catch (\InvalidArgumentException $e) {
@@ -349,7 +413,24 @@ class FormElementTreeBuilder extends BaseWidget
 
         try {
             // If validation passes, proceed with the update
-            return parent::updateTree($list);
+            $result = parent::updateTree($list);
+
+            // Fire update event for tree structure changes (moves/reorders)
+            if ($this->formVersionId) {
+                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                if ($formVersion) {
+                    FormVersionUpdateEvent::dispatch(
+                        $formVersion->id,
+                        $formVersion->form_id,
+                        $formVersion->version_number,
+                        ['tree_structure' => $list],
+                        'elements_moved',
+                        false
+                    );
+                }
+            }
+
+            return $result;
         } catch (\InvalidArgumentException $e) {
             // Handle model validation exceptions with user-friendly notification
             \Filament\Notifications\Notification::make()
