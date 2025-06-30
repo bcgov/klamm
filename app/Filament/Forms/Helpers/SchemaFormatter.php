@@ -292,12 +292,31 @@ class SchemaFormatter
             // Summary action that will be taken
 
 
-            // Add the field card to the schema
+            // Add the field card to the schema with dynamic status badge
             $schema[] = \Filament\Forms\Components\Section::make("Field: {$label}")
-                ->description("Configure mapping for field: {$name}")
+                ->description(function (callable $get) use ($name, $fieldId) {
+                    $selectedMapping = $get("field_mapping_{$fieldId}");
+                    $baseDescription = "Configure mapping for field: {$name}";
+
+                    // Add status badge to description
+                    if (!$selectedMapping || $selectedMapping === 'new') {
+                        $badge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">✨ Creating New</span>';
+                    } elseif ($selectedMapping === 'skip') {
+                        $badge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 ml-2">⏭️ Skipped</span>';
+                    } else {
+                        $badge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">🔗 Mapping to #' . htmlspecialchars($selectedMapping) . '</span>';
+                    }
+
+                    return new \Illuminate\Support\HtmlString($baseDescription . $badge);
+                })
                 ->schema($fieldComponents)
                 ->collapsible()
-                ->collapsed(false);
+                ->collapsed(function (callable $get) use ($fieldId) {
+                    // Collapse by default if user has made a decision (not default 'new')
+                    $selectedMapping = $get("field_mapping_{$fieldId}");
+                    return $selectedMapping && $selectedMapping !== 'new';
+                })
+                ->reactive(); // Make it reactive to respond to field mapping changes
         }
 
         return $schema;
@@ -464,13 +483,13 @@ class SchemaFormatter
                 'Name' => $field->name,
                 'Type' => $field->dataType->name ?? 'unknown',
                 'Label' => $field->label,
+                'Data Binding' => $field->data_binding ?: 'None',
                 'Created' => $field->created_at ? $field->created_at->format('Y-m-d') : '',
                 'Updated' => $field->updated_at ? $field->updated_at->format('Y-m-d') : '',
             ],
             '📝 Content & Display' => [
                 'Help Text' => $field->help_text ?: 'None',
                 'Description' => $field->description ?: 'None',
-                'Data Binding' => $field->data_binding ?: 'None',
                 'Mask' => $field->mask ?: 'None',
             ],
             '✓ Validation' => [
@@ -480,19 +499,19 @@ class SchemaFormatter
                     })->join(', ')
                     : 'None',
             ],
-            '🗂️ Organization' => [
-                'Field Groups' => ($field->fieldGroups && $field->fieldGroups->count() > 0)
-                    ? $field->fieldGroups->pluck('name')->join(', ')
-                    : 'Not assigned to any groups',
-            ],
-            '🎨 Styling' => [
-                'Web Styles' => ($field->webStyles && $field->webStyles->count() > 0)
-                    ? $field->webStyles->pluck('name')->join(', ')
-                    : 'No web styles applied',
-                'PDF Styles' => ($field->pdfStyles && $field->pdfStyles->count() > 0)
-                    ? $field->pdfStyles->pluck('name')->join(', ')
-                    : 'No PDF styles applied',
-            ],
+            // '🗂️ Organization' => [
+            //     'Field Groups' => ($field->fieldGroups && $field->fieldGroups->count() > 0)
+            //         ? $field->fieldGroups->pluck('name')->join(', ')
+            //         : 'Not assigned to any groups',
+            // ],
+            // '🎨 Styling' => [
+            //     'Web Styles' => ($field->webStyles && $field->webStyles->count() > 0)
+            //         ? $field->webStyles->pluck('name')->join(', ')
+            //         : 'No web styles applied',
+            //     'PDF Styles' => ($field->pdfStyles && $field->pdfStyles->count() > 0)
+            //         ? $field->pdfStyles->pluck('name')->join(', ')
+            //         : 'No PDF styles applied',
+            // ],
         ];
 
         // Options for select/radio/checkbox
@@ -517,6 +536,23 @@ class SchemaFormatter
             ];
         }
 
+        // Add organization section (uncommented for collapsible display)
+        // $fieldDetails['🗂️ Organization'] = [
+        //     'Field Groups' => ($field->fieldGroups && $field->fieldGroups->count() > 0)
+        //         ? $field->fieldGroups->pluck('name')->join(', ')
+        //         : 'Not assigned to any groups',
+        // ];
+
+        // // Add styling section (uncommented for collapsible display)
+        // $fieldDetails['🎨 Styling'] = [
+        //     'Web Styles' => ($field->webStyles && $field->webStyles->count() > 0)
+        //         ? $field->webStyles->pluck('name')->join(', ')
+        //         : 'No web styles applied',
+        //     'PDF Styles' => ($field->pdfStyles && $field->pdfStyles->count() > 0)
+        //         ? $field->pdfStyles->pluck('name')->join(', ')
+        //         : 'No PDF styles applied',
+        // ];
+
         // Date format
         if (in_array($field->dataType->name ?? '', ['date', 'datetime'])) {
             $fieldDetails['📅 Date Settings'] = [
@@ -539,49 +575,90 @@ class SchemaFormatter
             if ($field->formVersions->count() > 3) {
                 $formNames .= ' and ' . ($field->formVersions->count() - 3) . ' more';
             }
-            $usage['Form Names'] = $formNames;
+            $usage['Form Names'] = $formNames; // Uncommented for collapsible display
         }
         $fieldDetails['📊 Usage Statistics'] = $usage;
 
         // Action
-        $fieldDetails['🔄 Action'] = [
-            'Action' => 'Will use this existing field for mapping',
-        ];
+        // $fieldDetails['🔄 Action'] = [
+        //     'Action' => 'Will use this existing field for mapping',
+        // ];
 
         // Generate HTML with the same structure as import fields
         return $this->generateHTMLFromFieldDetails($fieldDetails);
     }
 
     /**
-     * Generate HTML from a field details array
+     * Generate HTML from a field details array with collapsible sections
      *
      * @param array $fieldDetails Structured field details array
      * @return string HTML markup
      */
     protected function generateHTMLFromFieldDetails(array $fieldDetails): string
     {
-        $html = '<div class="space-y-4 p-2 overflow-auto max-h-64">';
+        $html = '<div class="space-y-3 p-2 overflow-auto max-h-80">';
 
+        // Sections that should be collapsed by default
+        $collapsibleSections = [
+            '📝 Content',
+            '📝 Content & Display',
+            '✓ Validation',
+            '🔽 Options',
+            '🗂️ Organization',
+            '🎨 Styling',
+            '⚙️ Default Settings',
+            '📊 Usage Statistics',
+            '📅 Date Settings',
+            '⚙️ Additional Properties'
+        ];
+
+        $sectionCounter = 0;
         foreach ($fieldDetails as $section => $items) {
+            $sectionCounter++;
+            $sectionId = 'section_' . $sectionCounter . '_' . substr(md5($section), 0, 8);
+            $isCollapsible = in_array($section, $collapsibleSections);
+            $isExpanded = !$isCollapsible; // Only basic info sections are expanded by default
+
             $html .= '<div class="border rounded-md bg-gray-50">';
-            $html .= '<div class="font-medium text-lg p-2 bg-gray-100 border-b">' . $section . '</div>';
-            $html .= '<table class="min-w-full">';
+
+            if ($isCollapsible) {
+                // Use details/summary for native collapsible functionality
+                $html .= '<details class="group"' . ($isExpanded ? ' open' : '') . '>';
+                $html .= '<summary class="font-medium text-sm p-2 bg-gray-100 border-b cursor-pointer select-none hover:bg-gray-200 transition-colors list-none">';
+                $html .= '<div class="flex items-center justify-between">';
+                $html .= '<span>' . htmlspecialchars($section) . '</span>';
+                // $html .= '<svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+                // $html .= '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>';
+                // $html .= '</svg>';
+                $html .= '</div>';
+                $html .= '</summary>';
+            } else {
+                // Non-collapsible header
+                $html .= '<div class="font-medium text-sm p-2 bg-gray-100 border-b">' . htmlspecialchars($section) . '</div>';
+            }
+
+            $html .= '<table class="min-w-full text-sm">';
 
             foreach ($items as $key => $value) {
                 $html .= '<tr class="border-t border-gray-200">';
-                $html .= '<td class="py-2 px-4 font-medium text-gray-700 w-1/3">' . htmlspecialchars($key) . '</td>';
+                $html .= '<td class="py-1.5 px-3 font-medium text-gray-700 w-1/3 text-xs">' . htmlspecialchars($key) . '</td>';
                 if ($key === 'Options') {
-                    $html .= '<td class="py-2 px-4 text-gray-800">' . $value . '</td>'; // allow HTML for options
+                    $html .= '<td class="py-1.5 px-3 text-gray-800 text-xs">' . $value . '</td>'; // allow HTML for options
                 } elseif (empty($value) && $value !== '0' && $value !== 0) {
-                    $html .= '<td class="py-2 px-4 text-gray-500 italic">empty</td>';
+                    $html .= '<td class="py-1.5 px-3 text-gray-500 italic text-xs">empty</td>';
                 } else {
-                    $html .= '<td class="py-2 px-4 text-gray-800">' . htmlspecialchars((string)$value) . '</td>';
+                    $html .= '<td class="py-1.5 px-3 text-gray-800 text-xs">' . htmlspecialchars((string)$value) . '</td>';
                 }
                 $html .= '</tr>';
             }
 
             $html .= '</table>';
-            $html .= '</div>';
+
+            if ($isCollapsible) {
+                $html .= '</details>'; // Close details element
+            }
+
+            $html .= '</div>'; // Close section div
         }
 
         $html .= '</div>';

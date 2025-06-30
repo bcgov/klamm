@@ -305,7 +305,7 @@ class ImportSchema extends Page implements HasForms
                             ->schema([
                                 \Filament\Forms\Components\Select::make('form')
                                     ->label('Select Existing Form')
-                                    ->options(\App\Models\Form::pluck('form_title', 'id'))
+                                    ->options(\App\Models\Form::pluck('form_title', 'id', 'form_id'))
                                     ->searchable()
                                     ->preload()
                                     ->required()
@@ -748,7 +748,7 @@ class ImportSchema extends Page implements HasForms
     {
         return [
             Action::make('parse_schema')
-                ->label(fn() => $this->parsedSchema !== null ? 'Parse Schema (Already Parsed)' : 'Parse Schema (Queued)')
+                ->label(fn() => $this->parsedSchema !== null ? 'Parse Schema (Already Parsed)' : 'Parse Schema')
                 ->requiresConfirmation(false)
                 ->disabled(fn() => $this->parsedSchema !== null)
                 ->color(fn() => $this->parsedSchema !== null ? 'gray' : 'primary')
