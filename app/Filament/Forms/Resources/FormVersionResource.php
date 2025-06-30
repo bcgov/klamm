@@ -4,25 +4,19 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Components\FormVersionBuilder;
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
-use App\Helpers\ImportTemplateHelper;
-use App\Helpers\ScanTemplateHelper;
 use App\Models\FormVersion;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\MarkdownEditor;
-use Filament\Forms\Components\Split;
-use Filament\Forms\Components\Tabs;
-use Filament\Forms\Components\Tabs\Tab;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Tables\Columns\TextColumn;
-use Illuminate\Support\Facades\Session;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Illuminate\Support\Facades\Auth;
 
 class FormVersionResource extends Resource
 {
@@ -32,80 +26,61 @@ class FormVersionResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    // Function to get the current counter value from the session
-    public static function getElementCounter(): int
-    {
-        return Session::get('elementCounter', 1); // Default to 1 if not set
-    }
-
-    // Function to increment the counter in the session
-    public static function incrementElementCounter(): void
-    {
-        $currentCounter = self::getElementCounter();
-        Session::put('elementCounter', $currentCounter + 1);
-    }
-
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                // Main view
-                FormVersionBuilder::schema()
-                    ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
-
-                // Tab view for Create page
-                Tabs::make('Tabs')
-                    ->visible(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\CreateRecord))
-                    ->columnSpanFull()
-                    ->contained(false)
-                    ->activeTab(1)
-                    ->reactive()
-                    ->tabs([
-                        Tab::make('Build')
-                            ->icon('heroicon-o-cog')
-                            ->schema([
-                                FormVersionBuilder::schema(),
-                            ]),
-                        Tab::make('Import')
-                            ->icon('heroicon-o-document-arrow-down')
+                Grid::make()
+                    ->columns(3)
+                    ->schema([
+                        Select::make('form_id')
+                            ->relationship('form', 'form_id_title')
+                            ->required()
+                            ->reactive()
+                            ->preload()
+                            ->searchable()
+                            ->columnSpan(2)
+                            ->default(request()->query('form_id_title')),
+                        Select::make('status')
+                            ->options(function () {
+                                return FormVersion::getStatusOptions();
+                            })
+                            ->default('draft')
+                            ->disabled()
+                            ->columnSpan(1)
+                            ->required(),
+                        Section::make('Form Properties')
+                            ->collapsible()
+                            ->collapsed()
+                            ->columns(1)
+                            ->compact()
                             ->columnSpanFull()
                             ->schema([
-                                Split::make([
-                                    Textarea::make('json')
-                                        ->label('Import JSON')
-                                        ->afterStateUpdated(fn(Set $set) => $set('jsonModified', true))
-                                        ->rows(15),
-                                    MarkdownEditor::make('messages')
-                                        ->label('Validation messages')
-                                        ->disabled(),
-                                ]),
-                                Actions::make([
-                                    Action::make('Scan JSON')
-                                        ->label('Scan JSON')
-                                        ->action(function (Set $set, $state) {
-                                            $validation = ScanTemplateHelper::validateForm($state['json']);
-                                            $set('messages', $validation['messages']);
-                                            $set('isValid', $validation['isValid']);
-                                            $set('jsonModified', false);
-                                        }),
-                                    Action::make('Import JSON')
-                                        ->label('Import JSON')
-                                        ->disabled(fn(Get $get) => !$get('isValid') || $get('jsonModified'))
-                                        ->action(function (Set $set, $state, $livewire) {
-                                            $formVersion = ImportTemplateHelper::importForm($state['json']);
-                                            if ($formVersion->id) {
-                                                $set('formVersion', $formVersion);
-                                            }
-                                        }),
-                                    Action::make('View Imported Form')
-                                        ->label('View Imported Form')
-                                        ->disabled(fn(Get $get) => !$get('formVersion')) // Only enable when formVersionId is set
-                                        ->action(
-                                            fn(Get $get, $livewire) =>
-                                            $livewire->redirect(FormVersionResource::getUrl('view', ['record' => $get('formVersion')]))
-                                        ),
-                                ]),
+                                Select::make('form_developer_id')
+                                    ->label('Form Developer')
+                                    ->relationship(
+                                        'formDeveloper',
+                                        'name',
+                                        fn($query) => $query->whereHas('roles', fn($q) => $q->where('name', 'form-developer'))
+                                    )
+                                    ->default(Auth::id())
+                                    ->searchable()
+                                    ->preload()
+                                    ->columnSpan(1),
+                                Select::make('form_data_sources')
+                                    ->multiple()
+                                    ->preload()
+                                    ->columnSpan(2)
+                                    ->relationship('formDataSources', 'name'),
+                                TextInput::make('footer')
+                                    ->columnSpanFull(),
+                                Textarea::make('comments')
+                                    ->columnSpanFull()
+                                    ->maxLength(500),
                             ]),
+                        FormVersionBuilder::schema()
+                            ->columnSpanFull()
+                            ->visible(fn($livewire) => !($livewire instanceof \Filament\Resources\Pages\CreateRecord)),
                     ]),
             ]);
     }
@@ -127,15 +102,6 @@ class FormVersionResource extends Resource
                     ->badge()
                     ->color(fn($state) => FormVersion::getStatusColour($state))
                     ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
-                TextColumn::make('deployed_to')
-                    ->badge()
-                    ->color(fn($state) => FormVersion::getDeployedToColour($state))
-                    ->getStateUsing(fn($record) => $record->getFormattedDeployedToName())
-                    ->sortable()
-                    ->searchable(),
-                TextColumn::make('deployed_at')
-                    ->date('M j, Y')
-                    ->sortable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -162,63 +128,6 @@ class FormVersionResource extends Resource
                     ->requiresConfirmation()
                     ->color('danger')
                     ->tooltip('Archive this form version'),
-                Tables\Actions\Action::make('Create New Version')
-                    ->label('Create New Version')
-                    ->icon('heroicon-o-document-plus')
-                    ->requiresConfirmation()
-                    ->tooltip('Create a new version from this version')
-                    ->visible(fn($record) => (Gate::allows('form-developer') && in_array($record->status, ['published', 'archived'])))
-                    ->action(function ($record, $livewire) {
-                        $newVersion = $record->replicate();
-                        $newVersion->status = 'draft';
-                        $newVersion->deployed_to = null;
-                        $newVersion->deployed_at = null;
-                        $newVersion->save();
-
-                        foreach ($record->formInstanceFields()->whereNull('field_group_instance_id')->get() as $field) {
-                            $newField = $field->replicate();
-                            $newField->form_version_id = $newVersion->id;
-                            $newField->save();
-
-                            foreach ($field->validations as $validation) {
-                                $newValidation = $validation->replicate();
-                                $newValidation->form_instance_field_id = $newField->id;
-                                $newValidation->save();
-                            }
-
-                            foreach ($field->conditionals as $conditional) {
-                                $newConditional = $conditional->replicate();
-                                $newConditional->form_instance_field_id = $newField->id;
-                                $newConditional->save();
-                            }
-                        }
-
-                        foreach ($record->fieldGroupInstances as $groupInstance) {
-                            $newGroupInstance = $groupInstance->replicate();
-                            $newGroupInstance->form_version_id = $newVersion->id;
-                            $newGroupInstance->save();
-
-                            foreach ($groupInstance->formInstanceFields as $field) {
-                                $newField = $field->replicate();
-                                $newField->form_version_id = $newVersion->id;
-                                $newField->field_group_instance_id = $newGroupInstance->id;
-                                $newField->save();
-
-                                foreach ($field->validations as $validation) {
-                                    $newValidation = $validation->replicate();
-                                    $newValidation->form_instance_field_id = $newField->id;
-                                    $newValidation->save();
-                                }
-
-                                foreach ($field->conditionals as $conditional) {
-                                    $newConditional = $conditional->replicate();
-                                    $newConditional->form_instance_field_id = $newField->id;
-                                    $newConditional->save();
-                                }
-                            }
-                        }
-                        $livewire->redirect(FormVersionResource::getUrl('edit', ['record' => $newVersion]));
-                    }),
             ])
             ->bulkActions([
                 //

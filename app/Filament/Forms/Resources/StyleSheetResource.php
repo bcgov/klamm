@@ -22,13 +22,7 @@ class StyleSheetResource extends Resource
     protected static ?string $model = StyleSheet::class;
     protected static ?string $navigationLabel = 'Style Sheets';
     protected static ?string $navigationIcon = 'heroicon-o-paint-brush';
-
-    protected static ?string $navigationGroup = 'Form Building';
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return CheckRole::hasRole(request(), 'admin', 'form-developer');
-    }
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getEloquentQuery(): Builder
     {
