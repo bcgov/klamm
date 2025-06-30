@@ -10,6 +10,7 @@ use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
 use App\Jobs\GenerateFormVersionJsonJob;
+use App\Events\FormVersionUpdateEvent;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -99,6 +100,16 @@ class BuildFormVersion extends Page implements HasForms
                             $formElement->tags()->attach($tagIds);
                         }
 
+                        // Fire update event for element creation
+                        FormVersionUpdateEvent::dispatch(
+                            $this->record->id,
+                            $this->record->form_id,
+                            $this->record->version_number,
+                            ['created_element' => $formElement->toArray()],
+                            'element_created',
+                            false
+                        );
+
                         $this->getSavedNotification('Form element created successfully!')?->send();
 
                         // Refresh the page to update the tree
@@ -119,6 +130,15 @@ class BuildFormVersion extends Page implements HasForms
                             ->send();
                     }
                 }),
+
+            // Actions\Action::make('broadcast_update')
+            //     ->label('Broadcast Update')
+            //     ->icon('heroicon-o-signal')
+            //     ->color('info')
+            //     ->outlined()
+            //     ->action(function () {
+            //         $this->triggerUpdateEvent('manual_broadcast');
+            //     }),
 
             Actions\Action::make('download_json')
                 ->label('Download')
@@ -177,6 +197,16 @@ class BuildFormVersion extends Page implements HasForms
         $js_content_pdf = $data['js_content_pdf'] ?? '';
         FormScript::createFormScript($this->record, $js_content_web, 'web');
         FormScript::createFormScript($this->record, $js_content_pdf, 'pdf');
+
+        // Fire update event for styles and scripts
+        FormVersionUpdateEvent::dispatch(
+            $this->record->id,
+            $this->record->form_id,
+            $this->record->version_number,
+            null,
+            'styles_scripts',
+            false
+        );
 
         $this->getSavedNotification()?->send();
     }
@@ -368,5 +398,108 @@ class BuildFormVersion extends Page implements HasForms
     public function getHeading(): string
     {
         return "Form Builder";
+    }
+
+    /**
+     * Fire a FormVersionUpdateEvent for broadcasting live updates
+     */
+    protected function fireUpdateEvent(array $updatedData = null, string $updateType = 'general', bool $isDraft = false): void
+    {
+        FormVersionUpdateEvent::dispatch(
+            $this->record->id,
+            $this->record->form_id,
+            $this->record->version_number,
+            $updatedData,
+            $updateType,
+            $isDraft
+        );
+    }
+
+    /**
+     * Handle live updates during form editing (draft mode)
+     */
+    public function onFormDataUpdated(): void
+    {
+        // This can be called when form data changes to broadcast draft updates
+        $data = $this->form->getState();
+
+        $this->fireUpdateEvent([
+            'css_content_web' => $data['css_content_web'] ?? '',
+            'css_content_pdf' => $data['css_content_pdf'] ?? '',
+            'js_content_web' => $data['js_content_web'] ?? '',
+            'js_content_pdf' => $data['js_content_pdf'] ?? '',
+        ], 'draft_update', true);
+    }
+
+    /**
+     * Livewire method that can be called from the frontend to trigger draft updates
+     */
+    public function updatedData(): void
+    {
+        // This method will be called whenever form data is updated
+        $this->onFormDataUpdated();
+    }
+
+    /**
+     * Method to manually trigger a form version update event
+     */
+    public function triggerUpdateEvent(string $updateType = 'manual'): void
+    {
+        $data = $this->form->getState();
+
+        $this->fireUpdateEvent([
+            'css_content_web' => $data['css_content_web'] ?? '',
+            'css_content_pdf' => $data['css_content_pdf'] ?? '',
+            'js_content_web' => $data['js_content_web'] ?? '',
+            'js_content_pdf' => $data['js_content_pdf'] ?? '',
+        ], $updateType, false);
+
+        \Filament\Notifications\Notification::make()
+            ->success()
+            ->title('Update Broadcasted')
+            ->body('Form version update has been broadcasted to all connected clients.')
+            ->send();
+    }
+
+    /**
+     * Get JavaScript code for handling real-time updates
+     */
+    public function getJavaScriptForRealTimeUpdates(): string
+    {
+        return "
+        // Add event listeners for real-time updates
+        document.addEventListener('DOMContentLoaded', function() {
+            // Monitor form changes for real-time updates
+            const formElements = document.querySelectorAll('input, textarea, select');
+
+            let updateTimeout;
+
+            formElements.forEach(element => {
+                element.addEventListener('input', function() {
+                    clearTimeout(updateTimeout);
+                    updateTimeout = setTimeout(() => {
+                        // Trigger draft update
+                        window.Livewire.find('{$this->getId()}').call('onFormDataUpdated');
+                    }, 1000); // Debounce updates by 1 second
+                });
+            });
+
+            // Monitor Monaco editor changes if they exist
+            if (window.monaco) {
+                const monacoEditors = document.querySelectorAll('.monaco-editor');
+                monacoEditors.forEach(editorElement => {
+                    const editorInstance = monaco.editor.getModel(editorElement);
+                    if (editorInstance) {
+                        editorInstance.onDidChangeContent(() => {
+                            clearTimeout(updateTimeout);
+                            updateTimeout = setTimeout(() => {
+                                window.Livewire.find('{$this->getId()}').call('onFormDataUpdated');
+                            }, 2000); // Longer debounce for code editors
+                        });
+                    }
+                });
+            }
+        });
+        ";
     }
 }

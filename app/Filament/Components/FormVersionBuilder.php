@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Hidden;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
+use App\Events\FormVersionUpdateEvent;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Resources\Pages\ViewRecord;
@@ -103,6 +104,16 @@ class FormVersionBuilder
                                                     StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
                                                     StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
 
+                                                    // Fire update event for styles
+                                                    FormVersionUpdateEvent::dispatch(
+                                                        $record->id,
+                                                        $record->form_id,
+                                                        $record->version_number,
+                                                        ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
+                                                        'styles',
+                                                        false
+                                                    );
+
                                                     \Filament\Notifications\Notification::make()
                                                         ->success()
                                                         ->title('Styles Saved')
@@ -161,6 +172,16 @@ class FormVersionBuilder
 
                                                     StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
                                                     StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
+
+                                                    // Fire update event for styles
+                                                    FormVersionUpdateEvent::dispatch(
+                                                        $record->id,
+                                                        $record->form_id,
+                                                        $record->version_number,
+                                                        ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
+                                                        'styles',
+                                                        false
+                                                    );
 
                                                     \Filament\Notifications\Notification::make()
                                                         ->success()
@@ -230,6 +251,16 @@ class FormVersionBuilder
                                                     FormScript::createFormScript($record, $jsContentWeb, 'web');
                                                     FormScript::createFormScript($record, $jsContentPdf, 'pdf');
 
+                                                    // Fire update event for scripts
+                                                    FormVersionUpdateEvent::dispatch(
+                                                        $record->id,
+                                                        $record->form_id,
+                                                        $record->version_number,
+                                                        ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
+                                                        'scripts',
+                                                        false
+                                                    );
+
                                                     \Filament\Notifications\Notification::make()
                                                         ->success()
                                                         ->title('Scripts Saved')
@@ -288,6 +319,16 @@ class FormVersionBuilder
 
                                                     FormScript::createFormScript($record, $jsContentWeb, 'web');
                                                     FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                                                    // Fire update event for scripts
+                                                    FormVersionUpdateEvent::dispatch(
+                                                        $record->id,
+                                                        $record->form_id,
+                                                        $record->version_number,
+                                                        ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
+                                                        'scripts',
+                                                        false
+                                                    );
 
                                                     \Filament\Notifications\Notification::make()
                                                         ->success()
