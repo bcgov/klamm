@@ -30,6 +30,11 @@ class DateSelectInputFormElement extends Model
         'include_time' => 'boolean',
     ];
 
+    protected $attributes = [
+        'visible_label' => true,
+        'include_time' => false,
+    ];
+
     /**
      * Get the Filament form schema for this element type.
      */

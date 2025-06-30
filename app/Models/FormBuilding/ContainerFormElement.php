@@ -24,6 +24,12 @@ class ContainerFormElement extends Model
         'is_repeatable' => 'boolean',
     ];
 
+    protected $attributes = [
+        'collapsible' => false,
+        'collapsed_by_default' => false,
+        'is_repeatable' => false,
+    ];
+
     /**
      * Get the Filament form schema for this element type.
      */
