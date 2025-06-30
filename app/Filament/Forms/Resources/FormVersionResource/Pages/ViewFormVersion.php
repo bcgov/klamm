@@ -5,6 +5,7 @@ namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use App\Models\StyleSheet;
+use App\Models\FormScript;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
 use Illuminate\Support\Facades\Gate;
@@ -50,13 +51,20 @@ class ViewFormVersion extends ViewRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         // Load existing CSS content from stylesheets for view mode
-        $this->record->load(['webStyleSheet', 'pdfStyleSheet']);
+        $this->record->load(['webStyleSheet', 'pdfStyleSheet', 'webFormScript', 'pdfFormScript']);
 
         $cssContentWeb = $this->record->webStyleSheet?->getCssContent();
         $cssContentPdf = $this->record->pdfStyleSheet?->getCssContent();
 
         $data['css_content_web'] = $cssContentWeb ?? '';
         $data['css_content_pdf'] = $cssContentPdf ?? '';
+
+        // Load existing JavaScript content from form scripts for view mode
+        $jsContentWeb = $this->record->webFormScript?->getJsContent();
+        $jsContentPdf = $this->record->pdfFormScript?->getJsContent();
+
+        $data['js_content_web'] = $jsContentWeb ?? '';
+        $data['js_content_pdf'] = $jsContentPdf ?? '';
 
         return $data;
     }

@@ -11,6 +11,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormScript;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FormVersion extends Model
@@ -182,6 +183,16 @@ class FormVersion extends Model
     public function pdfStyleSheet(): HasOne
     {
         return $this->hasOne(StyleSheet::class)->where('type', 'pdf');
+    }
+
+    public function webFormScript(): HasOne
+    {
+        return $this->hasOne(FormScript::class)->where('type', 'web');
+    }
+
+    public function pdfFormScript(): HasOne
+    {
+        return $this->hasOne(FormScript::class)->where('type', 'pdf');
     }
 
     public function formDataSources(): BelongsToMany
