@@ -10,7 +10,7 @@ use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DateTimePicker;
 use App\Models\FormDeployment;
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use Filament\Support\Enums\Alignment;
 use Filament\Resources\Pages\ViewRecord;
 use Carbon\Carbon;

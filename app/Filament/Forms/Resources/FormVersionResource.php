@@ -4,7 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Components\FormVersionBuilder;
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;

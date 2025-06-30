@@ -3,7 +3,7 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormDataSourceResource\Pages;
-use App\Models\FormDataSource;
+use App\Models\FormMetadata\FormDataSource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

@@ -10,6 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Spatie\Activitylog\Models\Activity;
 use App\Models\FormDeployment;
+use App\Models\FormBuilding\FormVersion;
+use App\Models\FormMetadata\FormFrequency;
+use App\Models\FormMetadata\FormReach;
+use App\Models\FormMetadata\FormTag;
+use App\Models\FormMetadata\FormLocation;
+use App\Models\FormMetadata\FormRepository;
+use App\Models\FormMetadata\FormSoftwareSource;
 
 class Form extends Model
 {

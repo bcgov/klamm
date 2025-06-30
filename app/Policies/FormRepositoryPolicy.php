@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\FormRepository;
+use App\Models\FormMetadata\FormRepository;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 

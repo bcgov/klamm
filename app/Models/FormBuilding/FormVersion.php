@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\FormBuilding;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,9 +11,14 @@ use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
 use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
-use App\Models\FormScript;
+use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormDeployment;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Form;
+use App\Models\User;
+use App\Models\FormApprovalRequest;
+use App\Models\FormMetadata\FormDataSource;
 
 class FormVersion extends Model
 {

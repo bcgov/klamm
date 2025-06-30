@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\FormLocation;
+use App\Models\FormMetadata\FormLocation;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 

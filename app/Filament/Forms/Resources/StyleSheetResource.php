@@ -4,8 +4,8 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\StyleSheetResource\Pages;
 use App\Http\Middleware\CheckRole;
-use App\Models\FormVersion;
-use App\Models\StyleSheet;
+use App\Models\FormBuilding\FormVersion;
+use App\Models\FormBuilding\StyleSheet;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;

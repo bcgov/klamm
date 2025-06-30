@@ -1,22 +1,23 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\FormMetadata;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\Form;
 
-class FormTag extends Model
+class FormLocation extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         "name",
-        "description",
+        "description"
     ];
 
     public function forms(): BelongsToMany
     {
-        return $this->belongsToMany(Form::class, 'form_form_tags');
+        return $this->belongsToMany(Form::class, 'form_form_location');
     }
 }

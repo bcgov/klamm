@@ -4,7 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormTagResource\Pages;
 use App\Filament\Forms\Resources\FormTagResource\RelationManagers;
-use App\Models\FormTag;
+use App\Models\FormMetadata\FormTag;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

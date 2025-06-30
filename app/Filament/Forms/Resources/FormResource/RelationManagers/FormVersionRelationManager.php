@@ -2,7 +2,7 @@
 
 namespace App\Filament\Forms\Resources\FormResource\RelationManagers;
 
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Support\Facades\Gate;

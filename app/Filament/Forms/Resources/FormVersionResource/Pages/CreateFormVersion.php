@@ -3,7 +3,7 @@
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
-use App\Models\StyleSheet;
+use App\Models\FormBuilding\StyleSheet;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Auth;

@@ -3,7 +3,7 @@
 namespace App\Filament\Forms\Widgets;
 
 use App\Models\Form;
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use App\Models\FormApprovalRequest;
 use Filament\Tables;
 use Filament\Tables\Table;

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use App\Models\WebhookSubscription;
 use App\Helpers\FormTemplateHelper;
 use App\Helpers\DraftCacheHelper;

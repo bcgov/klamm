@@ -4,8 +4,8 @@ namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
-use App\Models\StyleSheet;
-use App\Models\FormScript;
+use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormScript;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
 use Illuminate\Support\Facades\Gate;
