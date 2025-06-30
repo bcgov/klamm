@@ -9,10 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
-use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormElement;
 use App\Models\FormDeployment;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\Form;
@@ -214,5 +214,10 @@ class FormVersion extends Model
     public function deployments(): HasMany
     {
         return $this->hasMany(FormDeployment::class);
+    }
+
+    public function formElements(): HasMany
+    {
+        return $this->hasMany(FormElement::class)->orderBy('order');
     }
 }
