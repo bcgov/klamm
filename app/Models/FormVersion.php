@@ -24,14 +24,10 @@ class FormVersion extends Model
         'form_developer_id',
         'footer',
         'comments',
-        'deployed_to',
-        'deployed_at',
         'components'
     ];
 
-    protected $casts = [
-        'deployed_at' => 'datetime',
-    ];
+    protected $casts = [];
 
     protected static $logAttributes = [
         'form_id',
@@ -39,8 +35,6 @@ class FormVersion extends Model
         'status',
         'form_developer_id',
         'comments',
-        'deployed_to',
-        'deployed_at',
     ];
 
     public static function boot()
@@ -69,8 +63,6 @@ class FormVersion extends Model
                     $componentsUpdated = true;
                 } elseif ($formVersion->isDirty('status') || $formVersion->wasChanged('status')) {
                     $updateType = 'status';
-                } elseif ($formVersion->isDirty('deployed_to') || $formVersion->isDirty('deployed_at')) {
-                    $updateType = 'deployment';
                 }
 
                 // Dispatch the update event
@@ -168,28 +160,7 @@ class FormVersion extends Model
         };
     }
 
-    public static function getDeployedToOptions(): array
-    {
-        return [
-            'dev' => 'Development',
-            'test' => 'Testing',
-            'prod' => 'Production',
-        ];
-    }
 
-    public function getFormattedDeployedToName(): string
-    {
-        return self::getDeployedToOptions()[$this->deployed_to] ?? '';
-    }
-
-    public static function getDeployedToColour($deployedTo): string
-    {
-        return match ($deployedTo) {
-            'Development' => 'gray',
-            'Testing' => 'warning',
-            'Production' => 'success',
-        };
-    }
 
     public function form(): BelongsTo
     {
