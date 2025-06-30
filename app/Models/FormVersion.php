@@ -201,20 +201,7 @@ class FormVersion extends Model
         return $this->belongsTo(User::class, 'form_developer_id');
     }
 
-    public function formInstanceFields(): HasMany
-    {
-        return $this->hasMany(FormInstanceField::class);
-    }
 
-    public function fieldGroupInstances(): HasMany
-    {
-        return $this->hasMany(FieldGroupInstance::class);
-    }
-
-    public function containers(): HasMany
-    {
-        return $this->hasMany(Container::class);
-    }
 
     public function webStyleSheet(): HasOne
     {
