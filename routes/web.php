@@ -19,13 +19,11 @@ Route::get('/download/form-json/{filename}', function ($filename) {
         abort(404);
     }
 
-    $filePath = "form-exports/{$filename}";
-
-    if (!Storage::disk('public')->exists($filePath)) {
+    if (!Storage::disk('templates')->exists($filename)) {
         abort(404);
     }
 
-    $fileContents = Storage::disk('public')->get($filePath);
+    $fileContents = Storage::disk('templates')->get($filename);
 
     return response($fileContents)
         ->header('Content-Type', 'application/json')
