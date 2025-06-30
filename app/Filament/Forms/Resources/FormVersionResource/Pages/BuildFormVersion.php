@@ -51,26 +51,42 @@ class BuildFormVersion extends Page implements HasForms
                 ->color('success')
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
-                    $data['form_version_id'] = $this->record->id;
+                    try {
+                        $data['form_version_id'] = $this->record->id;
 
-                    // Extract polymorphic data
-                    $elementType = $data['elementable_type'];
-                    $elementableData = $data['elementable_data'] ?? [];
-                    unset($data['elementable_data']);
+                        // Extract polymorphic data
+                        $elementType = $data['elementable_type'];
+                        $elementableData = $data['elementable_data'] ?? [];
+                        unset($data['elementable_data']);
 
-                    // Create the main FormElement
-                    $formElement = FormElement::create($data);
+                        // Create the main FormElement
+                        $formElement = FormElement::create($data);
 
-                    // Create and attach the polymorphic model if there's data
-                    if (!empty($elementableData) && class_exists($elementType)) {
-                        $elementableModel = new $elementType($elementableData);
-                        $formElement->elementable()->save($elementableModel);
+                        // Create and attach the polymorphic model if there's data
+                        if (!empty($elementableData) && class_exists($elementType)) {
+                            $elementableModel = new $elementType($elementableData);
+                            $formElement->elementable()->save($elementableModel);
+                        }
+
+                        $this->getSavedNotification('Form element created successfully!')?->send();
+
+                        // Refresh the page to update the tree
+                        $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
+                    } catch (\InvalidArgumentException $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Cannot Create Element')
+                            ->body($e->getMessage())
+                            ->persistent()
+                            ->send();
+                    } catch (\Exception $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Error Creating Element')
+                            ->body('An unexpected error occurred: ' . $e->getMessage())
+                            ->persistent()
+                            ->send();
                     }
-
-                    $this->getSavedNotification('Form element created successfully!')?->send();
-
-                    // Refresh the page to update the tree
-                    $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
                 }),
             Actions\Action::make('save')
                 ->label('Save Changes')

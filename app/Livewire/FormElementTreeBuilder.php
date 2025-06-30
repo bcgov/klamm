@@ -219,6 +219,22 @@ class FormElementTreeBuilder extends BaseWidget
             $data['form_version_id'] = $this->formVersionId;
         }
 
+        // Validate parent can have children if parent_id is set
+        if (isset($data['parent_id']) && $data['parent_id'] && $data['parent_id'] !== -1) {
+            $parent = FormElement::find($data['parent_id']);
+            if ($parent && !$parent->canHaveChildren()) {
+                // Send a user-friendly notification
+                \Filament\Notifications\Notification::make()
+                    ->danger()
+                    ->title('Cannot Add Here')
+                    ->body("Only container elements can have children. '{$parent->name}' (type: {$parent->element_type}) cannot contain child elements.")
+                    ->persistent()
+                    ->send();
+
+                throw new \InvalidArgumentException("Only container elements can have children. Cannot add child to '{$parent->name}' (type: {$parent->element_type}).");
+            }
+        }
+
         return $data;
     }
 
@@ -255,20 +271,159 @@ class FormElementTreeBuilder extends BaseWidget
         // Remove elementable_data from the main update data
         unset($data['elementable_data']);
 
-        // Update the main FormElement
-        $record->update($data);
+        try {
+            // Update the main FormElement
+            $record->update($data);
 
-        // Handle polymorphic relationship
-        if ($elementType && !empty($elementableData)) {
-            if ($record->elementable) {
-                // Update existing polymorphic model
-                $record->elementable->update($elementableData);
-            } else {
-                // Create new polymorphic model
-                $elementableModel = new $elementType($elementableData);
-                $record->elementable()->save($elementableModel);
+            // Handle polymorphic relationship
+            if ($elementType && !empty($elementableData)) {
+                if ($record->elementable) {
+                    // Update existing polymorphic model
+                    $record->elementable->update($elementableData);
+                } else {
+                    // Create new polymorphic model
+                    $elementableModel = new $elementType($elementableData);
+                    $record->elementable()->save($elementableModel);
+                }
+            }
+        } catch (\InvalidArgumentException $e) {
+            // Handle our custom validation exceptions
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Cannot Update Element')
+                ->body($e->getMessage())
+                ->persistent()
+                ->send();
+
+            // Re-throw to prevent the update from completing
+            throw $e;
+        } catch (\Exception $e) {
+            // Handle any other exceptions
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Update Failed')
+                ->body('An unexpected error occurred while updating the element: ' . $e->getMessage())
+                ->persistent()
+                ->send();
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Get custom CSS classes for tree records
+     */
+    public function getTreeRecordClasses(?\Illuminate\Database\Eloquent\Model $record = null): string
+    {
+        if (!$record) {
+            return '';
+        }
+
+        $classes = [];
+
+        // Add class based on whether element can have children
+        if ($record->canHaveChildren()) {
+            $classes[] = 'can-have-children';
+        } else {
+            $classes[] = 'cannot-have-children';
+        }
+
+        // Add specific type class
+        $elementType = class_basename($record->elementable_type ?? '');
+        $classes[] = 'element-type-' . strtolower($elementType);
+
+        return implode(' ', $classes);
+    }
+
+    /**
+     * Override the tree update method to handle validation gracefully
+     */
+    public function updateTree(?array $list = null): array
+    {
+        // Validate the proposed tree structure before attempting to save
+        if (!$list || !$this->validateTreeStructure($list)) {
+            // Validation failed, notification already shown in validateTreeStructure
+            // Force a refresh of the tree data from the database
+            return $this->refreshTreeData();
+        }
+
+        try {
+            // If validation passes, proceed with the update
+            return parent::updateTree($list);
+        } catch (\InvalidArgumentException $e) {
+            // Handle model validation exceptions with user-friendly notification
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Cannot Update Tree')
+                ->body('Only container elements can have children. The tree structure has been reverted.')
+                ->persistent()
+                ->send();
+
+            // Force a refresh of the tree data from the database
+            return $this->refreshTreeData();
+        } catch (\Exception $e) {
+            // Handle any other exceptions
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Update Failed')
+                ->body('An unexpected error occurred while updating the tree structure.')
+                ->persistent()
+                ->send();
+
+            // Force a refresh of the tree data from the database
+            return $this->refreshTreeData();
+        }
+    }
+
+    /**
+     * Refresh the tree data from the database
+     */
+    protected function refreshTreeData(): array
+    {
+        // Get fresh data from the database in the same format the tree expects
+        return $this->getTreeQuery()
+            ->with(['children' => function ($query) {
+                $query->orderBy('order');
+            }])
+            ->whereNull('parent_id')
+            ->orderBy('order')
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * Validate the proposed tree structure before saving
+     */
+    protected function validateTreeStructure(array $list): bool
+    {
+        foreach ($list as $item) {
+            // Check if this item has a parent_id and validate the parent-child relationship
+            if (isset($item['parent_id']) && $item['parent_id'] && $item['parent_id'] !== -1) {
+                $parent = FormElement::find($item['parent_id']);
+                $child = FormElement::find($item['id']);
+
+                if ($parent && $child && !$parent->canHaveChildren()) {
+                    // Show user-friendly notification
+                    \Filament\Notifications\Notification::make()
+                        ->danger()
+                        ->title('Cannot Move Element')
+                        ->body("'{$child->name}' cannot be moved into '{$parent->name}' (type: {$parent->element_type}). Only Container elements can have children. The tree has been reverted to its previous state.")
+                        ->persistent()
+                        ->send();
+
+                    return false;
+                }
+            }
+
+            // Recursively validate children if they exist
+            if (isset($item['children']) && is_array($item['children']) && !empty($item['children'])) {
+                if (!$this->validateTreeStructure($item['children'])) {
+                    return false;
+                }
             }
         }
+
+        return true;
     }
 
     public function render(): \Illuminate\Contracts\View\View
@@ -277,6 +432,19 @@ class FormElementTreeBuilder extends BaseWidget
             return view('livewire.form-element-tree-builder');
         }
 
+        // Ensure custom CSS classes are applied to tree items
+        $this->prepareTreeItemClasses();
+
         return parent::render();
+    }
+
+    /**
+     * Prepare custom CSS classes for tree items
+     */
+    protected function prepareTreeItemClasses(): void
+    {
+        // This method will be called before rendering to ensure
+        // that the tree items have the proper CSS classes applied
+        // The actual class application happens in the getTreeRecordClasses method
     }
 }

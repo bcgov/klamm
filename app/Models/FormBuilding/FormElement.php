@@ -51,6 +51,27 @@ class FormElement extends Model
                 $formElement->uuid = (string) Str::uuid();
             }
         });
+
+        // Validate parent-child relationships
+        static::saving(function ($formElement) {
+            // If this element is being assigned a parent, validate that the parent can have children
+            if ($formElement->parent_id && $formElement->parent_id !== -1) {
+                $parent = self::find($formElement->parent_id);
+                if ($parent && !$parent->canHaveChildren()) {
+                    throw new \InvalidArgumentException("Only container elements can have children. Parent element '{$parent->name}' (type: {$parent->element_type}) cannot contain child elements.");
+                }
+            }
+        });
+
+        static::updating(function ($formElement) {
+            // If this element is changing to a non-container type and has children, prevent the change
+            if ($formElement->isDirty('elementable_type') && !$formElement->canHaveChildren()) {
+                $childrenCount = self::where('parent_id', $formElement->id)->count();
+                if ($childrenCount > 0) {
+                    throw new \InvalidArgumentException("Cannot change element type to '{$formElement->element_type}' because it has {$childrenCount} child element(s). Only container elements can have children.");
+                }
+            }
+        });
     }
 
     /**
@@ -192,6 +213,23 @@ class FormElement extends Model
     {
         return $this->elementable_type === $type ||
             class_basename($this->elementable_type) === $type;
+    }
+
+    /**
+     * Check if this element is a container type
+     */
+    public function isContainer(): bool
+    {
+        return $this->elementable_type === ContainerFormElement::class;
+    }
+
+    /**
+     * Check if this element can have children
+     * Only container elements can have children
+     */
+    public function canHaveChildren(): bool
+    {
+        return $this->isContainer();
     }
 
     /**
