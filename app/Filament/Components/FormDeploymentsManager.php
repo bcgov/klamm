@@ -59,7 +59,7 @@ class FormDeploymentsManager
                                                 ->options(function ($record) {
                                                     if (!$record) return [];
                                                     return $record->formVersions()
-                                                        ->where('status', 'approved')
+                                                        ->whereIn('status', ['approved', 'published'])
                                                         ->get()
                                                         ->pluck('version_number', 'id')
                                                         ->map(fn($version) => "Version {$version}")
@@ -115,7 +115,7 @@ class FormDeploymentsManager
                                                 ->options(function ($record) {
                                                     if (!$record) return [];
                                                     return $record->formVersions()
-                                                        ->where('status', 'approved')
+                                                        ->whereIn('status', ['approved', 'published'])
                                                         ->get()
                                                         ->pluck('version_number', 'id')
                                                         ->map(fn($version) => "Version {$version}")
@@ -171,7 +171,7 @@ class FormDeploymentsManager
                                                 ->options(function ($record) {
                                                     if (!$record) return [];
                                                     return $record->formVersions()
-                                                        ->where('status', 'approved')
+                                                        ->whereIn('status', ['approved', 'published'])
                                                         ->get()
                                                         ->pluck('version_number', 'id')
                                                         ->map(fn($version) => "Version {$version}")

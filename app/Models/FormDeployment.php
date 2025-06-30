@@ -61,11 +61,18 @@ class FormDeployment extends Model
             ->delete();
 
         // Create new deployment
-        return self::create([
+        $deployment = self::create([
             'form_version_id' => $formVersionId,
             'environment' => $environment,
             'deployed_at' => $deployedAt,
         ]);
+
+        // Update form version status to published once deployed to any environment
+        if ($formVersion->status === 'approved') {
+            $formVersion->update(['status' => 'published']);
+        }
+
+        return $deployment;
     }
 
     public static function getDeploymentForFormAndEnvironment(int $formId, string $environment): ?self
