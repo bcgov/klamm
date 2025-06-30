@@ -133,6 +133,23 @@ class FormElement extends Model
     }
 
     /**
+     * Get all available element types
+     */
+    public static function getAvailableElementTypes(): array
+    {
+        return [
+            TextInfoFormElement::class => 'Text Info',
+            ButtonInputFormElement::class => 'Button Input',
+            TextInputFormElement::class => 'Text Input',
+            TextareaInputFormElement::class => 'Textarea Input',
+            NumberInputFormElement::class => 'Number Input',
+            DateSelectInputFormElement::class => 'Date Select Input',
+            ContainerFormElement::class => 'Container',
+            HTMLFormElement::class => 'HTML',
+        ];
+    }
+
+    /**
      * Create a text info form element
      */
     public static function createTextInfo(array $elementData, array $textInfoData): self
@@ -154,6 +171,84 @@ class FormElement extends Model
 
         $elementData['elementable_type'] = ButtonInputFormElement::class;
         $elementData['elementable_id'] = $button->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create a text input form element
+     */
+    public static function createTextInput(array $elementData, array $textInputData): self
+    {
+        $textInput = TextInputFormElement::create($textInputData);
+
+        $elementData['elementable_type'] = TextInputFormElement::class;
+        $elementData['elementable_id'] = $textInput->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create a textarea input form element
+     */
+    public static function createTextarea(array $elementData, array $textareaData): self
+    {
+        $textarea = TextareaInputFormElement::create($textareaData);
+
+        $elementData['elementable_type'] = TextareaInputFormElement::class;
+        $elementData['elementable_id'] = $textarea->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create a number input form element
+     */
+    public static function createNumber(array $elementData, array $numberData): self
+    {
+        $number = NumberInputFormElement::create($numberData);
+
+        $elementData['elementable_type'] = NumberInputFormElement::class;
+        $elementData['elementable_id'] = $number->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create a date select input form element
+     */
+    public static function createDateSelect(array $elementData, array $dateSelectData): self
+    {
+        $dateSelect = DateSelectInputFormElement::create($dateSelectData);
+
+        $elementData['elementable_type'] = DateSelectInputFormElement::class;
+        $elementData['elementable_id'] = $dateSelect->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create a container form element
+     */
+    public static function createContainer(array $elementData, array $containerData): self
+    {
+        $container = ContainerFormElement::create($containerData);
+
+        $elementData['elementable_type'] = ContainerFormElement::class;
+        $elementData['elementable_id'] = $container->id;
+
+        return self::create($elementData);
+    }
+
+    /**
+     * Create an HTML form element
+     */
+    public static function createHTML(array $elementData, array $htmlData): self
+    {
+        $html = HTMLFormElement::create($htmlData);
+
+        $elementData['elementable_type'] = HTMLFormElement::class;
+        $elementData['elementable_id'] = $html->id;
 
         return self::create($elementData);
     }
