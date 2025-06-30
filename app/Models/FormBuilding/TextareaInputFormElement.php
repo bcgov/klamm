@@ -29,6 +29,11 @@ class TextareaInputFormElement extends Model
         'minlength' => 'integer',
     ];
 
+    protected $attributes = [
+        'visible_label' => true,
+        'rows' => 3,
+    ];
+
     /**
      * Get the Filament form schema for this element type.
      */

@@ -4,10 +4,12 @@ namespace App\Livewire;
 
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormBuilding\FormElementTag;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms;
 use Livewire\Component;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
@@ -26,6 +28,10 @@ class FormElementTreeBuilder extends BaseWidget
 
     public $formVersionId;
 
+    // Add properties to store pending data
+    protected $pendingElementableData = [];
+    protected $pendingElementType = null;
+
     public function mount($formVersionId = null)
     {
         $this->formVersionId = $formVersionId;
@@ -39,6 +45,54 @@ class FormElementTreeBuilder extends BaseWidget
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
                         ->schema([
+                            Select::make('template_id')
+                                ->label('Start from template')
+                                ->placeholder('Select a template (optional)')
+                                ->options(function () {
+                                    return FormElement::templates()
+                                        ->with('elementable')
+                                        ->get()
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    if (!$state) {
+                                        return;
+                                    }
+
+                                    // Load the template element with its relationships
+                                    $template = FormElement::with(['elementable', 'tags'])->find($state);
+
+                                    if (!$template) {
+                                        return;
+                                    }
+
+                                    // Prefill basic form element data
+                                    $set('name', $template->name . ' (Copy)');
+                                    $set('description', $template->description);
+                                    $set('help_text', $template->help_text);
+                                    $set('elementable_type', $template->elementable_type);
+                                    $set('is_visible', $template->is_visible);
+                                    $set('visible_web', $template->visible_web);
+                                    $set('visible_pdf', $template->visible_pdf);
+                                    $set('is_template', false); // New element should not be a template by default
+
+                                    // Prefill tags
+                                    if ($template->tags->isNotEmpty()) {
+                                        $set('tags', $template->tags->pluck('id')->toArray());
+                                    }
+
+                                    // Prefill elementable data if it exists
+                                    if ($template->elementable) {
+                                        $elementableData = $template->elementable->toArray();
+                                        // Remove timestamps and primary key
+                                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                                        $set('elementable_data', $elementableData);
+                                    }
+                                })
+                                ->searchable()
+                                ->columnSpanFull(),
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
@@ -64,6 +118,31 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->default(false),
+                            Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->relationship('tags', 'name')
+                                ->createOptionAction(
+                                    fn(Forms\Components\Actions\Action $action) => $action
+                                        ->modalHeading('Create Tag')
+                                        ->modalWidth('md')
+                                )
+                                ->createOptionForm([
+                                    TextInput::make('name')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->unique(FormElementTag::class, 'name'),
+                                    Textarea::make('description')
+                                        ->rows(3),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    return FormElementTag::create($data)->id;
+                                })
+                                ->searchable()
+                                ->preload(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
@@ -74,6 +153,84 @@ class FormElementTreeBuilder extends BaseWidget
                                     \Filament\Forms\Components\Placeholder::make('select_element_type')
                                         ->label('')
                                         ->content('Please select an element type in the General tab first.')
+                                ];
+                            }
+                            return $this->getElementSpecificSchema($elementType);
+                        }),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    public function getEditFormSchema(): array
+    {
+        return [
+            \Filament\Forms\Components\Tabs::make('form_element_tabs')
+                ->tabs([
+                    \Filament\Forms\Components\Tabs\Tab::make('General')
+                        ->icon('heroicon-o-cog')
+                        ->schema([
+                            TextInput::make('name')
+                                ->required()
+                                ->maxLength(255),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
+                            \Filament\Forms\Components\Hidden::make('elementable_type'),
+                            TextInput::make('elementable_type_display')
+                                ->label('Element Type')
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->formatStateUsing(function ($state, callable $get) {
+                                    $elementType = $get('elementable_type');
+                                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
+                                }),
+                            Toggle::make('is_visible')
+                                ->label('Visible')
+                                ->default(true),
+                            Toggle::make('visible_web')
+                                ->label('Visible on Web')
+                                ->default(true),
+                            Toggle::make('visible_pdf')
+                                ->label('Visible on PDF')
+                                ->default(true),
+                            Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->default(false),
+                            Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->relationship('tags', 'name')
+                                ->createOptionAction(
+                                    fn(Forms\Components\Actions\Action $action) => $action
+                                        ->modalHeading('Create Tag')
+                                        ->modalWidth('md')
+                                )
+                                ->createOptionForm([
+                                    TextInput::make('name')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->unique(FormElementTag::class, 'name'),
+                                    Textarea::make('description')
+                                        ->rows(3),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    return FormElementTag::create($data)->id;
+                                })
+                                ->searchable()
+                                ->preload(),
+                        ]),
+                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->schema(function (callable $get) {
+                            // For edit, get the element type from the form data
+                            $elementType = $get('elementable_type');
+                            if (!$elementType) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_element_type')
+                                        ->label('')
+                                        ->content('No element type available.')
                                 ];
                             }
                             return $this->getElementSpecificSchema($elementType);
@@ -110,6 +267,15 @@ class FormElementTreeBuilder extends BaseWidget
                             Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->disabled(),
+                            Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->disabled(),
+                            Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->relationship('tags', 'name')
+                                ->disabled()
+                                ->searchable(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
@@ -147,25 +313,51 @@ class FormElementTreeBuilder extends BaseWidget
     protected function getTreeActions(): array
     {
         return [
-            ViewAction::make(),
-            EditAction::make(),
-            DeleteAction::make()
-                ->after(function ($record) {
-                    // Fire update event for element deletion
-                    if ($this->formVersionId) {
-                        $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
-                        if ($formVersion) {
-                            FormVersionUpdateEvent::dispatch(
-                                $formVersion->id,
-                                $formVersion->form_id,
-                                $formVersion->version_number,
-                                ['deleted_element' => $record->toArray()],
-                                'element_deleted',
-                                false
-                            );
-                        }
+            ViewAction::make()
+                ->form($this->getViewFormSchema())
+                ->fillForm(function ($record) {
+                    $data = $record->toArray();
+
+                    // Load polymorphic data for viewing
+                    if (!$record->relationLoaded('elementable')) {
+                        $record->load('elementable');
                     }
+
+                    if ($record->elementable) {
+                        $elementableData = $record->elementable->toArray();
+                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                        $data['elementable_data'] = $elementableData;
+                    }
+
+                    return $data;
                 }),
+            EditAction::make()
+                ->form($this->getEditFormSchema())
+                ->fillForm(function ($record) {
+                    $data = $record->toArray();
+
+                    // Load polymorphic data for editing
+                    if (!$record->relationLoaded('elementable')) {
+                        $record->load('elementable');
+                    }
+
+                    if ($record->elementable) {
+                        $elementableData = $record->elementable->toArray();
+                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                        $data['elementable_data'] = $elementableData;
+                    }
+
+                    // Ensure elementable_type is available even though the field is disabled
+                    $data['elementable_type'] = $record->elementable_type;
+                    $data['elementable_type_display'] = $record->elementable_type;
+
+                    return $data;
+                })
+                ->action(function ($record, array $data) {
+                    $data = $this->mutateFormDataBeforeSave($data);
+                    $this->handleRecordUpdate($record, $data);
+                }),
+            DeleteAction::make(),
         ];
     }
 
@@ -230,38 +422,23 @@ class FormElementTreeBuilder extends BaseWidget
         return "[{$elementType}] {$record->name}";
     }
 
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        if ($this->formVersionId) {
-            $data['form_version_id'] = $this->formVersionId;
-        }
-
-        // Validate parent can have children if parent_id is set
-        if (isset($data['parent_id']) && $data['parent_id'] && $data['parent_id'] !== -1) {
-            $parent = FormElement::find($data['parent_id']);
-            if ($parent && !$parent->canHaveChildren()) {
-                // Send a user-friendly notification
-                \Filament\Notifications\Notification::make()
-                    ->danger()
-                    ->title('Cannot Add Here')
-                    ->body("Only container elements can have children. '{$parent->name}' (type: {$parent->element_type}) cannot contain child elements.")
-                    ->persistent()
-                    ->send();
-
-                throw new \InvalidArgumentException("Only container elements can have children. Cannot add child to '{$parent->name}' (type: {$parent->element_type}).");
-            }
-        }
-
-        return $data;
-    }
-
     protected function mutateFormDataBeforeFill(array $data): array
     {
         // Load polymorphic data into elementable_data field for editing
-        if (isset($data['elementable']) && $data['elementable']) {
-            $elementableData = $data['elementable']->toArray();
-            unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
-            $data['elementable_data'] = $elementableData;
+        $record = $this->getMountedTreeActionForm()?->getModel();
+
+        if ($record) {
+            // Load the polymorphic relationship if not already loaded
+            if (!$record->relationLoaded('elementable')) {
+                $record->load('elementable');
+            }
+
+            if ($record->elementable) {
+                $elementableData = $record->elementable->toArray();
+                // Remove timestamps and primary key
+                unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                $data['elementable_data'] = $elementableData;
+            }
         }
 
         return $data;
@@ -269,12 +446,21 @@ class FormElementTreeBuilder extends BaseWidget
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Handle polymorphic relationship creation/update
+        // Extract polymorphic data before main record update
         $elementType = $data['elementable_type'];
         $elementableData = $data['elementable_data'] ?? [];
 
+        // Filter out null values from elementable data to let model defaults apply
+        $elementableData = array_filter($elementableData, function ($value) {
+            return $value !== null;
+        });
+
         // Remove elementable_data from main form data as it will be handled separately
         unset($data['elementable_data']);
+
+        // Store for use in handleRecordUpdate
+        $this->pendingElementableData = $elementableData;
+        $this->pendingElementType = $elementType;
 
         return $data;
     }
@@ -313,28 +499,45 @@ class FormElementTreeBuilder extends BaseWidget
 
     protected function handleRecordUpdate($record, array $data): void
     {
-        // Extract and store elementable data before updating the main record
-        $elementableData = $data['elementable_data'] ?? [];
-        $elementType = $data['elementable_type'] ?? null;
-
-        // Remove elementable_data from the main update data
-        unset($data['elementable_data']);
-
         try {
-            // Update the main FormElement
+            // Update the main FormElement first
             $record->update($data);
 
             // Handle polymorphic relationship
-            if ($elementType && !empty($elementableData)) {
-                if ($record->elementable) {
-                    // Update existing polymorphic model
-                    $record->elementable->update($elementableData);
+            $elementableData = $this->pendingElementableData;
+            $elementType = $this->pendingElementType;
+
+            if ($elementType) {
+                // Ensure the record has the elementable relationship loaded
+                $record->load('elementable');
+
+                if ($record->elementable && $record->elementable_type === $elementType) {
+                    // Update existing polymorphic model of the same type
+                    if (!empty($elementableData)) {
+                        $record->elementable->update($elementableData);
+                    }
                 } else {
+                    // Handle type change or missing polymorphic model
+                    if ($record->elementable) {
+                        $record->elementable->delete();
+                    }
+
                     // Create new polymorphic model
-                    $elementableModel = new $elementType($elementableData);
-                    $record->elementable()->save($elementableModel);
+                    if (class_exists($elementType)) {
+                        $elementableModel = $elementType::create($elementableData ?: []);
+                        $record->update([
+                            'elementable_type' => $elementType,
+                            'elementable_id' => $elementableModel->id,
+                        ]);
+                        // Refresh the relationship
+                        $record->load('elementable');
+                    }
                 }
             }
+
+            // Clear pending data
+            $this->pendingElementableData = [];
+            $this->pendingElementType = null;
 
             // Fire update event for element modification
             if ($this->formVersionId) {
@@ -370,6 +573,86 @@ class FormElementTreeBuilder extends BaseWidget
                 ->persistent()
                 ->send();
 
+            throw $e;
+        }
+    }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        if ($this->formVersionId) {
+            $data['form_version_id'] = $this->formVersionId;
+        }
+
+        // Remove template_id as it's only used for prefilling
+        unset($data['template_id']);
+
+        // Validate parent can have children if parent_id is set
+        if (isset($data['parent_id']) && $data['parent_id'] && $data['parent_id'] !== -1) {
+            $parent = FormElement::find($data['parent_id']);
+            if ($parent && !$parent->canHaveChildren()) {
+                // Send a user-friendly notification
+                \Filament\Notifications\Notification::make()
+                    ->danger()
+                    ->title('Cannot Add Here')
+                    ->body("Only container elements can have children. '{$parent->name}' (type: {$parent->element_type}) cannot contain child elements.")
+                    ->persistent()
+                    ->send();
+
+                throw new \InvalidArgumentException("Only container elements can have children. Cannot add child to '{$parent->name}' (type: {$parent->element_type}).");
+            }
+        }
+
+        // Extract polymorphic data
+        $elementType = $data['elementable_type'];
+        $elementableData = $data['elementable_data'] ?? [];
+        unset($data['elementable_data']);
+
+        // Filter out null values from elementable data to let model defaults apply
+        $elementableData = array_filter($elementableData, function ($value) {
+            return $value !== null;
+        });
+
+        // Store for use after main record creation
+        $this->pendingElementableData = $elementableData;
+        $this->pendingElementType = $elementType;
+
+        return $data;
+    }
+
+    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+    {
+        try {
+            // Create the polymorphic model first if there's data
+            $elementableModel = null;
+            $elementType = $this->pendingElementType;
+            $elementableData = $this->pendingElementableData;
+
+            if (!empty($elementableData) && class_exists($elementType)) {
+                $elementableModel = $elementType::create($elementableData);
+            } elseif (class_exists($elementType)) {
+                // Create with empty array to trigger model defaults
+                $elementableModel = $elementType::create([]);
+            }
+
+            // Set the polymorphic relationship data
+            if ($elementableModel) {
+                $data['elementable_type'] = $elementType;
+                $data['elementable_id'] = $elementableModel->id;
+            }
+
+            // Create the main FormElement
+            $formElement = FormElement::create($data);
+
+            // Clear pending data
+            $this->pendingElementableData = [];
+            $this->pendingElementType = null;
+
+            return $formElement;
+        } catch (\Exception $e) {
+            // Clean up any created polymorphic model if main creation fails
+            if (isset($elementableModel) && $elementableModel) {
+                $elementableModel->delete();
+            }
             throw $e;
         }
     }

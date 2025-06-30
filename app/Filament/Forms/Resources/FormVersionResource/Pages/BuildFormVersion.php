@@ -8,6 +8,7 @@ use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
+use App\Models\FormBuilding\FormElementTag;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
 use Filament\Resources\Pages\Page;
@@ -15,6 +16,7 @@ use Filament\Forms\Form;
 use Filament\Actions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -58,18 +60,44 @@ class BuildFormVersion extends Page implements HasForms
                     try {
                         $data['form_version_id'] = $this->record->id;
 
+                        // Remove template_id as it's only used for prefilling
+                        unset($data['template_id']);
+
+                        // Extract tags data before creating the element
+                        $tagIds = $data['tags'] ?? [];
+                        unset($data['tags']);
+
                         // Extract polymorphic data
                         $elementType = $data['elementable_type'];
                         $elementableData = $data['elementable_data'] ?? [];
                         unset($data['elementable_data']);
 
+                        // Filter out null values from elementable data to let model defaults apply
+                        $elementableData = array_filter($elementableData, function ($value) {
+                            return $value !== null;
+                        });
+
+                        // Create the polymorphic model first if there's data
+                        $elementableModel = null;
+                        if (!empty($elementableData) && class_exists($elementType)) {
+                            $elementableModel = $elementType::create($elementableData);
+                        } elseif (class_exists($elementType)) {
+                            // Create with empty array to trigger model defaults
+                            $elementableModel = $elementType::create([]);
+                        }
+
+                        // Set the polymorphic relationship data
+                        if ($elementableModel) {
+                            $data['elementable_type'] = $elementType;
+                            $data['elementable_id'] = $elementableModel->id;
+                        }
+
                         // Create the main FormElement
                         $formElement = FormElement::create($data);
 
-                        // Create and attach the polymorphic model if there's data
-                        if (!empty($elementableData) && class_exists($elementType)) {
-                            $elementableModel = new $elementType($elementableData);
-                            $formElement->elementable()->save($elementableModel);
+                        // Attach tags if any were selected
+                        if (!empty($tagIds)) {
+                            $formElement->tags()->attach($tagIds);
                         }
 
                         // Fire update event for element creation
@@ -199,6 +227,54 @@ class BuildFormVersion extends Page implements HasForms
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
                         ->schema([
+                            \Filament\Forms\Components\Select::make('template_id')
+                                ->label('Start from template')
+                                ->placeholder('Select a template (optional)')
+                                ->options(function () {
+                                    return FormElement::templates()
+                                        ->with('elementable')
+                                        ->get()
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    if (!$state) {
+                                        return;
+                                    }
+
+                                    // Load the template element with its relationships
+                                    $template = FormElement::with(['elementable', 'tags'])->find($state);
+
+                                    if (!$template) {
+                                        return;
+                                    }
+
+                                    // Prefill basic form element data
+                                    $set('name', $template->name . ' (Copy)');
+                                    $set('description', $template->description);
+                                    $set('help_text', $template->help_text);
+                                    $set('elementable_type', $template->elementable_type);
+                                    $set('is_visible', $template->is_visible);
+                                    $set('visible_web', $template->visible_web);
+                                    $set('visible_pdf', $template->visible_pdf);
+                                    $set('is_template', false); // New element should not be a template by default
+
+                                    // Prefill tags
+                                    if ($template->tags->isNotEmpty()) {
+                                        $set('tags', $template->tags->pluck('id')->toArray());
+                                    }
+
+                                    // Prefill elementable data if it exists
+                                    if ($template->elementable) {
+                                        $elementableData = $template->elementable->toArray();
+                                        // Remove timestamps and primary key
+                                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                                        $set('elementable_data', $elementableData);
+                                    }
+                                })
+                                ->searchable()
+                                ->columnSpanFull(),
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
@@ -224,6 +300,32 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\Toggle::make('visible_pdf')
                                 ->label('Visible on PDF')
                                 ->default(true),
+                            \Filament\Forms\Components\Toggle::make('is_template')
+                                ->label('Is Template')
+                                ->default(false),
+                            \Filament\Forms\Components\Select::make('tags')
+                                ->label('Tags')
+                                ->multiple()
+                                ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
+                                ->createOptionAction(
+                                    fn(Forms\Components\Actions\Action $action) => $action
+                                        ->modalHeading('Create Tag')
+                                        ->modalWidth('md')
+                                )
+                                ->createOptionForm([
+                                    \Filament\Forms\Components\TextInput::make('name')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->unique(FormElementTag::class, 'name'),
+                                    \Filament\Forms\Components\Textarea::make('description')
+                                        ->rows(3),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    $tag = FormElementTag::create($data);
+                                    return $tag->id;
+                                })
+                                ->searchable()
+                                ->preload(),
                         ]),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
