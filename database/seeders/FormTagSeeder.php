@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\FormTag;
+use App\Models\FormMetadata\FormTag;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 

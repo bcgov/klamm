@@ -19,18 +19,8 @@ class ValueTypeResource extends Resource
     protected static ?string $model = ValueType::class;
 
     protected static ?string $navigationIcon = 'icon-chevrons-left-right-ellipsis';
-    protected static bool $shouldRegisterNavigation = true;
-
-    protected static ?string $navigationGroup = 'Form Building';
-
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $navigationLabel = 'Value Types';
-
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return CheckRole::hasRole(request(), 'admin', 'form-developer');
-    }
-
 
     public static function form(Form $form): Form
     {

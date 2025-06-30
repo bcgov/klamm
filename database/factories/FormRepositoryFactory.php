@@ -5,7 +5,7 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use App\Models\Contact;
-use App\Models\FormRepository;
+use App\Models\FormMetadata\FormRepository;
 
 class FormRepositoryFactory extends Factory
 {

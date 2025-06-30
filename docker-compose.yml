@@ -8,6 +8,11 @@ services:
             - "80:80"
         volumes:
             - .:/var/www
+            - vendor:/var/www/vendor
+            - node_modules:/var/www/node_modules
+            - storage_cache:/var/www/storage/framework/cache
+            - storage_sessions:/var/www/storage/framework/sessions
+            - storage_views:/var/www/storage/framework/views
             - form_data:/var/www/storage/app/form_data
         environment:
             - APP_ENV=local
@@ -36,6 +41,8 @@ services:
             - "6001:6001"
         volumes:
             - .:/var/www
+            - vendor:/var/www/vendor
+            - node_modules:/var/www/node_modules
         environment:
             - APP_ENV=local
             - APP_DEBUG=true
@@ -106,4 +113,14 @@ volumes:
     form_data:
         driver: local
     redis_data:
+        driver: local
+    vendor:
+        driver: local
+    node_modules:
+        driver: local
+    storage_cache:
+        driver: local
+    storage_sessions:
+        driver: local
+    storage_views:
         driver: local

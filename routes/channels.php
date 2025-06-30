@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use App\Models\Form;
 
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {

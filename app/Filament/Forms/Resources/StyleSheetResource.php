@@ -4,8 +4,8 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\StyleSheetResource\Pages;
 use App\Http\Middleware\CheckRole;
-use App\Models\FormVersion;
-use App\Models\StyleSheet;
+use App\Models\FormBuilding\FormVersion;
+use App\Models\FormBuilding\StyleSheet;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -22,13 +22,7 @@ class StyleSheetResource extends Resource
     protected static ?string $model = StyleSheet::class;
     protected static ?string $navigationLabel = 'Style Sheets';
     protected static ?string $navigationIcon = 'heroicon-o-paint-brush';
-
-    protected static ?string $navigationGroup = 'Form Building';
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return CheckRole::hasRole(request(), 'admin', 'form-developer');
-    }
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getEloquentQuery(): Builder
     {
