@@ -25,6 +25,10 @@ class FormElementTreeBuilder extends BaseWidget
 
     public $formVersionId;
 
+    // Add properties to store pending data
+    protected $pendingElementableData = [];
+    protected $pendingElementType = null;
+
     public function mount($formVersionId = null)
     {
         $this->formVersionId = $formVersionId;
@@ -73,6 +77,59 @@ class FormElementTreeBuilder extends BaseWidget
                                     \Filament\Forms\Components\Placeholder::make('select_element_type')
                                         ->label('')
                                         ->content('Please select an element type in the General tab first.')
+                                ];
+                            }
+                            return $this->getElementSpecificSchema($elementType);
+                        }),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    public function getEditFormSchema(): array
+    {
+        return [
+            \Filament\Forms\Components\Tabs::make('form_element_tabs')
+                ->tabs([
+                    \Filament\Forms\Components\Tabs\Tab::make('General')
+                        ->icon('heroicon-o-cog')
+                        ->schema([
+                            TextInput::make('name')
+                                ->required()
+                                ->maxLength(255),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
+                            \Filament\Forms\Components\Hidden::make('elementable_type'),
+                            TextInput::make('elementable_type_display')
+                                ->label('Element Type')
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->formatStateUsing(function ($state, callable $get) {
+                                    $elementType = $get('elementable_type');
+                                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
+                                }),
+                            Toggle::make('is_visible')
+                                ->label('Visible')
+                                ->default(true),
+                            Toggle::make('visible_web')
+                                ->label('Visible on Web')
+                                ->default(true),
+                            Toggle::make('visible_pdf')
+                                ->label('Visible on PDF')
+                                ->default(true),
+                        ]),
+                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->schema(function (callable $get) {
+                            // For edit, get the element type from the form data
+                            $elementType = $get('elementable_type');
+                            if (!$elementType) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_element_type')
+                                        ->label('')
+                                        ->content('No element type available.')
                                 ];
                             }
                             return $this->getElementSpecificSchema($elementType);
@@ -146,8 +203,50 @@ class FormElementTreeBuilder extends BaseWidget
     protected function getTreeActions(): array
     {
         return [
-            ViewAction::make(),
-            EditAction::make(),
+            ViewAction::make()
+                ->form($this->getViewFormSchema())
+                ->fillForm(function ($record) {
+                    $data = $record->toArray();
+
+                    // Load polymorphic data for viewing
+                    if (!$record->relationLoaded('elementable')) {
+                        $record->load('elementable');
+                    }
+
+                    if ($record->elementable) {
+                        $elementableData = $record->elementable->toArray();
+                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                        $data['elementable_data'] = $elementableData;
+                    }
+
+                    return $data;
+                }),
+            EditAction::make()
+                ->form($this->getEditFormSchema())
+                ->fillForm(function ($record) {
+                    $data = $record->toArray();
+
+                    // Load polymorphic data for editing
+                    if (!$record->relationLoaded('elementable')) {
+                        $record->load('elementable');
+                    }
+
+                    if ($record->elementable) {
+                        $elementableData = $record->elementable->toArray();
+                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                        $data['elementable_data'] = $elementableData;
+                    }
+
+                    // Ensure elementable_type is available even though the field is disabled
+                    $data['elementable_type'] = $record->elementable_type;
+                    $data['elementable_type_display'] = $record->elementable_type;
+
+                    return $data;
+                })
+                ->action(function ($record, array $data) {
+                    $data = $this->mutateFormDataBeforeSave($data);
+                    $this->handleRecordUpdate($record, $data);
+                }),
             DeleteAction::make(),
         ];
     }
@@ -213,6 +312,114 @@ class FormElementTreeBuilder extends BaseWidget
         return "[{$elementType}] {$record->name}";
     }
 
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Load polymorphic data into elementable_data field for editing
+        $record = $this->getMountedTreeActionForm()?->getModel();
+
+        if ($record) {
+            // Load the polymorphic relationship if not already loaded
+            if (!$record->relationLoaded('elementable')) {
+                $record->load('elementable');
+            }
+
+            if ($record->elementable) {
+                $elementableData = $record->elementable->toArray();
+                // Remove timestamps and primary key
+                unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                $data['elementable_data'] = $elementableData;
+            }
+        }
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Extract polymorphic data before main record update
+        $elementType = $data['elementable_type'];
+        $elementableData = $data['elementable_data'] ?? [];
+
+        // Filter out null values from elementable data to let model defaults apply
+        $elementableData = array_filter($elementableData, function ($value) {
+            return $value !== null;
+        });
+
+        // Remove elementable_data from main form data as it will be handled separately
+        unset($data['elementable_data']);
+
+        // Store for use in handleRecordUpdate
+        $this->pendingElementableData = $elementableData;
+        $this->pendingElementType = $elementType;
+
+        return $data;
+    }
+
+    protected function handleRecordUpdate($record, array $data): void
+    {
+        try {
+            // Update the main FormElement first
+            $record->update($data);
+
+            // Handle polymorphic relationship
+            $elementableData = $this->pendingElementableData;
+            $elementType = $this->pendingElementType;
+
+            if ($elementType) {
+                // Ensure the record has the elementable relationship loaded
+                $record->load('elementable');
+
+                if ($record->elementable && $record->elementable_type === $elementType) {
+                    // Update existing polymorphic model of the same type
+                    if (!empty($elementableData)) {
+                        $record->elementable->update($elementableData);
+                    }
+                } else {
+                    // Handle type change or missing polymorphic model
+                    if ($record->elementable) {
+                        $record->elementable->delete();
+                    }
+
+                    // Create new polymorphic model
+                    if (class_exists($elementType)) {
+                        $elementableModel = $elementType::create($elementableData ?: []);
+                        $record->update([
+                            'elementable_type' => $elementType,
+                            'elementable_id' => $elementableModel->id,
+                        ]);
+                        // Refresh the relationship
+                        $record->load('elementable');
+                    }
+                }
+            }
+
+            // Clear pending data
+            $this->pendingElementableData = [];
+            $this->pendingElementType = null;
+        } catch (\InvalidArgumentException $e) {
+            // Handle our custom validation exceptions
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Cannot Update Element')
+                ->body($e->getMessage())
+                ->persistent()
+                ->send();
+
+            // Re-throw to prevent the update from completing
+            throw $e;
+        } catch (\Exception $e) {
+            // Handle any other exceptions
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Update Failed')
+                ->body('An unexpected error occurred while updating the element: ' . $e->getMessage())
+                ->persistent()
+                ->send();
+
+            throw $e;
+        }
+    }
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         if ($this->formVersionId) {
@@ -235,77 +442,57 @@ class FormElementTreeBuilder extends BaseWidget
             }
         }
 
-        return $data;
-    }
-
-    protected function mutateFormDataBeforeFill(array $data): array
-    {
-        // Load polymorphic data into elementable_data field for editing
-        if (isset($data['elementable']) && $data['elementable']) {
-            $elementableData = $data['elementable']->toArray();
-            unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
-            $data['elementable_data'] = $elementableData;
-        }
-
-        return $data;
-    }
-
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        // Handle polymorphic relationship creation/update
+        // Extract polymorphic data
         $elementType = $data['elementable_type'];
         $elementableData = $data['elementable_data'] ?? [];
-
-        // Remove elementable_data from main form data as it will be handled separately
         unset($data['elementable_data']);
+
+        // Filter out null values from elementable data to let model defaults apply
+        $elementableData = array_filter($elementableData, function ($value) {
+            return $value !== null;
+        });
+
+        // Store for use after main record creation
+        $this->pendingElementableData = $elementableData;
+        $this->pendingElementType = $elementType;
 
         return $data;
     }
 
-    protected function handleRecordUpdate($record, array $data): void
+    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
     {
-        // Extract and store elementable data before updating the main record
-        $elementableData = $data['elementable_data'] ?? [];
-        $elementType = $data['elementable_type'] ?? null;
-
-        // Remove elementable_data from the main update data
-        unset($data['elementable_data']);
-
         try {
-            // Update the main FormElement
-            $record->update($data);
+            // Create the polymorphic model first if there's data
+            $elementableModel = null;
+            $elementType = $this->pendingElementType;
+            $elementableData = $this->pendingElementableData;
 
-            // Handle polymorphic relationship
-            if ($elementType && !empty($elementableData)) {
-                if ($record->elementable) {
-                    // Update existing polymorphic model
-                    $record->elementable->update($elementableData);
-                } else {
-                    // Create new polymorphic model
-                    $elementableModel = new $elementType($elementableData);
-                    $record->elementable()->save($elementableModel);
-                }
+            if (!empty($elementableData) && class_exists($elementType)) {
+                $elementableModel = $elementType::create($elementableData);
+            } elseif (class_exists($elementType)) {
+                // Create with empty array to trigger model defaults
+                $elementableModel = $elementType::create([]);
             }
-        } catch (\InvalidArgumentException $e) {
-            // Handle our custom validation exceptions
-            \Filament\Notifications\Notification::make()
-                ->danger()
-                ->title('Cannot Update Element')
-                ->body($e->getMessage())
-                ->persistent()
-                ->send();
 
-            // Re-throw to prevent the update from completing
-            throw $e;
+            // Set the polymorphic relationship data
+            if ($elementableModel) {
+                $data['elementable_type'] = $elementType;
+                $data['elementable_id'] = $elementableModel->id;
+            }
+
+            // Create the main FormElement
+            $formElement = FormElement::create($data);
+
+            // Clear pending data
+            $this->pendingElementableData = [];
+            $this->pendingElementType = null;
+
+            return $formElement;
         } catch (\Exception $e) {
-            // Handle any other exceptions
-            \Filament\Notifications\Notification::make()
-                ->danger()
-                ->title('Update Failed')
-                ->body('An unexpected error occurred while updating the element: ' . $e->getMessage())
-                ->persistent()
-                ->send();
-
+            // Clean up any created polymorphic model if main creation fails
+            if (isset($elementableModel) && $elementableModel) {
+                $elementableModel->delete();
+            }
             throw $e;
         }
     }
