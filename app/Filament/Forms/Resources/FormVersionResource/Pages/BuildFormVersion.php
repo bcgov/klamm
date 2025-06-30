@@ -8,12 +8,14 @@ use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
+use App\Jobs\GenerateFormVersionJsonJob;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Illuminate\Support\Facades\Auth;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -105,6 +107,32 @@ class BuildFormVersion extends Page implements HasForms
                     $livewire->js("window.open('$previewUrl', '_blank')");
                 })
                 ->color('primary'),
+            Actions\Action::make('download_json')
+                ->label('Download JSON')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('info')
+                ->action(function () {
+                    $userId = Auth::id();
+
+                    if (!$userId) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Authentication Error')
+                            ->body('You must be logged in to download JSON files.')
+                            ->send();
+                        return;
+                    }
+
+                    // Dispatch job to generate JSON
+                    GenerateFormVersionJsonJob::dispatch($this->record, $userId);
+
+                    // Show immediate notification
+                    \Filament\Notifications\Notification::make()
+                        ->info()
+                        ->title('JSON Export Started')
+                        ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
+                        ->send();
+                }),
         ];
     }
 

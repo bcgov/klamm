@@ -52,17 +52,21 @@ RUN useradd -m sail
 RUN mkdir -p /var/www/storage/logs \
     && touch /var/www/storage/logs/laravel.log \
     && mkdir -p /var/www/storage/app/form_data/stylesheets \
-    && mkdir -p /var/www/storage/app/form_data/scripts
+    && mkdir -p /var/www/storage/app/form_data/scripts \
+    && mkdir -p /var/www/storage/app/public/form-exports
 
 # Set permissions for directories and files
 RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
-    && chown -R sail:sail /var/www/storage/app/form_data \
-    && chmod -R 775 /var/www/storage/app/form_data \
-    && chmod g+s /var/www/storage/app/form_data
+    && chown -R sail:sail /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
+    && chmod -R 775 /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
+    && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/public/form-exports
     
 # Generate APP_KEY
 RUN php artisan key:generate
+
+# Create storage link for public file access
+RUN php artisan storage:link
 
 # Switch to sail user
 USER sail
