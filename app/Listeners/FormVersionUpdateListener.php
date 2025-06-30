@@ -77,21 +77,26 @@ class FormVersionUpdateListener implements ShouldQueue
     private function handleUpdate(FormVersionUpdateEvent $event): void
     {
         // Clear caches based on update type
-        if ($event->updateType === 'components' || $event->updateType === 'general') {
+        if (in_array($event->updateType, ['components', 'general', 'element_created', 'element_updated', 'element_deleted', 'elements_moved'])) {
             // Invalidate caches
             // FormDataHelper::invalidateCache('form_version', $event->formVersionId);
             // FormDataHelper::invalidateCache('form', $event->formId);
 
-            // If components were updated, trigger template regeneration
-            if ($event->updateType === 'components' && $event->updatedComponents) {
+            if (in_array($event->updateType, ['components', 'element_created', 'element_updated', 'element_deleted', 'elements_moved']) && $event->updatedComponents) {
                 $this->regenerateTemplate($event->formVersionId, $event->updatedComponents);
             }
+
+            Log::info("Updated caches for form version: {$event->formVersionId}, type: {$event->updateType}");
+        } elseif (in_array($event->updateType, ['styles', 'scripts', 'styles_scripts'])) {
+            Log::info("Styles/Scripts updated for form version: {$event->formVersionId}");
+            Cache::forget("formtemplate:{$event->formVersionId}:styles");
+            Cache::forget("formtemplate:{$event->formVersionId}:scripts");
         } elseif ($event->updateType === 'deleted') {
-            // Handle deletion - clean up all caches
-            // FormDataHelper::invalidateAllCaches($event->formId);
             Log::info("Cleared all caches for deleted form version: {$event->formVersionId}");
         } elseif ($event->updateType === 'status' || $event->updateType === 'deployment') {
             // FormDataHelper::invalidateCache('form_version', $event->formVersionId);
+        } elseif ($event->updateType === 'manual_broadcast') {
+            Log::info("Manual broadcast triggered for form version: {$event->formVersionId}");
         }
     }
 
@@ -139,15 +144,17 @@ class FormVersionUpdateListener implements ShouldQueue
                         ];
                     }
                 }
-                $jsonTemplate = FormTemplateHelper::generateJsonTemplate($formVersionId, $formattedComponents);
+                // TODO: Uncomment when FormTemplateHelper is available
+                // $jsonTemplate = FormTemplateHelper::generateJsonTemplate($formVersionId, $formattedComponents);
             } else {
-                $jsonTemplate = FormTemplateHelper::generateJsonTemplate($formVersionId);
+                // TODO: Uncomment when FormTemplateHelper is available
+                // $jsonTemplate = FormTemplateHelper::generateJsonTemplate($formVersionId);
             }
 
             $cacheKey = "formtemplate:{$formVersionId}:cached_json";
-            Cache::tags(['form-template'])->put($cacheKey, $jsonTemplate, now()->addDay());
+            // Cache::tags(['form-template'])->put($cacheKey, $jsonTemplate, now()->addDay());
 
-            Log::info("Template regenerated for form version: {$formVersionId}", [
+            Log::info("Template regeneration process completed for form version: {$formVersionId}", [
                 'using_updated_components' => $updatedComponents !== null
             ]);
         } catch (\Exception $e) {

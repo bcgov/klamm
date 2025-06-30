@@ -18,19 +18,22 @@ return new class extends Migration
         Schema::dropIfExists('form_instance_field_conditionals');
         Schema::dropIfExists('select_option_instances');
         Schema::dropIfExists('form_instance_fields');
-        
+
         // Drop field group related tables
         Schema::dropIfExists('field_group_instances');
         Schema::dropIfExists('field_group_form_field');
-        
+
         // Drop form field related tables
         Schema::dropIfExists('form_field_validations');
         Schema::dropIfExists('form_field_values');
         Schema::dropIfExists('form_field_date_formats');
-        
+
         // Drop containers
         Schema::dropIfExists('containers');
-        
+
+        // Drop tables that reference form_fields
+        Schema::dropIfExists('form_comments');
+
         // Drop parent tables last
         Schema::dropIfExists('form_fields');
         Schema::dropIfExists('field_groups');

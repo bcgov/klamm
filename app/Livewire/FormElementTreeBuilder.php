@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\FormBuilding\FormElement;
+use App\Events\FormVersionUpdateEvent;
 use App\Models\FormBuilding\FormElementTag;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
@@ -464,6 +465,7 @@ class FormElementTreeBuilder extends BaseWidget
         return $data;
     }
 
+
     protected function handleRecordUpdate($record, array $data): void
     {
         try {
@@ -505,6 +507,21 @@ class FormElementTreeBuilder extends BaseWidget
             // Clear pending data
             $this->pendingElementableData = [];
             $this->pendingElementType = null;
+
+            // Fire update event for element modification
+            if ($this->formVersionId) {
+                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                if ($formVersion) {
+                    FormVersionUpdateEvent::dispatch(
+                        $formVersion->id,
+                        $formVersion->form_id,
+                        $formVersion->version_number,
+                        ['updated_element' => $record->fresh()->toArray()],
+                        'element_updated',
+                        false
+                    );
+                }
+            }
         } catch (\InvalidArgumentException $e) {
             // Handle our custom validation exceptions
             \Filament\Notifications\Notification::make()
@@ -599,6 +616,21 @@ class FormElementTreeBuilder extends BaseWidget
             $this->pendingElementableData = [];
             $this->pendingElementType = null;
 
+            // Fire update event for element creation
+            if ($this->formVersionId) {
+                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                if ($formVersion) {
+                    FormVersionUpdateEvent::dispatch(
+                        $formVersion->id,
+                        $formVersion->form_id,
+                        $formVersion->version_number,
+                        ['created_element' => $formElement->fresh()->toArray()],
+                        'element_created',
+                        false
+                    );
+                }
+            }
+
             return $formElement;
         } catch (\Exception $e) {
             // Clean up any created polymorphic model if main creation fails
@@ -648,7 +680,24 @@ class FormElementTreeBuilder extends BaseWidget
 
         try {
             // If validation passes, proceed with the update
-            return parent::updateTree($list);
+            $result = parent::updateTree($list);
+
+            // Fire update event for tree structure changes (moves/reorders)
+            if ($this->formVersionId) {
+                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                if ($formVersion) {
+                    FormVersionUpdateEvent::dispatch(
+                        $formVersion->id,
+                        $formVersion->form_id,
+                        $formVersion->version_number,
+                        ['tree_structure' => $list],
+                        'elements_moved',
+                        false
+                    );
+                }
+            }
+
+            return $result;
         } catch (\InvalidArgumentException $e) {
             // Handle model validation exceptions with user-friendly notification
             \Filament\Notifications\Notification::make()

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FormBuilding\FormVersion;
 use App\Models\WebhookSubscription;
-use App\Helpers\FormTemplateHelper;
+use App\Services\FormVersionJsonService;
 use App\Helpers\DraftCacheHelper;
 use App\Events\FormVersionUpdateEvent;
 use Illuminate\Support\Facades\Cache;
@@ -35,27 +35,20 @@ class FormVersionController extends Controller
 
             $jsonTemplate = Cache::tags([$cacheTag])->get($cacheKey);
             if ($jsonTemplate === null) {
-                if ($isDraft) {
-                    // For draft requests, first try to get published template and use it as base
-                    // Otherwise, generate a new draft template
-                    $publishedCacheKey = "formtemplate:{$id}:cached_json";
-                    $publishedTemplate = Cache::tags(['form-template'])->get($publishedCacheKey);
+                // Generate JSON using FormVersionJsonService
+                $jsonService = new FormVersionJsonService();
+                $jsonData = $jsonService->generateJson($formVersion);
+                $jsonTemplate = json_encode($jsonData, JSON_PRETTY_PRINT);
 
-                    if ($publishedTemplate !== null) {
-                        $jsonTemplate = $publishedTemplate;
-                        Cache::tags(['draft'])->put($cacheKey, $jsonTemplate, now()->addDay());
-                    } else {
-                        $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
-                        Cache::tags(['draft'])->put($cacheKey, $jsonTemplate, now()->addDay());
-                    }
-                } else {
-
-                    $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
-                    Cache::tags(['form-template'])->put($cacheKey, $jsonTemplate, now()->addDay());
-                }
+                // Cache the result
+                Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
             }
 
-            $filename = $isDraft ? "form_template_draft_{$id}.json" : "form_template_{$id}.json";
+            // Generate filename using same logic as GenerateFormVersionJsonJob
+            $formTitle = $formVersion->form->form_title ?? 'Unknown Form';
+            $sanitizedTitle = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $formTitle);
+            $draftSuffix = $isDraft ? '_draft' : '';
+            $filename = "form_{$sanitizedTitle}_v{$formVersion->version_number}_{$formVersion->id}{$draftSuffix}.json";
 
             return response($jsonTemplate)
                 ->header('Content-Type', 'application/json')
@@ -123,6 +116,31 @@ class FormVersionController extends Controller
             $isDraft = $request->query('draft', false);
             $isDraft = filter_var($isDraft, FILTER_VALIDATE_BOOLEAN);
 
+            // Check if pre-migration format is requested
+            $usePreMigrationFormat = $request->query('pre_migration', false);
+            $usePreMigrationFormat = filter_var($usePreMigrationFormat, FILTER_VALIDATE_BOOLEAN);
+
+            $jsonService = new FormVersionJsonService();
+
+            if ($usePreMigrationFormat) {
+                // Use pre-migration format
+                $formTemplate = $jsonService->generatePreMigrationJson($formVersion);
+
+                return response()->json([
+                    'logs' => $logs,
+                    'form_version' => [
+                        'id' => $formVersion->id,
+                        'form_id' => $formVersion->form_id,
+                        'version_number' => $formVersion->version_number,
+                        'status' => $formVersion->status
+                    ],
+                    'form_template' => $formTemplate,
+                    'is_draft' => $isDraft,
+                    'format' => 'pre_migration'
+                ]);
+            }
+
+            // Use original format with caching
             $cacheKey = $isDraft ? "formtemplate:{$id}:draft_cached_json" : "formtemplate:{$id}:cached_json";
             $cacheTag = $isDraft ? 'draft' : 'form-template';
 
@@ -132,27 +150,12 @@ class FormVersionController extends Controller
             if ($cachedTemplate !== null) {
                 $jsonTemplate = $cachedTemplate;
             } else {
-                if ($isDraft) {
-                    // For draft requests, first try to get published template and use it as base
-                    // Otherwise, generate a new draft template
-                    $publishedCacheKey = "formtemplate:{$id}:cached_json";
-                    $publishedTemplate = Cache::tags(['form-template'])->get($publishedCacheKey);
+                // Generate JSON using FormVersionJsonService
+                $jsonData = $jsonService->generateJson($formVersion);
+                $jsonTemplate = json_encode($jsonData, JSON_PRETTY_PRINT);
 
-                    if ($publishedTemplate !== null) {
-                        // Use published template as base for new draft
-                        $jsonTemplate = $publishedTemplate;
-                        // Store it as draft cache
-                        Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
-                    } else {
-                        // No published template exists, generate fresh
-                        $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
-                        Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
-                    }
-                } else {
-                    // Generate published template
-                    $jsonTemplate = FormTemplateHelper::generateJsonTemplate($id);
-                    Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
-                }
+                // Cache the result
+                Cache::tags([$cacheTag])->put($cacheKey, $jsonTemplate, now()->addDay());
             }
 
             // Return a properly formatted response with both logs and form template
@@ -166,7 +169,8 @@ class FormVersionController extends Controller
                 ],
                 'form_template' => json_decode($jsonTemplate),
                 'is_draft' => $isDraft,
-                'cache_source' => $cachedTemplate !== null ? 'cache' : 'generated'
+                'cache_source' => $cachedTemplate !== null ? 'cache' : 'generated',
+                'format' => 'original'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -202,7 +206,8 @@ class FormVersionController extends Controller
             $formVersion->save();
 
             // Clear both published and draft caches for this form version
-            FormTemplateHelper::clearFormTemplateCache($id);
+            Cache::forget("formtemplate:{$id}:cached_json");
+            Cache::forget("formtemplate:{$id}:draft_cached_json");
 
             // Dispatch event about the component update
             event(new FormVersionUpdateEvent(
