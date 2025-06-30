@@ -22,6 +22,7 @@ class SelectInputFormElement extends Model
 
     protected $attributes = [
         'visible_label' => true,
+        'label' => '',
     ];
 
     /**
@@ -32,16 +33,32 @@ class SelectInputFormElement extends Model
         return [
             \Filament\Forms\Components\TextInput::make('elementable_data.label')
                 ->label('Field Label')
+                ->required()
                 ->disabled($disabled),
             \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
                 ->label('Show Label')
                 ->default(true)
                 ->disabled($disabled),
-            \Filament\Forms\Components\Textarea::make('elementable_data.options')
-                ->label('Options (one per line)')
-                ->rows(5)
-                ->helperText('Enter each option on a new line. You can also use "value|label" format.')
-                ->disabled($disabled),
+            \Filament\Forms\Components\Repeater::make('elementable_data.options')
+                ->label('Options')
+                ->schema([
+                    \Filament\Forms\Components\TextInput::make('label')
+                        ->label('Option Label')
+                        ->required()
+                        ->columnSpan(2),
+                    \Filament\Forms\Components\Textarea::make('description')
+                        ->label('Description')
+                        ->rows(2)
+                        ->columnSpan(2),
+                ])
+                ->columns(2)
+                ->defaultItems(1)
+                ->addActionLabel('Add Option')
+                ->reorderableWithButtons()
+                ->collapsible()
+                ->itemLabel(fn(array $state): ?string => $state['label'] ?? 'Option')
+                ->disabled($disabled)
+                ->minItems(1),
         ];
     }
 
