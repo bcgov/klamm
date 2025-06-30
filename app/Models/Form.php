@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Spatie\Activitylog\Models\Activity;
+use App\Models\FormDeployment;
 
 class Form extends Model
 {
@@ -189,5 +190,17 @@ class Form extends Model
         } else {
             return 'To Be Done';
         }
+    }
+
+    public function deployments(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            FormDeployment::class,
+            FormVersion::class,
+            'form_id',
+            'form_version_id',
+            'id',
+            'id'
+        );
     }
 }

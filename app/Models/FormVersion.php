@@ -12,6 +12,7 @@ use Spatie\Activitylog\LogOptions;
 use App\Helpers\FormDataHelper;
 use App\Events\FormVersionUpdateEvent;
 use App\Models\FormScript;
+use App\Models\FormDeployment;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class FormVersion extends Model
@@ -203,5 +204,10 @@ class FormVersion extends Model
     public function approvalRequests(): HasMany
     {
         return $this->hasMany(FormApprovalRequest::class);
+    }
+
+    public function deployments(): HasMany
+    {
+        return $this->hasMany(FormDeployment::class);
     }
 }

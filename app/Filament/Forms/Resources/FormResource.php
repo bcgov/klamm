@@ -28,6 +28,7 @@ use App\Models\FormReach;
 use App\Models\FormFrequency;
 use App\Models\FormRepository;
 use App\Models\UserType;
+use App\Filament\Components\FormDeploymentsManager;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
 use Illuminate\Database\Eloquent\Builder;
@@ -354,6 +355,8 @@ class FormResource extends Resource
                             ->label('Workbench Paths'),
 
                     ]),
+
+                FormDeploymentsManager::schema(),
 
                 Forms\Components\Section::make('Additional Details')
                     ->hidden()
