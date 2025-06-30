@@ -131,14 +131,14 @@ class BuildFormVersion extends Page implements HasForms
                     }
                 }),
 
-            Actions\Action::make('broadcast_update')
-                ->label('Broadcast Update')
-                ->icon('heroicon-o-signal')
-                ->color('info')
-                ->outlined()
-                ->action(function () {
-                    $this->triggerUpdateEvent('manual_broadcast');
-                }),
+            // Actions\Action::make('broadcast_update')
+            //     ->label('Broadcast Update')
+            //     ->icon('heroicon-o-signal')
+            //     ->color('info')
+            //     ->outlined()
+            //     ->action(function () {
+            //         $this->triggerUpdateEvent('manual_broadcast');
+            //     }),
 
             Actions\Action::make('download_json')
                 ->label('Download')

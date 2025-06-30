@@ -465,37 +465,6 @@ class FormElementTreeBuilder extends BaseWidget
         return $data;
     }
 
-    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
-    {
-        // Create the main FormElement first
-        $record = static::getModel()::create($data);
-
-        // Handle polymorphic relationship
-        $elementType = $data['elementable_type'] ?? null;
-        $elementableData = $data['elementable_data'] ?? [];
-
-        if ($elementType && !empty($elementableData) && class_exists($elementType)) {
-            $elementableModel = new $elementType($elementableData);
-            $record->elementable()->save($elementableModel);
-        }
-
-        // Fire update event for element creation
-        if ($this->formVersionId) {
-            $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
-            if ($formVersion) {
-                FormVersionUpdateEvent::dispatch(
-                    $formVersion->id,
-                    $formVersion->form_id,
-                    $formVersion->version_number,
-                    ['created_element' => $record->fresh()->toArray()],
-                    'element_created',
-                    false
-                );
-            }
-        }
-
-        return $record;
-    }
 
     protected function handleRecordUpdate($record, array $data): void
     {
@@ -646,6 +615,21 @@ class FormElementTreeBuilder extends BaseWidget
             // Clear pending data
             $this->pendingElementableData = [];
             $this->pendingElementType = null;
+
+            // Fire update event for element creation
+            if ($this->formVersionId) {
+                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                if ($formVersion) {
+                    FormVersionUpdateEvent::dispatch(
+                        $formVersion->id,
+                        $formVersion->form_id,
+                        $formVersion->version_number,
+                        ['created_element' => $formElement->fresh()->toArray()],
+                        'element_created',
+                        false
+                    );
+                }
+            }
 
             return $formElement;
         } catch (\Exception $e) {

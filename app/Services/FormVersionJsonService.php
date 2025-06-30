@@ -332,7 +332,7 @@ class FormVersionJsonService
             'text-area' => 'textarea',
             'textarea-input' => 'text-area',
             'dropdown' => 'dropdown',
-            'select-input' => 'select',
+            'select-input' => 'dropdown',
             'checkbox-input' => 'checkbox',
             'checkbox' => 'checkbox',
             'toggle-input' => 'toggle',
