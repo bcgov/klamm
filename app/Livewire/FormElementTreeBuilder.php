@@ -33,51 +33,113 @@ class FormElementTreeBuilder extends BaseWidget
     protected function getFormSchema(): array
     {
         return [
-            TextInput::make('name')
-                ->required()
-                ->maxLength(255),
-            Textarea::make('description')
-                ->rows(3),
-            TextInput::make('help_text')
-                ->maxLength(500),
-            Select::make('elementable_type')
-                ->label('Element Type')
-                ->options(FormElement::getAvailableElementTypes())
-                ->required(),
-            Toggle::make('is_visible')
-                ->label('Visible')
-                ->default(true),
-            Toggle::make('visible_web')
-                ->label('Visible on Web')
-                ->default(true),
-            Toggle::make('visible_pdf')
-                ->label('Visible on PDF')
-                ->default(true),
+            \Filament\Forms\Components\Tabs::make('form_element_tabs')
+                ->tabs([
+                    \Filament\Forms\Components\Tabs\Tab::make('General')
+                        ->icon('heroicon-o-cog')
+                        ->schema([
+                            TextInput::make('name')
+                                ->required()
+                                ->maxLength(255),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
+                            Select::make('elementable_type')
+                                ->label('Element Type')
+                                ->options(FormElement::getAvailableElementTypes())
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set) {
+                                    // Clear existing elementable data when type changes
+                                    $set('elementable_data', []);
+                                }),
+                            Toggle::make('is_visible')
+                                ->label('Visible')
+                                ->default(true),
+                            Toggle::make('visible_web')
+                                ->label('Visible on Web')
+                                ->default(true),
+                            Toggle::make('visible_pdf')
+                                ->label('Visible on PDF')
+                                ->default(true),
+                        ]),
+                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->schema(function (callable $get) {
+                            $elementType = $get('elementable_type');
+                            if (!$elementType) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
+                                        ->label('')
+                                        ->content('Please select an element type in the General tab first.')
+                                ];
+                            }
+                            return $this->getElementSpecificSchema($elementType);
+                        }),
+                ])
+                ->columnSpanFull(),
         ];
     }
 
     public function getViewFormSchema(): array
     {
         return [
-            TextInput::make('name')
-                ->disabled(),
-            Textarea::make('description')
-                ->disabled()
-                ->rows(3),
-            TextInput::make('help_text')
-                ->disabled(),
-            TextInput::make('elementable_type')
-                ->label('Element Type')
-                ->disabled(),
-            Toggle::make('is_visible')
-                ->label('Visible')
-                ->disabled(),
-            Toggle::make('visible_web')
-                ->label('Visible on Web')
-                ->disabled(),
-            Toggle::make('visible_pdf')
-                ->label('Visible on PDF')
-                ->disabled(),
+            \Filament\Forms\Components\Tabs::make('form_element_tabs')
+                ->tabs([
+                    \Filament\Forms\Components\Tabs\Tab::make('General')
+                        ->icon('heroicon-o-cog')
+                        ->schema([
+                            TextInput::make('name')
+                                ->disabled(),
+                            Textarea::make('description')
+                                ->disabled()
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->disabled(),
+                            TextInput::make('elementable_type')
+                                ->label('Element Type')
+                                ->disabled(),
+                            Toggle::make('is_visible')
+                                ->label('Visible')
+                                ->disabled(),
+                            Toggle::make('visible_web')
+                                ->label('Visible on Web')
+                                ->disabled(),
+                            Toggle::make('visible_pdf')
+                                ->label('Visible on PDF')
+                                ->disabled(),
+                        ]),
+                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->schema(function (callable $get) {
+                            $elementType = $get('elementable_type');
+                            if (!$elementType) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
+                                        ->label('')
+                                        ->content('No specific properties available.')
+                                ];
+                            }
+                            return $this->getElementSpecificSchema($elementType, true);
+                        }),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected function getElementSpecificSchema(string $elementType, bool $disabled = false): array
+    {
+        // Check if the element type class exists and has the getFilamentSchema method
+        if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
+            return $elementType::getFilamentSchema($disabled);
+        }
+
+        // Fallback for element types that don't have schema defined yet
+        return [
+            \Filament\Forms\Components\Placeholder::make('no_specific_properties')
+                ->label('')
+                ->content('This element type has no specific properties defined yet.')
         ];
     }
 
@@ -158,6 +220,55 @@ class FormElementTreeBuilder extends BaseWidget
         }
 
         return $data;
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Load polymorphic data into elementable_data field for editing
+        if (isset($data['elementable']) && $data['elementable']) {
+            $elementableData = $data['elementable']->toArray();
+            unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+            $data['elementable_data'] = $elementableData;
+        }
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Handle polymorphic relationship creation/update
+        $elementType = $data['elementable_type'];
+        $elementableData = $data['elementable_data'] ?? [];
+
+        // Remove elementable_data from main form data as it will be handled separately
+        unset($data['elementable_data']);
+
+        return $data;
+    }
+
+    protected function handleRecordUpdate($record, array $data): void
+    {
+        // Extract and store elementable data before updating the main record
+        $elementableData = $data['elementable_data'] ?? [];
+        $elementType = $data['elementable_type'] ?? null;
+
+        // Remove elementable_data from the main update data
+        unset($data['elementable_data']);
+
+        // Update the main FormElement
+        $record->update($data);
+
+        // Handle polymorphic relationship
+        if ($elementType && !empty($elementableData)) {
+            if ($record->elementable) {
+                // Update existing polymorphic model
+                $record->elementable->update($elementableData);
+            } else {
+                // Create new polymorphic model
+                $elementableModel = new $elementType($elementableData);
+                $record->elementable()->save($elementableModel);
+            }
+        }
     }
 
     public function render(): \Illuminate\Contracts\View\View

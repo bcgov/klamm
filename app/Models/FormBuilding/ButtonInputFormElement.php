@@ -20,6 +20,24 @@ class ButtonInputFormElement extends Model
     ];
 
     /**
+     * Get the Filament form schema for this element type.
+     */
+    public static function getFilamentSchema(bool $disabled = false): array
+    {
+        return [
+            \Filament\Forms\Components\TextInput::make('elementable_data.label')
+                ->label('Button Text')
+                ->default('Submit')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Select::make('elementable_data.button_type')
+                ->label('Button Type')
+                ->options(static::getButtonTypes())
+                ->default('submit')
+                ->disabled($disabled),
+        ];
+    }
+
+    /**
      * Get the form element that owns this button input element.
      */
     public function formElement(): MorphOne

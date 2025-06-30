@@ -26,6 +26,36 @@ class TextInputFormElement extends Model
     ];
 
     /**
+     * Get the Filament form schema for this element type.
+     */
+    public static function getFilamentSchema(bool $disabled = false): array
+    {
+        return [
+            \Filament\Forms\Components\TextInput::make('elementable_data.placeholder_text')
+                ->label('Placeholder Text')
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.label')
+                ->label('Field Label')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
+                ->label('Show Label')
+                ->default(true)
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.mask')
+                ->label('Input Mask')
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.maxlength')
+                ->label('Maximum Length')
+                ->numeric()
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.minlength')
+                ->label('Minimum Length')
+                ->numeric()
+                ->disabled($disabled),
+        ];
+    }
+
+    /**
      * Get the form element that owns this text input element.
      */
     public function formElement(): MorphOne

@@ -52,7 +52,20 @@ class BuildFormVersion extends Page implements HasForms
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
                     $data['form_version_id'] = $this->record->id;
-                    \App\Models\FormBuilding\FormElement::create($data);
+
+                    // Extract polymorphic data
+                    $elementType = $data['elementable_type'];
+                    $elementableData = $data['elementable_data'] ?? [];
+                    unset($data['elementable_data']);
+
+                    // Create the main FormElement
+                    $formElement = FormElement::create($data);
+
+                    // Create and attach the polymorphic model if there's data
+                    if (!empty($elementableData) && class_exists($elementType)) {
+                        $elementableModel = new $elementType($elementableData);
+                        $formElement->elementable()->save($elementableModel);
+                    }
 
                     $this->getSavedNotification('Form element created successfully!')?->send();
 
@@ -109,26 +122,67 @@ class BuildFormVersion extends Page implements HasForms
     protected function getFormElementSchema(): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('name')
-                ->required()
-                ->maxLength(255),
-            \Filament\Forms\Components\Textarea::make('description')
-                ->rows(3),
-            \Filament\Forms\Components\TextInput::make('help_text')
-                ->maxLength(500),
-            \Filament\Forms\Components\Select::make('elementable_type')
-                ->label('Element Type')
-                ->options(\App\Models\FormBuilding\FormElement::getAvailableElementTypes())
-                ->required(),
-            \Filament\Forms\Components\Toggle::make('is_visible')
-                ->label('Visible')
-                ->default(true),
-            \Filament\Forms\Components\Toggle::make('visible_web')
-                ->label('Visible on Web')
-                ->default(true),
-            \Filament\Forms\Components\Toggle::make('visible_pdf')
-                ->label('Visible on PDF')
-                ->default(true),
+            \Filament\Forms\Components\Tabs::make('form_element_tabs')
+                ->tabs([
+                    \Filament\Forms\Components\Tabs\Tab::make('General')
+                        ->icon('heroicon-o-cog')
+                        ->schema([
+                            \Filament\Forms\Components\TextInput::make('name')
+                                ->required()
+                                ->maxLength(255),
+                            \Filament\Forms\Components\Textarea::make('description')
+                                ->rows(3),
+                            \Filament\Forms\Components\TextInput::make('help_text')
+                                ->maxLength(500),
+                            \Filament\Forms\Components\Select::make('elementable_type')
+                                ->label('Element Type')
+                                ->options(\App\Models\FormBuilding\FormElement::getAvailableElementTypes())
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set) {
+                                    // Clear existing elementable data when type changes
+                                    $set('elementable_data', []);
+                                }),
+                            \Filament\Forms\Components\Toggle::make('is_visible')
+                                ->label('Visible')
+                                ->default(true),
+                            \Filament\Forms\Components\Toggle::make('visible_web')
+                                ->label('Visible on Web')
+                                ->default(true),
+                            \Filament\Forms\Components\Toggle::make('visible_pdf')
+                                ->label('Visible on PDF')
+                                ->default(true),
+                        ]),
+                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
+                        ->icon('heroicon-o-adjustments-horizontal')
+                        ->schema(function (callable $get) {
+                            $elementType = $get('elementable_type');
+                            if (!$elementType) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
+                                        ->label('')
+                                        ->content('Please select an element type in the General tab first.')
+                                ];
+                            }
+                            return $this->getElementSpecificSchema($elementType);
+                        }),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected function getElementSpecificSchema(string $elementType): array
+    {
+        // Check if the element type class exists and has the getFilamentSchema method
+        if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
+            return $elementType::getFilamentSchema(false);
+        }
+
+        // Fallback for element types that don't have schema defined yet
+        return [
+            \Filament\Forms\Components\Placeholder::make('no_specific_properties')
+                ->label('')
+                ->content('This element type has no specific properties defined yet.')
         ];
     }
 

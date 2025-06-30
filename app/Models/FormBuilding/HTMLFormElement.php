@@ -19,6 +19,26 @@ class HTMLFormElement extends Model
     ];
 
     /**
+     * Get the Filament form schema for this element type.
+     */
+    public static function getFilamentSchema(bool $disabled = false): array
+    {
+        return [
+            \Filament\Forms\Components\TextInput::make('elementable_data.name')
+                ->label('Element Name')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Textarea::make('elementable_data.html_content')
+                ->label('HTML Content')
+                ->rows(8)
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.repeater_item_label')
+                ->label('Repeater Item Label')
+                ->helperText('Used when this element is part of a repeater')
+                ->disabled($disabled),
+        ];
+    }
+
+    /**
      * Get the form element that owns this HTML element.
      */
     public function formElement(): MorphOne

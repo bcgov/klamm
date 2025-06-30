@@ -31,6 +31,51 @@ class DateSelectInputFormElement extends Model
     ];
 
     /**
+     * Get the Filament form schema for this element type.
+     */
+    public static function getFilamentSchema(bool $disabled = false): array
+    {
+        return [
+            \Filament\Forms\Components\TextInput::make('elementable_data.label')
+                ->label('Field Label')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
+                ->label('Show Label')
+                ->default(true)
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.placeholder_text')
+                ->label('Placeholder Text')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Select::make('elementable_data.date_format')
+                ->label('Date Format')
+                ->options(static::getDateFormats())
+                ->default('Y-m-d')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.include_time')
+                ->label('Include Time')
+                ->helperText('Allow users to select time in addition to date')
+                ->default(false)
+                ->disabled($disabled),
+            \Filament\Forms\Components\DatePicker::make('elementable_data.min_date')
+                ->label('Minimum Date')
+                ->helperText('Earliest date users can select')
+                ->disabled($disabled),
+            \Filament\Forms\Components\DatePicker::make('elementable_data.max_date')
+                ->label('Maximum Date')
+                ->helperText('Latest date users can select')
+                ->disabled($disabled),
+            \Filament\Forms\Components\DatePicker::make('elementable_data.default_date')
+                ->label('Default Date')
+                ->helperText('Pre-selected date')
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.repeater_item_label')
+                ->label('Repeater Item Label')
+                ->helperText('Used when this element is part of a repeater')
+                ->disabled($disabled),
+        ];
+    }
+
+    /**
      * Get the form element that owns this date select input element.
      */
     public function formElement(): MorphOne

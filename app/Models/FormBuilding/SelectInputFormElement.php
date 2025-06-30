@@ -21,6 +21,27 @@ class SelectInputFormElement extends Model
     ];
 
     /**
+     * Get the Filament form schema for this element type.
+     */
+    public static function getFilamentSchema(bool $disabled = false): array
+    {
+        return [
+            \Filament\Forms\Components\TextInput::make('elementable_data.label')
+                ->label('Field Label')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
+                ->label('Show Label')
+                ->default(true)
+                ->disabled($disabled),
+            \Filament\Forms\Components\Textarea::make('elementable_data.options')
+                ->label('Options (one per line)')
+                ->rows(5)
+                ->helperText('Enter each option on a new line. You can also use "value|label" format.')
+                ->disabled($disabled),
+        ];
+    }
+
+    /**
      * Get the form element that owns this select input element.
      */
     public function formElement(): MorphOne

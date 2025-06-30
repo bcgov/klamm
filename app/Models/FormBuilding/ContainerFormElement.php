@@ -25,6 +25,40 @@ class ContainerFormElement extends Model
     ];
 
     /**
+     * Get the Filament form schema for this element type.
+     */
+    public static function getFilamentSchema(bool $disabled = false): array
+    {
+        return [
+            \Filament\Forms\Components\Select::make('elementable_data.container_type')
+                ->label('Container Type')
+                ->options(static::getContainerTypes())
+                ->default('section')
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.legend')
+                ->label('Legend/Title')
+                ->helperText('Optional title for the container')
+                ->disabled($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.collapsible')
+                ->label('Collapsible')
+                ->helperText('Allow users to expand/collapse this container')
+                ->default(false)
+                ->disabled($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.collapsed_by_default')
+                ->label('Collapsed by Default')
+                ->helperText('Start with container collapsed')
+                ->default(false)
+                ->disabled($disabled)
+                ->visible(fn(callable $get) => $get('elementable_data.collapsible')),
+            \Filament\Forms\Components\Toggle::make('elementable_data.is_repeatable')
+                ->label('Repeatable')
+                ->helperText('Allow users to add multiple instances of this container')
+                ->default(false)
+                ->disabled($disabled),
+        ];
+    }
+
+    /**
      * Get the form element that owns this container element.
      */
     public function formElement(): MorphOne
