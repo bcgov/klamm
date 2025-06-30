@@ -44,6 +44,54 @@ class FormElementTreeBuilder extends BaseWidget
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
                         ->schema([
+                            Select::make('template_id')
+                                ->label('Start from template')
+                                ->placeholder('Select a template (optional)')
+                                ->options(function () {
+                                    return FormElement::templates()
+                                        ->with('elementable')
+                                        ->get()
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    if (!$state) {
+                                        return;
+                                    }
+
+                                    // Load the template element with its relationships
+                                    $template = FormElement::with(['elementable', 'tags'])->find($state);
+
+                                    if (!$template) {
+                                        return;
+                                    }
+
+                                    // Prefill basic form element data
+                                    $set('name', $template->name . ' (Copy)');
+                                    $set('description', $template->description);
+                                    $set('help_text', $template->help_text);
+                                    $set('elementable_type', $template->elementable_type);
+                                    $set('is_visible', $template->is_visible);
+                                    $set('visible_web', $template->visible_web);
+                                    $set('visible_pdf', $template->visible_pdf);
+                                    $set('is_template', false); // New element should not be a template by default
+
+                                    // Prefill tags
+                                    if ($template->tags->isNotEmpty()) {
+                                        $set('tags', $template->tags->pluck('id')->toArray());
+                                    }
+
+                                    // Prefill elementable data if it exists
+                                    if ($template->elementable) {
+                                        $elementableData = $template->elementable->toArray();
+                                        // Remove timestamps and primary key
+                                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                                        $set('elementable_data', $elementableData);
+                                    }
+                                })
+                                ->searchable()
+                                ->columnSpanFull(),
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
@@ -486,6 +534,9 @@ class FormElementTreeBuilder extends BaseWidget
         if ($this->formVersionId) {
             $data['form_version_id'] = $this->formVersionId;
         }
+
+        // Remove template_id as it's only used for prefilling
+        unset($data['template_id']);
 
         // Validate parent can have children if parent_id is set
         if (isset($data['parent_id']) && $data['parent_id'] && $data['parent_id'] !== -1) {

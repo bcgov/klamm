@@ -59,6 +59,9 @@ class BuildFormVersion extends Page implements HasForms
                     try {
                         $data['form_version_id'] = $this->record->id;
 
+                        // Remove template_id as it's only used for prefilling
+                        unset($data['template_id']);
+
                         // Extract tags data before creating the element
                         $tagIds = $data['tags'] ?? [];
                         unset($data['tags']);
@@ -194,6 +197,54 @@ class BuildFormVersion extends Page implements HasForms
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
                         ->schema([
+                            \Filament\Forms\Components\Select::make('template_id')
+                                ->label('Start from template')
+                                ->placeholder('Select a template (optional)')
+                                ->options(function () {
+                                    return FormElement::templates()
+                                        ->with('elementable')
+                                        ->get()
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    if (!$state) {
+                                        return;
+                                    }
+
+                                    // Load the template element with its relationships
+                                    $template = FormElement::with(['elementable', 'tags'])->find($state);
+
+                                    if (!$template) {
+                                        return;
+                                    }
+
+                                    // Prefill basic form element data
+                                    $set('name', $template->name . ' (Copy)');
+                                    $set('description', $template->description);
+                                    $set('help_text', $template->help_text);
+                                    $set('elementable_type', $template->elementable_type);
+                                    $set('is_visible', $template->is_visible);
+                                    $set('visible_web', $template->visible_web);
+                                    $set('visible_pdf', $template->visible_pdf);
+                                    $set('is_template', false); // New element should not be a template by default
+
+                                    // Prefill tags
+                                    if ($template->tags->isNotEmpty()) {
+                                        $set('tags', $template->tags->pluck('id')->toArray());
+                                    }
+
+                                    // Prefill elementable data if it exists
+                                    if ($template->elementable) {
+                                        $elementableData = $template->elementable->toArray();
+                                        // Remove timestamps and primary key
+                                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                                        $set('elementable_data', $elementableData);
+                                    }
+                                })
+                                ->searchable()
+                                ->columnSpanFull(),
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
