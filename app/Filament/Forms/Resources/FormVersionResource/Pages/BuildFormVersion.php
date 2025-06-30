@@ -62,14 +62,28 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableData = $data['elementable_data'] ?? [];
                         unset($data['elementable_data']);
 
+                        // Filter out null values from elementable data to let model defaults apply
+                        $elementableData = array_filter($elementableData, function ($value) {
+                            return $value !== null;
+                        });
+
+                        // Create the polymorphic model first if there's data
+                        $elementableModel = null;
+                        if (!empty($elementableData) && class_exists($elementType)) {
+                            $elementableModel = $elementType::create($elementableData);
+                        } elseif (class_exists($elementType)) {
+                            // Create with empty array to trigger model defaults
+                            $elementableModel = $elementType::create([]);
+                        }
+
+                        // Set the polymorphic relationship data
+                        if ($elementableModel) {
+                            $data['elementable_type'] = $elementType;
+                            $data['elementable_id'] = $elementableModel->id;
+                        }
+
                         // Create the main FormElement
                         $formElement = FormElement::create($data);
-
-                        // Create and attach the polymorphic model if there's data
-                        if (!empty($elementableData) && class_exists($elementType)) {
-                            $elementableModel = new $elementType($elementableData);
-                            $formElement->elementable()->save($elementableModel);
-                        }
 
                         $this->getSavedNotification('Form element created successfully!')?->send();
 

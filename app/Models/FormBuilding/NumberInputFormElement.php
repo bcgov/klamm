@@ -28,6 +28,11 @@ class NumberInputFormElement extends Model
         'default_value' => 'integer',
     ];
 
+    protected $attributes = [
+        'visible_label' => true,
+        'step' => 1,
+    ];
+
     /**
      * Get the Filament form schema for this element type.
      */
