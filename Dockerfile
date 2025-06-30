@@ -38,8 +38,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 # Create necessary directories
 RUN mkdir -p /var/www/storage/logs \
     /var/www/storage/framework/{cache,sessions,views,testing} \
-    /var/www/bootstrap/cache \
-    /var/www/storage/app/public/form-exports
+    /var/www/bootstrap/cache 
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -55,7 +54,8 @@ RUN composer install --no-dev --optimize-autoloader
 
 # Set correct permissions for storage, database and logs
 RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs /var/www/storage/app/public/form-exports
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
@@ -65,9 +65,6 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 # Generate APP_KEY
 RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
-
-# Create storage link for public file access
-RUN php artisan storage:link
 
 # Expose ports
 EXPOSE 8080 443 6001
