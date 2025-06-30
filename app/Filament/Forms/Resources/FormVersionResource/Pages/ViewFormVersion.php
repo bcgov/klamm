@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
+use App\Models\StyleSheet;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions;
 use Illuminate\Support\Facades\Gate;
@@ -44,6 +45,20 @@ class ViewFormVersion extends ViewRecord
                 ->visible(fn() => $this->record->status === 'draft'),
             FormApprovalActions::makeReadyForReviewAction($this->record, $this->additionalApprovers),
         ];
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Load existing CSS content from stylesheets for view mode
+        $this->record->load(['webStyleSheet', 'pdfStyleSheet']);
+
+        $cssContentWeb = $this->record->webStyleSheet?->getCssContent();
+        $cssContentPdf = $this->record->pdfStyleSheet?->getCssContent();
+
+        $data['css_content_web'] = $cssContentWeb ?? '';
+        $data['css_content_pdf'] = $cssContentPdf ?? '';
+
+        return $data;
     }
 
     protected const DEFAULT_RELATION_MANAGERS = [

@@ -9,7 +9,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "abdelhamiderrahmouni/filament-monaco-editor": "^0.2.5",
         "althinect/filament-spatie-roles-permissions": "^2.2",
         "filament/filament": "^3.2",
         "laravel/framework": "^11.0",
@@ -20,7 +19,8 @@
         "orangehill/iseed": "^3.0",
         "predis/predis": "^2.0",
         "rmsramos/activitylog": "^1.0",
-        "spatie/laravel-activitylog": "^4.10"
+        "spatie/laravel-activitylog": "^4.10",
+        "westacks/filament-monaco-editor": "^1.1"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.15",
