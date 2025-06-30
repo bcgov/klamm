@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
+use SolutionForest\FilamentTree\Concern\ModelTree;
 
 class FormElement extends Model
 {
-    use HasFactory;
+    use HasFactory, ModelTree;
 
     protected $fillable = [
         'uuid',
@@ -33,6 +34,7 @@ class FormElement extends Model
 
     protected $casts = [
         'order' => 'integer',
+        'parent_id' => 'integer',
         'is_visible' => 'boolean',
         'is_read_only' => 'boolean',
         'save_on_submit' => 'boolean',
@@ -472,5 +474,21 @@ class FormElement extends Model
         $this->visible_pdf = in_array('pdf', $platforms);
 
         return $this;
+    }
+
+    /**
+     * Override the title column name for Filament Tree plugin
+     */
+    public function determineTitleColumnName(): string
+    {
+        return 'name';
+    }
+
+    /**
+     * Override the default parent key for Filament Tree plugin
+     */
+    public static function defaultParentKey()
+    {
+        return -1;
     }
 }

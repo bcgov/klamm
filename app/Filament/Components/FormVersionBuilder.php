@@ -44,10 +44,14 @@ class FormVersionBuilder
                 Tab::make('Build')
                     ->icon('heroicon-o-cog')
                     ->schema([
-                        Section::make('Form Builder')
-                            ->schema([
-                                //
-                            ]),
+                        \Filament\Forms\Components\View::make('components.form-element-tree')
+                            ->viewData(function ($livewire) {
+                                $record = $livewire->getRecord() ?? null;
+                                return [
+                                    'formVersionId' => $record?->id,
+                                ];
+                            })
+                            ->columnSpanFull(),
                     ]),
                 Tab::make('Style')
                     ->icon('heroicon-o-paint-brush')
