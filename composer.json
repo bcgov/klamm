@@ -17,7 +17,7 @@
         "laravel/tinker": "^2.9",
         "mallardduck/blade-lucide-icons": "^1.23",
         "orangehill/iseed": "^3.0",
-        "predis/predis": "^2.0",
+        "predis/predis": "^3.0",
         "rmsramos/activitylog": "^1.0",
         "solution-forest/filament-tree": "^2.1",
         "spatie/laravel-activitylog": "^4.10",
