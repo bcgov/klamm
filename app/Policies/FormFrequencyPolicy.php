@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\FormFrequency;
+use App\Models\FormMetadata\FormFrequency;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 

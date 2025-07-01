@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 

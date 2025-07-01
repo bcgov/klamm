@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Form;
-use App\Models\FormTag;
+use App\Models\FormMetadata\FormTag;
 use Illuminate\Console\Command;
 
 class AddTagToForms extends Command

@@ -19,16 +19,16 @@ return new class extends Migration
             $table->foreignId('select_options_id')->constrained()->onDelete('cascade');
         });
 
-        $selectOptions = SelectOptions::all();
+        // $selectOptions = SelectOptions::all();
 
-        foreach ($selectOptions as $option) {
-            if ($option->form_field_id) {
-                DB::table('form_field_select_options')->insert([
-                    'form_field_id' => $option->form_field_id,
-                    'select_options_id' => $option->id,
-                ]);
-            }
-        }
+        // foreach ($selectOptions as $option) {
+        //     if ($option->form_field_id) {
+        //         DB::table('form_field_select_options')->insert([
+        //             'form_field_id' => $option->form_field_id,
+        //             'select_options_id' => $option->id,
+        //         ]);
+        //     }
+        // }
     }
 
     /**

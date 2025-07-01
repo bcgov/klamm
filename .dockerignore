@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Logs
+*.log
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Cache and temporary files
+storage/framework/cache/*
+!storage/framework/cache/.gitkeep
+storage/framework/sessions/*
+!storage/framework/sessions/.gitkeep
+storage/framework/views/*
+!storage/framework/views/.gitkeep
+bootstrap/cache/*
+!bootstrap/cache/.gitkeep
+
+# IDE and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+
+# Documentation
+*.md
+README*
+
+# Tests
+tests/
+phpunit.xml
+
+# Environment files (we copy .env.example separately)
+.env*
+!.env.example 

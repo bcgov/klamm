@@ -5,7 +5,7 @@ namespace App\Filament\Forms\Resources;
 use App\Filament\Forms\Resources\BusinessFormResource\RelationManagers\BusinessFormGroupRelationManager;
 use App\Filament\Forms\Resources\FormRepositoryResource\Pages;
 use App\Filament\Forms\Resources\FormRepositoryResource\RelationManagers;
-use App\Models\FormRepository;
+use App\Models\FormMetadata\FormRepository;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
