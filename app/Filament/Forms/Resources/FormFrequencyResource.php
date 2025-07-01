@@ -4,7 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormFrequencyResource\Pages;
 use App\Filament\Forms\Resources\FormFrequencyResource\RelationManagers;
-use App\Models\FormFrequency;
+use App\Models\FormMetadata\FormFrequency;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
-use App\Models\FormVersion;
+use App\Models\FormBuilding\FormVersion;
 use App\Observers\FormVersionObserver;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
             $this->app['request']->server->set('HTTPS', true);
         } else {
-            Model::preventLazyLoading(true);
+            Model::preventLazyLoading(false);
         }
 
         Gate::define('admin', function (User $user) {

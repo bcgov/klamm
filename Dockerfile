@@ -38,7 +38,10 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 # Create necessary directories
 RUN mkdir -p /var/www/storage/logs \
     /var/www/storage/framework/{cache,sessions,views,testing} \
-    /var/www/bootstrap/cache
+    /var/www/bootstrap/cache \
+    /var/www/storage/app/form_data/stylesheets \
+    /var/www/storage/app/form_data/scripts \
+    /var/www/storage/app/form_data/templates
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -54,7 +57,9 @@ RUN composer install --no-dev --optimize-autoloader
 
 # Set correct permissions for storage, database and logs
 RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database \
+    && chmod -R 775 /var/www/storage/app/form_data \
+    && chmod g+s /var/www/storage/app/form_data
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf

@@ -39,8 +39,26 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => env('APP_URL') . '/storage',
             'visibility' => 'public',
+            'throw' => false,
+        ],
+
+        'stylesheets' => [
+            'driver' => 'local',
+            'root' => storage_path('app/form_data/stylesheets'),
+            'throw' => false,
+        ],
+
+        'scripts' => [
+            'driver' => 'local',
+            'root' => storage_path('app/form_data/scripts'),
+            'throw' => false,
+        ],
+
+        'templates' => [
+            'driver' => 'local',
+            'root' => storage_path('app/form_data/templates'),
             'throw' => false,
         ],
 

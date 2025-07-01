@@ -30,25 +30,43 @@ ENV APACHE_DOCUMENT_ROOT /var/www/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# Copy existing application directory contents
-COPY . /var/www
-
-# Copy .env.example to .env
-RUN cp /var/www/.env.example /var/www/.env
-
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Install Composer dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Copy composer files first for better layer caching
+COPY composer.json composer.lock ./
 
-# Create sail user and set permissions
+# Install Composer dependencies first (better caching)
+RUN composer install --optimize-autoloader --no-scripts
+
+# Copy .env.example to .env
+COPY .env.example .env
+
+# Copy application code
+COPY . .
+
+# Create sail user
 RUN useradd -m sail
-RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env /var/www/storage/logs/laravel.log
-RUN chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env /var/www/storage/logs/laravel.log
 
+# Create necessary directories and files
+RUN mkdir -p /var/www/storage/logs \
+    && touch /var/www/storage/logs/laravel.log \
+    && mkdir -p /var/www/storage/app/form_data/stylesheets \
+    && mkdir -p /var/www/storage/app/form_data/scripts \
+    && mkdir -p /var/www/storage/app/form_data/templates
+
+# Set permissions for directories and files
+RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
+    && chown -R sail:sail /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
+    && chmod -R 775 /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
+    && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/public/form-exports
+    
 # Generate APP_KEY
 RUN php artisan key:generate
+
+# Create storage link for public file access
+RUN php artisan storage:link
 
 # Switch to sail user
 USER sail
