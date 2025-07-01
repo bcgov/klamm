@@ -326,6 +326,19 @@ class FormElementTreeBuilder extends BaseWidget
                     if ($record->elementable) {
                         $elementableData = $record->elementable->toArray();
                         unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+
+                        // Load options for select/radio elements
+                        if (method_exists($record->elementable, 'options')) {
+                            $record->elementable->load('options');
+                            $options = $record->elementable->options->map(function ($option) {
+                                return [
+                                    'label' => $option->label,
+                                    'description' => $option->description,
+                                ];
+                            })->toArray();
+                            $elementableData['options'] = $options;
+                        }
+
                         $data['elementable_data'] = $elementableData;
                     }
 
@@ -344,6 +357,19 @@ class FormElementTreeBuilder extends BaseWidget
                     if ($record->elementable) {
                         $elementableData = $record->elementable->toArray();
                         unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+
+                        // Load options for select/radio elements
+                        if (method_exists($record->elementable, 'options')) {
+                            $record->elementable->load('options');
+                            $options = $record->elementable->options->map(function ($option) {
+                                return [
+                                    'label' => $option->label,
+                                    'description' => $option->description,
+                                ];
+                            })->toArray();
+                            $elementableData['options'] = $options;
+                        }
+
                         $data['elementable_data'] = $elementableData;
                     }
 
@@ -437,6 +463,19 @@ class FormElementTreeBuilder extends BaseWidget
                 $elementableData = $record->elementable->toArray();
                 // Remove timestamps and primary key
                 unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+
+                // Load options for select/radio elements
+                if (method_exists($record->elementable, 'options')) {
+                    $record->elementable->load('options');
+                    $options = $record->elementable->options->map(function ($option) {
+                        return [
+                            'label' => $option->label,
+                            'description' => $option->description,
+                        ];
+                    })->toArray();
+                    $elementableData['options'] = $options;
+                }
+
                 $data['elementable_data'] = $elementableData;
             }
         }
@@ -476,6 +515,13 @@ class FormElementTreeBuilder extends BaseWidget
             $elementableData = $this->pendingElementableData;
             $elementType = $this->pendingElementType;
 
+            // Extract options data for select/radio elements before updating the main model
+            $optionsData = null;
+            if (isset($elementableData['options'])) {
+                $optionsData = $elementableData['options'];
+                unset($elementableData['options']);
+            }
+
             if ($elementType) {
                 // Ensure the record has the elementable relationship loaded
                 $record->load('elementable');
@@ -484,6 +530,11 @@ class FormElementTreeBuilder extends BaseWidget
                     // Update existing polymorphic model of the same type
                     if (!empty($elementableData)) {
                         $record->elementable->update($elementableData);
+                    }
+
+                    // Handle options update for existing select/radio elements
+                    if ($optionsData !== null && is_array($optionsData)) {
+                        $this->updateSelectOptions($record->elementable, $optionsData);
                     }
                 } else {
                     // Handle type change or missing polymorphic model
@@ -500,6 +551,11 @@ class FormElementTreeBuilder extends BaseWidget
                         ]);
                         // Refresh the relationship
                         $record->load('elementable');
+
+                        // Handle options for new select/radio elements
+                        if ($optionsData !== null && is_array($optionsData)) {
+                            $this->createSelectOptions($elementableModel, $optionsData);
+                        }
                     }
                 }
             }
@@ -596,6 +652,13 @@ class FormElementTreeBuilder extends BaseWidget
             $elementType = $this->pendingElementType;
             $elementableData = $this->pendingElementableData;
 
+            // Extract options data for select/radio elements before creating the main model
+            $optionsData = null;
+            if (isset($elementableData['options'])) {
+                $optionsData = $elementableData['options'];
+                unset($elementableData['options']);
+            }
+
             if (!empty($elementableData) && class_exists($elementType)) {
                 $elementableModel = $elementType::create($elementableData);
             } elseif (class_exists($elementType)) {
@@ -611,6 +674,11 @@ class FormElementTreeBuilder extends BaseWidget
 
             // Create the main FormElement
             $formElement = FormElement::create($data);
+
+            // Handle options for select/radio elements
+            if ($elementableModel && $optionsData && is_array($optionsData)) {
+                $this->createSelectOptions($elementableModel, $optionsData);
+            }
 
             // Clear pending data
             $this->pendingElementableData = [];
@@ -794,5 +862,51 @@ class FormElementTreeBuilder extends BaseWidget
         // This method will be called before rendering to ensure
         // that the tree items have the proper CSS classes applied
         // The actual class application happens in the getTreeRecordClasses method
+    }
+
+    /**
+     * Create select options for select/radio elements
+     */
+    protected function createSelectOptions($elementableModel, array $optionsData): void
+    {
+        if (!$elementableModel || empty($optionsData)) {
+            return;
+        }
+
+        // Check if the model supports options (SelectInputFormElement or RadioInputFormElement)
+        if (!method_exists($elementableModel, 'options')) {
+            return;
+        }
+
+        foreach ($optionsData as $index => $optionData) {
+            if (empty($optionData['label'])) {
+                continue; // Skip options without labels
+            }
+
+            $optionData['order'] = $index + 1;
+
+            // Create the option using the existing helper method
+            if ($elementableModel instanceof \App\Models\FormBuilding\SelectInputFormElement) {
+                \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($elementableModel, $optionData);
+            } elseif ($elementableModel instanceof \App\Models\FormBuilding\RadioInputFormElement) {
+                \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($elementableModel, $optionData);
+            }
+        }
+    }
+
+    /**
+     * Update select options for select/radio elements
+     */
+    protected function updateSelectOptions($elementableModel, array $optionsData): void
+    {
+        if (!$elementableModel || !method_exists($elementableModel, 'options')) {
+            return;
+        }
+
+        // Delete existing options
+        $elementableModel->options()->delete();
+
+        // Create new options
+        $this->createSelectOptions($elementableModel, $optionsData);
     }
 }
