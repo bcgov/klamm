@@ -288,6 +288,16 @@ class FormElement extends Model
     }
 
     /**
+     * Get formatted element type name
+     */
+    public static function getElementTypeName(string $elementType): ?string
+    {
+        $availableTypes = static::getAvailableElementTypes();
+
+        return $availableTypes[$elementType] ?? null;
+    }
+
+    /**
      * Create a text info form element
      */
     public static function createTextInfo(array $elementData, array $textInfoData): self

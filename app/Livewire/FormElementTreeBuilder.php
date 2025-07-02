@@ -444,8 +444,8 @@ class FormElementTreeBuilder extends BaseWidget
             return '';
         }
 
-        $elementType = class_basename($record->elementable_type ?? '');
-        return "[{$elementType}] {$record->name}";
+        $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
+        return "[{$elementTypeName}] {$record->name}";
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
