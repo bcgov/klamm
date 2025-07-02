@@ -8,6 +8,11 @@ use Filament\Tables;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Forms\Components\DatePicker;
+use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\StyleSheet;
+use Illuminate\Support\Facades\Auth;
+use Filament\Tables\Actions\Action;
+use Illuminate\Support\Str;
 
 class FormVersionRelationManager extends RelationManager
 {
@@ -20,6 +25,19 @@ class FormVersionRelationManager extends RelationManager
     public function isReadOnly(): bool
     {
         return false;
+    }
+
+    /**
+     * Helper method to duplicate related models
+     */
+    private static function duplicateRelatedModels(int $originalVersionId, int $newVersionId, string $modelClass): void
+    {
+        $models = $modelClass::where('form_version_id', $originalVersionId)->get();
+        foreach ($models as $model) {
+            $newModel = $model->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
+            $newModel->form_version_id = $newVersionId;
+            $newModel->save();
+        }
     }
 
     public function table(Tables\Table $table): Tables\Table
@@ -78,6 +96,64 @@ class FormVersionRelationManager extends RelationManager
                 Tables\Actions\EditAction::make()
                     ->url(fn(FormVersion $record) => FormVersionResource::getUrl('edit', ['record' => $record]))
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
+                Action::make('duplicate')
+                    ->label('Duplicate')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('info')
+                    ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer'))
+                    ->action(function ($record) {
+                        // Create a new version with incremented version number
+                        $newVersion = $record->replicate(['version_number', 'status', 'created_at', 'updated_at']);
+                        $newVersion->version_number = FormVersion::where('form_id', $record->form_id)->max('version_number') + 1;
+                        $newVersion->status = 'draft';
+                        $newVersion->form_developer_id = Auth::id();
+                        $newVersion->comments = 'Duplicated from version ' . $record->version_number;
+                        $newVersion->save();
+
+                        // Duplicate all FormElements and map new to old
+                        $oldToNewElementMap = [];
+                        foreach ($record->formElements()->orderBy('order')->get() as $element) {
+                            $newElement = $element->replicate(['id', 'uuid', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
+                            $newElement->uuid = (string) Str::uuid();
+                            $newElement->form_version_id = $newVersion->id;
+                            $newElement->parent_id = null;
+                            $newElement->save();
+
+                            // Map old element ID to new element for parent relationship updates
+                            $oldToNewElementMap[$element->id] = [
+                                'new_element' => $newElement,
+                                'old_parent_id' => $element->parent_id
+                            ];
+
+                            // Attach tags
+                            $newElement->tags()->attach($element->tags->pluck('id'));
+
+                            // Duplicate polymorphic elementable and link to new element
+                            if ($element->elementable) {
+                                $elementableData = $element->elementable->getData();
+                                $newElementable = $element->elementable_type::create($elementableData);
+                                $newElement->update(['elementable_id' => $newElementable->id]);
+                            }
+                        }
+
+                        // Update parent_id relationships for nested elements
+                        foreach ($oldToNewElementMap as $data) {
+                            if ($data['old_parent_id'] && isset($oldToNewElementMap[$data['old_parent_id']])) {
+                                $data['new_element']->update([
+                                    'parent_id' => $oldToNewElementMap[$data['old_parent_id']]['new_element']->id
+                                ]);
+                            }
+                        }
+
+                        // Duplicate related models using a helper method
+                        $this->duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
+                        $this->duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
+
+                        // Redirect to build the new version
+                        return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
+                    })
+                    ->requiresConfirmation()
+                    ->modalDescription('This will create a new draft version based on this form version, including all form elements.'),
                 Tables\Actions\Action::make('archive')
                     ->label('Archive')
                     ->icon('heroicon-o-archive-box-arrow-down')
@@ -90,7 +166,7 @@ class FormVersionRelationManager extends RelationManager
                     ->tooltip('Archive this form version'),
             ])
             ->bulkActions([])
-            ->deferLoading()
+            // ->deferLoading()
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50, 100]);
     }

@@ -86,6 +86,19 @@ class FormVersionResource extends Resource
             ]);
     }
 
+    /**
+     * Helper method to duplicate related models
+     */
+    private static function duplicateRelatedModels(int $originalVersionId, int $newVersionId, string $modelClass): void
+    {
+        $models = $modelClass::where('form_version_id', $originalVersionId)->get();
+        foreach ($models as $model) {
+            $newModel = $model->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
+            $newModel->form_version_id = $newVersionId;
+            $newModel->save();
+        }
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -137,60 +150,40 @@ class FormVersionResource extends Resource
                         $oldToNewElementMap = [];
                         foreach ($record->formElements()->orderBy('order')->get() as $element) {
                             $newElement = $element->replicate(['id', 'uuid', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
-
-                            // Generate new UUID
                             $newElement->uuid = (string) Str::uuid();
                             $newElement->form_version_id = $newVersion->id;
-
-                            // Store the old parent_id temporarily
-                            $oldParentId = $element->parent_id;
-                            $newElement->parent_id = null; // Will be updated later
-
+                            $newElement->parent_id = null;
                             $newElement->save();
 
                             // Map old element ID to new element for parent relationship updates
                             $oldToNewElementMap[$element->id] = [
                                 'new_element' => $newElement,
-                                'old_parent_id' => $oldParentId
+                                'old_parent_id' => $element->parent_id
                             ];
 
                             // Attach tags
-                            foreach ($element->tags as $tag) {
-                                $newElement->tags()->attach($tag->id);
-                            }
+                            $newElement->tags()->attach($element->tags->pluck('id'));
 
-                            // Duplicate polymorphic elementable
-                            $elementableType = $newElement->elementable_type;
-                            $elementableData = $elementableType::find($newElement->elementable_id)->getData();
-                            $newElementable = $elementableType::create($elementableData);
+                            // Duplicate polymorphic elementable and link to new element
+                            if ($element->elementable) {
+                                $elementableData = $element->elementable->getData();
+                                $newElementable = $element->elementable_type::create($elementableData);
+                                $newElement->update(['elementable_id' => $newElementable->id]);
+                            }
                         }
 
                         // Update parent_id relationships for nested elements
-                        foreach ($oldToNewElementMap as $oldElementId => $data) {
-                            $newElement = $data['new_element'];
-                            $oldParentId = $data['old_parent_id'];
-
-                            if ($oldParentId && isset($oldToNewElementMap[$oldParentId])) {
-                                $newElement->parent_id = $oldToNewElementMap[$oldParentId]['new_element']->id;
-                                $newElement->save();
+                        foreach ($oldToNewElementMap as $data) {
+                            if ($data['old_parent_id'] && isset($oldToNewElementMap[$data['old_parent_id']])) {
+                                $data['new_element']->update([
+                                    'parent_id' => $oldToNewElementMap[$data['old_parent_id']]['new_element']->id
+                                ]);
                             }
                         }
 
-                        // Duplicate style_sheets
-                        $styleSheets = StyleSheet::where('form_version_id', $record->id)->get();
-                        foreach ($styleSheets as $styleSheet) {
-                            $newStyleSheet = $styleSheet->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
-                            $newStyleSheet->form_version_id = $newVersion->id;
-                            $newStyleSheet->save();
-                        }
-
-                        // Duplicate form_scripts
-                        $formScripts = FormScript::where('form_version_id', $record->id)->get();
-                        foreach ($formScripts as $formScript) {
-                            $newFormScript = $formScript->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
-                            $newFormScript->form_version_id = $newVersion->id;
-                            $newFormScript->save();
-                        }
+                        // Duplicate related models using a helper method
+                        self::duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
+                        self::duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
 
                         // Redirect to build the new version
                         return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
