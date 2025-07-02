@@ -4,6 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion;
+use App\Helpers\FormVersionHelper;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\StyleSheet;
@@ -84,19 +85,6 @@ class FormVersionResource extends Resource
                             ]),
                     ]),
             ]);
-    }
-
-    /**
-     * Helper method to duplicate related models
-     */
-    private static function duplicateRelatedModels(int $originalVersionId, int $newVersionId, string $modelClass): void
-    {
-        $models = $modelClass::where('form_version_id', $originalVersionId)->get();
-        foreach ($models as $model) {
-            $newModel = $model->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
-            $newModel->form_version_id = $newVersionId;
-            $newModel->save();
-        }
     }
 
     public static function table(Table $table): Table
@@ -182,8 +170,8 @@ class FormVersionResource extends Resource
                         }
 
                         // Duplicate related models using a helper method
-                        self::duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
-                        self::duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
+                        FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
+                        FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
 
                         // Redirect to build the new version
                         return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');

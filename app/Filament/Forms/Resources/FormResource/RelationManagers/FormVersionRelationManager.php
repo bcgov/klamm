@@ -7,6 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Forms\Resources\FormVersionResource;
+use App\Helpers\FormVersionHelper;
 use Filament\Forms\Components\DatePicker;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
@@ -25,19 +26,6 @@ class FormVersionRelationManager extends RelationManager
     public function isReadOnly(): bool
     {
         return false;
-    }
-
-    /**
-     * Helper method to duplicate related models
-     */
-    private static function duplicateRelatedModels(int $originalVersionId, int $newVersionId, string $modelClass): void
-    {
-        $models = $modelClass::where('form_version_id', $originalVersionId)->get();
-        foreach ($models as $model) {
-            $newModel = $model->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
-            $newModel->form_version_id = $newVersionId;
-            $newModel->save();
-        }
     }
 
     public function table(Tables\Table $table): Tables\Table
@@ -146,8 +134,8 @@ class FormVersionRelationManager extends RelationManager
                         }
 
                         // Duplicate related models using a helper method
-                        $this->duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
-                        $this->duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
+                        FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
+                        FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
 
                         // Redirect to build the new version
                         return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
