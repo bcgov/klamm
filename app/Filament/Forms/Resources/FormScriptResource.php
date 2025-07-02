@@ -2,10 +2,10 @@
 
 namespace App\Filament\Forms\Resources;
 
-use App\Filament\Forms\Resources\StyleSheetResource\Pages;
+use App\Filament\Forms\Resources\FormScriptResource\Pages;
 use App\Http\Middleware\CheckRole;
 use App\Models\FormBuilding\FormVersion;
-use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormScript;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\EditAction;
@@ -16,10 +16,10 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class StyleSheetResource extends Resource
+class FormScriptResource extends Resource
 {
-    protected static ?string $model = StyleSheet::class;
-    protected static ?string $navigationLabel = 'Style Sheets';
+    protected static ?string $model = FormScript::class;
+    protected static ?string $navigationLabel = 'Scripts';
     protected static ?string $navigationIcon = 'heroicon-o-paint-brush';
 
     protected static ?string $navigationGroup = 'Form Building';
@@ -50,7 +50,7 @@ class StyleSheetResource extends Resource
                 'record' => $record->formVersion->id,
             ]))
             ->columns([
-                ColumnGroup::make('Stylesheet', [
+                ColumnGroup::make('Script', [
                     IconColumn::make('type')
                         ->label('Type')
                         ->icon(fn($state) => match ($state) {
@@ -59,7 +59,7 @@ class StyleSheetResource extends Resource
                             default => 'heroicon-o-question-mark-circle',
                         })
                         ->color(fn($state) => $state === 'web' ? 'primary' : 'danger')
-                        ->tooltip(fn($record) => StyleSheet::formatType($record->pivot?->type))
+                        ->tooltip(fn($record) => FormScript::formatType($record->pivot?->type))
                         ->sortable(),
                 ]),
                 ColumnGroup::make('Form', [
@@ -130,7 +130,7 @@ class StyleSheetResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListStyleSheets::route('/'),
+            'index' => Pages\ListFormScripts::route('/'),
         ];
     }
 }
