@@ -2,7 +2,7 @@
 
 namespace App\Filament\Components;
 
-use WeStacks\FilamentMonacoEditor\MonacoEditor;
+use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
 
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
@@ -16,11 +16,49 @@ use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Alignment;
+use Illuminate\Support\Facades\Log;
 
 class FormVersionBuilder
 {
+    /**
+     * Get autocomplete options for Monaco editor from form element tree.
+     *
+     * @param int|null $formVersionId
+     * @return array
+     */
+    public static function getElementTreeAutocompleteOptions($formVersionId)
+    {
+        Log::debug('getElementTreeAutocompleteOptions called', ['formVersionId' => $formVersionId]);
+        if (!$formVersionId) {
+            Log::debug('No formVersionId provided to getElementTreeAutocompleteOptions');
+            return [];
+        }
+        $elements = \App\Models\FormBuilding\FormElement::where('form_version_id', $formVersionId)->get();
+        Log::debug('Form elements for autocomplete:', [
+            'formVersionId' => $formVersionId,
+            'elementsCount' => $elements->count(),
+            'elementNames' => $elements->pluck('name')->toArray(),
+            'elementUuids' => $elements->pluck('uuid')->toArray(),
+        ]);
+        return $elements->map(function ($element) {
+            return [
+                'label' => $element->label ?? $element->name ?? 'Element',
+                'insertText' => $element->uuid,
+                'detail' => 'Insert UUID for ' . ($element->label ?? $element->name),
+                'documentation' => 'Will insert the UUID for ' . ($element->label ?? $element->name),
+            ];
+        })->values()->toArray();
+    }
+
     public static function schema()
     {
+        $autocompleteOptions = function ($get, $livewire) {
+            $record = $livewire->getRecord();
+            if (!$record || !$record->id) {
+                return [];
+            }
+            return \App\Filament\Components\FormVersionBuilder::getElementTreeAutocompleteOptions($record->id);
+        };
         $styleSheetOptions = StyleSheet::with(['formVersion.form'])
             ->get()
             ->mapWithKeys(function ($sheet) {
@@ -122,13 +160,14 @@ class FormVersionBuilder
                                                 }),
                                         ])
                                             ->alignment(Alignment::Center),
-                                        MonacoEditor::make('css_content_web')
+                                        CustomMonacoEditor::make('css_content_web')
                                             ->label(false)
                                             ->language('css')
                                             ->theme('vs-dark')
                                             ->height('400px')
                                             ->columnSpanFull()
-                                            ->live(),
+                                            ->live()
+                                            ->autocomplete($autocompleteOptions)
                                     ]),
                                 Tab::make('pdf_style_sheet')
                                     ->label('PDF')
@@ -191,13 +230,14 @@ class FormVersionBuilder
                                                 }),
                                         ])
                                             ->alignment(Alignment::Center),
-                                        MonacoEditor::make('css_content_pdf')
+                                        CustomMonacoEditor::make('css_content_pdf')
                                             ->label(false)
                                             ->language('css')
                                             ->theme('vs-dark')
                                             ->height('400px')
                                             ->columnSpanFull()
-                                            ->live(),
+                                            ->live()
+                                            ->autocomplete($autocompleteOptions),
                                     ]),
                             ])
                     ]),
@@ -269,13 +309,14 @@ class FormVersionBuilder
                                                 }),
                                         ])
                                             ->alignment(Alignment::Center),
-                                        MonacoEditor::make('js_content_web')
+                                        CustomMonacoEditor::make('js_content_web')
                                             ->label(false)
                                             ->language('javascript')
                                             ->theme('vs-dark')
                                             ->height('400px')
                                             ->columnSpanFull()
-                                            ->live(),
+                                            ->live()
+                                            ->autocomplete($autocompleteOptions),
                                     ]),
                                 Tab::make('pdf_form_script')
                                     ->label('PDF')
@@ -338,13 +379,14 @@ class FormVersionBuilder
                                                 }),
                                         ])
                                             ->alignment(Alignment::Center),
-                                        MonacoEditor::make('js_content_pdf')
+                                        CustomMonacoEditor::make('js_content_pdf')
                                             ->label(false)
                                             ->language('javascript')
                                             ->theme('vs-dark')
                                             ->height('400px')
                                             ->columnSpanFull()
-                                            ->live(),
+                                            ->live()
+                                            ->autocomplete($autocompleteOptions),
                                     ]),
                             ])
                     ]),
