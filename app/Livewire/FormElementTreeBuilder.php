@@ -252,10 +252,6 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->disabled(),
                             TextInput::make('elementable_type')
                                 ->label('Element Type')
-                                ->formatStateUsing(function ($state, callable $get) {
-                                    $elementType = $get('elementable_type');
-                                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
-                                })
                                 ->disabled(),
                             Textarea::make('description')
                                 ->disabled()
