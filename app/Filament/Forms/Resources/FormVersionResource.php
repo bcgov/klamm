@@ -4,10 +4,11 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion;
+use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
+use App\Models\FormBuilding\StyleSheet;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Gate;
 use Filament\Tables\Columns\TextColumn;
@@ -16,7 +17,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class FormVersionResource extends Resource
 {
@@ -111,10 +116,88 @@ class FormVersionResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()
+                ViewAction::make(),
+                EditAction::make()
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
-                Tables\Actions\Action::make('archive')
+                Action::make('duplicate')
+                    ->label('Duplicate')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('info')
+                    ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer'))
+                    ->action(function ($record) {
+                        // Create a new version with incremented version number
+                        $newVersion = $record->replicate(['version_number', 'status', 'created_at', 'updated_at']);
+                        $newVersion->version_number = FormVersion::where('form_id', $record->form_id)->max('version_number') + 1;
+                        $newVersion->status = 'draft';
+                        $newVersion->form_developer_id = Auth::id();
+                        $newVersion->comments = 'Duplicated from version ' . $record->version_number;
+                        $newVersion->save();
+
+                        // Duplicate all FormElements and map new to old
+                        $oldToNewElementMap = [];
+                        foreach ($record->formElements()->orderBy('order')->get() as $element) {
+                            $newElement = $element->replicate(['id', 'uuid', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
+
+                            // Generate new UUID
+                            $newElement->uuid = (string) Str::uuid();
+                            $newElement->form_version_id = $newVersion->id;
+
+                            // Store the old parent_id temporarily
+                            $oldParentId = $element->parent_id;
+                            $newElement->parent_id = null; // Will be updated later
+
+                            $newElement->save();
+
+                            // Map old element ID to new element for parent relationship updates
+                            $oldToNewElementMap[$element->id] = [
+                                'new_element' => $newElement,
+                                'old_parent_id' => $oldParentId
+                            ];
+
+                            // Attach tags
+                            foreach ($element->tags as $tag) {
+                                $newElement->tags()->attach($tag->id);
+                            }
+
+                            // Duplicate polymorphic elementable
+                            $elementableType = $newElement->elementable_type;
+                            $elementableData = $elementableType::find($newElement->elementable_id)->getData();
+                            $newElementable = $elementableType::create($elementableData);
+                        }
+
+                        // Update parent_id relationships for nested elements
+                        foreach ($oldToNewElementMap as $oldElementId => $data) {
+                            $newElement = $data['new_element'];
+                            $oldParentId = $data['old_parent_id'];
+
+                            if ($oldParentId && isset($oldToNewElementMap[$oldParentId])) {
+                                $newElement->parent_id = $oldToNewElementMap[$oldParentId]['new_element']->id;
+                                $newElement->save();
+                            }
+                        }
+
+                        // Duplicate style_sheets
+                        $styleSheets = StyleSheet::where('form_version_id', $record->id)->get();
+                        foreach ($styleSheets as $styleSheet) {
+                            $newStyleSheet = $styleSheet->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
+                            $newStyleSheet->form_version_id = $newVersion->id;
+                            $newStyleSheet->save();
+                        }
+
+                        // Duplicate form_scripts
+                        $formScripts = FormScript::where('form_version_id', $record->id)->get();
+                        foreach ($formScripts as $formScript) {
+                            $newFormScript = $formScript->replicate(['id', 'form_version_id', 'created_at', 'updated_at']);
+                            $newFormScript->form_version_id = $newVersion->id;
+                            $newFormScript->save();
+                        }
+
+                        // Redirect to build the new version
+                        return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
+                    })
+                    ->requiresConfirmation()
+                    ->modalDescription('This will create a new draft version based on this form version, including all form elements.'),
+                Action::make('archive')
                     ->label('Archive')
                     ->icon('heroicon-o-archive-box-arrow-down')
                     ->visible(fn($record) => $record->status === 'published')
