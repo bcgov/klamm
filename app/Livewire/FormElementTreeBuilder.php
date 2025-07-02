@@ -69,7 +69,7 @@ class FormElementTreeBuilder extends BaseWidget
                                     }
 
                                     // Prefill basic form element data
-                                    $set('name', $template->name . ' (Copy)');
+                                    $set('name', $template->name);
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
