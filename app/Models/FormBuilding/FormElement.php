@@ -273,17 +273,17 @@ class FormElement extends Model
     public static function getAvailableElementTypes(): array
     {
         return [
-            TextInfoFormElement::class => 'Text Info',
-            ButtonInputFormElement::class => 'Button Input',
+            ContainerFormElement::class => 'Container',
             TextInputFormElement::class => 'Text Input',
             TextareaInputFormElement::class => 'Textarea Input',
-            NumberInputFormElement::class => 'Number Input',
+            TextInfoFormElement::class => 'Text Info',
             DateSelectInputFormElement::class => 'Date Select Input',
-            ContainerFormElement::class => 'Container',
-            HTMLFormElement::class => 'HTML',
             CheckboxInputFormElement::class => 'Checkbox Input',
             SelectInputFormElement::class => 'Select Input',
             RadioInputFormElement::class => 'Radio Input',
+            NumberInputFormElement::class => 'Number Input',
+            ButtonInputFormElement::class => 'Button Input',
+            HTMLFormElement::class => 'HTML',
         ];
     }
 
