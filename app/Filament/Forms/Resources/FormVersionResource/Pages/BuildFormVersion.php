@@ -278,10 +278,6 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            \Filament\Forms\Components\Textarea::make('description')
-                                ->rows(3),
-                            \Filament\Forms\Components\TextInput::make('help_text')
-                                ->maxLength(500),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(\App\Models\FormBuilding\FormElement::getAvailableElementTypes())
@@ -291,6 +287,10 @@ class BuildFormVersion extends Page implements HasForms
                                     // Clear existing elementable data when type changes
                                     $set('elementable_data', []);
                                 }),
+                            \Filament\Forms\Components\Textarea::make('description')
+                                ->rows(3),
+                            \Filament\Forms\Components\TextInput::make('help_text')
+                                ->maxLength(500),
                             \Filament\Forms\Components\Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
