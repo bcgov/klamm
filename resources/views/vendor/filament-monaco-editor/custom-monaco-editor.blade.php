@@ -10,13 +10,7 @@
             editor: null,
             completionProviderRegistered: false,
             isInitialized: false,
-            suggestions: @js($autocompleteSuggestions ?? []).concat([
-                {
-                    label: 'TEST_AUTOCOMPLETE',
-                    insertText: 'This is a test autocomplete!',
-                    detail: 'Hard-coded test'
-                }
-            ]),
+            suggestions: @js($autocompleteSuggestions ?? []),
 
             init() {
                 // Use a longer delay to ensure Monaco is loaded by Filament's asset system
@@ -24,10 +18,7 @@
             },
 
             initMonaco() {
-                console.log('Attempting to initialize Monaco Editor...');
-
                 if (typeof window.monaco === 'undefined') {
-                    console.log('Monaco not yet available, retrying...');
                     setTimeout(() => this.initMonaco(), 200);
                     return;
                 }
@@ -37,8 +28,6 @@
                     console.error('Monaco container not found');
                     return;
                 }
-
-                console.log('Monaco Editor found, initializing...');
 
                 try {
                     const initialValue = $wire.{{ $getStatePath() }} || '';
@@ -67,9 +56,13 @@
                         $wire.set('{{ $getStatePath() }}', model.getValue());
                     });
 
-                    // Register autocomplete provider
-                    if (!this.completionProviderRegistered && this.suggestions.length > 0) {
-                        window.monaco.languages.registerCompletionItemProvider('{{ $getLanguage() }}', {
+                    // Register autocomplete provider only once per language globally
+                    if (!window.__monacoProviderRegistered) {
+                        window.__monacoProviderRegistered = {};
+                    }
+                    const lang = '{{ $getLanguage() }}';
+                    if (!window.__monacoProviderRegistered[lang] && this.suggestions.length > 0) {
+                        window.monaco.languages.registerCompletionItemProvider(lang, {
                             triggerCharacters: ['.', '@', ' '],
                             provideCompletionItems: (model, position) => {
                                 const word = model.getWordUntilPosition(position);
@@ -92,12 +85,9 @@
                                 };
                             }
                         });
-                        this.completionProviderRegistered = true;
+                        window.__monacoProviderRegistered[lang] = true;
                     }
-
                     this.isInitialized = true;
-                    console.log('Monaco Editor initialized successfully');
-
                 } catch (error) {
                     console.error('Error initializing Monaco Editor:', error);
                 }

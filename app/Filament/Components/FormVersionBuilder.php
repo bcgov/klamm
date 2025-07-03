@@ -24,41 +24,41 @@ class FormVersionBuilder
      * Get autocomplete options for Monaco editor from form element tree.
      *
      * @param int|null $formVersionId
+     * @param string $context 'style' or 'script' to adjust formatting if needed
      * @return array
      */
-    public static function getElementTreeAutocompleteOptions($formVersionId)
+    public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
     {
-        Log::debug('getElementTreeAutocompleteOptions called', ['formVersionId' => $formVersionId]);
-        if (!$formVersionId) {
-            Log::debug('No formVersionId provided to getElementTreeAutocompleteOptions');
-            return [];
-        }
+        if (!$formVersionId) return [];
         $elements = \App\Models\FormBuilding\FormElement::where('form_version_id', $formVersionId)->get();
-        Log::debug('Form elements for autocomplete:', [
-            'formVersionId' => $formVersionId,
-            'elementsCount' => $elements->count(),
-            'elementNames' => $elements->pluck('name')->toArray(),
-            'elementUuids' => $elements->pluck('uuid')->toArray(),
-        ]);
-        return $elements->map(function ($element) {
+        return $elements->map(function ($element) use ($context) {
+            $type = $element->elementable_type ?? 'Element';
+            $labelBase = $element->label ?? $element->name ?? 'Element';
+            $label = $labelBase . ' (' . $type . ')';
+            $uuid = $element->uuid;
             return [
-                'label' => $element->label ?? $element->name ?? 'Element',
-                'insertText' => $element->uuid,
-                'detail' => 'Insert UUID for ' . ($element->label ?? $element->name),
-                'documentation' => 'Will insert the UUID for ' . ($element->label ?? $element->name),
+                'label' => $label,
+                // Insert selector and label/type as a comment for inline context
+                'insertText' => $context == 'style' ? '[id="' . $uuid . '"] /* ' . addslashes($label) . ' */ ' : '"' . $uuid . '" /* ' . addslashes($label) . ' */ ',
+                'detail' => "Selector: #$uuid\nLabel: $label\nName: {$element->name}\nType: $type",
+                'documentation' => "**Selector:** `#$uuid`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $type  \n**UUID:** $uuid",
             ];
         })->values()->toArray();
     }
 
     public static function schema()
     {
-        $autocompleteOptions = function ($get, $livewire) {
-            $record = $livewire->getRecord();
-            if (!$record || !$record->id) {
-                return [];
-            }
-            return \App\Filament\Components\FormVersionBuilder::getElementTreeAutocompleteOptions($record->id);
+        $makeAutocompleteOptions = function ($context) {
+            return function ($get, $livewire) use ($context) {
+                $record = $livewire->getRecord();
+                if (!$record || !$record->id) {
+                    return [];
+                }
+                return \App\Filament\Components\FormVersionBuilder::getElementTreeAutocompleteOptions($record->id, $context);
+            };
         };
+        $autocompleteOptionsStyle = $makeAutocompleteOptions('style');
+        $autocompleteOptionsScript = $makeAutocompleteOptions('script');
         $styleSheetOptions = StyleSheet::with(['formVersion.form'])
             ->get()
             ->mapWithKeys(function ($sheet) {
@@ -167,7 +167,7 @@ class FormVersionBuilder
                                             ->height('400px')
                                             ->columnSpanFull()
                                             ->live()
-                                            ->autocomplete($autocompleteOptions)
+                                            ->autocomplete($autocompleteOptionsStyle)
                                     ]),
                                 Tab::make('pdf_style_sheet')
                                     ->label('PDF')
@@ -237,7 +237,7 @@ class FormVersionBuilder
                                             ->height('400px')
                                             ->columnSpanFull()
                                             ->live()
-                                            ->autocomplete($autocompleteOptions),
+                                            ->autocomplete($autocompleteOptionsStyle),
                                     ]),
                             ])
                     ]),
@@ -316,7 +316,7 @@ class FormVersionBuilder
                                             ->height('400px')
                                             ->columnSpanFull()
                                             ->live()
-                                            ->autocomplete($autocompleteOptions),
+                                            ->autocomplete($autocompleteOptionsScript),
                                     ]),
                                 Tab::make('pdf_form_script')
                                     ->label('PDF')
@@ -386,7 +386,7 @@ class FormVersionBuilder
                                             ->height('400px')
                                             ->columnSpanFull()
                                             ->live()
-                                            ->autocomplete($autocompleteOptions),
+                                            ->autocomplete($autocompleteOptionsScript),
                                     ]),
                             ])
                     ]),
