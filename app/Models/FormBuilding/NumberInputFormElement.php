@@ -76,4 +76,20 @@ class NumberInputFormElement extends Model
     {
         return $this->morphOne(FormElement::class, 'elementable');
     }
+
+    /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'placeholder_text' => $this->placeholder_text,
+            'label' => $this->label,
+            'visible_label' => $this->visible_label,
+            'min' => $this->min,
+            'max' => $this->max,
+            'step' => $this->step,
+            'default_value' => $this->default_value,
+        ];
+    }
 }

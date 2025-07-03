@@ -2,6 +2,7 @@
 
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
+use App\Filament\Forms\Resources\FormResource;
 use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Forms\Resources\FormVersionResource\Actions\FormApprovalActions;
 use Filament\Resources\Pages\ViewRecord;
@@ -17,6 +18,16 @@ class ViewFormVersion extends ViewRecord
     protected static string $resource = FormVersionResource::class;
 
     public array $additionalApprovers = [];
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            FormVersionResource::getUrl('index') => 'Form Versions',
+            FormResource::getUrl('view', ['record' => $this->record->form->id]) => "{$this->record->form->form_id}",
+            FormVersionResource::getUrl('view', ['record' => $this->record]) => "Version {$this->record->version_number}",
+            '#' => 'View Form Version',
+        ];
+    }
 
     protected function getHeaderActions(): array
     {

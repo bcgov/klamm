@@ -69,7 +69,7 @@ class FormElementTreeBuilder extends BaseWidget
                                     }
 
                                     // Prefill basic form element data
-                                    $set('name', $template->name . ' (Copy)');
+                                    $set('name', $template->name);
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
@@ -96,10 +96,6 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->maxLength(500),
                             Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())
@@ -109,6 +105,10 @@ class FormElementTreeBuilder extends BaseWidget
                                     // Clear existing elementable data when type changes
                                     $set('elementable_data', []);
                                 }),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
                             Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -173,10 +173,6 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->maxLength(500),
                             \Filament\Forms\Components\Hidden::make('elementable_type'),
                             TextInput::make('elementable_type_display')
                                 ->label('Element Type')
@@ -186,6 +182,10 @@ class FormElementTreeBuilder extends BaseWidget
                                     $elementType = $get('elementable_type');
                                     return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
                                 }),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
                             Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -250,13 +250,13 @@ class FormElementTreeBuilder extends BaseWidget
                         ->schema([
                             TextInput::make('name')
                                 ->disabled(),
+                            TextInput::make('elementable_type')
+                                ->label('Element Type')
+                                ->disabled(),
                             Textarea::make('description')
                                 ->disabled()
                                 ->rows(3),
                             TextInput::make('help_text')
-                                ->disabled(),
-                            TextInput::make('elementable_type')
-                                ->label('Element Type')
                                 ->disabled(),
                             Toggle::make('is_visible')
                                 ->label('Visible')
@@ -444,8 +444,8 @@ class FormElementTreeBuilder extends BaseWidget
             return '';
         }
 
-        $elementType = class_basename($record->elementable_type ?? '');
-        return "[{$elementType}] {$record->name}";
+        $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
+        return "[{$elementTypeName}] {$record->name}";
     }
 
     protected function mutateFormDataBeforeFill(array $data): array

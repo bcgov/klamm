@@ -46,6 +46,17 @@ class ButtonInputFormElement extends Model
     }
 
     /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'label' => $this->label,
+            'button_type' => $this->button_type,
+        ];
+    }
+
+    /**
      * Get available button types.
      */
     public static function getButtonTypes(): array

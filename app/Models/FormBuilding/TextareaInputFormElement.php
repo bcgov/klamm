@@ -80,4 +80,19 @@ class TextareaInputFormElement extends Model
     {
         return $this->morphOne(FormElement::class, 'elementable');
     }
+
+    /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'placeholder_text' => $this->placeholder_text,
+            'label' => $this->label,
+            'visible_label' => $this->visible_label,
+            'mask' => $this->mask,
+            'maxlength' => $this->maxlength,
+            'minlength' => $this->minlength,
+        ];
+    }
 }

@@ -75,6 +75,18 @@ class RadioInputFormElement extends Model
     }
 
     /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'label' => $this->label,
+            'visible_label' => $this->visible_label,
+            'default+value' => $this->default_value,
+        ];
+    }
+
+    /**
      * Get the options for this radio input.
      */
     public function options(): MorphMany

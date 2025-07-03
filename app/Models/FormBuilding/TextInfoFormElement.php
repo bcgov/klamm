@@ -34,4 +34,14 @@ class TextInfoFormElement extends Model
     {
         return $this->morphOne(FormElement::class, 'elementable');
     }
+
+    /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'content' => $this->content,
+        ];
+    }
 }
