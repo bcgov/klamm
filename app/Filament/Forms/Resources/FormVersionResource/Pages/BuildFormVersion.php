@@ -6,11 +6,11 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Components\FormVersionBuilder;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
-use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
+use App\Filament\Forms\Resources\FormResource;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -251,7 +251,7 @@ class BuildFormVersion extends Page implements HasForms
                                     }
 
                                     // Prefill basic form element data
-                                    $set('name', $template->name . ' (Copy)');
+                                    $set('name', $template->name);
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
@@ -278,10 +278,6 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            \Filament\Forms\Components\Textarea::make('description')
-                                ->rows(3),
-                            \Filament\Forms\Components\TextInput::make('help_text')
-                                ->maxLength(500),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(\App\Models\FormBuilding\FormElement::getAvailableElementTypes())
@@ -291,6 +287,10 @@ class BuildFormVersion extends Page implements HasForms
                                     // Clear existing elementable data when type changes
                                     $set('elementable_data', []);
                                 }),
+                            \Filament\Forms\Components\Textarea::make('description')
+                                ->rows(3),
+                            \Filament\Forms\Components\TextInput::make('help_text')
+                                ->maxLength(500),
                             \Filament\Forms\Components\Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -385,6 +385,7 @@ class BuildFormVersion extends Page implements HasForms
     {
         return [
             FormVersionResource::getUrl('index') => 'Form Versions',
+            FormResource::getUrl('view', ['record' => $this->record->form->id]) => "{$this->record->form->form_id}",
             FormVersionResource::getUrl('view', ['record' => $this->record]) => "Version {$this->record->version_number}",
             '#' => 'Form Builder',
         ];
