@@ -424,6 +424,13 @@ class FormVersionJsonService
                     $elementData['columns'] = $attributes['columns'];
                 }
                 break;
+            case 'text-info':
+                // Add text info specific properties
+                $attributes = $this->getElementAttributes($element);
+                if (isset($attributes['content'])) {
+                    $elementData['value'] = $attributes['content'];
+                }
+                break;
         }
     }
 
