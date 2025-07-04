@@ -73,6 +73,20 @@ class ContainerFormElement extends Model
     }
 
     /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'container_type' => $this->container_type,
+            'collapsible' =>         $this->collapsible,
+            'collapsed_by_default' =>         $this->collapsed_by_default,
+            'is_repeatable' =>         $this->is_repeatable,
+            'legend' =>         $this->legend,
+        ];
+    }
+
+    /**
      * Get available container types.
      */
     public static function getContainerTypes(): array

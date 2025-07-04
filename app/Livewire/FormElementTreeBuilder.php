@@ -5,12 +5,14 @@ namespace App\Livewire;
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
 use App\Models\FormBuilding\FormElementTag;
+use App\Models\FormBuilding\FormVersion;
+use App\Models\FormMetadata\FormDataSource;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms;
-use Livewire\Component;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
@@ -69,7 +71,7 @@ class FormElementTreeBuilder extends BaseWidget
                                     }
 
                                     // Prefill basic form element data
-                                    $set('name', $template->name . ' (Copy)');
+                                    $set('name', $template->name);
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
@@ -96,10 +98,6 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->maxLength(500),
                             Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())
@@ -109,6 +107,10 @@ class FormElementTreeBuilder extends BaseWidget
                                     // Clear existing elementable data when type changes
                                     $set('elementable_data', []);
                                 }),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
                             Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -157,6 +159,49 @@ class FormElementTreeBuilder extends BaseWidget
                             }
                             return $this->getElementSpecificSchema($elementType);
                         }),
+                    \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
+                        ->icon('heroicon-o-link')
+                        ->schema(function (callable $get) {
+                            // Get the form version ID from the form element
+                            $formVersionId = $this->formVersionId;
+                            if (!$formVersionId) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
+                                        ->label('')
+                                        ->content('Form version not available.')
+                                ];
+                            }
+
+                            // Get data sources assigned to this form version
+                            $formVersion = FormVersion::find($formVersionId);
+                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
+                                        ->label('')
+                                        ->content('No Data Sources are assigned to this Form Version.')
+                                ];
+                            }
+
+                            return [
+                                Repeater::make('dataBindings')
+                                    ->label('Data Bindings')
+                                    ->relationship()
+                                    ->defaultItems(0)
+                                    ->schema([
+                                        Select::make('form_data_source_id')
+                                            ->label('Data Source')
+                                            ->options(function () use ($formVersion) {
+                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
+                                            })
+                                            ->disabled(),
+                                        TextInput::make('path')
+                                            ->label('Data Path')
+                                            ->disabled(),
+                                    ])
+                                    ->disabled()
+                                    ->columnSpanFull(),
+                            ];
+                        }),
                 ])
                 ->columnSpanFull(),
         ];
@@ -173,10 +218,6 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->maxLength(500),
                             \Filament\Forms\Components\Hidden::make('elementable_type'),
                             TextInput::make('elementable_type_display')
                                 ->label('Element Type')
@@ -186,6 +227,10 @@ class FormElementTreeBuilder extends BaseWidget
                                     $elementType = $get('elementable_type');
                                     return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
                                 }),
+                            Textarea::make('description')
+                                ->rows(3),
+                            TextInput::make('help_text')
+                                ->maxLength(500),
                             Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -235,6 +280,64 @@ class FormElementTreeBuilder extends BaseWidget
                             }
                             return $this->getElementSpecificSchema($elementType);
                         }),
+                    \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
+                        ->icon('heroicon-o-link')
+                        ->schema(function (callable $get) {
+                            // Get the form version ID from the form element
+                            $formVersionId = $this->formVersionId;
+                            if (!$formVersionId) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
+                                        ->label('')
+                                        ->content('Form version not available.')
+                                ];
+                            }
+
+                            // Get data sources assigned to this form version
+                            $formVersion = FormVersion::find($formVersionId);
+                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
+                                        ->label('')
+                                        ->content('Please add Data Sources in the Form Version before adding Data Bindings.')
+                                        ->extraAttributes(['class' => 'text-warning'])
+                                ];
+                            }
+
+                            return [
+                                Repeater::make('dataBindings')
+                                    ->label('Data Bindings')
+                                    ->relationship()
+                                    ->schema([
+                                        Select::make('form_data_source_id')
+                                            ->label('Data Source')
+                                            ->options(function () use ($formVersion) {
+                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
+                                            })
+                                            ->searchable()
+                                            ->preload()
+                                            ->required()
+                                            ->live(onBlur: true),
+                                        TextInput::make('path')
+                                            ->label('Data Path')
+                                            ->required()
+                                            ->placeholder("$.['Contact'].['Birth Date']")
+                                            ->helperText('The path to the data field in the selected data source'),
+                                    ])
+                                    ->orderColumn('order')
+                                    ->itemLabel(
+                                        fn(array $state): ?string =>
+                                        isset($state['form_data_source_id']) && isset($state['path'])
+                                            ? (FormDataSource::find($state['form_data_source_id'])?->name ?? 'Data Source') . ': ' . $state['path']
+                                            : 'New Data Binding'
+                                    )
+                                    ->addActionLabel('Add Data Binding')
+                                    ->reorderableWithButtons()
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->columnSpanFull(),
+                            ];
+                        }),
                 ])
                 ->columnSpanFull(),
         ];
@@ -250,13 +353,13 @@ class FormElementTreeBuilder extends BaseWidget
                         ->schema([
                             TextInput::make('name')
                                 ->disabled(),
+                            TextInput::make('elementable_type')
+                                ->label('Element Type')
+                                ->disabled(),
                             Textarea::make('description')
                                 ->disabled()
                                 ->rows(3),
                             TextInput::make('help_text')
-                                ->disabled(),
-                            TextInput::make('elementable_type')
-                                ->label('Element Type')
                                 ->disabled(),
                             Toggle::make('is_visible')
                                 ->label('Visible')
@@ -289,6 +392,48 @@ class FormElementTreeBuilder extends BaseWidget
                                 ];
                             }
                             return $this->getElementSpecificSchema($elementType, true);
+                        }),
+                    \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
+                        ->icon('heroicon-o-link')
+                        ->schema(function (callable $get) {
+                            // Get the form version ID from the form element
+                            $formVersionId = $this->formVersionId;
+                            if (!$formVersionId) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
+                                        ->label('')
+                                        ->content('Form version not available.')
+                                ];
+                            }
+
+                            // Get data sources assigned to this form version
+                            $formVersion = FormVersion::find($formVersionId);
+                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
+                                        ->label('')
+                                        ->content('No Data Sources are assigned to this Form Version.')
+                                ];
+                            }
+
+                            return [
+                                Repeater::make('dataBindings')
+                                    ->label('Data Bindings')
+                                    ->relationship()
+                                    ->schema([
+                                        Select::make('form_data_source_id')
+                                            ->label('Data Source')
+                                            ->options(function () use ($formVersion) {
+                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
+                                            })
+                                            ->disabled(),
+                                        TextInput::make('path')
+                                            ->label('Data Path')
+                                            ->disabled(),
+                                    ])
+                                    ->disabled()
+                                    ->columnSpanFull(),
+                            ];
                         }),
                 ])
                 ->columnSpanFull(),
@@ -342,6 +487,11 @@ class FormElementTreeBuilder extends BaseWidget
                         $data['elementable_data'] = $elementableData;
                     }
 
+                    // Load data bindings
+                    if (!$record->relationLoaded('dataBindings')) {
+                        $record->load('dataBindings');
+                    }
+
                     return $data;
                 }),
             EditAction::make()
@@ -376,6 +526,11 @@ class FormElementTreeBuilder extends BaseWidget
                     // Ensure elementable_type is available even though the field is disabled
                     $data['elementable_type'] = $record->elementable_type;
                     $data['elementable_type_display'] = $record->elementable_type;
+
+                    // Load data bindings
+                    if (!$record->relationLoaded('dataBindings')) {
+                        $record->load('dataBindings');
+                    }
 
                     return $data;
                 })
@@ -444,8 +599,8 @@ class FormElementTreeBuilder extends BaseWidget
             return '';
         }
 
-        $elementType = class_basename($record->elementable_type ?? '');
-        return "[{$elementType}] {$record->name}";
+        $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
+        return "[{$elementTypeName}] {$record->name}";
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
@@ -566,7 +721,7 @@ class FormElementTreeBuilder extends BaseWidget
 
             // Fire update event for element modification
             if ($this->formVersionId) {
-                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                $formVersion = FormVersion::find($this->formVersionId);
                 if ($formVersion) {
                     FormVersionUpdateEvent::dispatch(
                         $formVersion->id,
@@ -686,7 +841,7 @@ class FormElementTreeBuilder extends BaseWidget
 
             // Fire update event for element creation
             if ($this->formVersionId) {
-                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                $formVersion = FormVersion::find($this->formVersionId);
                 if ($formVersion) {
                     FormVersionUpdateEvent::dispatch(
                         $formVersion->id,
@@ -752,7 +907,7 @@ class FormElementTreeBuilder extends BaseWidget
 
             // Fire update event for tree structure changes (moves/reorders)
             if ($this->formVersionId) {
-                $formVersion = \App\Models\FormBuilding\FormVersion::find($this->formVersionId);
+                $formVersion = FormVersion::find($this->formVersionId);
                 if ($formVersion) {
                     FormVersionUpdateEvent::dispatch(
                         $formVersion->id,

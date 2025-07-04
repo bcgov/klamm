@@ -126,6 +126,14 @@ class FormElement extends Model
     }
 
     /**
+     * Get the data bindings for this form element.
+     */
+    public function dataBindings(): HasMany
+    {
+        return $this->hasMany(FormElementDataBinding::class)->orderBy('order');
+    }
+
+    /**
      * Scope to get root elements (no parent)
      */
     public function scopeRoot($query)
@@ -273,18 +281,28 @@ class FormElement extends Model
     public static function getAvailableElementTypes(): array
     {
         return [
-            TextInfoFormElement::class => 'Text Info',
-            ButtonInputFormElement::class => 'Button Input',
+            ContainerFormElement::class => 'Container',
             TextInputFormElement::class => 'Text Input',
             TextareaInputFormElement::class => 'Textarea Input',
-            NumberInputFormElement::class => 'Number Input',
+            TextInfoFormElement::class => 'Text Info',
             DateSelectInputFormElement::class => 'Date Select Input',
-            ContainerFormElement::class => 'Container',
-            HTMLFormElement::class => 'HTML',
             CheckboxInputFormElement::class => 'Checkbox Input',
             SelectInputFormElement::class => 'Select Input',
             RadioInputFormElement::class => 'Radio Input',
+            NumberInputFormElement::class => 'Number Input',
+            ButtonInputFormElement::class => 'Button Input',
+            HTMLFormElement::class => 'HTML',
         ];
+    }
+
+    /**
+     * Get formatted element type name
+     */
+    public static function getElementTypeName(string $elementType): ?string
+    {
+        $availableTypes = static::getAvailableElementTypes();
+
+        return $availableTypes[$elementType] ?? null;
     }
 
     /**

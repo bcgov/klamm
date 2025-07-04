@@ -13,6 +13,10 @@ class FormVersionJsonService
         $formVersion->load([
             'form',
             'formElements.elementable',
+            'formElements.dataBindings.formDataSource',
+            'formDataSources' => function ($query) {
+                $query->orderBy('form_versions_form_data_sources.order');
+            },
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
@@ -27,6 +31,7 @@ class FormVersionJsonService
                 'version' => $formVersion->version_number,
                 'status' => $formVersion->status,
                 'data' => $this->getFormVersionData($formVersion),
+                'dataSources' => $this->getDataSources($formVersion),
                 'styles' => $this->getStyles($formVersion),
                 'scripts' => $this->getScripts($formVersion),
                 'elements' => $this->getElements($formVersion)
@@ -39,7 +44,16 @@ class FormVersionJsonService
         // Load the form version with necessary relationships
         $formVersion->load([
             'form',
-            'formElements.elementable',
+            'formElements.elementable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
+                    \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                ]);
+            },
+            'formElements.dataBindings.formDataSource',
+            'formDataSources' => function ($query) {
+                $query->orderBy('form_versions_form_data_sources.order');
+            },
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
@@ -54,8 +68,10 @@ class FormVersionJsonService
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => null,
             'footer' => $formVersion->footer,
-            'dataSources' => $formVersion->formDataSources(),
+            'dataSources' => $this->getDataSources($formVersion),
             'data' => [
+                'styles' => $this->getStyles($formVersion),
+                'scripts' => $this->getScripts($formVersion),
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
         ];
@@ -147,10 +163,16 @@ class FormVersionJsonService
             'attributes' => $this->getElementAttributes($element)
         ];
 
+        // Add data bindings if they exist
+        $dataBindings = $this->getDataBindings($element);
+        if (!empty($dataBindings)) {
+            $elementData['dataBindings'] = $dataBindings;
+        }
+
         // Load and add children if this element has any
         $children = FormElement::where('parent_id', $element->id)
             ->orderBy('order')
-            ->with('elementable')
+            ->with(['elementable', 'dataBindings.formDataSource'])
             ->get();
 
         if ($children->count() > 0) {
@@ -200,6 +222,7 @@ class FormVersionJsonService
                 $query->whereNull('parent_id')
                     ->orWhere('parent_id', -1);
             })
+            ->with(['elementable', 'dataBindings.formDataSource'])
             ->orderBy('order')
             ->get();
 
@@ -238,7 +261,7 @@ class FormVersionJsonService
         // Add children if this is a container
         $children = FormElement::where('parent_id', $element->id)
             ->orderBy('order')
-            ->with('elementable')
+            ->with(['elementable', 'dataBindings.formDataSource'])
             ->get();
 
         if ($children->count() > 0) {
@@ -264,7 +287,7 @@ class FormVersionJsonService
         // Get children and group them into fields
         $children = FormElement::where('parent_id', $element->id)
             ->orderBy('order')
-            ->with('elementable')
+            ->with(['elementable', 'dataBindings.formDataSource'])
             ->get();
 
         $fields = [];
@@ -311,7 +334,7 @@ class FormVersionJsonService
 
         // Add data bindings if element saves on submit
         if ($element->save_on_submit) {
-            $databindings = $this->getDataBindings($element);
+            $databindings = $this->getDataBindingsForPreMigration($element);
             if (!empty($databindings)) {
                 $elementData['databindings'] = $databindings;
             }
@@ -333,6 +356,7 @@ class FormVersionJsonService
             'textarea-input' => 'text-area',
             'dropdown' => 'dropdown',
             'select-input' => 'dropdown',
+            'select' => 'dropdown',
             'checkbox-input' => 'checkbox',
             'checkbox' => 'checkbox',
             'toggle-input' => 'toggle',
@@ -390,22 +414,40 @@ class FormVersionJsonService
                     $elementData['defaultValue'] = (bool)$attributes['default_value'];
                 }
                 break;
-
+            case 'radio-input':
             case 'radio':
-            case 'dropdown':
-                // Add list items if they exist in attributes
-                $attributes = $this->getElementAttributes($element);
-                if (isset($attributes['options']) && is_array($attributes['options'])) {
-                    $elementData['listItems'] = array_map(function ($option) {
+                $radioOptions = [];
+                if ($element->elementable && method_exists($element->elementable, 'options')) {
+                    $optionsCollection = $element->elementable->options()->ordered()->get();
+                    $radioOptions = $optionsCollection->map(function ($option) {
                         return [
-                            'name' => $option['label'] ?? $option['value'] ?? '',
-                            'text' => $option['label'] ?? $option['value'] ?? '',
-                            'value' => $option['value'] ?? ''
+                            'value' => $option->id ?? '',
+                            'text' => $option->label ?? '',
                         ];
-                    }, $attributes['options']);
+                    })->toArray();
+                }
+                if (!empty($radioOptions)) {
+                    $elementData['listItems'] = $radioOptions;
                 }
                 break;
-
+            case 'dropdown':
+            case 'select-input':
+            case 'select':
+                $options = [];
+                if ($element->elementable && method_exists($element->elementable, 'options')) {
+                    $optionsCollection = $element->elementable->options()->ordered()->get();
+                    $options = $optionsCollection->map(function ($option) {
+                        return [
+                            'name' => $option->label ?? '',
+                            'text' => $option->label ?? '',
+                            'value' => $option->id ?? '',
+                        ];
+                    })->toArray();
+                }
+                if (!empty($options)) {
+                    $elementData['listItems'] = $options;
+                }
+                break;
             case 'file':
                 // Add file-specific properties
                 $attributes = $this->getElementAttributes($element);
@@ -422,6 +464,13 @@ class FormVersionJsonService
                 $attributes = $this->getElementAttributes($element);
                 if (isset($attributes['columns'])) {
                     $elementData['columns'] = $attributes['columns'];
+                }
+                break;
+            case 'text-info':
+                // Add text info specific properties
+                $attributes = $this->getElementAttributes($element);
+                if (isset($attributes['content'])) {
+                    $elementData['value'] = $attributes['content'];
                 }
                 break;
         }
@@ -609,28 +658,53 @@ class FormVersionJsonService
 
     protected function getDataBindings(FormElement $element): array
     {
-        $attributes = $this->getElementAttributes($element);
+        $dataBindings = [];
 
-        // Check if data bindings are explicitly defined in attributes
-        if (isset($attributes['data_source']) || isset($attributes['data_path'])) {
-            return [
-                'source' => $attributes['data_source'] ?? 'Contact',
-                'path' => $attributes['data_path'] ?? '/default/path/' . $this->generateCodeContextName($element->name ?? 'field')
+        foreach ($element->dataBindings as $dataBinding) {
+            $dataBindings[] = [
+                'data_source_name' => $dataBinding->formDataSource->name ?? 'Unknown',
+                'path' => $dataBinding->path,
+                'order' => $dataBinding->order,
             ];
         }
 
-        // Check for legacy binding format
-        if (isset($attributes['binding_source']) && isset($attributes['binding_path'])) {
-            return [
-                'source' => $attributes['binding_source'],
-                'path' => $attributes['binding_path']
-            ];
+        return $dataBindings;
+    }
+
+    protected function getDataBindingsForPreMigration(FormElement $element): array
+    {
+        // For the pre-migration format, we just return 1 binding
+        // If there are multiple bindings, lets just grab the first one by order
+        $firstBinding = $element->dataBindings->sortBy('order')->first();
+
+        if (!$firstBinding) {
+            return [];
         }
 
-        // Default data binding
         return [
-            'source' => 'Contact', // Default source - could be made configurable
-            'path' => '/default/path/' . $this->generateCodeContextName($element->name ?? 'field')
+            'source' => $firstBinding->formDataSource->name ?? 'Unknown',
+            'path' => $firstBinding->path
         ];
+    }
+
+    protected function getDataSources(FormVersion $formVersion): array
+    {
+        $dataSources = [];
+
+        foreach ($formVersion->formDataSources as $formDataSource) {
+            $dataSources[] = [
+                'name' => $formDataSource->name,
+                'type' => $formDataSource->type,
+                'endpoint' => $formDataSource->endpoint,
+                'description' => $formDataSource->description,
+                'params' => $formDataSource->params,
+                'body' => $formDataSource->body,
+                'headers' => $formDataSource->headers,
+                'host' => $formDataSource->host,
+                'order' => $formDataSource->pivot->order ?? 0,
+            ];
+        }
+
+        return $dataSources;
     }
 }

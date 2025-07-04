@@ -6,19 +6,24 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Components\FormVersionBuilder;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
-use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
+use App\Models\FormMetadata\FormDataSource;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
+use App\Filament\Forms\Resources\FormResource;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
+use Filament\Actions\ActionGroup;
+use Filament\Support\Enums\ActionSize;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Repeater;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -67,6 +72,10 @@ class BuildFormVersion extends Page implements HasForms
                         $tagIds = $data['tags'] ?? [];
                         unset($data['tags']);
 
+                        // Extract data bindings data before creating the element
+                        $dataBindingsData = $data['dataBindings'] ?? [];
+                        unset($data['dataBindings']);
+
                         // Extract polymorphic data
                         $elementType = $data['elementable_type'];
                         $elementableData = $data['elementable_data'] ?? [];
@@ -98,6 +107,20 @@ class BuildFormVersion extends Page implements HasForms
                         // Attach tags if any were selected
                         if (!empty($tagIds)) {
                             $formElement->tags()->attach($tagIds);
+                        }
+
+                        // Create data bindings if any were provided
+                        if (!empty($dataBindingsData)) {
+                            foreach ($dataBindingsData as $index => $bindingData) {
+                                if (isset($bindingData['form_data_source_id']) && isset($bindingData['path'])) {
+                                    \App\Models\FormBuilding\FormElementDataBinding::create([
+                                        'form_element_id' => $formElement->id,
+                                        'form_data_source_id' => $bindingData['form_data_source_id'],
+                                        'path' => $bindingData['path'],
+                                        'order' => $index + 1,
+                                    ]);
+                                }
+                            }
                         }
 
                         // Fire update event for element creation
@@ -140,33 +163,15 @@ class BuildFormVersion extends Page implements HasForms
             //         $this->triggerUpdateEvent('manual_broadcast');
             //     }),
 
-            Actions\Action::make('download_json')
-                ->label('Download')
-                ->icon('heroicon-o-arrow-down-tray')
+            ActionGroup::make([
+                $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
+                $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
+            ])
+                ->label('Download JSON')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size(ActionSize::Small)
                 ->color('info')
-                ->outlined()
-                ->action(function () {
-                    $userId = Auth::id();
-
-                    if (!$userId) {
-                        \Filament\Notifications\Notification::make()
-                            ->danger()
-                            ->title('Authentication Error')
-                            ->body('You must be logged in to download JSON files.')
-                            ->send();
-                        return;
-                    }
-
-                    // Dispatch job to generate JSON
-                    GenerateFormVersionJsonJob::dispatch($this->record, $userId);
-
-                    // Show immediate notification
-                    \Filament\Notifications\Notification::make()
-                        ->info()
-                        ->title('JSON Export Started')
-                        ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
-                        ->send();
-                }),
+                ->button(),
             Actions\Action::make('Preview Form')
                 ->label('Preview')
                 ->icon('heroicon-o-tv')
@@ -178,6 +183,37 @@ class BuildFormVersion extends Page implements HasForms
                 })
                 ->color('primary'),
         ];
+    }
+
+    protected function makeDownloadJsonAction(string $name, string $label, int $version): Actions\Action
+    {
+        return Actions\Action::make($name)
+            ->label($label)
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('info')
+            ->outlined()
+            ->action(function () use ($version) {
+                $userId = Auth::id();
+
+                if (!$userId) {
+                    \Filament\Notifications\Notification::make()
+                        ->danger()
+                        ->title('Authentication Error')
+                        ->body('You must be logged in to download JSON files.')
+                        ->send();
+                    return;
+                }
+
+                // Dispatch job to generate JSON for the given version
+                GenerateFormVersionJsonJob::dispatch($this->record, $userId, $version);
+
+                // Show immediate notification
+                \Filament\Notifications\Notification::make()
+                    ->info()
+                    ->title('JSON Export Started')
+                    ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
+                    ->send();
+            });
     }
 
 
@@ -251,7 +287,7 @@ class BuildFormVersion extends Page implements HasForms
                                     }
 
                                     // Prefill basic form element data
-                                    $set('name', $template->name . ' (Copy)');
+                                    $set('name', $template->name);
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
@@ -278,19 +314,19 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            \Filament\Forms\Components\Textarea::make('description')
-                                ->rows(3),
-                            \Filament\Forms\Components\TextInput::make('help_text')
-                                ->maxLength(500),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
-                                ->options(\App\Models\FormBuilding\FormElement::getAvailableElementTypes())
+                                ->options(FormElement::getAvailableElementTypes())
                                 ->required()
                                 ->live()
                                 ->afterStateUpdated(function ($state, callable $set) {
                                     // Clear existing elementable data when type changes
                                     $set('elementable_data', []);
                                 }),
+                            \Filament\Forms\Components\Textarea::make('description')
+                                ->rows(3),
+                            \Filament\Forms\Components\TextInput::make('help_text')
+                                ->maxLength(500),
                             \Filament\Forms\Components\Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -340,6 +376,54 @@ class BuildFormVersion extends Page implements HasForms
                             }
                             return $this->getElementSpecificSchema($elementType);
                         }),
+                    \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
+                        ->icon('heroicon-o-link')
+                        ->schema(function (callable $get) {
+                            // Get data sources assigned to this form version
+                            $formVersion = $this->record;
+                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
+                                return [
+                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
+                                        ->label('')
+                                        ->content('Please add Data Sources in the Form Version before adding Data Bindings.')
+                                        ->extraAttributes(['class' => 'text-warning'])
+                                ];
+                            }
+
+                            return [
+                                Repeater::make('dataBindings')
+                                    ->label('Data Bindings')
+                                    ->defaultItems(0)
+                                    ->schema([
+                                        Select::make('form_data_source_id')
+                                            ->label('Data Source')
+                                            ->options(function () use ($formVersion) {
+                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
+                                            })
+                                            ->searchable()
+                                            ->preload()
+                                            ->required()
+                                            ->live(onBlur: true),
+                                        \Filament\Forms\Components\TextInput::make('path')
+                                            ->label('Data Path')
+                                            ->required()
+                                            ->placeholder("$.['Contact'].['Birth Date']")
+                                            ->helperText('The path to the data field in the selected data source'),
+                                    ])
+                                    ->orderColumn('order')
+                                    ->itemLabel(
+                                        fn(array $state): ?string =>
+                                        isset($state['form_data_source_id']) && isset($state['path'])
+                                            ? (FormDataSource::find($state['form_data_source_id'])?->name ?? 'Data Source') . ': ' . $state['path']
+                                            : 'New Data Binding'
+                                    )
+                                    ->addActionLabel('Add Data Binding')
+                                    ->reorderableWithButtons()
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->columnSpanFull(),
+                            ];
+                        }),
                 ])
                 ->columnSpanFull(),
         ];
@@ -385,6 +469,7 @@ class BuildFormVersion extends Page implements HasForms
     {
         return [
             FormVersionResource::getUrl('index') => 'Form Versions',
+            FormResource::getUrl('view', ['record' => $this->record->form->id]) => "{$this->record->form->form_id}",
             FormVersionResource::getUrl('view', ['record' => $this->record]) => "Version {$this->record->version_number}",
             '#' => 'Form Builder',
         ];

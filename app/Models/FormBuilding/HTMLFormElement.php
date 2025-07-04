@@ -47,6 +47,18 @@ class HTMLFormElement extends Model
     }
 
     /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'name' => $this->name,
+            'html_content' => $this->html_content,
+            'repeater_item_label' => $this->repeater_item_label,
+        ];
+    }
+
+    /**
      * Get sanitized HTML content for safe display.
      */
     public function getSanitizedHtmlAttribute(): string

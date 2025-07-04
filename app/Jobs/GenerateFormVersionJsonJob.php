@@ -21,19 +21,48 @@ class GenerateFormVersionJsonJob implements ShouldQueue
 
     public function __construct(
         public FormVersion $formVersion,
-        public int $userId
+        public int $userId,
+        public int $version = 2
     ) {}
 
     public function handle(): void
     {
         try {
             $jsonService = new FormVersionJsonService();
-            $jsonData = $jsonService->generateJson($this->formVersion);
+
+            $formVersion = FormVersion::with([
+                'form',
+                'formElements.elementable' => function ($morphTo) {
+                    $morphTo->morphWith([
+                        \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
+                        \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                    ]);
+                },
+                'formElements.dataBindings.formDataSource',
+                'formDataSources' => function ($query) {
+                    $query->orderBy('form_versions_form_data_sources.order');
+                },
+                'webStyleSheet',
+                'pdfStyleSheet',
+                'webFormScript',
+                'pdfFormScript'
+            ])->find($this->formVersion->id);
+
+            switch ($this->version) {
+                case 1:
+                    $jsonData = $jsonService->generatePreMigrationJson($formVersion);
+                    break;
+                case 2:
+                    $jsonData = $jsonService->generateJson($formVersion);
+                    break;
+                default:
+                    throw new \Exception("Unsupported format version: {$this->version}");
+            }
 
             // Create filename with form title and version
             $formTitle = $this->formVersion->form->form_title ?? 'Unknown Form';
             $sanitizedTitle = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $formTitle);
-            $filename = "form_{$sanitizedTitle}_v{$this->formVersion->version_number}_{$this->formVersion->id}.json";
+            $filename = "form_{$sanitizedTitle}_v{$this->formVersion->version_number}_{$this->formVersion->id}_formatversion_{$this->version}.json";
 
             // Store the JSON file
             $filePath = "{$filename}";

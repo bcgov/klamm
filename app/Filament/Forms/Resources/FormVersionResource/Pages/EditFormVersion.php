@@ -2,6 +2,7 @@
 
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
+use App\Filament\Forms\Resources\FormResource;
 use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
@@ -13,6 +14,16 @@ class EditFormVersion extends EditRecord
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
+    }
+
+    public function getBreadcrumbs(): array
+    {
+        return [
+            FormVersionResource::getUrl('index') => 'Form Versions',
+            FormResource::getUrl('view', ['record' => $this->record->form->id]) => "{$this->record->form->form_id}",
+            FormVersionResource::getUrl('view', ['record' => $this->record]) => "Version {$this->record->version_number}",
+            '#' => 'Edit Form Version',
+        ];
     }
 
     protected function getHeaderActions(): array

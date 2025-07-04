@@ -52,6 +52,9 @@ COPY . /var/www
 # Install Node.js dependencies if package.json exists
 RUN if [ -f package.json ]; then npm install; fi
 
+# 🛠 NEW: Build frontend assets using Vite (required for Filament Monaco etc.)
+RUN npm run build
+
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
