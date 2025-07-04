@@ -39,7 +39,12 @@ class FormVersionJsonService
         // Load the form version with necessary relationships
         $formVersion->load([
             'form',
-            'formElements.elementable',
+            'formElements.elementable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
+                    \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                ]);
+            },
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
@@ -56,6 +61,8 @@ class FormVersionJsonService
             'footer' => $formVersion->footer,
             'dataSources' => $formVersion->formDataSources(),
             'data' => [
+                'styles' => $this->getStyles($formVersion),
+                'scripts' => $this->getScripts($formVersion),
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
         ];
@@ -333,6 +340,7 @@ class FormVersionJsonService
             'textarea-input' => 'text-area',
             'dropdown' => 'dropdown',
             'select-input' => 'dropdown',
+            'select' => 'dropdown',
             'checkbox-input' => 'checkbox',
             'checkbox' => 'checkbox',
             'toggle-input' => 'toggle',
@@ -390,22 +398,40 @@ class FormVersionJsonService
                     $elementData['defaultValue'] = (bool)$attributes['default_value'];
                 }
                 break;
-
+            case 'radio-input':
             case 'radio':
-            case 'dropdown':
-                // Add list items if they exist in attributes
-                $attributes = $this->getElementAttributes($element);
-                if (isset($attributes['options']) && is_array($attributes['options'])) {
-                    $elementData['listItems'] = array_map(function ($option) {
+                $radioOptions = [];
+                if ($element->elementable && method_exists($element->elementable, 'options')) {
+                    $optionsCollection = $element->elementable->options()->ordered()->get();
+                    $radioOptions = $optionsCollection->map(function ($option) {
                         return [
-                            'name' => $option['label'] ?? $option['value'] ?? '',
-                            'text' => $option['label'] ?? $option['value'] ?? '',
-                            'value' => $option['value'] ?? ''
+                            'value' => $option->id ?? '',
+                            'text' => $option->label ?? '',
                         ];
-                    }, $attributes['options']);
+                    })->toArray();
+                }
+                if (!empty($radioOptions)) {
+                    $elementData['listItems'] = $radioOptions;
                 }
                 break;
-
+            case 'dropdown':
+            case 'select-input':
+            case 'select':
+                $options = [];
+                if ($element->elementable && method_exists($element->elementable, 'options')) {
+                    $optionsCollection = $element->elementable->options()->ordered()->get();
+                    $options = $optionsCollection->map(function ($option) {
+                        return [
+                            'name' => $option->label ?? '',
+                            'text' => $option->label ?? '',
+                            'value' => $option->id ?? '',
+                        ];
+                    })->toArray();
+                }
+                if (!empty($options)) {
+                    $elementData['listItems'] = $options;
+                }
+                break;
             case 'file':
                 // Add file-specific properties
                 $attributes = $this->getElementAttributes($element);
@@ -422,6 +448,13 @@ class FormVersionJsonService
                 $attributes = $this->getElementAttributes($element);
                 if (isset($attributes['columns'])) {
                     $elementData['columns'] = $attributes['columns'];
+                }
+                break;
+            case 'text-info':
+                // Add text info specific properties
+                $attributes = $this->getElementAttributes($element);
+                if (isset($attributes['content'])) {
+                    $elementData['value'] = $attributes['content'];
                 }
                 break;
         }

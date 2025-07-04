@@ -6,14 +6,16 @@ use App\Filament\Forms\Resources\FormVersionResource;
 use App\Filament\Components\FormVersionBuilder;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
-use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
+use App\Filament\Forms\Resources\FormResource;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
+use Filament\Actions\ActionGroup;
+use Filament\Support\Enums\ActionSize;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms;
@@ -140,33 +142,15 @@ class BuildFormVersion extends Page implements HasForms
             //         $this->triggerUpdateEvent('manual_broadcast');
             //     }),
 
-            Actions\Action::make('download_json')
-                ->label('Download')
-                ->icon('heroicon-o-arrow-down-tray')
+            ActionGroup::make([
+                $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
+                $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
+            ])
+                ->label('Download JSON')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->size(ActionSize::Small)
                 ->color('info')
-                ->outlined()
-                ->action(function () {
-                    $userId = Auth::id();
-
-                    if (!$userId) {
-                        \Filament\Notifications\Notification::make()
-                            ->danger()
-                            ->title('Authentication Error')
-                            ->body('You must be logged in to download JSON files.')
-                            ->send();
-                        return;
-                    }
-
-                    // Dispatch job to generate JSON
-                    GenerateFormVersionJsonJob::dispatch($this->record, $userId);
-
-                    // Show immediate notification
-                    \Filament\Notifications\Notification::make()
-                        ->info()
-                        ->title('JSON Export Started')
-                        ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
-                        ->send();
-                }),
+                ->button(),
             Actions\Action::make('Preview Form')
                 ->label('Preview')
                 ->icon('heroicon-o-tv')
@@ -178,6 +162,37 @@ class BuildFormVersion extends Page implements HasForms
                 })
                 ->color('primary'),
         ];
+    }
+
+    protected function makeDownloadJsonAction(string $name, string $label, int $version): Actions\Action
+    {
+        return Actions\Action::make($name)
+            ->label($label)
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('info')
+            ->outlined()
+            ->action(function () use ($version) {
+                $userId = Auth::id();
+
+                if (!$userId) {
+                    \Filament\Notifications\Notification::make()
+                        ->danger()
+                        ->title('Authentication Error')
+                        ->body('You must be logged in to download JSON files.')
+                        ->send();
+                    return;
+                }
+
+                // Dispatch job to generate JSON for the given version
+                GenerateFormVersionJsonJob::dispatch($this->record, $userId, $version);
+
+                // Show immediate notification
+                \Filament\Notifications\Notification::make()
+                    ->info()
+                    ->title('JSON Export Started')
+                    ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
+                    ->send();
+            });
     }
 
 
@@ -251,7 +266,7 @@ class BuildFormVersion extends Page implements HasForms
                                     }
 
                                     // Prefill basic form element data
-                                    $set('name', $template->name . ' (Copy)');
+                                    $set('name', $template->name);
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
@@ -278,10 +293,6 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
-                            \Filament\Forms\Components\Textarea::make('description')
-                                ->rows(3),
-                            \Filament\Forms\Components\TextInput::make('help_text')
-                                ->maxLength(500),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(\App\Models\FormBuilding\FormElement::getAvailableElementTypes())
@@ -291,6 +302,10 @@ class BuildFormVersion extends Page implements HasForms
                                     // Clear existing elementable data when type changes
                                     $set('elementable_data', []);
                                 }),
+                            \Filament\Forms\Components\Textarea::make('description')
+                                ->rows(3),
+                            \Filament\Forms\Components\TextInput::make('help_text')
+                                ->maxLength(500),
                             \Filament\Forms\Components\Toggle::make('is_visible')
                                 ->label('Visible')
                                 ->default(true),
@@ -385,6 +400,7 @@ class BuildFormVersion extends Page implements HasForms
     {
         return [
             FormVersionResource::getUrl('index') => 'Form Versions',
+            FormResource::getUrl('view', ['record' => $this->record->form->id]) => "{$this->record->form->form_id}",
             FormVersionResource::getUrl('view', ['record' => $this->record]) => "Version {$this->record->version_number}",
             '#' => 'Form Builder',
         ];

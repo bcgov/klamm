@@ -46,4 +46,15 @@ class CheckboxInputFormElement extends Model
     {
         return $this->morphOne(FormElement::class, 'elementable');
     }
+
+    /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'label' => $this->label,
+            'visible_label' => $this->visible_label,
+        ];
+    }
 }

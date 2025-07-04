@@ -89,6 +89,24 @@ class DateSelectInputFormElement extends Model
     }
 
     /**
+     * Return this element's data as an array
+     */
+    public function getData(): array
+    {
+        return [
+            'placeholder_text' => $this->placeholder_text,
+            'label' => $this->label,
+            'visible_label' => $this->visible_label,
+            'repeater_item_label' => $this->repeater_item_label,
+            'min_date' => $this->min_date,
+            'max_date' => $this->max_date,
+            'default_date' => $this->default_date,
+            'date_format' => $this->date_format,
+            'include_time' => $this->include_time,
+        ];
+    }
+
+    /**
      * Get available date formats.
      */
     public static function getDateFormats(): array
