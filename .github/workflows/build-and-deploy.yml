@@ -149,3 +149,4 @@ jobs:
       - name: Trigger OpenShift Rollout
         run: |
           oc rollout restart deployment/klamm-app
+          oc rollout restart deployment/klamm-queue-worker
