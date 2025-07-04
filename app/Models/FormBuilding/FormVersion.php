@@ -19,6 +19,7 @@ use App\Models\Form;
 use App\Models\User;
 use App\Models\FormApprovalRequest;
 use App\Models\FormMetadata\FormDataSource;
+use App\Models\FormBuilding\FormVersionFormDataSource;
 
 class FormVersion extends Model
 {
@@ -203,7 +204,15 @@ class FormVersion extends Model
 
     public function formDataSources(): BelongsToMany
     {
-        return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources');
+        return $this->belongsToMany(FormDataSource::class, 'form_versions_form_data_sources')
+            ->withPivot('order')
+            ->withTimestamps()
+            ->orderBy('form_versions_form_data_sources.order');
+    }
+
+    public function formVersionFormDataSources(): HasMany
+    {
+        return $this->hasMany(FormVersionFormDataSource::class)->orderBy('order');
     }
 
     public function approvalRequests(): HasMany

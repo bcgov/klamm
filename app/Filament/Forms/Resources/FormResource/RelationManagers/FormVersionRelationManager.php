@@ -11,6 +11,7 @@ use App\Helpers\FormVersionHelper;
 use Filament\Forms\Components\DatePicker;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormVersionFormDataSource;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Str;
@@ -136,6 +137,15 @@ class FormVersionRelationManager extends RelationManager
                         // Duplicate related models using a helper method
                         FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
                         FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
+
+                        // Duplicate form data sources with their order
+                        foreach ($record->formVersionFormDataSources as $formDataSource) {
+                            FormVersionFormDataSource::create([
+                                'form_version_id' => $newVersion->id,
+                                'form_data_source_id' => $formDataSource->form_data_source_id,
+                                'order' => $formDataSource->order,
+                            ]);
+                        }
 
                         // Redirect to build the new version
                         return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
