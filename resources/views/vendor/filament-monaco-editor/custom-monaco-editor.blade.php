@@ -56,6 +56,13 @@
                         $wire.set('{{ $getStatePath() }}', model.getValue());
                     });
 
+                    // Listen for external state changes from Livewire and update editor
+                    $wire.$watch('{{ $getStatePath() }}', (value) => {
+                        if (value !== model.getValue()) {
+                            model.setValue(value || '');
+                        }
+                    });
+
                     // Register autocomplete provider only once per language globally
                     if (!window.__monacoProviderRegistered) {
                         window.__monacoProviderRegistered = {};
