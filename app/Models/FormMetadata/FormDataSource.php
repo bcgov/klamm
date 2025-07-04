@@ -24,6 +24,9 @@ class FormDataSource extends Model
 
     public function formVersions(): BelongsToMany
     {
-        return $this->belongsToMany(FormVersion::class, 'form_versions_form_data_sources');
+        return $this->belongsToMany(FormVersion::class, 'form_versions_form_data_sources')
+            ->withPivot('order')
+            ->withTimestamps()
+            ->orderBy('form_versions_form_data_sources.order');
     }
 }
