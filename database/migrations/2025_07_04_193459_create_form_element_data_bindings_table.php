@@ -18,9 +18,6 @@ return new class extends Migration
             $table->string('path');
             $table->integer('order')->default(0);
             $table->timestamps();
-
-            // Add unique constraint to prevent duplicate data source bindings per element
-            $table->unique(['form_element_id', 'form_data_source_id'], 'unique_element_data_source');
         });
     }
 

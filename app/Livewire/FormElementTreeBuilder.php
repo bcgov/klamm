@@ -317,8 +317,7 @@ class FormElementTreeBuilder extends BaseWidget
                                             ->searchable()
                                             ->preload()
                                             ->required()
-                                            ->live(onBlur: true)
-                                            ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                                            ->live(onBlur: true),
                                         TextInput::make('path')
                                             ->label('Data Path')
                                             ->required()

@@ -403,8 +403,7 @@ class BuildFormVersion extends Page implements HasForms
                                             ->searchable()
                                             ->preload()
                                             ->required()
-                                            ->live(onBlur: true)
-                                            ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                                            ->live(onBlur: true),
                                         \Filament\Forms\Components\TextInput::make('path')
                                             ->label('Data Path')
                                             ->required()
