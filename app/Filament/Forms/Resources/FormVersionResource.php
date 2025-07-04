@@ -99,7 +99,8 @@ class FormVersionResource extends Resource
                                     )
                                     ->addActionLabel('Add Data Source')
                                     ->collapsed()
-                                    ->columnSpanFull(),
+                                    ->columnSpanFull()
+                                    ->defaultItems(0),
                                 TextInput::make('footer')
                                     ->columnSpanFull(),
                                 Textarea::make('comments')
@@ -174,6 +175,16 @@ class FormVersionResource extends Resource
 
                             // Attach tags
                             $newElement->tags()->attach($element->tags->pluck('id'));
+
+                            // Duplicate data bindings
+                            foreach ($element->dataBindings as $dataBinding) {
+                                \App\Models\FormBuilding\FormElementDataBinding::create([
+                                    'form_element_id' => $newElement->id,
+                                    'form_data_source_id' => $dataBinding->form_data_source_id,
+                                    'path' => $dataBinding->path,
+                                    'order' => $dataBinding->order,
+                                ]);
+                            }
 
                             // Duplicate polymorphic elementable and link to new element
                             if ($element->elementable) {

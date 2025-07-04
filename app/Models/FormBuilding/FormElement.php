@@ -126,6 +126,14 @@ class FormElement extends Model
     }
 
     /**
+     * Get the data bindings for this form element.
+     */
+    public function dataBindings(): HasMany
+    {
+        return $this->hasMany(FormElementDataBinding::class)->orderBy('order');
+    }
+
+    /**
      * Scope to get root elements (no parent)
      */
     public function scopeRoot($query)

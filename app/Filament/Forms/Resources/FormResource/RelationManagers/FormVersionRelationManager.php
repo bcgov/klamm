@@ -12,6 +12,7 @@ use Filament\Forms\Components\DatePicker;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormVersionFormDataSource;
+use App\Models\FormBuilding\FormElementDataBinding;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Str;
@@ -116,6 +117,16 @@ class FormVersionRelationManager extends RelationManager
 
                             // Attach tags
                             $newElement->tags()->attach($element->tags->pluck('id'));
+
+                            // Duplicate data bindings
+                            foreach ($element->dataBindings as $dataBinding) {
+                                FormElementDataBinding::create([
+                                    'form_element_id' => $newElement->id,
+                                    'form_data_source_id' => $dataBinding->form_data_source_id,
+                                    'path' => $dataBinding->path,
+                                    'order' => $dataBinding->order,
+                                ]);
+                            }
 
                             // Duplicate polymorphic elementable and link to new element
                             if ($element->elementable) {
