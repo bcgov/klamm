@@ -11,5 +11,8 @@
         "laravel-vite-plugin": "^1.2",
         "pusher-js": "^8.4.0",
         "vite": "^6.3"
+    },
+    "dependencies": {
+        "monaco-editor": "^0.52.2"
     }
 }

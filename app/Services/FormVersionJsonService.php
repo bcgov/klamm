@@ -61,6 +61,8 @@ class FormVersionJsonService
             'footer' => $formVersion->footer,
             'dataSources' => $formVersion->formDataSources(),
             'data' => [
+                'styles' => $this->getStyles($formVersion),
+                'scripts' => $this->getScripts($formVersion),
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
         ];
