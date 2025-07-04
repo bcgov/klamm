@@ -72,6 +72,10 @@ class BuildFormVersion extends Page implements HasForms
                         $tagIds = $data['tags'] ?? [];
                         unset($data['tags']);
 
+                        // Extract data bindings data before creating the element
+                        $dataBindingsData = $data['dataBindings'] ?? [];
+                        unset($data['dataBindings']);
+
                         // Extract polymorphic data
                         $elementType = $data['elementable_type'];
                         $elementableData = $data['elementable_data'] ?? [];
@@ -103,6 +107,20 @@ class BuildFormVersion extends Page implements HasForms
                         // Attach tags if any were selected
                         if (!empty($tagIds)) {
                             $formElement->tags()->attach($tagIds);
+                        }
+
+                        // Create data bindings if any were provided
+                        if (!empty($dataBindingsData)) {
+                            foreach ($dataBindingsData as $index => $bindingData) {
+                                if (isset($bindingData['form_data_source_id']) && isset($bindingData['path'])) {
+                                    \App\Models\FormBuilding\FormElementDataBinding::create([
+                                        'form_element_id' => $formElement->id,
+                                        'form_data_source_id' => $bindingData['form_data_source_id'],
+                                        'path' => $bindingData['path'],
+                                        'order' => $index + 1,
+                                    ]);
+                                }
+                            }
                         }
 
                         // Fire update event for element creation
@@ -375,7 +393,6 @@ class BuildFormVersion extends Page implements HasForms
                             return [
                                 Repeater::make('dataBindings')
                                     ->label('Data Bindings')
-                                    ->relationship()
                                     ->defaultItems(0)
                                     ->schema([
                                         Select::make('form_data_source_id')
