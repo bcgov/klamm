@@ -11,6 +11,8 @@ use App\Helpers\FormVersionHelper;
 use Filament\Forms\Components\DatePicker;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormVersionFormDataSource;
+use App\Models\FormBuilding\FormElementDataBinding;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\Str;
@@ -116,6 +118,16 @@ class FormVersionRelationManager extends RelationManager
                             // Attach tags
                             $newElement->tags()->attach($element->tags->pluck('id'));
 
+                            // Duplicate data bindings
+                            foreach ($element->dataBindings as $dataBinding) {
+                                FormElementDataBinding::create([
+                                    'form_element_id' => $newElement->id,
+                                    'form_data_source_id' => $dataBinding->form_data_source_id,
+                                    'path' => $dataBinding->path,
+                                    'order' => $dataBinding->order,
+                                ]);
+                            }
+
                             // Duplicate polymorphic elementable and link to new element
                             if ($element->elementable) {
                                 $elementableData = $element->elementable->getData();
@@ -136,6 +148,15 @@ class FormVersionRelationManager extends RelationManager
                         // Duplicate related models using a helper method
                         FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, StyleSheet::class);
                         FormVersionHelper::duplicateRelatedModels($record->id, $newVersion->id, FormScript::class);
+
+                        // Duplicate form data sources with their order
+                        foreach ($record->formVersionFormDataSources as $formDataSource) {
+                            FormVersionFormDataSource::create([
+                                'form_version_id' => $newVersion->id,
+                                'form_data_source_id' => $formDataSource->form_data_source_id,
+                                'order' => $formDataSource->order,
+                            ]);
+                        }
 
                         // Redirect to build the new version
                         return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');

@@ -38,6 +38,10 @@ class GenerateFormVersionJsonJob implements ShouldQueue
                         \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
                     ]);
                 },
+                'formElements.dataBindings.formDataSource',
+                'formDataSources' => function ($query) {
+                    $query->orderBy('form_versions_form_data_sources.order');
+                },
                 'webStyleSheet',
                 'pdfStyleSheet',
                 'webFormScript',

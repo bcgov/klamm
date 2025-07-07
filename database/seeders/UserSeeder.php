@@ -15,6 +15,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $formDeveloperRole = Role::firstOrCreate(['name' => 'form-developer']);
 
         $users = [
             ['name' => 'Jeremy', 'email' => 'jeremy.vernon@gov.bc.ca'],
@@ -38,7 +39,7 @@ class UserSeeder extends Seeder
                 ]
             );
 
-            $user->syncRoles([$adminRole]);
+            $user->syncRoles([$adminRole, $formDeveloperRole]);
         }
     }
 }
