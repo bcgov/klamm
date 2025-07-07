@@ -24,7 +24,4 @@ updates:
       - dependency-name: "laravel/framework"
         versions: ["^11.0"]
       - dependency-name: "*"
-        update-types: ["version-update:semver-patch"]
-    allow:
-      - dependency-type: "security-updates"
-      - dependency-type: "version-update:semver-major"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
