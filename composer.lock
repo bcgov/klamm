@@ -5931,16 +5931,16 @@
         },
         {
             "name": "rmsramos/activitylog",
-            "version": "v1.0.10",
+            "version": "v1.0.13",
             "source": {
                 "type": "git",
                 "url": "https://github.com/rmsramos/activitylog.git",
-                "reference": "56719bffa2133e57de8ee6a1fb1820af406f23f9"
+                "reference": "09e66832f6f8b2abde878f33954b64d19aa482ef"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/rmsramos/activitylog/zipball/56719bffa2133e57de8ee6a1fb1820af406f23f9",
-                "reference": "56719bffa2133e57de8ee6a1fb1820af406f23f9",
+                "url": "https://api.github.com/repos/rmsramos/activitylog/zipball/09e66832f6f8b2abde878f33954b64d19aa482ef",
+                "reference": "09e66832f6f8b2abde878f33954b64d19aa482ef",
                 "shasum": ""
             },
             "require": {
@@ -5950,7 +5950,7 @@
                 "spatie/laravel-package-tools": "^1.16"
             },
             "require-dev": {
-                "filament/filament": "^3.2",
+                "filament/filament": "^3.3",
                 "larastan/larastan": "^2.9",
                 "laravel/pint": "^1.16",
                 "nunomaduro/collision": "^8.1.1||^7.10.0",
@@ -5999,9 +5999,9 @@
             ],
             "support": {
                 "issues": "https://github.com/rmsramos/activitylog/issues",
-                "source": "https://github.com/rmsramos/activitylog/tree/v1.0.10"
+                "source": "https://github.com/rmsramos/activitylog/tree/v1.0.13"
             },
-            "time": "2025-05-02T17:00:52+00:00"
+            "time": "2025-07-06T22:18:24+00:00"
         },
         {
             "name": "ryangjchandler/blade-capture-directive",
@@ -6271,16 +6271,16 @@
         },
         {
             "name": "spatie/laravel-activitylog",
-            "version": "4.10.1",
+            "version": "4.10.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/spatie/laravel-activitylog.git",
-                "reference": "466f30f7245fe3a6e328ad5e6812bd43b4bddea5"
+                "reference": "bb879775d487438ed9a99e64f09086b608990c10"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/spatie/laravel-activitylog/zipball/466f30f7245fe3a6e328ad5e6812bd43b4bddea5",
-                "reference": "466f30f7245fe3a6e328ad5e6812bd43b4bddea5",
+                "url": "https://api.github.com/repos/spatie/laravel-activitylog/zipball/bb879775d487438ed9a99e64f09086b608990c10",
+                "reference": "bb879775d487438ed9a99e64f09086b608990c10",
                 "shasum": ""
             },
             "require": {
@@ -6346,7 +6346,7 @@
             ],
             "support": {
                 "issues": "https://github.com/spatie/laravel-activitylog/issues",
-                "source": "https://github.com/spatie/laravel-activitylog/tree/4.10.1"
+                "source": "https://github.com/spatie/laravel-activitylog/tree/4.10.2"
             },
             "funding": [
                 {
@@ -6358,7 +6358,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2025-02-10T15:38:25+00:00"
+            "time": "2025-06-15T06:59:49+00:00"
         },
         {
             "name": "spatie/laravel-package-tools",
