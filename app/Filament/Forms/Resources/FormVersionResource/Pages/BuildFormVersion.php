@@ -29,6 +29,8 @@ use Filament\Forms\Set;
 use Filament\Forms\Components\FileUpload;
 use App\Filament\Forms\Helpers\SchemaParser;
 use Filament\Forms\Components\Wizard;
+use App\Jobs\ImportFormVersionElementsJob;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
@@ -50,6 +52,11 @@ class BuildFormVersion extends Page implements HasForms
 
     public array $data = [];
     public array $importWizard = []; // <-- Add this
+    public array $importJobStatus = [
+        'status' => null,
+        'done' => false,
+        'cacheKey' => null,
+    ];
 
     protected function isEditable(): bool
     {
@@ -103,6 +110,8 @@ class BuildFormVersion extends Page implements HasForms
                 ] : []),
                 FormVersionBuilder::schema($this->isEditable())
             ])
+            ->live()
+            ->reactive()
             ->statePath('data')
             ->model($this->record);
     }
@@ -1630,55 +1639,67 @@ class BuildFormVersion extends Page implements HasForms
             return;
         }
 
-        // Decode the JSON string
-        $parsed = json_decode($schemaContent, true);
-        Log::debug('Decoded schema_content', [
-            'schema_content_decoded' => $parsed,
-            'json_last_error' => json_last_error(),
-            'json_last_error_msg' => json_last_error_msg(),
-        ]);
+        // Generate a unique cache key for this import
+        $cacheKey = 'import_form_version_' . $this->record->id . '_' . uniqid();
+        Cache::put($cacheKey . '_status', 'queued', 3600);
 
-        if (!is_array($parsed)) {
-            Log::error('Schema content is not a valid array', [
-                'schema_content' => $parsed,
-            ]);
-            \Filament\Notifications\Notification::make()
-                ->danger()
-                ->title('Invalid Schema Content')
-                ->body('Schema content is not a valid array.')
-                ->send();
-            return;
-        }
+        ImportFormVersionElementsJob::dispatch(
+            $this->record->id,
+            $schemaContent,
+            $cacheKey,
+            auth()->id()
+        );
 
-        // Get the root elements array (adze-template format)
-        $elements = [];
-        if (isset($parsed['data']['elements'])) {
-            $elements = $parsed['data']['elements'];
-        } elseif (isset($parsed['fields'])) {
-            $elements = $parsed['fields'];
-        } elseif (isset($parsed['elements'])) {
-            $elements = $parsed['elements'];
-        }
+        session()->put('import_job_cache_key', $cacheKey);
 
-        if (empty($elements) || !is_array($elements)) {
-            \Filament\Notifications\Notification::make()
-                ->danger()
-                ->title('No Elements Found')
-                ->body('No elements found in the schema content.')
-                ->send();
-            return;
-        }
-
-        // Import the full tree recursively, preserving containers and children
-        $this->importElementsRecursive($elements, null);
+        $this->importJobStatus = [
+            'status' => 'queued',
+            'done' => false,
+            'cacheKey' => $cacheKey,
+        ];
 
         \Filament\Notifications\Notification::make()
-            ->success()
-            ->title('Import Complete')
-            ->body("Import finished. All elements and containers have been created.")
+            ->info()
+            ->title('Import Started')
+            ->body('The import is being processed in the background. This page will refresh when it is complete.')
+            ->persistent()
             ->send();
+    }
 
-        $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
+    public function pollImportStatus()
+    {
+        $cacheKey = $this->importJobStatus['cacheKey'] ?? session('import_job_cache_key');
+        if (!$cacheKey) {
+            $this->importJobStatus['done'] = false;
+            return;
+        }
+        $status = Cache::get($cacheKey . '_status');
+        if ($status === 'complete') {
+            session()->forget('import_job_cache_key');
+            $this->importJobStatus['done'] = true;
+            // Refresh the Livewire component state (triggers full reload)
+            $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
+        } else {
+            $this->importJobStatus['done'] = false;
+        }
+    }
+
+    public function render(): \Illuminate\Contracts\View\View
+    {
+        // If an import job is running, poll every 2 seconds
+        if (
+            isset($this->importJobStatus['cacheKey']) &&
+            $this->importJobStatus['cacheKey'] &&
+            !$this->importJobStatus['done']
+        ) {
+            $this->js(<<<'JS'
+                setTimeout(() => {
+                    window.livewire.find("{$this->getId()}").call('pollImportStatus');
+                }, 2000);
+            JS);
+        }
+        // ...existing code for rendering the view...
+        return parent::render();
     }
 
     /**
