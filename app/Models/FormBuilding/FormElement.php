@@ -26,7 +26,6 @@ class FormElement extends Model
         'elementable_id',
         'help_text',
         'calculated_value',
-        'is_visible',
         'is_read_only',
         'save_on_submit',
         'visible_web',
@@ -37,7 +36,6 @@ class FormElement extends Model
     protected $casts = [
         'order' => 'integer',
         'parent_id' => 'integer',
-        'is_visible' => 'boolean',
         'is_read_only' => 'boolean',
         'save_on_submit' => 'boolean',
         'visible_web' => 'boolean',
@@ -162,7 +160,7 @@ class FormElement extends Model
      */
     public function scopeVisible($query)
     {
-        return $query->where('is_visible', true);
+        return $query->where('visible_web', true);
     }
 
     /**
@@ -510,10 +508,6 @@ class FormElement extends Model
      */
     public function isVisibleFor(string $platform): bool
     {
-        if (!$this->is_visible) {
-            return false;
-        }
-
         return match ($platform) {
             'web' => $this->visible_web,
             'pdf' => $this->visible_pdf,
@@ -526,7 +520,7 @@ class FormElement extends Model
      */
     public function shouldSaveOnSubmit(): bool
     {
-        return $this->save_on_submit && $this->is_visible && !$this->is_read_only;
+        return $this->save_on_submit && ($this->isVisibleFor('web') || $this->isVisibleFor('pdf')) && !$this->is_read_only;
     }
 
     /**

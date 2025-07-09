@@ -118,18 +118,18 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->rows(3),
                             TextInput::make('help_text')
                                 ->maxLength(500),
-                            Toggle::make('is_visible')
-                                ->label('Visible')
-                                ->default(true),
-                            Toggle::make('visible_web')
-                                ->label('Visible on Web')
-                                ->default(true),
-                            Toggle::make('visible_pdf')
-                                ->label('Visible on PDF')
-                                ->default(true),
-                            Toggle::make('is_template')
-                                ->label('Is Template')
-                                ->default(false),
+                            \Filament\Forms\Components\Grid::make(3)
+                                ->schema([
+                                    Toggle::make('visible_web')
+                                        ->label('Visible on Web')
+                                        ->default(true),
+                                    Toggle::make('visible_pdf')
+                                        ->label('Visible on PDF')
+                                        ->default(true),
+                                    Toggle::make('is_template')
+                                        ->label('Is Template')
+                                        ->default(false),
+                                ]),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()
@@ -290,18 +290,18 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->rows(3),
                             TextInput::make('help_text')
                                 ->disabled(),
-                            Toggle::make('is_visible')
-                                ->label('Visible')
-                                ->disabled(),
-                            Toggle::make('visible_web')
-                                ->label('Visible on Web')
-                                ->disabled(),
-                            Toggle::make('visible_pdf')
-                                ->label('Visible on PDF')
-                                ->disabled(),
-                            Toggle::make('is_template')
-                                ->label('Is Template')
-                                ->disabled(),
+                            \Filament\Forms\Components\Grid::make(3)
+                                ->schema([
+                                    Toggle::make('visible_web')
+                                        ->label('Visible on Web')
+                                        ->disabled(),
+                                    Toggle::make('visible_pdf')
+                                        ->label('Visible on PDF')
+                                        ->disabled(),
+                                    Toggle::make('is_template')
+                                        ->label('Is Template')
+                                        ->disabled(),
+                                ]),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()
