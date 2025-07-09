@@ -159,16 +159,20 @@ class FormVersionRelationManager extends RelationManager
                         }
 
                         // Redirect to build the new version
-                        return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
+                        if (Gate::allows('form-developer')) {
+                            return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
+                        } else {
+                            return redirect()->to(FormVersionResource::getUrl('view', ['record' => $newVersion]));
+                        }
                     })
                     ->requiresConfirmation()
                     ->modalDescription('This will create a new draft version based on this form version, including all form elements.'),
                 Tables\Actions\Action::make('archive')
                     ->label('Archive')
                     ->icon('heroicon-o-archive-box-arrow-down')
-                    ->visible(fn($record) => $record->status === 'published')
+                    ->visible(fn($record) => $record->status === 'published' && Gate::allows('form-developer'))
                     ->action(function ($record) {
-                        $record->update(['status' => 'archived'] && Gate::allows('form-developer'));
+                        $record->update(['status' => 'archived']);
                     })
                     ->requiresConfirmation()
                     ->color('danger')
