@@ -59,6 +59,12 @@ class BuildFormVersion extends Page implements HasForms
         $this->form->fill($this->mutateFormDataBeforeFill([]));
     }
 
+    protected function shouldShowTooltips(): bool
+    {
+        $user = Auth::user();
+        return $user && $user->tooltips_enabled;
+    }
+
     public function form(Form $form): Form
     {
         return $form
@@ -347,7 +353,6 @@ class BuildFormVersion extends Page implements HasForms
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
-                                    $set('is_visible', $template->is_visible);
                                     $set('visible_web', $template->visible_web);
                                     $set('visible_pdf', $template->visible_pdf);
                                     $set('is_template', false); // New element should not be a template by default
@@ -371,7 +376,9 @@ class BuildFormVersion extends Page implements HasForms
                                 ->required()
                                 ->maxLength(255)
                                 ->label('Element Name')
-                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                }),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())
@@ -385,18 +392,18 @@ class BuildFormVersion extends Page implements HasForms
                                 ->rows(3),
                             \Filament\Forms\Components\TextInput::make('help_text')
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Toggle::make('is_visible')
-                                ->label('Visible')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('visible_web')
-                                ->label('Visible on Web')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('visible_pdf')
-                                ->label('Visible on PDF')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('is_template')
-                                ->label('Is Template')
-                                ->default(false),
+                            \Filament\Forms\Components\Grid::make(3)
+                                ->schema([
+                                    \Filament\Forms\Components\Toggle::make('visible_web')
+                                        ->label('Visible on Web')
+                                        ->default(true),
+                                    \Filament\Forms\Components\Toggle::make('visible_pdf')
+                                        ->label('Visible on PDF')
+                                        ->default(true),
+                                    \Filament\Forms\Components\Toggle::make('is_template')
+                                        ->label('Is Template')
+                                        ->default(false),
+                                ]),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()
