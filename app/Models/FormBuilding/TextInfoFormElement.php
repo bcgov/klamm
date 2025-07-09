@@ -15,6 +15,10 @@ class TextInfoFormElement extends Model
         'content',
     ];
 
+    protected $attributes = [
+        'content' => '',
+    ];
+
     /**
      * Get the Filament form schema for this element type.
      */

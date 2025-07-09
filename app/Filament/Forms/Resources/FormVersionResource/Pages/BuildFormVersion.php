@@ -128,7 +128,7 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableModel = null;
                         if (!empty($elementableData) && class_exists($elementType)) {
                             $elementableModel = $elementType::create($elementableData);
-                        } elseif (class_exists($elementType)) {
+                        } elseif (empty($elementableData) && class_exists($elementType)) {
                             // Create with empty array to trigger model defaults
                             $elementableModel = $elementType::create([]);
                         }
