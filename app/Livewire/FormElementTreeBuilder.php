@@ -19,6 +19,7 @@ use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Actions\Action;
 
 class FormElementTreeBuilder extends BaseWidget
 {
@@ -223,6 +224,44 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('name')
                                 ->required()
                                 ->maxLength(255),
+                            TextInput::make('uuid')
+                                ->label('Internal ID')
+                                ->suffixAction(
+                                    Action::make('copy')
+                                        ->icon('heroicon-s-clipboard')
+                                        ->action(function ($livewire, $state) {
+                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        })
+                                )
+                                ->extraAttributes([
+                                    'x-data' => '{
+                                        copyToClipboard(text) {
+                                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                navigator.clipboard.writeText(text).then(() => {
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                }).catch(() => {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                });
+                                            } else {
+                                                const textArea = document.createElement("textarea");
+                                                textArea.value = text;
+                                                textArea.style.position = "fixed";
+                                                textArea.style.opacity = "0";
+                                                document.body.appendChild(textArea);
+                                                textArea.select();
+                                                try {
+                                                    document.execCommand("copy");
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                } catch (err) {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                }
+                                                document.body.removeChild(textArea);
+                                            }
+                                        }
+                                    }',
+                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+                                ])
+                                ->disabled(),
                             \Filament\Forms\Components\Hidden::make('elementable_type'),
                             TextInput::make('elementable_type_display')
                                 ->label('Element Type')
@@ -357,6 +396,44 @@ class FormElementTreeBuilder extends BaseWidget
                         ->icon('heroicon-o-cog')
                         ->schema([
                             TextInput::make('name')
+                                ->disabled(),
+                            TextInput::make('uuid')
+                                ->label('Internal ID')
+                                ->suffixAction(
+                                    Action::make('copy')
+                                        ->icon('heroicon-s-clipboard')
+                                        ->action(function ($livewire, $state) {
+                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        })
+                                )
+                                ->extraAttributes([
+                                    'x-data' => '{
+                                        copyToClipboard(text) {
+                                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                navigator.clipboard.writeText(text).then(() => {
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                }).catch(() => {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                });
+                                            } else {
+                                                const textArea = document.createElement("textarea");
+                                                textArea.value = text;
+                                                textArea.style.position = "fixed";
+                                                textArea.style.opacity = "0";
+                                                document.body.appendChild(textArea);
+                                                textArea.select();
+                                                try {
+                                                    document.execCommand("copy");
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                } catch (err) {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                }
+                                                document.body.removeChild(textArea);
+                                            }
+                                        }
+                                    }',
+                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+                                ])
                                 ->disabled(),
                             TextInput::make('elementable_type')
                                 ->label('Element Type')
