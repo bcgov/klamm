@@ -109,6 +109,8 @@ class BuildFormVersion extends Page implements HasForms
                     try {
                         $data['form_version_id'] = $this->record->id;
 
+                        // Capture the template ID before removing it
+                        $templateId = $data['template_id'] ?? null;
                         // Remove template_id as it's only used for prefilling
                         unset($data['template_id']);
 
@@ -129,6 +131,11 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableData = array_filter($elementableData, function ($value) {
                             return $value !== null;
                         });
+
+                        // Set source_element_id if created from template
+                        if ($templateId) {
+                            $data['source_element_id'] = $templateId;
+                        }
 
                         // Create the polymorphic model first if there's data
                         $elementableModel = null;
