@@ -20,6 +20,7 @@ use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Actions\Action;
+use Illuminate\Support\Facades\Auth;
 
 class FormElementTreeBuilder extends BaseWidget
 {
@@ -45,6 +46,12 @@ class FormElementTreeBuilder extends BaseWidget
         $this->editable = $editable;
     }
 
+    protected function shouldShowTooltips(): bool
+    {
+        $user = Auth::user();
+        return $user && $user->tooltips_enabled;
+    }
+
     public function getEditFormSchema(): array
     {
         return [
@@ -57,7 +64,9 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->required()
                                 ->maxLength(255)
                                 ->label('Element Name')
-                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                }),
                             TextInput::make('uuid')
                                 ->label('Internal ID')
                                 ->suffixAction(
@@ -232,7 +241,9 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('name')
                                 ->disabled()
                                 ->label('Element Name')
-                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                }),
                             TextInput::make('uuid')
                                 ->label('Internal ID')
                                 ->suffixAction(

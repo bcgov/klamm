@@ -59,6 +59,12 @@ class BuildFormVersion extends Page implements HasForms
         $this->form->fill($this->mutateFormDataBeforeFill([]));
     }
 
+    protected function shouldShowTooltips(): bool
+    {
+        $user = Auth::user();
+        return $user && $user->tooltips_enabled;
+    }
+
     public function form(Form $form): Form
     {
         return $form
@@ -371,7 +377,9 @@ class BuildFormVersion extends Page implements HasForms
                                 ->required()
                                 ->maxLength(255)
                                 ->label('Element Name')
-                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                }),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())
