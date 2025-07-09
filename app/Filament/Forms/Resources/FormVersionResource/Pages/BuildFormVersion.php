@@ -24,6 +24,9 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\HtmlString;
+use Filament\Forms\Components\Placeholder;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -36,17 +39,57 @@ class BuildFormVersion extends Page implements HasForms
 
     public array $data = [];
 
+    protected function isEditable(): bool
+    {
+        return $this->record->status === 'draft';
+    }
+
+    protected function getFormattedStatusName(): string
+    {
+        return $this->record->getFormattedStatusName();
+    }
+
     public function mount(int | string $record): void
     {
+        if (!Gate::allows('form-developer')) {
+            abort(403, 'Unauthorized. Only form developers can access the form builder.');
+        }
+
         $this->record = $this->resolveRecord($record);
         $this->form->fill($this->mutateFormDataBeforeFill([]));
+    }
+
+    protected function shouldShowTooltips(): bool
+    {
+        $user = Auth::user();
+        return $user && $user->tooltips_enabled;
     }
 
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                FormVersionBuilder::schema()
+                // Add notification banner for read-only mode
+                ...((!$this->isEditable()) ? [
+                    Placeholder::make('readonly_notice')
+                        ->label('')
+                        ->content(new HtmlString('
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                                <div class="flex">
+                                    <div class="ml-3">
+                                        <h3 class="text-sm font-medium text-amber-800">
+                                            Read-Only Mode
+                                        </h3>
+                                        <div class="mt-2 text-sm text-amber-700">
+                                            <p>This form version is <strong>' . $this->getFormattedStatusName() . '</strong> and cannot be edited. Only form versions in <strong>Draft</strong> status can be modified.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        '))
+                        ->columnSpanFull(),
+                ] : []),
+                FormVersionBuilder::schema($this->isEditable())
             ])
             ->statePath('data')
             ->model($this->record);
@@ -60,6 +103,7 @@ class BuildFormVersion extends Page implements HasForms
                 ->icon('heroicon-o-plus-circle')
                 ->color('success')
                 ->outlined()
+                ->visible($this->isEditable())
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
                     try {
@@ -90,7 +134,7 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableModel = null;
                         if (!empty($elementableData) && class_exists($elementType)) {
                             $elementableModel = $elementType::create($elementableData);
-                        } elseif (class_exists($elementType)) {
+                        } elseif (empty($elementableData) && class_exists($elementType)) {
                             // Create with empty array to trigger model defaults
                             $elementableModel = $elementType::create([]);
                         }
@@ -154,15 +198,6 @@ class BuildFormVersion extends Page implements HasForms
                     }
                 }),
 
-            // Actions\Action::make('broadcast_update')
-            //     ->label('Broadcast Update')
-            //     ->icon('heroicon-o-signal')
-            //     ->color('info')
-            //     ->outlined()
-            //     ->action(function () {
-            //         $this->triggerUpdateEvent('manual_broadcast');
-            //     }),
-
             ActionGroup::make([
                 $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
                 $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
@@ -220,6 +255,16 @@ class BuildFormVersion extends Page implements HasForms
 
     public function save(): void
     {
+        // Prevent saving if not editable
+        if (!$this->isEditable()) {
+            \Filament\Notifications\Notification::make()
+                ->warning()
+                ->title('Cannot Save Changes')
+                ->body('Form versions can only be saved when in draft status.')
+                ->send();
+            return;
+        }
+
         $data = $this->form->getState();
 
         // Save CSS stylesheets
@@ -267,11 +312,28 @@ class BuildFormVersion extends Page implements HasForms
                                 ->label('Start from template')
                                 ->placeholder('Select a template (optional)')
                                 ->options(function () {
-                                    return FormElement::templates()
+                                    $templates = FormElement::templates()
                                         ->with('elementable')
-                                        ->get()
-                                        ->pluck('name', 'id')
-                                        ->toArray();
+                                        ->get();
+
+                                    $availableTypes = FormElement::getAvailableElementTypes();
+                                    $groupedOptions = [];
+
+                                    foreach ($templates as $template) {
+                                        $elementType = $template->elementable_type;
+                                        $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
+
+                                        if (!isset($groupedOptions[$groupName])) {
+                                            $groupedOptions[$groupName] = [];
+                                        }
+
+                                        $groupedOptions[$groupName][$template->id] = $template->name;
+                                    }
+
+                                    // Sort groups alphabetically
+                                    ksort($groupedOptions);
+
+                                    return $groupedOptions;
                                 })
                                 ->live()
                                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
@@ -291,7 +353,6 @@ class BuildFormVersion extends Page implements HasForms
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
-                                    $set('is_visible', $template->is_visible);
                                     $set('visible_web', $template->visible_web);
                                     $set('visible_pdf', $template->visible_pdf);
                                     $set('is_template', false); // New element should not be a template by default
@@ -313,7 +374,11 @@ class BuildFormVersion extends Page implements HasForms
                                 ->columnSpanFull(),
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->label('Element Name')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                }),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())
@@ -327,18 +392,18 @@ class BuildFormVersion extends Page implements HasForms
                                 ->rows(3),
                             \Filament\Forms\Components\TextInput::make('help_text')
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Toggle::make('is_visible')
-                                ->label('Visible')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('visible_web')
-                                ->label('Visible on Web')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('visible_pdf')
-                                ->label('Visible on PDF')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('is_template')
-                                ->label('Is Template')
-                                ->default(false),
+                            \Filament\Forms\Components\Grid::make(3)
+                                ->schema([
+                                    \Filament\Forms\Components\Toggle::make('visible_web')
+                                        ->label('Visible on Web')
+                                        ->default(true),
+                                    \Filament\Forms\Components\Toggle::make('visible_pdf')
+                                        ->label('Visible on PDF')
+                                        ->default(true),
+                                    \Filament\Forms\Components\Toggle::make('is_template')
+                                        ->label('Is Template')
+                                        ->default(false),
+                                ]),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
                                 ->multiple()

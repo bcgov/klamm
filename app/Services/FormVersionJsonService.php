@@ -153,7 +153,6 @@ class FormVersionJsonService
             'name' => $element->name,
             'description' => $element->description,
             'help_text' => $element->help_text,
-            'is_visible' => $element->is_visible,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
@@ -590,7 +589,7 @@ class FormVersionJsonService
             ];
         }
 
-        if (!$element->is_visible) {
+        if (!$element->visible_web && !$element->visible_pdf) {
             $conditions[] = [
                 'type' => 'visibility',
                 'value' => 'NOT visible'

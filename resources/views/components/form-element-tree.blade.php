@@ -1,6 +1,6 @@
 <div class="form-element-tree-container">
     @if($formVersionId)
-    @livewire(\App\Livewire\FormElementTreeBuilder::class, ['formVersionId' => $formVersionId], key('form-element-tree-' . $formVersionId))
+    @livewire(\App\Livewire\FormElementTreeBuilder::class, ['formVersionId' => $formVersionId, 'editable' => $editable ?? true], key('form-element-tree-' . $formVersionId))
     @else
     <div class="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
         <div class="text-gray-400 mb-2">
