@@ -306,11 +306,28 @@ class BuildFormVersion extends Page implements HasForms
                                 ->label('Start from template')
                                 ->placeholder('Select a template (optional)')
                                 ->options(function () {
-                                    return FormElement::templates()
+                                    $templates = FormElement::templates()
                                         ->with('elementable')
-                                        ->get()
-                                        ->pluck('name', 'id')
-                                        ->toArray();
+                                        ->get();
+
+                                    $availableTypes = FormElement::getAvailableElementTypes();
+                                    $groupedOptions = [];
+
+                                    foreach ($templates as $template) {
+                                        $elementType = $template->elementable_type;
+                                        $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
+
+                                        if (!isset($groupedOptions[$groupName])) {
+                                            $groupedOptions[$groupName] = [];
+                                        }
+
+                                        $groupedOptions[$groupName][$template->id] = $template->name;
+                                    }
+
+                                    // Sort groups alphabetically
+                                    ksort($groupedOptions);
+
+                                    return $groupedOptions;
                                 })
                                 ->live()
                                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
