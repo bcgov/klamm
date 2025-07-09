@@ -118,8 +118,11 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->rows(3),
                             TextInput::make('help_text')
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(3)
+                            \Filament\Forms\Components\Grid::make(4)
                                 ->schema([
+                                    Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
                                     Toggle::make('visible_web')
                                         ->label('Visible on Web')
                                         ->default(true),
@@ -290,8 +293,11 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->rows(3),
                             TextInput::make('help_text')
                                 ->disabled(),
-                            \Filament\Forms\Components\Grid::make(3)
+                            \Filament\Forms\Components\Grid::make(4)
                                 ->schema([
+                                    Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
                                     Toggle::make('visible_web')
                                         ->label('Visible on Web')
                                         ->disabled(),

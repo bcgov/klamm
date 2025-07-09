@@ -153,6 +153,7 @@ class FormVersionJsonService
             'name' => $element->name,
             'description' => $element->description,
             'help_text' => $element->help_text,
+            'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
@@ -259,6 +260,27 @@ class FormVersionJsonService
         $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         $elementData['label'] = $elementData['attributes']['legend'] ?? null;
 
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
+
         // Add children if this is a container
         $children = FormElement::where('parent_id', $element->id)
             ->orderBy('order')
@@ -315,6 +337,15 @@ class FormVersionJsonService
         $elementData['mask'] = null;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
+        ];
+
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add input type for specific elements
@@ -493,7 +524,7 @@ class FormVersionJsonService
         $attributes = $this->getElementAttributes($element);
 
         // Handle different validation types based on element attributes
-        if (isset($attributes['required']) && $attributes['required']) {
+        if (isset($attributes['required']) && $attributes['required'] || $element->is_required) {
             $validation[] = [
                 'type' => 'required',
                 'value' => 'true',

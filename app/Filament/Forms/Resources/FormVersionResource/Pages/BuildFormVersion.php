@@ -353,6 +353,7 @@ class BuildFormVersion extends Page implements HasForms
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
+                                    $set('is_required', $template->is_required);
                                     $set('visible_web', $template->visible_web);
                                     $set('visible_pdf', $template->visible_pdf);
                                     $set('is_template', false); // New element should not be a template by default
@@ -392,8 +393,11 @@ class BuildFormVersion extends Page implements HasForms
                                 ->rows(3),
                             \Filament\Forms\Components\TextInput::make('help_text')
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(3)
+                            \Filament\Forms\Components\Grid::make(4)
                                 ->schema([
+                                    \Filament\Forms\Components\Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
                                     \Filament\Forms\Components\Toggle::make('visible_web')
                                         ->label('Visible on Web')
                                         ->default(true),

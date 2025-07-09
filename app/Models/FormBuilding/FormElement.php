@@ -27,6 +27,7 @@ class FormElement extends Model
         'help_text',
         'calculated_value',
         'is_read_only',
+        'is_required',
         'save_on_submit',
         'visible_web',
         'visible_pdf',
@@ -37,6 +38,7 @@ class FormElement extends Model
         'order' => 'integer',
         'parent_id' => 'integer',
         'is_read_only' => 'boolean',
+        'is_required' => 'boolean',
         'save_on_submit' => 'boolean',
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
@@ -185,6 +187,11 @@ class FormElement extends Model
     public function scopeReadOnly($query)
     {
         return $query->where('is_read_only', true);
+    }
+
+    public function scopeIsRequired($query)
+    {
+        return $query->where('is_required', true);
     }
 
     /**
