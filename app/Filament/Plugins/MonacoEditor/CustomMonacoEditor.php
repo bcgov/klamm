@@ -2,16 +2,6 @@
 
 namespace App\Filament\Plugins\MonacoEditor;
 
-use Filament\Tables\Table;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Columns\Column;
-use Filament\Tables\Columns\TextColumn;
-use Rmsramos\Activitylog\Resources\ActivitylogResource;
-use Spatie\Activitylog\Models\Activity;
-use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\Builder;
-use App\Models\User;
-
 use WeStacks\FilamentMonacoEditor\MonacoEditor;
 
 // Extend the MonacoEditor plugin to enable the automcomplete feature for custom uuids and fields
