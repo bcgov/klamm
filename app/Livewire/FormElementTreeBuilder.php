@@ -17,6 +17,9 @@ use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
+use Filament\Notifications\Notification;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Actions\Action;
 
 class FormElementTreeBuilder extends BaseWidget
 {
@@ -30,181 +33,16 @@ class FormElementTreeBuilder extends BaseWidget
 
     public $formVersionId;
 
+    public $editable = true;
+
     // Add properties to store pending data
     protected $pendingElementableData = [];
     protected $pendingElementType = null;
 
-    public function mount($formVersionId = null)
+    public function mount($formVersionId = null, $editable = true)
     {
         $this->formVersionId = $formVersionId;
-    }
-
-    protected function getFormSchema(): array
-    {
-        return [
-            \Filament\Forms\Components\Tabs::make('form_element_tabs')
-                ->tabs([
-                    \Filament\Forms\Components\Tabs\Tab::make('General')
-                        ->icon('heroicon-o-cog')
-                        ->schema([
-                            Select::make('template_id')
-                                ->label('Start from template')
-                                ->placeholder('Select a template (optional)')
-                                ->options(function () {
-                                    return FormElement::templates()
-                                        ->with('elementable')
-                                        ->get()
-                                        ->pluck('name', 'id')
-                                        ->toArray();
-                                })
-                                ->live()
-                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                    if (!$state) {
-                                        return;
-                                    }
-
-                                    // Load the template element with its relationships
-                                    $template = FormElement::with(['elementable', 'tags'])->find($state);
-
-                                    if (!$template) {
-                                        return;
-                                    }
-
-                                    // Prefill basic form element data
-                                    $set('name', $template->name);
-                                    $set('description', $template->description);
-                                    $set('help_text', $template->help_text);
-                                    $set('elementable_type', $template->elementable_type);
-                                    $set('is_visible', $template->is_visible);
-                                    $set('visible_web', $template->visible_web);
-                                    $set('visible_pdf', $template->visible_pdf);
-                                    $set('is_template', false); // New element should not be a template by default
-
-                                    // Prefill tags
-                                    if ($template->tags->isNotEmpty()) {
-                                        $set('tags', $template->tags->pluck('id')->toArray());
-                                    }
-
-                                    // Prefill elementable data if it exists
-                                    if ($template->elementable) {
-                                        $elementableData = $template->elementable->toArray();
-                                        // Remove timestamps and primary key
-                                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
-                                        $set('elementable_data', $elementableData);
-                                    }
-                                })
-                                ->searchable()
-                                ->columnSpanFull(),
-                            TextInput::make('name')
-                                ->required()
-                                ->maxLength(255),
-                            Select::make('elementable_type')
-                                ->label('Element Type')
-                                ->options(FormElement::getAvailableElementTypes())
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(function ($state, callable $set) {
-                                    // Clear existing elementable data when type changes
-                                    $set('elementable_data', []);
-                                }),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->maxLength(500),
-                            Toggle::make('is_visible')
-                                ->label('Visible')
-                                ->default(true),
-                            Toggle::make('visible_web')
-                                ->label('Visible on Web')
-                                ->default(true),
-                            Toggle::make('visible_pdf')
-                                ->label('Visible on PDF')
-                                ->default(true),
-                            Toggle::make('is_template')
-                                ->label('Is Template')
-                                ->default(false),
-                            Select::make('tags')
-                                ->label('Tags')
-                                ->multiple()
-                                ->relationship('tags', 'name')
-                                ->createOptionAction(
-                                    fn(Forms\Components\Actions\Action $action) => $action
-                                        ->modalHeading('Create Tag')
-                                        ->modalWidth('md')
-                                )
-                                ->createOptionForm([
-                                    TextInput::make('name')
-                                        ->required()
-                                        ->maxLength(255)
-                                        ->unique(FormElementTag::class, 'name'),
-                                    Textarea::make('description')
-                                        ->rows(3),
-                                ])
-                                ->createOptionUsing(function (array $data) {
-                                    return FormElementTag::create($data)->id;
-                                })
-                                ->searchable()
-                                ->preload(),
-                        ]),
-                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
-                        ->icon('heroicon-o-adjustments-horizontal')
-                        ->schema(function (callable $get) {
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
-                                        ->label('')
-                                        ->content('Please select an element type in the General tab first.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType);
-                        }),
-                    \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
-                        ->icon('heroicon-o-link')
-                        ->schema(function (callable $get) {
-                            // Get the form version ID from the form element
-                            $formVersionId = $this->formVersionId;
-                            if (!$formVersionId) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
-                                        ->label('')
-                                        ->content('Form version not available.')
-                                ];
-                            }
-
-                            // Get data sources assigned to this form version
-                            $formVersion = FormVersion::find($formVersionId);
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('No Data Sources are assigned to this Form Version.')
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->relationship()
-                                    ->defaultItems(0)
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->disabled(),
-                                        TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->disabled(),
-                                    ])
-                                    ->disabled()
-                                    ->columnSpanFull(),
-                            ];
-                        }),
-                ])
-                ->columnSpanFull(),
-        ];
+        $this->editable = $editable;
     }
 
     public function getEditFormSchema(): array
@@ -217,7 +55,47 @@ class FormElementTreeBuilder extends BaseWidget
                         ->schema([
                             TextInput::make('name')
                                 ->required()
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->label('Element Name')
+                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
+                            TextInput::make('uuid')
+                                ->label('Internal ID')
+                                ->suffixAction(
+                                    Action::make('copy')
+                                        ->icon('heroicon-s-clipboard')
+                                        ->action(function ($livewire, $state) {
+                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        })
+                                )
+                                ->extraAttributes([
+                                    'x-data' => '{
+                                        copyToClipboard(text) {
+                                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                navigator.clipboard.writeText(text).then(() => {
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                }).catch(() => {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                });
+                                            } else {
+                                                const textArea = document.createElement("textarea");
+                                                textArea.value = text;
+                                                textArea.style.position = "fixed";
+                                                textArea.style.opacity = "0";
+                                                document.body.appendChild(textArea);
+                                                textArea.select();
+                                                try {
+                                                    document.execCommand("copy");
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                } catch (err) {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                }
+                                                document.body.removeChild(textArea);
+                                            }
+                                        }
+                                    }',
+                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+                                ])
+                                ->disabled(),
                             \Filament\Forms\Components\Hidden::make('elementable_type'),
                             TextInput::make('elementable_type_display')
                                 ->label('Element Type')
@@ -352,6 +230,46 @@ class FormElementTreeBuilder extends BaseWidget
                         ->icon('heroicon-o-cog')
                         ->schema([
                             TextInput::make('name')
+                                ->disabled()
+                                ->label('Element Name')
+                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
+                            TextInput::make('uuid')
+                                ->label('Internal ID')
+                                ->suffixAction(
+                                    Action::make('copy')
+                                        ->icon('heroicon-s-clipboard')
+                                        ->action(function ($livewire, $state) {
+                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        })
+                                )
+                                ->extraAttributes([
+                                    'x-data' => '{
+                                        copyToClipboard(text) {
+                                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                navigator.clipboard.writeText(text).then(() => {
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                }).catch(() => {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                });
+                                            } else {
+                                                const textArea = document.createElement("textarea");
+                                                textArea.value = text;
+                                                textArea.style.position = "fixed";
+                                                textArea.style.opacity = "0";
+                                                document.body.appendChild(textArea);
+                                                textArea.select();
+                                                try {
+                                                    document.execCommand("copy");
+                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
+                                                } catch (err) {
+                                                    $tooltip("Failed to copy", { timeout: 1500 });
+                                                }
+                                                document.body.removeChild(textArea);
+                                            }
+                                        }
+                                    }',
+                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+                                ])
                                 ->disabled(),
                             TextInput::make('elementable_type')
                                 ->label('Element Type')
@@ -457,7 +375,7 @@ class FormElementTreeBuilder extends BaseWidget
 
     protected function getTreeActions(): array
     {
-        return [
+        $actions = [
             ViewAction::make()
                 ->form($this->getViewFormSchema())
                 ->fillForm(function ($record) {
@@ -494,7 +412,11 @@ class FormElementTreeBuilder extends BaseWidget
 
                     return $data;
                 }),
-            EditAction::make()
+        ];
+
+        // Only add Edit and Delete actions if editable
+        if ($this->editable) {
+            $actions[] = EditAction::make()
                 ->form($this->getEditFormSchema())
                 ->fillForm(function ($record) {
                     $data = $record->toArray();
@@ -537,9 +459,12 @@ class FormElementTreeBuilder extends BaseWidget
                 ->action(function ($record, array $data) {
                     $data = $this->mutateFormDataBeforeSave($data);
                     $this->handleRecordUpdate($record, $data);
-                }),
-            DeleteAction::make(),
-        ];
+                });
+
+            $actions[] = DeleteAction::make();
+        }
+
+        return $actions;
     }
 
     public function getTreeRecordIcon(?\Illuminate\Database\Eloquent\Model $record = null): ?string
@@ -894,6 +819,17 @@ class FormElementTreeBuilder extends BaseWidget
      */
     public function updateTree(?array $list = null): array
     {
+        // Prevent tree updates if not editable
+        if (!$this->editable) {
+            Notification::make()
+                ->warning()
+                ->title('Cannot Modify Elements')
+                ->body('Form elements cannot be modified when the form version is not in draft status.')
+                ->send();
+
+            return $this->refreshTreeData();
+        }
+
         // Validate the proposed tree structure before attempting to save
         if (!$list || !$this->validateTreeStructure($list)) {
             // Validation failed, notification already shown in validateTreeStructure
