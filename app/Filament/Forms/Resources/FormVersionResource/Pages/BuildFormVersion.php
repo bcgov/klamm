@@ -192,15 +192,6 @@ class BuildFormVersion extends Page implements HasForms
                     }
                 }),
 
-            // Actions\Action::make('broadcast_update')
-            //     ->label('Broadcast Update')
-            //     ->icon('heroicon-o-signal')
-            //     ->color('info')
-            //     ->outlined()
-            //     ->action(function () {
-            //         $this->triggerUpdateEvent('manual_broadcast');
-            //     }),
-
             ActionGroup::make([
                 $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
                 $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
@@ -361,7 +352,9 @@ class BuildFormVersion extends Page implements HasForms
                                 ->columnSpanFull(),
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->label('Element Name')
+                                ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements'),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())
