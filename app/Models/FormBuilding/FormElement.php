@@ -288,14 +288,14 @@ class FormElement extends Model
         return [
             ContainerFormElement::class => 'Container',
             TextInputFormElement::class => 'Text Input',
-            TextareaInputFormElement::class => 'Textarea Input',
-            TextInfoFormElement::class => 'Text Info',
-            DateSelectInputFormElement::class => 'Date Select Input',
-            CheckboxInputFormElement::class => 'Checkbox Input',
-            SelectInputFormElement::class => 'Select Input',
-            RadioInputFormElement::class => 'Radio Input',
+            TextareaInputFormElement::class => 'Textarea',
+            TextInfoFormElement::class => 'Text Display',
+            DateSelectInputFormElement::class => 'Date Select',
+            CheckboxInputFormElement::class => 'Checkbox',
+            SelectInputFormElement::class => 'Dropdown',
+            RadioInputFormElement::class => 'Radio',
             NumberInputFormElement::class => 'Number Input',
-            ButtonInputFormElement::class => 'Button Input',
+            ButtonInputFormElement::class => 'Button',
             HTMLFormElement::class => 'HTML',
         ];
     }
