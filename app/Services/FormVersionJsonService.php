@@ -153,6 +153,7 @@ class FormVersionJsonService
             'name' => $element->name,
             'description' => $element->description,
             'help_text' => $element->help_text,
+            'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
@@ -256,6 +257,29 @@ class FormVersionJsonService
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
         ];
+        $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
+        $elementData['label'] = $elementData['attributes']['legend'] ?? null;
+
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
 
         // Add children if this is a container
         $children = FormElement::where('parent_id', $element->id)
@@ -306,12 +330,22 @@ class FormVersionJsonService
 
     protected function transformStandardElement(FormElement $element, array $elementData, string $originalType): array
     {
+        $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         // Basic properties for all standard elements
-        $elementData['label'] = $element->name;
+        $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
+        ];
+
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add input type for specific elements
@@ -490,7 +524,7 @@ class FormVersionJsonService
         $attributes = $this->getElementAttributes($element);
 
         // Handle different validation types based on element attributes
-        if (isset($attributes['required']) && $attributes['required']) {
+        if (isset($attributes['required']) && $attributes['required'] || $element->is_required) {
             $validation[] = [
                 'type' => 'required',
                 'value' => 'true',
@@ -705,5 +739,76 @@ class FormVersionJsonService
         }
 
         return $dataSources;
+    }
+
+    /**
+     * Utility to convert snake_case to camelCase.
+     */
+    protected function toCamelCase(string $str): string
+    {
+        return preg_replace_callback('/_([a-z])/', function ($matches) {
+            return strtoupper($matches[1]);
+        }, $str);
+    }
+
+    /**
+     * Custom mapping for special attribute cases.
+     * This method allows for specific keys to be transformed into
+     * different keys or values in the final JSON output.
+     * This is required for the pre-migration format
+     * where some attributes need to be renamed or transformed.
+     * @param string $key
+     * @param mixed $value
+     * @return array|null
+     */
+    protected function customAttributeMapping(string $key, $value): ?array
+    {
+        switch ($key) {
+            case 'default_value':
+                return ['value', $value];
+            case 'button_type':
+                return ['kind', $value];
+            case 'default_date':
+                return ['value', $value];
+            case 'placeholder_text':
+                return ['placeholder', $value];
+            case 'visible_label':
+                return ['hideLabel', !$value];
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Normalize and camelCase attributes, with custom mapping.
+     * @param array $attributes
+     * @return array
+     */
+    protected function normalizeAttributes($attributes): array
+    {
+        if (!$attributes || !is_array($attributes)) {
+            return [];
+        }
+        $result = [];
+        foreach ($attributes as $k => $v) {
+            $custom = $this->customAttributeMapping($k, $v);
+            if ($custom) {
+                [$newKey, $newValue] = $custom;
+                $result[$newKey] = $newValue;
+            } else {
+                $result[$this->toCamelCase($k)] = $v;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Remap/clean attributes array for export using custom rules and camelCase normalization.
+     * @param array $attributes
+     * @return array
+     */
+    protected function remapAttributes(array $attributes): array
+    {
+        return $this->normalizeAttributes($attributes);
     }
 }

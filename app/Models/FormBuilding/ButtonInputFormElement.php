@@ -62,9 +62,13 @@ class ButtonInputFormElement extends Model
     public static function getButtonTypes(): array
     {
         return [
-            'submit' => 'Submit',
-            'reset' => 'Reset',
-            'button' => 'Button',
+            'primary' => 'Primary',
+            'secondary' => 'Secondary',
+            'tertiary' => 'Tertiary',
+            'danger' => 'Danger',
+            'danger--tertiary' => 'Danger Tertiary',
+            'danger--ghost' => 'Danger Ghost',
+            'ghost' => 'Ghost',
         ];
     }
 }
