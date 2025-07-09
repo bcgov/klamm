@@ -24,6 +24,7 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Illuminate\Support\Facades\Gate;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -38,6 +39,10 @@ class BuildFormVersion extends Page implements HasForms
 
     public function mount(int | string $record): void
     {
+        if (!Gate::allows('form-developer')) {
+            abort(403, 'Unauthorized. Only form developers can access the form builder.');
+        }
+
         $this->record = $this->resolveRecord($record);
         $this->form->fill($this->mutateFormDataBeforeFill([]));
     }
