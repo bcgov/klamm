@@ -25,6 +25,8 @@ use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\HtmlString;
+use Filament\Forms\Components\Placeholder;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -36,6 +38,16 @@ class BuildFormVersion extends Page implements HasForms
     protected static string $view = 'filament.forms.resources.form-version-resource.pages.build-form-version';
 
     public array $data = [];
+
+    protected function isEditable(): bool
+    {
+        return $this->record->status === 'draft';
+    }
+
+    protected function getFormattedStatusName(): string
+    {
+        return $this->record->getFormattedStatusName();
+    }
 
     public function mount(int | string $record): void
     {
@@ -51,7 +63,27 @@ class BuildFormVersion extends Page implements HasForms
     {
         return $form
             ->schema([
-                FormVersionBuilder::schema()
+                // Add notification banner for read-only mode
+                ...((!$this->isEditable()) ? [
+                    Placeholder::make('readonly_notice')
+                        ->label('')
+                        ->content(new HtmlString('
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                                <div class="flex">
+                                    <div class="ml-3">
+                                        <h3 class="text-sm font-medium text-amber-800">
+                                            Read-Only Mode
+                                        </h3>
+                                        <div class="mt-2 text-sm text-amber-700">
+                                            <p>This form version is <strong>' . $this->getFormattedStatusName() . '</strong> and cannot be edited. Only form versions in <strong>Draft</strong> status can be modified.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        '))
+                        ->columnSpanFull(),
+                ] : []),
+                FormVersionBuilder::schema($this->isEditable())
             ])
             ->statePath('data')
             ->model($this->record);
@@ -65,6 +97,7 @@ class BuildFormVersion extends Page implements HasForms
                 ->icon('heroicon-o-plus-circle')
                 ->color('success')
                 ->outlined()
+                ->visible($this->isEditable())
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
                     try {
@@ -225,6 +258,16 @@ class BuildFormVersion extends Page implements HasForms
 
     public function save(): void
     {
+        // Prevent saving if not editable
+        if (!$this->isEditable()) {
+            \Filament\Notifications\Notification::make()
+                ->warning()
+                ->title('Cannot Save Changes')
+                ->body('Form versions can only be saved when in draft status.')
+                ->send();
+            return;
+        }
+
         $data = $this->form->getState();
 
         // Save CSS stylesheets

@@ -17,6 +17,8 @@ use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
+use Filament\Notifications\Notification;
+use Filament\Forms\Components\Placeholder;
 
 class FormElementTreeBuilder extends BaseWidget
 {
@@ -30,13 +32,16 @@ class FormElementTreeBuilder extends BaseWidget
 
     public $formVersionId;
 
+    public $editable = true;
+
     // Add properties to store pending data
     protected $pendingElementableData = [];
     protected $pendingElementType = null;
 
-    public function mount($formVersionId = null)
+    public function mount($formVersionId = null, $editable = true)
     {
         $this->formVersionId = $formVersionId;
+        $this->editable = $editable;
     }
 
     protected function getFormSchema(): array
@@ -152,7 +157,7 @@ class FormElementTreeBuilder extends BaseWidget
                             $elementType = $get('elementable_type');
                             if (!$elementType) {
                                 return [
-                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
+                                    Placeholder::make('select_element_type')
                                         ->label('')
                                         ->content('Please select an element type in the General tab first.')
                                 ];
@@ -457,7 +462,7 @@ class FormElementTreeBuilder extends BaseWidget
 
     protected function getTreeActions(): array
     {
-        return [
+        $actions = [
             ViewAction::make()
                 ->form($this->getViewFormSchema())
                 ->fillForm(function ($record) {
@@ -494,7 +499,11 @@ class FormElementTreeBuilder extends BaseWidget
 
                     return $data;
                 }),
-            EditAction::make()
+        ];
+
+        // Only add Edit and Delete actions if editable
+        if ($this->editable) {
+            $actions[] = EditAction::make()
                 ->form($this->getEditFormSchema())
                 ->fillForm(function ($record) {
                     $data = $record->toArray();
@@ -537,9 +546,12 @@ class FormElementTreeBuilder extends BaseWidget
                 ->action(function ($record, array $data) {
                     $data = $this->mutateFormDataBeforeSave($data);
                     $this->handleRecordUpdate($record, $data);
-                }),
-            DeleteAction::make(),
-        ];
+                });
+
+            $actions[] = DeleteAction::make();
+        }
+
+        return $actions;
     }
 
     public function getTreeRecordIcon(?\Illuminate\Database\Eloquent\Model $record = null): ?string
@@ -894,6 +906,17 @@ class FormElementTreeBuilder extends BaseWidget
      */
     public function updateTree(?array $list = null): array
     {
+        // Prevent tree updates if not editable
+        if (!$this->editable) {
+            Notification::make()
+                ->warning()
+                ->title('Cannot Modify Elements')
+                ->body('Form elements cannot be modified when the form version is not in draft status.')
+                ->send();
+
+            return $this->refreshTreeData();
+        }
+
         // Validate the proposed tree structure before attempting to save
         if (!$list || !$this->validateTreeStructure($list)) {
             // Validation failed, notification already shown in validateTreeStructure
