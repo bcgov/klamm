@@ -149,7 +149,7 @@ class FormVersionJsonService
     protected function transformElement(FormElement $element): array
     {
         // Create the full reference ID (reference_id + uuid)
-        $fullReferenceId = ($element->reference_id ? $element->reference_id . $element->uuid : $element->uuid);
+        $fullReferenceId = ($element->reference_id ? $element->reference_id . '-' . $element->uuid : $element->uuid);
 
         $elementData = [
             'uuid' => $fullReferenceId,
@@ -240,7 +240,7 @@ class FormVersionJsonService
         $elementType = $this->getElementType($element);
 
         // Create the full reference ID (reference_id + uuid)
-        $fullReferenceId = ($element->reference_id ? $element->reference_id . $element->uuid : $element->uuid);
+        $fullReferenceId = ($element->reference_id ? $element->reference_id . '-' . $element->uuid : $element->uuid);
 
         $elementData = [
             'type' => $this->mapElementTypeToPreMigration($elementType),
