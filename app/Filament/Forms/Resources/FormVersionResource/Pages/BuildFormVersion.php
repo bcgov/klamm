@@ -326,151 +326,6 @@ class BuildFormVersion extends Page implements HasForms
         ];
     }
 
-    /**
-     * Import a form template (JSON) and create elements recursively.
-     * Supports both old and new template formats.
-     */
-    protected function importFormTemplate(array $template): void
-    {
-        // Determine format: new (data/elements) or old (fields)
-        if (isset($template['data']['elements'])) {
-            $elements = $template['data']['elements'];
-        } elseif (isset($template['fields'])) {
-            $elements = $template['fields'];
-        } else {
-            throw new \Exception('Template format not recognized.');
-        }
-        $this->importElementsRecursive($elements, null);
-    }
-
-    /**
-     * Recursively import elements and create FormElement records.
-     * @param array $elements
-     * @param int|null $parentId
-     */
-    protected function importElementsRecursive(array $elements, $parentId = null): void
-    {
-        foreach ($elements as $element) {
-            $type = $this->resolveElementableType($element['elementType'] ?? $element['type'] ?? '');
-            if (!$type) {
-                Log::error('Unknown elementable_type', ['elementType' => $element['elementType'] ?? $element['type'] ?? '', 'element' => $element]);
-                continue; // Skip unknown types
-            }
-            $attributes = $this->extractElementAttributes($element);
-
-            // Prepare options for select/radio
-            $options = [];
-            if (!empty($element['listItems']) && is_array($element['listItems'])) {
-                $options = $element['listItems'];
-            } elseif (!empty($element['options']) && is_array($element['options'])) {
-                $options = $element['options'];
-            }
-
-            $elementData = [
-                'form_version_id' => $this->record->id,
-                'parent_id' => $parentId,
-                'name' => $element['name'] ?? null,
-                'label' => $element['label'] ?? null,
-                'order' => 0,
-                'elementable_type' => $type,
-                // elementable_id will be set below
-            ];
-
-            $formElement = null;
-
-            // Handle select input
-            if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
-                $selectModel = \App\Models\FormBuilding\SelectInputFormElement::create($attributes);
-                $elementData['elementable_id'] = $selectModel->id;
-                $formElement = \App\Models\FormBuilding\FormElement::create($elementData);
-                foreach ($options as $idx => $opt) {
-                    $optionData = [
-                        'label' => $opt['label'] ?? $opt['text'] ?? $opt['name'] ?? $opt['value'] ?? '',
-                        'order' => $opt['order'] ?? ($idx + 1),
-                        'description' => $opt['description'] ?? null,
-                    ];
-                    \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
-                }
-            }
-            // Handle radio input
-            elseif ($type === \App\Models\FormBuilding\RadioInputFormElement::class) {
-                $radioModel = \App\Models\FormBuilding\RadioInputFormElement::create($attributes);
-                $elementData['elementable_id'] = $radioModel->id;
-                $formElement = \App\Models\FormBuilding\FormElement::create($elementData);
-                foreach ($options as $idx => $opt) {
-                    $optionData = [
-                        'label' => $opt['label'] ?? $opt['text'] ?? $opt['name'] ?? $opt['value'] ?? '',
-                        'order' => $opt['order'] ?? ($idx + 1),
-                        'description' => $opt['description'] ?? null,
-                    ];
-                    \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
-                }
-            }
-            // Handle containers
-            elseif ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
-                $containerModel = \App\Models\FormBuilding\ContainerFormElement::create($attributes);
-                $elementData['elementable_id'] = $containerModel->id;
-                $formElement = \App\Models\FormBuilding\FormElement::create($elementData);
-            }
-            // Handle all other element types (e.g. text input, textarea, etc.)
-            else {
-                if (method_exists($type, 'create')) {
-                    $elementableModel = $type::create($attributes);
-                    $elementData['elementable_id'] = $elementableModel->id;
-                }
-                $formElement = \App\Models\FormBuilding\FormElement::create($elementData);
-            }
-
-            // Recursively import children for containers
-            if (
-                ($type === \App\Models\FormBuilding\ContainerFormElement::class)
-                && !empty($element['elements']) && is_array($element['elements'])
-            ) {
-                $this->importElementsRecursive($element['elements'], $formElement->id);
-            }
-            // Some schemas may use 'children' instead of 'elements'
-            elseif (!empty($element['children']) && is_array($element['children'])) {
-                $this->importElementsRecursive($element['children'], $formElement->id);
-            }
-        }
-    }
-
-    /**
-     * Map template element type to FormElement polymorphic type.
-     * (Now uses resolveElementableType for consistency)
-     */
-    protected function mapElementType(array $element): string
-    {
-        return $this->resolveElementableType($element['elementType'] ?? $element['type'] ?? '')
-            ?? \App\Models\FormBuilding\ContainerFormElement::class;
-    }
-
-    /**
-     * Extract element attributes for the polymorphic model.
-     */
-    protected function extractElementAttributes(array $element): array
-    {
-        // Pass through all relevant keys except children/elements
-        $exclude = ['elements', 'children', 'token', 'parentId', 'elementType', 'type'];
-        $attributes = [];
-        foreach ($element as $key => $value) {
-            if (!in_array($key, $exclude, true)) {
-                $attributes[$key] = $value;
-            }
-        }
-        // Optionally handle listItems, dataBinding, etc.
-        if (isset($element['listItems'])) {
-            $attributes['listItems'] = $element['listItems'];
-        }
-        if (isset($element['dataBinding'])) {
-            $attributes['dataBinding'] = $element['dataBinding'];
-        }
-        if (isset($element['dataFormat'])) {
-            $attributes['dataFormat'] = $element['dataFormat'];
-        }
-        return $attributes;
-    }
-
     protected function makeDownloadJsonAction(string $name, string $label, int $version): Actions\Action
     {
         return Actions\Action::make($name)
@@ -967,651 +822,6 @@ class BuildFormVersion extends Page implements HasForms
         ";
     }
 
-    /**
-     * Extract content from uploaded file (supports both Livewire v2 and v3)
-     */
-    private function extractFileContent($uploadedFile): ?string
-    {
-        try {
-            Log::info('Extracting file content', [
-                'type' => gettype($uploadedFile),
-                'class' => is_object($uploadedFile) ? get_class($uploadedFile) : 'not_object',
-                'is_array' => is_array($uploadedFile)
-            ]);
-
-            // Handle array of files (take first file)
-            if (is_array($uploadedFile) && !empty($uploadedFile)) {
-                $uploadedFile = $uploadedFile[0];
-                Log::info('Using first file from array', [
-                    'type' => gettype($uploadedFile),
-                    'class' => is_object($uploadedFile) ? get_class($uploadedFile) : 'not_object'
-                ]);
-            }
-
-            // Handle different Livewire file upload types
-            if (is_object($uploadedFile)) {
-                $className = get_class($uploadedFile);
-                Log::info('Processing file object', ['class' => $className]);
-
-                // Livewire v3 TemporaryUploadedFile
-                if (str_contains($className, 'TemporaryUploadedFile')) {
-                    if (method_exists($uploadedFile, 'getRealPath')) {
-                        $path = $uploadedFile->getRealPath();
-                        Log::info('Got real path', ['path' => $path]);
-                        if ($path && file_exists($path)) {
-                            return file_get_contents($path);
-                        }
-                    }
-
-                    if (method_exists($uploadedFile, 'getPathname')) {
-                        $path = $uploadedFile->getPathname();
-                        Log::info('Got pathname', ['path' => $path]);
-                        if ($path && file_exists($path)) {
-                            return file_get_contents($path);
-                        }
-                    }
-
-                    if (method_exists($uploadedFile, 'path')) {
-                        $path = $uploadedFile->path();
-                        Log::info('Got path() result', ['path' => $path]);
-                        if ($path && file_exists($path)) {
-                            return file_get_contents($path);
-                        }
-                    }
-
-                    // Try get() method for Livewire files
-                    if (method_exists($uploadedFile, 'get')) {
-                        $content = $uploadedFile->get();
-                        Log::info('Got content via get()', ['content_length' => strlen($content ?? '')]);
-                        return $content;
-                    }
-
-                    // Try readStream method
-                    if (method_exists($uploadedFile, 'readStream')) {
-                        $stream = $uploadedFile->readStream();
-                        if ($stream) {
-                            $content = stream_get_contents($stream);
-                            fclose($stream);
-                            Log::info('Got content via readStream()', ['content_length' => strlen($content ?? '')]);
-                            return $content;
-                        }
-                    }
-                }
-
-                // Laravel UploadedFile
-                if (method_exists($uploadedFile, 'getRealPath')) {
-                    $path = $uploadedFile->getRealPath();
-                    Log::info('Laravel file real path', ['path' => $path]);
-                    if ($path && file_exists($path)) {
-                        return file_get_contents($path);
-                    }
-                }
-
-                // Symfony UploadedFile
-                if (method_exists($uploadedFile, 'getPathname')) {
-                    $path = $uploadedFile->getPathname();
-                    Log::info('Symfony file pathname', ['path' => $path]);
-                    if ($path && file_exists($path)) {
-                        return file_get_contents($path);
-                    }
-                }
-
-                // Log all available methods for debugging
-                Log::info('Available methods on file object', [
-                    'methods' => get_class_methods($uploadedFile)
-                ]);
-            }
-
-            // Handle string path
-            if (is_string($uploadedFile) && file_exists($uploadedFile)) {
-                Log::info('Processing string path', ['path' => $uploadedFile]);
-                return file_get_contents($uploadedFile);
-            }
-
-            throw new \Exception('Unable to read uploaded file - no valid path or content method found');
-        } catch (\Exception $e) {
-            Log::error('Error extracting file content: ' . $e->getMessage(), [
-                'exception' => $e,
-                'uploadedFile_type' => gettype($uploadedFile),
-                'uploadedFile_class' => is_object($uploadedFile) ? get_class($uploadedFile) : 'not_object'
-            ]);
-            throw new \Exception('Could not read the uploaded file: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Process schema import using the working parser approach
-     */
-    private function processSchemaImport(array $jsonData): array
-    {
-        try {
-            // Initialize the schema parser (based on working ImportSchema implementation)
-            $schemaParser = new \App\Filament\Forms\Helpers\SchemaParser();
-
-            // Parse the schema to extract structured data
-            $parsedSchema = $schemaParser->parseSchema(json_encode($jsonData));
-
-            if (!$parsedSchema) {
-                return [
-                    'success' => false,
-                    'message' => 'Could not parse the schema format. Please check that it\'s a valid form template.'
-                ];
-            }
-
-            // Extract fields from the parsed schema
-            $fields = $this->extractFieldsFromParsedSchema($parsedSchema);
-
-            if (empty($fields)) {
-                return [
-                    'success' => false,
-                    'message' => 'No fields found in the schema. The template may be empty or in an unsupported format.'
-                ];
-            }
-
-            // Create form elements from the extracted fields
-            $createdCount = $this->createFormElementsFromFields($fields);
-
-            return [
-                'success' => true,
-                'message' => "Successfully imported {$createdCount} form elements from template."
-            ];
-        } catch (\Exception $e) {
-            Log::error('Schema import processing error: ' . $e->getMessage(), [
-                'form_version_id' => $this->record->id,
-                'exception' => $e
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Error processing schema: ' . $e->getMessage()
-            ];
-        }
-    }
-
-    /**
-     * Extract fields from parsed schema (handles both legacy and adze-template formats)
-     */
-    private function extractFieldsFromParsedSchema(array $parsedSchema): array
-    {
-        $fields = [];
-
-        try {
-            // Handle adze-template format (data.elements structure)
-            if (isset($parsedSchema['data']) && isset($parsedSchema['data']['elements'])) {
-                $fields = $this->extractFieldsRecursive($parsedSchema['data']['elements']);
-            }
-            // Handle legacy format (direct fields array)
-            elseif (isset($parsedSchema['fields'])) {
-                $fields = $this->extractFieldsRecursive($parsedSchema['fields']);
-            }
-            // Handle flat structure
-            elseif (isset($parsedSchema['elements'])) {
-                $fields = $this->extractFieldsRecursive($parsedSchema['elements']);
-            }
-
-            Log::info('Extracted fields from schema', [
-                'total_fields' => count($fields),
-                'schema_format' => $this->determineSchemaFormat($parsedSchema)
-            ]);
-
-            return $fields;
-        } catch (\Exception $e) {
-            Log::error('Error extracting fields from schema: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
-     * Recursively extract fields from nested structure
-     */
-    private function extractFieldsRecursive(array $elements, string $parentPath = ''): array
-    {
-        $fields = [];
-
-        foreach ($elements as $index => $element) {
-            if (!is_array($element)) {
-                continue;
-            }
-
-            // Generate current path
-            $currentPath = $parentPath ? $parentPath . '.' . $index : (string)$index;
-
-            // Skip empty elements or elements without required properties
-            if (empty($element) || (!isset($element['elementType']) && !isset($element['type']))) {
-                continue;
-            }
-
-            // Determine element type
-            $elementType = $element['elementType'] ?? $element['type'] ?? 'unknown';
-
-            // Skip container elements but process their children
-            if ($this->isContainerElement($elementType, $element)) {
-                if (isset($element['elements']) && is_array($element['elements'])) {
-                    $childFields = $this->extractFieldsRecursive($element['elements'], $currentPath);
-                    $fields = array_merge($fields, $childFields);
-                }
-                continue;
-            }
-
-            // Process actual form fields
-            if ($this->isFormField($elementType, $element)) {
-                $processedField = $this->processFieldElement($element, $currentPath);
-                if ($processedField) {
-                    $fields[] = $processedField;
-                }
-            }
-
-            // Also check for nested elements in form fields
-            if (isset($element['elements']) && is_array($element['elements'])) {
-                $childFields = $this->extractFieldsRecursive($element['elements'], $currentPath);
-                $fields = array_merge($fields, $childFields);
-            }
-        }
-
-        return $fields;
-    }
-
-    /**
-     * Check if element is a container (should not create form field)
-     */
-    private function isContainerElement(string $elementType, array $element): bool
-    {
-        $containerTypes = [
-            'ContainerFormElements',
-            'container',
-            'section',
-            'group',
-            'fieldset'
-        ];
-
-        // Check element type
-        if (in_array($elementType, $containerTypes)) {
-            return true;
-        }
-
-        // Check container type property
-        if (isset($element['containerType'])) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if element should create a form field
-     */
-    private function isFormField(string $elementType, array $element): bool
-    {
-        $fieldTypes = [
-            'TextInputFormElements',
-            'SelectInputFormElements',
-            'RadioInputFormElements',
-            'CheckboxInputFormElements',
-            'TextareaInputFormElements',
-            'DateInputFormElements',
-            'NumberInputFormElements',
-            'FileInputFormElements',
-            'ButtonInputFormElements',
-            'text-input',
-            'dropdown',
-            'radio',
-            'checkbox',
-            'textarea',
-            'date',
-            'number',
-            'file',
-            'button'
-        ];
-
-        return in_array($elementType, $fieldTypes);
-    }
-
-    /**
-     * Process individual field element into standardized format
-     */
-    private function processFieldElement(array $element, string $path): ?array
-    {
-        try {
-            // Extract basic field properties
-            $field = [
-                'token' => $element['token'] ?? $element['id'] ?? uniqid('field_'),
-                'name' => $element['name'] ?? 'unnamed_field_' . time(),
-                'label' => $element['label'] ?? $element['name'] ?? 'Untitled Field',
-                'elementType' => $element['elementType'] ?? $element['type'] ?? 'TextInputFormElements',
-                'path' => $path,
-                'dataType' => $this->mapElementTypeToDataType($element['elementType'] ?? $element['type'] ?? ''),
-                'required' => $element['required'] ?? false,
-                'visible' => $element['isVisible'] ?? $element['visible'] ?? true,
-                'enabled' => $element['isEnabled'] ?? $element['enabled'] ?? true,
-                'helpText' => $element['helpText'] ?? $element['help_text'] ?? null,
-                'placeholder' => $element['placeholder'] ?? null,
-            ];
-
-            // Handle specific field type properties
-            $this->processFieldTypeSpecificProperties($field, $element);
-
-            return $field;
-        } catch (\Exception $e) {
-            Log::warning('Error processing field element: ' . $e->getMessage(), [
-                'element' => $element,
-                'path' => $path
-            ]);
-            return null;
-        }
-    }
-
-    /**
-     * Process field type specific properties
-     */
-    private function processFieldTypeSpecificProperties(array &$field, array $element): void
-    {
-        $elementType = $field['elementType'];
-
-        // Handle select/dropdown options
-        if (in_array($elementType, ['SelectInputFormElements', 'dropdown']) && isset($element['listItems'])) {
-            $field['options'] = $this->extractSelectOptions($element['listItems']);
-        }
-
-        // Handle radio options
-        if (in_array($elementType, ['RadioInputFormElements', 'radio'])) {
-            if (isset($element['listItems'])) {
-                $field['options'] = $this->extractSelectOptions($element['listItems']);
-            } elseif (isset($element['options'])) {
-                $field['options'] = $element['options'];
-            }
-        }
-
-        // Handle data binding
-        if (isset($element['dataBinding']['dataBindingPath'])) {
-            $field['dataBinding'] = $element['dataBinding']['dataBindingPath'];
-        } elseif (isset($element['binding_ref'])) {
-            $field['dataBinding'] = $element['binding_ref'];
-        }
-
-        // Handle validation rules
-        if (isset($element['validation'])) {
-            $field['validation'] = $element['validation'];
-        }
-
-        // Handle field format/subtype
-        if (isset($element['dataFormat'])) {
-            $field['format'] = $element['dataFormat'];
-        } elseif (isset($element['subtype'])) {
-            $field['format'] = $element['subtype'];
-        }
-    }
-
-    /**
-     * Extract select options from listItems array
-     */
-    private function extractSelectOptions(array $listItems): array
-    {
-        $options = [];
-
-        foreach ($listItems as $item) {
-            if (is_array($item)) {
-                $value = $item['value'] ?? $item['name'] ?? $item['text'] ?? '';
-                $label = $item['text'] ?? $item['label'] ?? $item['name'] ?? $value;
-                $options[] = ['value' => $value, 'label' => $label];
-            } elseif (is_string($item)) {
-                $options[] = ['value' => $item, 'label' => $item];
-            }
-        }
-
-        return $options;
-    }
-
-    /**
-     * Map element type to data type
-     */
-    private function mapElementTypeToDataType(string $elementType): string
-    {
-        $mapping = [
-            'TextInputFormElements' => 'text',
-            'text-input' => 'text',
-            'SelectInputFormElements' => 'select',
-            'dropdown' => 'select',
-            'RadioInputFormElements' => 'radio',
-            'radio' => 'radio',
-            'CheckboxInputFormElements' => 'checkbox',
-            'checkbox' => 'checkbox',
-            'TextareaInputFormElements' => 'textarea',
-            'textarea' => 'textarea',
-            'DateInputFormElements' => 'date',
-            'date' => 'date',
-            'NumberInputFormElements' => 'number',
-            'number' => 'number',
-            'FileInputFormElements' => 'file',
-            'file' => 'file',
-            'ButtonInputFormElements' => 'button',
-            'button' => 'button',
-        ];
-
-        return $mapping[$elementType] ?? 'text';
-    }
-
-    /**
-     * Create form elements from extracted fields
-     */
-    private function createFormElementsFromFields(array $fields): int
-    {
-        $createdCount = 0;
-
-        foreach ($fields as $field) {
-            try {
-                $formElement = $this->createFormElement($field);
-                if ($formElement) {
-                    $createdCount++;
-                }
-            } catch (\Exception $e) {
-                Log::warning('Error creating form element: ' . $e->getMessage(), [
-                    'field' => $field
-                ]);
-                // Continue with other fields even if one fails
-            }
-        }
-
-        return $createdCount;
-    }
-
-    /**
-     * Create a single form element from field data
-     */
-    private function createFormElement(array $field): ?FormElement
-    {
-        try {
-            if (empty($field['name']) || empty($field['label']) || empty($field['elementType'])) {
-                Log::error('Missing required field data for FormElement', ['field' => $field]);
-                return null;
-            }
-
-            $elementableType = $this->resolveElementableType($field['elementType']);
-            if (empty($elementableType)) {
-                Log::error('Elementable type mapping failed', ['field' => $field]);
-                return null;
-            }
-
-            // Handle select/radio options
-            $options = $field['options'] ?? [];
-
-            if ($elementableType === \App\Models\FormBuilding\SelectInputFormElement::class) {
-                $selectModel = \App\Models\FormBuilding\SelectInputFormElement::create([]);
-                $elementData = [
-                    'form_version_id' => $this->record->id,
-                    'elementable_type' => $elementableType,
-                    'elementable_id' => $selectModel->id,
-                    'name' => $field['name'],
-                    'label' => $field['label'],
-                    'required' => $field['required'] ?? false,
-                    'help_text' => $field['helpText'] ?? null,
-                    'placeholder' => $field['placeholder'] ?? null,
-                    'order' => $this->getNextElementOrder(),
-                    'properties' => $this->buildElementProperties($field),
-                ];
-                $formElement = FormElement::create($elementData);
-                foreach ($options as $idx => $opt) {
-                    $optionData = [
-                        'label' => $opt['label'] ?? $opt['text'] ?? $opt['name'] ?? $opt['value'] ?? '',
-                        'order' => $opt['order'] ?? ($idx + 1),
-                        'description' => $opt['description'] ?? null,
-                    ];
-                    \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
-                }
-                return $formElement;
-            }
-
-            if ($elementableType === \App\Models\FormBuilding\RadioInputFormElement::class) {
-                $radioModel = \App\Models\FormBuilding\RadioInputFormElement::create([]);
-                $elementData = [
-                    'form_version_id' => $this->record->id,
-                    'elementable_type' => $elementableType,
-                    'elementable_id' => $radioModel->id,
-                    'name' => $field['name'],
-                    'label' => $field['label'],
-                    'required' => $field['required'] ?? false,
-                    'help_text' => $field['helpText'] ?? null,
-                    'placeholder' => $field['placeholder'] ?? null,
-                    'order' => $this->getNextElementOrder(),
-                    'properties' => $this->buildElementProperties($field),
-                ];
-                $formElement = FormElement::create($elementData);
-                foreach ($options as $idx => $opt) {
-                    $optionData = [
-                        'label' => $opt['label'] ?? $opt['text'] ?? $opt['name'] ?? $opt['value'] ?? '',
-                        'order' => $opt['order'] ?? ($idx + 1),
-                        'description' => $opt['description'] ?? null,
-                    ];
-                    \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
-                }
-                return $formElement;
-            }
-
-            // Default: create elementable model if needed, then FormElement
-            if (method_exists($elementableType, 'create')) {
-                $elementableModel = $elementableType::create([]);
-                $elementData = [
-                    'form_version_id' => $this->record->id,
-                    'elementable_type' => $elementableType,
-                    'elementable_id' => $elementableModel->id,
-                    'name' => $field['name'],
-                    'label' => $field['label'],
-                    'required' => $field['required'] ?? false,
-                    'help_text' => $field['helpText'] ?? null,
-                    'placeholder' => $field['placeholder'] ?? null,
-                    'order' => $this->getNextElementOrder(),
-                    'properties' => $this->buildElementProperties($field),
-                ];
-                return FormElement::create($elementData);
-            }
-
-            return null;
-        } catch (\Exception $e) {
-            Log::error('Error creating form element: ' . $e->getMessage(), [
-                'field' => $field
-            ]);
-            return null;
-        }
-    }
-
-    /**
-     * Map data type to element type for FormElement model
-     */
-    private function mapDataTypeToElementType(string $dataType): string
-    {
-        $mapping = [
-            'text' => 'text',
-            'select' => 'select',
-            'radio' => 'radio',
-            'checkbox' => 'checkbox',
-            'textarea' => 'textarea',
-            'date' => 'date',
-            'number' => 'number',
-            'file' => 'file',
-            'button' => 'button',
-        ];
-
-        return $mapping[$dataType] ?? 'text';
-    }
-
-    /**
-     * Get next element order for proper sequencing
-     */
-    private function getNextElementOrder(): int
-    {
-        $maxOrder = FormElement::where('form_version_id', $this->record->id)
-            ->max('order');
-
-        return ($maxOrder ?? 0) + 1;
-    }
-
-    /**
-     * Build element properties JSON
-     */
-    private function buildElementProperties(array $field): array
-    {
-        $properties = [
-            'imported' => true,
-            'import_source' => 'template',
-            'original_token' => $field['token'] ?? null,
-            'original_path' => $field['path'] ?? null,
-        ];
-
-        // Add specific properties based on field type
-        if (isset($field['options']) && !empty($field['options'])) {
-            $properties['options'] = $field['options'];
-        }
-
-        if (isset($field['dataBinding'])) {
-            $properties['data_binding'] = $field['dataBinding'];
-        }
-
-        if (isset($field['validation'])) {
-            $properties['validation'] = $field['validation'];
-        }
-
-        if (isset($field['format'])) {
-            $properties['format'] = $field['format'];
-        }
-
-        return $properties;
-    }
-
-    /**
-     * Build field properties JSON
-     */
-    private function buildFieldProperties(array $field): array
-    {
-        $properties = [
-            'imported' => true,
-            'element_type' => $field['elementType'] ?? null,
-            'visible' => $field['visible'] ?? true,
-            'enabled' => $field['enabled'] ?? true,
-        ];
-
-        // Add field-specific properties
-        if (isset($field['options']) && !empty($field['options'])) {
-            $properties['options'] = $field['options'];
-        }
-
-        return $properties;
-    }
-
-    /**
-     * Determine schema format for logging
-     */
-    private function determineSchemaFormat(array $schema): string
-    {
-        if (isset($schema['data']) && isset($schema['data']['elements'])) {
-            return 'adze-template';
-        } elseif (isset($schema['fields'])) {
-            return 'legacy';
-        } elseif (isset($schema['elements'])) {
-            return 'direct-elements';
-        }
-
-        return 'unknown';
-    }
-
     private static function formatJsonForTextarea($value): string
     {
         if (is_string($value)) {
@@ -1633,16 +843,8 @@ class BuildFormVersion extends Page implements HasForms
      */
     public function importParsedSchemaElements()
     {
-        Log::debug('importParsedSchemaElements called', [
-            'importWizard' => $this->importWizard,
-            'schema_content' => $this->importWizard['schema_content'] ?? null,
-        ]);
-
         $schemaContent = $this->importWizard['schema_content'] ?? null;
         if (empty($schemaContent)) {
-            Log::error('No schema_content found in $this->importWizard', [
-                'importWizard' => $this->importWizard,
-            ]);
             \Filament\Notifications\Notification::make()
                 ->danger()
                 ->title('No Parsed Schema')
@@ -1685,66 +887,77 @@ class BuildFormVersion extends Page implements HasForms
             $this->importJobStatus['done'] = false;
             return;
         }
+
         $status = Cache::get($cacheKey . '_status');
+        $error = Cache::get($cacheKey . '_error');
+
         if ($status === 'complete') {
+            Cache::forget($cacheKey . '_status');
+            Cache::forget($cacheKey . '_progress');
             session()->forget('import_job_cache_key');
             $this->importJobStatus['done'] = true;
-            // Refresh the Livewire component state (triggers full reload)
-            $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
+            $this->importJobStatus['status'] = 'complete';
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('Import Complete')
+                ->body('Form elements have been successfully imported. The page will refresh to show the new elements.')
+                ->send();
+
+            $this->js('setTimeout(() => { window.location.reload(); }, 1500);');
+        } elseif ($status === 'error') {
+            Cache::forget($cacheKey . '_status');
+            Cache::forget($cacheKey . '_error');
+            Cache::forget($cacheKey . '_progress');
+            session()->forget('import_job_cache_key');
+
+            $this->importJobStatus['done'] = true;
+            $this->importJobStatus['status'] = 'error';
+
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Import Failed')
+                ->body($error ?: 'An error occurred during import.')
+                ->persistent()
+                ->send();
         } else {
             $this->importJobStatus['done'] = false;
+            $this->importJobStatus['status'] = $status ?: 'processing';
+            $progress = Cache::get($cacheKey . '_progress');
+            if ($progress) {
+                $this->importJobStatus['progress'] = $progress;
+            }
         }
     }
 
     public function render(): \Illuminate\Contracts\View\View
     {
+        $cacheKey = session('import_job_cache_key');
+        if ($cacheKey && !isset($this->importJobStatus['cacheKey'])) {
+            $this->importJobStatus = [
+                'status' => Cache::get($cacheKey . '_status', 'unknown'),
+                'done' => false,
+                'cacheKey' => $cacheKey,
+            ];
+        }
+
         // If an import job is running, poll every 2 seconds
         if (
             isset($this->importJobStatus['cacheKey']) &&
             $this->importJobStatus['cacheKey'] &&
             !$this->importJobStatus['done']
         ) {
-            $this->js(<<<'JS'
+            $this->js(<<<JS
                 setTimeout(() => {
-                    window.livewire.find("{$this->getId()}").call('pollImportStatus');
+                    if (typeof window.Livewire !== 'undefined') {
+                        const component = window.Livewire.find('{$this->getId()}');
+                        if (component) {
+                            component.call('pollImportStatus');
+                        }
+                    }
                 }, 2000);
             JS);
         }
-        // ...existing code for rendering the view...
+
         return parent::render();
-    }
-
-    /**
-     * Map incoming elementType string to the correct class name from getAvailableElementTypes().
-     */
-    private function resolveElementableType(string $elementType): ?string
-    {
-        // Map legacy/plural elementType strings to correct class names
-        $map = [
-            'TextInputFormElements' => \App\Models\FormBuilding\TextInputFormElement::class,
-            'TextareaInputFormElements' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-            'TextInfoFormElements' => \App\Models\FormBuilding\TextInfoFormElement::class,
-            'DateSelectInputFormElements' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-            'CheckboxInputFormElements' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-            'SelectInputFormElements' => \App\Models\FormBuilding\SelectInputFormElement::class,
-            'RadioInputFormElements' => \App\Models\FormBuilding\RadioInputFormElement::class,
-            'NumberInputFormElements' => \App\Models\FormBuilding\NumberInputFormElement::class,
-            'ButtonInputFormElements' => \App\Models\FormBuilding\ButtonInputFormElement::class,
-            'HTMLFormElements' => \App\Models\FormBuilding\HTMLFormElement::class,
-            'ContainerFormElements' => \App\Models\FormBuilding\ContainerFormElement::class,
-        ];
-
-        if (isset($map[$elementType])) {
-            return $map[$elementType];
-        }
-
-        // Accept both class names and short names (e.g. "TextInputFormElement")
-        $available = FormElement::getAvailableElementTypes();
-        foreach ($available as $class => $label) {
-            if ($class === $elementType || class_basename($class) === $elementType) {
-                return $class;
-            }
-        }
-        return null;
     }
 }
