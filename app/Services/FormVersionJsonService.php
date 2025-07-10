@@ -148,8 +148,11 @@ class FormVersionJsonService
 
     protected function transformElement(FormElement $element): array
     {
+        // Create the full reference ID (reference_id + uuid)
+        $fullReferenceId = $element->getFullReferenceId();
+
         $elementData = [
-            'uuid' => $element->uuid ?? $element->id,
+            'uuid' => $fullReferenceId,
             'type' => $this->getElementType($element),
             'name' => $element->name,
             'description' => $element->description,
@@ -236,9 +239,12 @@ class FormVersionJsonService
     {
         $elementType = $this->getElementType($element);
 
+        // Create the full reference ID (reference_id + uuid)
+        $fullReferenceId = $element->getFullReferenceId();
+
         $elementData = [
             'type' => $this->mapElementTypeToPreMigration($elementType),
-            'id' => $element->uuid,
+            'id' => $fullReferenceId,
         ];
 
         // Handle repeatable containers as groups FIRST, before other container logic
