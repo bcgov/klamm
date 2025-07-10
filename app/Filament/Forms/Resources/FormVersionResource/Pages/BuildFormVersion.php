@@ -398,6 +398,9 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\TextInput::make('reference_id')
                                 ->label('Reference ID')
                                 ->rules(['alpha_dash'])
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
+                                })
                                 ->suffixAction(
                                     \Filament\Forms\Components\Actions\Action::make('regenerate_reference_id')
                                         ->icon('heroicon-o-arrow-path')
