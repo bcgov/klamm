@@ -71,7 +71,8 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('reference_id')
                                 ->label('Reference ID')
                                 ->suffix(function ($get) {
-                                    return $get('uuid') ? '-' . $get('uuid') : '';
+
+                                    return $get('uuid') ? $get('uuid') : '';
                                 })
                                 ->rules(['alpha_dash'])
                                 ->when($this->shouldShowTooltips(), function ($component) {
@@ -259,7 +260,7 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('reference_id')
                                 ->label('Reference ID')
                                 ->suffix(function ($get) {
-                                    return $get('uuid') ? '-' . $get('uuid') : '';
+                                    return $get('uuid') ? $get('uuid') : '';
                                 })
                                 ->when($this->shouldShowTooltips(), function ($component) {
                                     return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID is appended automatically');
