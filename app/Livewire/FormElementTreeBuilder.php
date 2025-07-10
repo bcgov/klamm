@@ -75,6 +75,9 @@ class FormElementTreeBuilder extends BaseWidget
                                     return $get('uuid') ? $get('uuid') : '';
                                 })
                                 ->rules(['alpha_dash'])
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
+                                })
                                 ->suffixAction(
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
@@ -279,6 +282,9 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->label('Reference ID')
                                 ->suffix(function ($get) {
                                     return $get('uuid') ? $get('uuid') : '';
+                                })
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
                                 })
                                 ->suffixAction(
                                     Action::make('copy')
