@@ -81,7 +81,7 @@ class FormElementTreeBuilder extends BaseWidget
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
                                         ->action(function ($livewire, $state, $get) {
-                                            $fullReference = $state . ($get('uuid') ? '-' . $get('uuid') : '');
+                                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
                                             $livewire->dispatch('copy-to-clipboard', text: $fullReference);
                                         })
                                 )
@@ -268,7 +268,7 @@ class FormElementTreeBuilder extends BaseWidget
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
                                         ->action(function ($livewire, $state, $get) {
-                                            $fullReference = $state . ($get('uuid') ? '-' . $get('uuid') : '');
+                                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
                                             $livewire->dispatch('copy-to-clipboard', text: $fullReference);
                                         })
                                 )
