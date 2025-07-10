@@ -18,7 +18,8 @@ use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
-use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Set;
+use Illuminate\Support\Str;
 use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 
@@ -67,13 +68,21 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->when($this->shouldShowTooltips(), function ($component) {
                                     return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
                                 }),
-                            TextInput::make('uuid')
-                                ->label('Internal ID')
+                            TextInput::make('reference_id')
+                                ->label('Reference ID')
+                                ->suffix(function ($get) {
+                                    return $get('uuid') ?  $get('uuid') : '';
+                                })
+                                ->rules(['alpha_dash'])
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID will be appended automatically');
+                                })
                                 ->suffixAction(
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
-                                        ->action(function ($livewire, $state) {
-                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        ->action(function ($livewire, $state, $get) {
+                                            $fullReference = $state . ($get('uuid') ? $get('uuid') : '');
+                                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
                                         })
                                 )
                                 ->extraAttributes([
@@ -247,13 +256,20 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->when($this->shouldShowTooltips(), function ($component) {
                                     return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
                                 }),
-                            TextInput::make('uuid')
-                                ->label('Internal ID')
+                            TextInput::make('reference_id')
+                                ->label('Reference ID')
+                                ->suffix(function ($get) {
+                                    return $get('uuid') ? $get('uuid') : '';
+                                })
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID is appended automatically');
+                                })
                                 ->suffixAction(
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
-                                        ->action(function ($livewire, $state) {
-                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        ->action(function ($livewire, $state, $get) {
+                                            $fullReference = $state . ($get('uuid') ? $get('uuid') : '');
+                                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
                                         })
                                 )
                                 ->extraAttributes([

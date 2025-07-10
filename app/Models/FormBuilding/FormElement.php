@@ -17,6 +17,7 @@ class FormElement extends Model
 
     protected $fillable = [
         'uuid',
+        'reference_id',
         'name',
         'order',
         'description',

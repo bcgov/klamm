@@ -377,9 +377,32 @@ class BuildFormVersion extends Page implements HasForms
                                 ->required()
                                 ->maxLength(255)
                                 ->label('Element Name')
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    // Auto-generate reference_id if it's empty and we have a name
+                                    if (!empty($state) && empty($get('reference_id'))) {
+                                        $slug = \Illuminate\Support\Str::slug($state, '_');
+                                        $set('reference_id', $slug);
+                                    }
+                                })
                                 ->when($this->shouldShowTooltips(), function ($component) {
                                     return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
                                 }),
+                            \Filament\Forms\Components\TextInput::make('reference_id')
+                                ->label('Reference ID')
+                                ->rules(['alpha_dash'])
+                                ->suffixAction(
+                                    \Filament\Forms\Components\Actions\Action::make('regenerate_reference_id')
+                                        ->icon('heroicon-o-arrow-path')
+                                        ->tooltip('Regenerate from Element Name')
+                                        ->action(function (callable $set, callable $get) {
+                                            $name = $get('name');
+                                            if (!empty($name)) {
+                                                $slug = \Illuminate\Support\Str::slug($name, '-');
+                                                $set('reference_id', $slug);
+                                            }
+                                        })
+                                ),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->options(FormElement::getAvailableElementTypes())

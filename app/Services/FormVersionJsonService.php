@@ -149,7 +149,7 @@ class FormVersionJsonService
     protected function transformElement(FormElement $element): array
     {
         $elementData = [
-            'uuid' => $element->uuid ?? $element->id,
+            'uuid' => $element->reference_id . '-' . $element->uuid ?? $element->id,
             'type' => $this->getElementType($element),
             'name' => $element->name,
             'description' => $element->description,
@@ -238,7 +238,7 @@ class FormVersionJsonService
 
         $elementData = [
             'type' => $this->mapElementTypeToPreMigration($elementType),
-            'id' => $element->uuid,
+            'id' => $element->reference_id . '-' . $element->uuid,
         ];
 
         // Handle repeatable containers as groups FIRST, before other container logic
