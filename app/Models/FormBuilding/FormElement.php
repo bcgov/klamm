@@ -17,6 +17,7 @@ class FormElement extends Model
 
     protected $fillable = [
         'uuid',
+        'reference_id',
         'name',
         'order',
         'description',
@@ -261,6 +262,24 @@ class FormElement extends Model
         }
 
         return class_basename($this->elementable_type);
+    }
+
+    /**
+     * Get the full reference ID (reference_id + uuid with hyphen)
+     * Falls back to just uuid if reference_id is empty
+     */
+    public function getFullReferenceId(): string
+    {
+        return $this->reference_id ? $this->reference_id . '-' . $this->uuid : $this->uuid;
+    }
+
+    /**
+     * Static helper to construct full reference ID from separate values
+     * Falls back to just uuid if reference_id is empty
+     */
+    public static function buildFullReferenceId(?string $referenceId, string $uuid): string
+    {
+        return $referenceId ? $referenceId . '-' . $uuid : $uuid;
     }
 
     /**

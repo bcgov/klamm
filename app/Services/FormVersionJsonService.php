@@ -68,6 +68,7 @@ class FormVersionJsonService
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => null,
             'footer' => $formVersion->footer,
+            'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'data' => [
                 'styles' => $this->getStyles($formVersion),
@@ -147,8 +148,11 @@ class FormVersionJsonService
 
     protected function transformElement(FormElement $element): array
     {
+        // Create the full reference ID (reference_id + uuid)
+        $fullReferenceId = $element->getFullReferenceId();
+
         $elementData = [
-            'uuid' => $element->uuid ?? $element->id,
+            'uuid' => $fullReferenceId,
             'type' => $this->getElementType($element),
             'name' => $element->name,
             'description' => $element->description,
@@ -235,23 +239,39 @@ class FormVersionJsonService
     {
         $elementType = $this->getElementType($element);
 
+        // Create the full reference ID (reference_id + uuid)
+        $fullReferenceId = $element->getFullReferenceId();
+
         $elementData = [
             'type' => $this->mapElementTypeToPreMigration($elementType),
-            'id' => $element->uuid,
+            'id' => $fullReferenceId,
         ];
 
-        // Handle different element types
-        if ($elementType === 'container') {
+        // Handle repeatable containers as groups FIRST, before other container logic
+        if ($elementType === 'container' && $element->elementable?->is_repeatable) {
+            return $this->transformRepeatableContainerAsGroup($element, $elementData);
+        }
+        // Handle non-repeatable containers
+        elseif ($elementType === 'container' && !$element->elementable?->is_repeatable) {
             return $this->transformContainerElement($element, $elementData);
-        } elseif ($this->isGroupElement($elementType)) {
+        }
+        // Handle explicit group elements
+        elseif ($this->isGroupElement($elementType)) {
             return $this->transformGroupElement($element, $elementData);
-        } else {
+        }
+        // Handle all other standard elements
+        else {
             return $this->transformStandardElement($element, $elementData, $elementType);
         }
     }
 
     protected function transformContainerElement(FormElement $element, array $elementData): array
     {
+        // Check if this container is repeatable - if so, transform it as a group
+        if ($element->elementable?->is_repeatable) {
+            return $this->transformRepeatableContainerAsGroup($element, $elementData);
+        }
+
         $elementData['containerId'] = (string)($element->id ?? '');
         $elementData['clear_button'] = false;
         $elementData['codeContext'] = [
@@ -259,6 +279,9 @@ class FormVersionJsonService
         ];
         $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         $elementData['label'] = $elementData['attributes']['legend'] ?? null;
+
+        $elementData['repeater'] = false;
+        $elementData['repeaterLabel'] = null;
 
         $elementData['pdfStyles'] = [
             'display' => $element->visible_pdf ? null : 'none',
@@ -297,15 +320,103 @@ class FormVersionJsonService
         return $elementData;
     }
 
-    protected function transformGroupElement(FormElement $element, array $elementData): array
+    protected function transformRepeatableContainerAsGroup(FormElement $element, array $elementData): array
     {
-        $elementData['label'] = $element->name;
+        // Transform repeatable container to group format for renderer compatibility
+        $elementData['type'] = 'group'; // Override type to group
+        $elementData['label'] = $element->label ?? $element->name;
         $elementData['groupId'] = (string)($element->id ?? '1');
-        $elementData['repeater'] = false;
-        $elementData['clear_button'] = false;
+        $elementData['repeater'] = true; // Always true for repeatable containers
+        $elementData['repeaterLabel'] = $element->label ?? $element->name;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
+
+        // Add styles
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
+
+        // Get children and transform them as group fields
+        $children = FormElement::where('parent_id', $element->id)
+            ->orderBy('order')
+            ->with(['elementable', 'dataBindings.formDataSource'])
+            ->get();
+
+        $fields = [];
+        if ($children->count() > 0) {
+            $fields = $children->map(function (FormElement $child) {
+                return $this->transformElementToPreMigrationFormat($child);
+            })->toArray();
+        }
+
+        // Create groupItems structure expected by the renderer
+        $elementData['groupItems'] = [
+            ['fields' => $fields]
+        ];
+
+        // Add container-specific attributes
+        $attributes = $this->getElementAttributes($element);
+        if (!empty($attributes)) {
+            $elementData['attributes'] = $this->remapAttributes($attributes);
+        }
+
+        $this->addElementStyles($elementData, $element);
+        return $elementData;
+    }
+
+    protected function transformGroupElement(FormElement $element, array $elementData): array
+    {
+        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['groupId'] = (string)($element->id ?? '1');
+        $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
+        $elementData['repeaterLabel'] = $element->label ?? $element->name;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
+        $elementData['codeContext'] = [
+            'name' => $this->generateCodeContextName($element->name ?? 'group')
+        ];
+
+        // Add styles
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
 
         // Get children and group them into fields
         $children = FormElement::where('parent_id', $element->id)
@@ -323,6 +434,12 @@ class FormVersionJsonService
         $elementData['groupItems'] = [
             ['fields' => $fields]
         ];
+
+        // Add group-specific attributes
+        $attributes = $this->getElementAttributes($element);
+        if (!empty($attributes)) {
+            $elementData['attributes'] = $this->remapAttributes($attributes);
+        }
 
         $this->addElementStyles($elementData, $element);
         return $elementData;
