@@ -66,7 +66,7 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->maxLength(255)
                                 ->label('Element Name')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
                                 }),
                             TextInput::make('reference_id')
                                 ->label('Reference ID')
@@ -75,9 +75,6 @@ class FormElementTreeBuilder extends BaseWidget
                                     return $get('uuid') ? $get('uuid') : '';
                                 })
                                 ->rules(['alpha_dash'])
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID will be appended automatically');
-                                })
                                 ->suffixAction(
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
@@ -118,6 +115,9 @@ class FormElementTreeBuilder extends BaseWidget
                             \Filament\Forms\Components\Hidden::make('elementable_type'),
                             TextInput::make('elementable_type_display')
                                 ->label('Element Type')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
+                                })
                                 ->disabled()
                                 ->dehydrated(false)
                                 ->formatStateUsing(function ($state, callable $get) {
@@ -127,24 +127,36 @@ class FormElementTreeBuilder extends BaseWidget
                             Textarea::make('description')
                                 ->rows(3),
                             TextInput::make('help_text')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
+                                })
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(4)
+                            \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
-                                    Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
                                     Toggle::make('visible_web')
                                         ->label('Visible on Web')
                                         ->default(true),
                                     Toggle::make('visible_pdf')
                                         ->label('Visible on PDF')
                                         ->default(true),
+                                ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
                                     Toggle::make('is_template')
                                         ->label('Is Template')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
+                                        })
                                         ->default(false),
                                 ]),
                             Select::make('tags')
                                 ->label('Tags')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
+                                })
                                 ->multiple()
                                 ->relationship('tags', 'name')
                                 ->createOptionAction(
@@ -211,6 +223,9 @@ class FormElementTreeBuilder extends BaseWidget
                                     ->schema([
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
+                                            })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
                                             })
@@ -220,6 +235,9 @@ class FormElementTreeBuilder extends BaseWidget
                                             ->live(onBlur: true),
                                         TextInput::make('path')
                                             ->label('Data Path')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
+                                            })
                                             ->required()
                                             ->placeholder("$.['Contact'].['Birth Date']")
                                             ->helperText('The path to the data field in the selected data source'),
@@ -255,15 +273,12 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->disabled()
                                 ->label('Element Name')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
                                 }),
                             TextInput::make('reference_id')
                                 ->label('Reference ID')
                                 ->suffix(function ($get) {
                                     return $get('uuid') ? $get('uuid') : '';
-                                })
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID is appended automatically');
                                 })
                                 ->suffixAction(
                                     Action::make('copy')
@@ -304,29 +319,44 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->disabled(),
                             TextInput::make('elementable_type')
                                 ->label('Element Type')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
+                                })
                                 ->disabled(),
                             Textarea::make('description')
                                 ->disabled()
                                 ->rows(3),
                             TextInput::make('help_text')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
+                                })
                                 ->disabled(),
-                            \Filament\Forms\Components\Grid::make(4)
+                            \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
-                                    Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
                                     Toggle::make('visible_web')
                                         ->label('Visible on Web')
                                         ->disabled(),
                                     Toggle::make('visible_pdf')
                                         ->label('Visible on PDF')
                                         ->disabled(),
+                                ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
                                     Toggle::make('is_template')
                                         ->label('Is Template')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
+                                        })
                                         ->disabled(),
                                 ]),
                             Select::make('tags')
                                 ->label('Tags')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
+                                })
                                 ->multiple()
                                 ->relationship('tags', 'name')
                                 ->disabled()
@@ -375,12 +405,18 @@ class FormElementTreeBuilder extends BaseWidget
                                     ->schema([
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
+                                            })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
                                             })
                                             ->disabled(),
                                         TextInput::make('path')
                                             ->label('Data Path')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
+                                            })
                                             ->disabled(),
                                     ])
                                     ->disabled()

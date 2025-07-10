@@ -33,6 +33,7 @@ class FormElement extends Model
         'visible_web',
         'visible_pdf',
         'is_template',
+        'source_element_id',
     ];
 
     protected $casts = [
@@ -132,6 +133,22 @@ class FormElement extends Model
     public function dataBindings(): HasMany
     {
         return $this->hasMany(FormElementDataBinding::class)->orderBy('order');
+    }
+
+    /**
+     * Get the source element (template) this element was created from.
+     */
+    public function sourceElement(): BelongsTo
+    {
+        return $this->belongsTo(FormElement::class, 'source_element_id');
+    }
+
+    /**
+     * Get all elements that were created from this template.
+     */
+    public function derivedElements(): HasMany
+    {
+        return $this->hasMany(FormElement::class, 'source_element_id');
     }
 
     /**
@@ -300,6 +317,22 @@ class FormElement extends Model
     }
 
     /**
+     * Check if this element was created from a template
+     */
+    public function wasCreatedFromTemplate(): bool
+    {
+        return $this->source_element_id !== null;
+    }
+
+    /**
+     * Get the template this element was created from
+     */
+    public function getSourceTemplate(): ?self
+    {
+        return $this->sourceElement;
+    }
+
+    /**
      * Get all available element types
      */
     public static function getAvailableElementTypes(): array
@@ -307,14 +340,14 @@ class FormElement extends Model
         return [
             ContainerFormElement::class => 'Container',
             TextInputFormElement::class => 'Text Input',
-            TextareaInputFormElement::class => 'Textarea Input',
-            TextInfoFormElement::class => 'Text Info',
-            DateSelectInputFormElement::class => 'Date Select Input',
-            CheckboxInputFormElement::class => 'Checkbox Input',
-            SelectInputFormElement::class => 'Select Input',
-            RadioInputFormElement::class => 'Radio Input',
+            TextareaInputFormElement::class => 'Textarea',
+            TextInfoFormElement::class => 'Text Display',
+            DateSelectInputFormElement::class => 'Date Select',
+            CheckboxInputFormElement::class => 'Checkbox',
+            SelectInputFormElement::class => 'Dropdown',
+            RadioInputFormElement::class => 'Radio',
             NumberInputFormElement::class => 'Number Input',
-            ButtonInputFormElement::class => 'Button Input',
+            ButtonInputFormElement::class => 'Button',
             HTMLFormElement::class => 'HTML',
         ];
     }
