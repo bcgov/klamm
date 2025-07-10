@@ -381,7 +381,7 @@ class BuildFormVersion extends Page implements HasForms
                                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                     // Auto-generate reference_id if it's empty and we have a name
                                     if (!empty($state) && empty($get('reference_id'))) {
-                                        $slug = \Illuminate\Support\Str::slug($state, '_');
+                                        $slug = \Illuminate\Support\Str::slug($state, '-');
                                         $set('reference_id', $slug);
                                     }
                                 })
