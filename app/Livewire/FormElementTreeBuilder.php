@@ -66,7 +66,7 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->maxLength(255)
                                 ->label('Element Name')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
                                 }),
                             TextInput::make('reference_id')
                                 ->label('Reference ID')
@@ -75,9 +75,6 @@ class FormElementTreeBuilder extends BaseWidget
                                     return $get('uuid') ? $get('uuid') : '';
                                 })
                                 ->rules(['alpha_dash'])
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID will be appended automatically');
-                                })
                                 ->suffixAction(
                                     Action::make('copy')
                                         ->icon('heroicon-s-clipboard')
@@ -119,7 +116,7 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('elementable_type_display')
                                 ->label('Element Type')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The type of form element (e.g., text input, select, container) - this determines what properties are available');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
                                 })
                                 ->disabled()
                                 ->dehydrated(false)
@@ -128,49 +125,37 @@ class FormElementTreeBuilder extends BaseWidget
                                     return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
                                 }),
                             Textarea::make('description')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal description for documentation purposes - not visible to end users filling out the form');
-                                })
                                 ->rows(3),
                             TextInput::make('help_text')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Help text that will be displayed to users when they interact with this form element');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
                                 })
                                 ->maxLength(500),
                             \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     Toggle::make('visible_web')
                                         ->label('Visible on Web')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether this element is shown in the web version of the form');
-                                        })
                                         ->default(true),
                                     Toggle::make('visible_pdf')
                                         ->label('Visible on PDF')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether this element is included when the form is rendered as a PDF');
-                                        })
                                         ->default(true),
                                 ]),
                             \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     Toggle::make('is_required')
                                         ->label('Is Required')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether users must fill out this field to submit the form');
-                                        })
                                         ->default(false),
                                     Toggle::make('is_template')
                                         ->label('Is Template')
                                         ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Mark this element as a template to reuse it when creating other elements');
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
                                         })
                                         ->default(false),
                                 ]),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Organize and categorize form elements with tags for easier management');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
                                 })
                                 ->multiple()
                                 ->relationship('tags', 'name')
@@ -239,7 +224,7 @@ class FormElementTreeBuilder extends BaseWidget
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
                                             ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select which data source contains the information for this element');
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
                                             })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
@@ -251,7 +236,7 @@ class FormElementTreeBuilder extends BaseWidget
                                         TextInput::make('path')
                                             ->label('Data Path')
                                             ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'JSONPath expression to locate the specific data field (e.g., $.Contact.BirthDate)');
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
                                             })
                                             ->required()
                                             ->placeholder("$.['Contact'].['Birth Date']")
@@ -288,15 +273,12 @@ class FormElementTreeBuilder extends BaseWidget
                                 ->disabled()
                                 ->label('Element Name')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
                                 }),
                             TextInput::make('reference_id')
                                 ->label('Reference ID')
                                 ->suffix(function ($get) {
                                     return $get('uuid') ? $get('uuid') : '';
-                                })
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'User-defined reference identifier for this element - UUID is appended automatically');
                                 })
                                 ->suffixAction(
                                     Action::make('copy')
@@ -338,54 +320,42 @@ class FormElementTreeBuilder extends BaseWidget
                             TextInput::make('elementable_type')
                                 ->label('Element Type')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The type of form element (e.g., text input, select, container) - this determines what properties are available');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
                                 })
                                 ->disabled(),
                             Textarea::make('description')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal description for documentation purposes - not visible to end users filling out the form');
-                                })
                                 ->disabled()
                                 ->rows(3),
                             TextInput::make('help_text')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Help text that will be displayed to users when they interact with this form element');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
                                 })
                                 ->disabled(),
                             \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     Toggle::make('visible_web')
                                         ->label('Visible on Web')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether this element is shown in the web version of the form');
-                                        })
                                         ->disabled(),
                                     Toggle::make('visible_pdf')
                                         ->label('Visible on PDF')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether this element is included when the form is rendered as a PDF');
-                                        })
                                         ->disabled(),
                                 ]),
                             \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     Toggle::make('is_required')
                                         ->label('Is Required')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether users must fill out this field to submit the form');
-                                        })
                                         ->default(false),
                                     Toggle::make('is_template')
                                         ->label('Is Template')
                                         ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Mark this element as a template to reuse it when creating other elements');
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
                                         })
                                         ->disabled(),
                                 ]),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Organize and categorize form elements with tags for easier management');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
                                 })
                                 ->multiple()
                                 ->relationship('tags', 'name')
@@ -436,7 +406,7 @@ class FormElementTreeBuilder extends BaseWidget
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
                                             ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select which data source contains the information for this element');
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
                                             })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
@@ -445,7 +415,7 @@ class FormElementTreeBuilder extends BaseWidget
                                         TextInput::make('path')
                                             ->label('Data Path')
                                             ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'JSONPath expression to locate the specific data field (e.g., $.Contact.BirthDate)');
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
                                             })
                                             ->disabled(),
                                     ])

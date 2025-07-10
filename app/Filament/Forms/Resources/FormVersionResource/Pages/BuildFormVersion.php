@@ -393,7 +393,7 @@ class BuildFormVersion extends Page implements HasForms
                                     }
                                 })
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
                                 }),
                             \Filament\Forms\Components\TextInput::make('reference_id')
                                 ->label('Reference ID')
@@ -413,7 +413,7 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The type of form element (e.g., text input, select, container) - this determines what properties are available');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
                                 })
                                 ->options(FormElement::getAvailableElementTypes())
                                 ->required()
@@ -423,49 +423,37 @@ class BuildFormVersion extends Page implements HasForms
                                     $set('elementable_data', []);
                                 }),
                             \Filament\Forms\Components\Textarea::make('description')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal description for documentation purposes - not visible to end users filling out the form');
-                                })
                                 ->rows(3),
                             \Filament\Forms\Components\TextInput::make('help_text')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Help text that will be displayed to users when they interact with this form element');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
                                 })
                                 ->maxLength(500),
                             \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     \Filament\Forms\Components\Toggle::make('visible_web')
                                         ->label('Visible on Web')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether this element is shown in the web version of the form');
-                                        })
                                         ->default(true),
                                     \Filament\Forms\Components\Toggle::make('visible_pdf')
                                         ->label('Visible on PDF')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether this element is included when the form is rendered as a PDF');
-                                        })
                                         ->default(true),
                                 ]),
                             \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     \Filament\Forms\Components\Toggle::make('is_required')
                                         ->label('Is Required')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Whether users must fill out this field to submit the form');
-                                        })
                                         ->default(false),
                                     \Filament\Forms\Components\Toggle::make('is_template')
                                         ->label('Is Template')
                                         ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Mark this element as a template to reuse it when creating other elements');
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
                                         })
                                         ->default(false),
                                 ]),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Organize and categorize form elements with tags for easier management');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
                                 })
                                 ->multiple()
                                 ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
@@ -524,7 +512,7 @@ class BuildFormVersion extends Page implements HasForms
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
                                             ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select which data source contains the information for this element');
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
                                             })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
@@ -536,7 +524,7 @@ class BuildFormVersion extends Page implements HasForms
                                         \Filament\Forms\Components\TextInput::make('path')
                                             ->label('Data Path')
                                             ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'JSONPath expression to locate the specific data field (e.g., $.Contact.BirthDate)');
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
                                             })
                                             ->required()
                                             ->placeholder("$.['Contact'].['Birth Date']")
