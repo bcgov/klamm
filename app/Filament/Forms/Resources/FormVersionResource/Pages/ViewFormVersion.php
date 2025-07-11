@@ -43,7 +43,8 @@ class ViewFormVersion extends ViewRecord
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->url(fn() => FormVersionResource::getUrl('build', ['record' => $this->record]))
                 ->color('primary')
-                ->outlined(),
+                ->outlined()
+                ->visible(fn() => Gate::allows('form-developer')),
             Actions\Action::make('Preview Form')
                 ->label('Preview Form')
                 ->icon('heroicon-o-rocket-launch')

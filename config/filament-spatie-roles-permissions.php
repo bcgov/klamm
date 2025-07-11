@@ -138,7 +138,8 @@ return [
          */
         'model_directories' => [
             app_path('Models'),
-            //app_path('Domains/Forum')
+            app_path('Models/FormBuilding'),
+            app_path('Models/FormMetadata'),
         ],
 
         /*

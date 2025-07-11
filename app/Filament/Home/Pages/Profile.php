@@ -2,16 +2,15 @@
 
 namespace App\Filament\Home\Pages;
 
-use Filament\Forms;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
-use Illuminate\Support\Str;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -33,6 +32,7 @@ class Profile extends Page implements HasTable
     public $new_password;
     public $new_password_confirmation;
     public $api_token;
+    public $tooltips_enabled;
 
     public function mount()
     {
@@ -44,6 +44,7 @@ class Profile extends Page implements HasTable
 
         $this->name = $user->name;
         $this->email = $user->email;
+        $this->tooltips_enabled = $user->tooltips_enabled;
     }
 
     protected function getFormSchema(): array
@@ -62,6 +63,18 @@ class Profile extends Page implements HasTable
                         Action::make('updateProfile')
                             ->label('Update Profile')
                             ->action('updateProfile')
+                    ])
+                ]),
+            Section::make('User Preferences')
+                ->schema([
+                    Toggle::make('tooltips_enabled')
+                        ->label('Enable Tooltips')
+                        ->helperText('Show helpful tooltips throughout the application')
+                        ->live(),
+                    Actions::make([
+                        Action::make('updatePreferences')
+                            ->label('Update Preferences')
+                            ->action('updatePreferences')
                     ])
                 ]),
             Section::make('Update Password')
@@ -113,16 +126,37 @@ class Profile extends Page implements HasTable
         $validatedData = $this->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'tooltips_enabled' => 'required|boolean',
         ]);
 
         $user->name = $validatedData['name'];
         $user->email = $validatedData['email'];
+        $user->tooltips_enabled = $validatedData['tooltips_enabled'];
 
         /** @var \App\Models\User $user **/
         $user->save();
 
         Notification::make()
             ->title("Profile updated successfully!")
+            ->success()
+            ->send();
+    }
+
+    public function updatePreferences()
+    {
+        $user = Auth::user();
+
+        $validatedData = $this->validate([
+            'tooltips_enabled' => 'required|boolean',
+        ]);
+
+        $user->tooltips_enabled = $validatedData['tooltips_enabled'];
+
+        /** @var \App\Models\User $user **/
+        $user->save();
+
+        Notification::make()
+            ->title("Preferences updated successfully!")
             ->success()
             ->send();
     }

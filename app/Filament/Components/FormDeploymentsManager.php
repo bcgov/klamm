@@ -42,8 +42,7 @@ class FormDeploymentsManager
                                             return 'No deployment details yet';
                                         }
 
-                                        return "Version {$deployment->formVersion->version_number}<br>" .
-                                            "Deployed: {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
                                     })
                                     ->extraAttributes(['class' => 'text-sm']),
                                 Actions::make([
@@ -98,8 +97,7 @@ class FormDeploymentsManager
                                             return 'No deployment details yet';
                                         }
 
-                                        return "Version {$deployment->formVersion->version_number}<br>" .
-                                            "Deployed: {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
                                     })
                                     ->extraAttributes(['class' => 'text-sm']),
                                 Actions::make([
@@ -154,8 +152,7 @@ class FormDeploymentsManager
                                             return 'No deployment details yet';
                                         }
 
-                                        return "Version {$deployment->formVersion->version_number}<br>" .
-                                            "Deployed: {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
                                     })
                                     ->extraAttributes(['class' => 'text-sm']),
                                 Actions::make([

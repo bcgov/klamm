@@ -6,6 +6,7 @@ use App\Filament\Forms\Resources\FormResource;
 use App\Filament\Forms\Resources\FormVersionResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Gate;
 
 class EditFormVersion extends EditRecord
 {
@@ -36,7 +37,8 @@ class EditFormVersion extends EditRecord
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->url(fn() => FormVersionResource::getUrl('build', ['record' => $this->record]))
                 ->color('primary')
-                ->outlined(),
+                ->outlined()
+                ->visible(fn() => Gate::allows('form-developer')),
             Actions\Action::make('Preview Draft Template')
                 ->label('Preview Draft')
                 ->icon('heroicon-o-rocket-launch')

@@ -24,6 +24,9 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\HtmlString;
+use Filament\Forms\Components\Placeholder;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -36,17 +39,57 @@ class BuildFormVersion extends Page implements HasForms
 
     public array $data = [];
 
+    protected function isEditable(): bool
+    {
+        return $this->record->status === 'draft';
+    }
+
+    protected function getFormattedStatusName(): string
+    {
+        return $this->record->getFormattedStatusName();
+    }
+
     public function mount(int | string $record): void
     {
+        if (!Gate::allows('form-developer')) {
+            abort(403, 'Unauthorized. Only form developers can access the form builder.');
+        }
+
         $this->record = $this->resolveRecord($record);
         $this->form->fill($this->mutateFormDataBeforeFill([]));
+    }
+
+    protected function shouldShowTooltips(): bool
+    {
+        $user = Auth::user();
+        return $user && $user->tooltips_enabled;
     }
 
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                FormVersionBuilder::schema()
+                // Add notification banner for read-only mode
+                ...((!$this->isEditable()) ? [
+                    Placeholder::make('readonly_notice')
+                        ->label('')
+                        ->content(new HtmlString('
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                                <div class="flex">
+                                    <div class="ml-3">
+                                        <h3 class="text-sm font-medium text-amber-800">
+                                            Read-Only Mode
+                                        </h3>
+                                        <div class="mt-2 text-sm text-amber-700">
+                                            <p>This form version is <strong>' . $this->getFormattedStatusName() . '</strong> and cannot be edited. Only form versions in <strong>Draft</strong> status can be modified.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        '))
+                        ->columnSpanFull(),
+                ] : []),
+                FormVersionBuilder::schema($this->isEditable())
             ])
             ->statePath('data')
             ->model($this->record);
@@ -60,11 +103,14 @@ class BuildFormVersion extends Page implements HasForms
                 ->icon('heroicon-o-plus-circle')
                 ->color('success')
                 ->outlined()
+                ->visible($this->isEditable())
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
                     try {
                         $data['form_version_id'] = $this->record->id;
 
+                        // Capture the template ID before removing it
+                        $templateId = $data['template_id'] ?? null;
                         // Remove template_id as it's only used for prefilling
                         unset($data['template_id']);
 
@@ -86,11 +132,16 @@ class BuildFormVersion extends Page implements HasForms
                             return $value !== null;
                         });
 
+                        // Set source_element_id if created from template
+                        if ($templateId) {
+                            $data['source_element_id'] = $templateId;
+                        }
+
                         // Create the polymorphic model first if there's data
                         $elementableModel = null;
                         if (!empty($elementableData) && class_exists($elementType)) {
                             $elementableModel = $elementType::create($elementableData);
-                        } elseif (class_exists($elementType)) {
+                        } elseif (empty($elementableData) && class_exists($elementType)) {
                             // Create with empty array to trigger model defaults
                             $elementableModel = $elementType::create([]);
                         }
@@ -154,15 +205,6 @@ class BuildFormVersion extends Page implements HasForms
                     }
                 }),
 
-            // Actions\Action::make('broadcast_update')
-            //     ->label('Broadcast Update')
-            //     ->icon('heroicon-o-signal')
-            //     ->color('info')
-            //     ->outlined()
-            //     ->action(function () {
-            //         $this->triggerUpdateEvent('manual_broadcast');
-            //     }),
-
             ActionGroup::make([
                 $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
                 $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
@@ -220,6 +262,16 @@ class BuildFormVersion extends Page implements HasForms
 
     public function save(): void
     {
+        // Prevent saving if not editable
+        if (!$this->isEditable()) {
+            \Filament\Notifications\Notification::make()
+                ->warning()
+                ->title('Cannot Save Changes')
+                ->body('Form versions can only be saved when in draft status.')
+                ->send();
+            return;
+        }
+
         $data = $this->form->getState();
 
         // Save CSS stylesheets
@@ -267,11 +319,28 @@ class BuildFormVersion extends Page implements HasForms
                                 ->label('Start from template')
                                 ->placeholder('Select a template (optional)')
                                 ->options(function () {
-                                    return FormElement::templates()
+                                    $templates = FormElement::templates()
                                         ->with('elementable')
-                                        ->get()
-                                        ->pluck('name', 'id')
-                                        ->toArray();
+                                        ->get();
+
+                                    $availableTypes = FormElement::getAvailableElementTypes();
+                                    $groupedOptions = [];
+
+                                    foreach ($templates as $template) {
+                                        $elementType = $template->elementable_type;
+                                        $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
+
+                                        if (!isset($groupedOptions[$groupName])) {
+                                            $groupedOptions[$groupName] = [];
+                                        }
+
+                                        $groupedOptions[$groupName][$template->id] = $template->name;
+                                    }
+
+                                    // Sort groups alphabetically
+                                    ksort($groupedOptions);
+
+                                    return $groupedOptions;
                                 })
                                 ->live()
                                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
@@ -291,7 +360,7 @@ class BuildFormVersion extends Page implements HasForms
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
-                                    $set('is_visible', $template->is_visible);
+                                    $set('is_required', $template->is_required);
                                     $set('visible_web', $template->visible_web);
                                     $set('visible_pdf', $template->visible_pdf);
                                     $set('is_template', false); // New element should not be a template by default
@@ -313,9 +382,42 @@ class BuildFormVersion extends Page implements HasForms
                                 ->columnSpanFull(),
                             \Filament\Forms\Components\TextInput::make('name')
                                 ->required()
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->label('Element Name')
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    // Auto-generate reference_id if it's empty and we have a name
+                                    if (!empty($state) && empty($get('reference_id'))) {
+                                        $slug = \Illuminate\Support\Str::slug($state, '-');
+                                        $set('reference_id', $slug);
+                                    }
+                                })
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
+                                }),
+                            \Filament\Forms\Components\TextInput::make('reference_id')
+                                ->label('Reference ID')
+                                ->rules(['alpha_dash'])
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
+                                })
+                                ->suffixAction(
+                                    \Filament\Forms\Components\Actions\Action::make('regenerate_reference_id')
+                                        ->icon('heroicon-o-arrow-path')
+                                        ->tooltip('Regenerate from Element Name')
+                                        ->action(function (callable $set, callable $get) {
+                                            $name = $get('name');
+                                            if (!empty($name)) {
+                                                $slug = \Illuminate\Support\Str::slug($name, '-');
+                                                $set('reference_id', $slug);
+                                            }
+                                        })
+                                ),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
+                                })
                                 ->options(FormElement::getAvailableElementTypes())
                                 ->required()
                                 ->live()
@@ -326,21 +428,36 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\Textarea::make('description')
                                 ->rows(3),
                             \Filament\Forms\Components\TextInput::make('help_text')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
+                                })
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Toggle::make('is_visible')
-                                ->label('Visible')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('visible_web')
-                                ->label('Visible on Web')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('visible_pdf')
-                                ->label('Visible on PDF')
-                                ->default(true),
-                            \Filament\Forms\Components\Toggle::make('is_template')
-                                ->label('Is Template')
-                                ->default(false),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    \Filament\Forms\Components\Toggle::make('visible_web')
+                                        ->label('Visible on Web')
+                                        ->default(true),
+                                    \Filament\Forms\Components\Toggle::make('visible_pdf')
+                                        ->label('Visible on PDF')
+                                        ->default(true),
+                                ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    \Filament\Forms\Components\Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
+                                    \Filament\Forms\Components\Toggle::make('is_template')
+                                        ->label('Is Template')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
+                                        })
+                                        ->default(false),
+                                ]),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
+                                })
                                 ->multiple()
                                 ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
                                 ->createOptionAction(
@@ -397,6 +514,9 @@ class BuildFormVersion extends Page implements HasForms
                                     ->schema([
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
+                                            })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
                                             })
@@ -406,6 +526,9 @@ class BuildFormVersion extends Page implements HasForms
                                             ->live(onBlur: true),
                                         \Filament\Forms\Components\TextInput::make('path')
                                             ->label('Data Path')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
+                                            })
                                             ->required()
                                             ->placeholder("$.['Contact'].['Birth Date']")
                                             ->helperText('The path to the data field in the selected data source'),
