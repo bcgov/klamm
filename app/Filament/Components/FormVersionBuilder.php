@@ -90,6 +90,8 @@ class FormVersionBuilder
             ->tabs([
                 Tab::make('Build')
                     ->icon('heroicon-o-cog')
+                    ->live()
+                    ->reactive()
                     ->schema([
                         \Filament\Forms\Components\View::make('components.form-element-tree')
                             ->viewData(function ($livewire) use ($editable) {

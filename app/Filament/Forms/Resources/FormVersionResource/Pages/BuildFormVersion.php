@@ -24,6 +24,13 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Illuminate\Support\Facades\Log;
+use Filament\Forms\Set;
+use Filament\Forms\Components\FileUpload;
+use App\Filament\Forms\Helpers\SchemaParser;
+use Filament\Forms\Components\Wizard;
+use App\Jobs\ImportFormVersionElementsJob;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
@@ -35,9 +42,21 @@ class BuildFormVersion extends Page implements HasForms
 
     protected static string $resource = FormVersionResource::class;
 
+    private ?array $parsedSchema = null;
+    private ?array $parsedContent = null; // Store parsed content for preview
+
+    private ?array $fieldMappingSchema = null; // Add field mapping schema storage
+    private ?array $currentFieldMappings = null; // Store current field mappings for preview
+
     protected static string $view = 'filament.forms.resources.form-version-resource.pages.build-form-version';
 
     public array $data = [];
+    public array $importWizard = []; // <-- Add this
+    public array $importJobStatus = [
+        'status' => null,
+        'done' => false,
+        'cacheKey' => null,
+    ];
 
     protected function isEditable(): bool
     {
@@ -91,6 +110,8 @@ class BuildFormVersion extends Page implements HasForms
                 ] : []),
                 FormVersionBuilder::schema($this->isEditable())
             ])
+            ->live()
+            ->reactive()
             ->statePath('data')
             ->model($this->record);
     }
@@ -200,6 +221,84 @@ class BuildFormVersion extends Page implements HasForms
                             ->danger()
                             ->title('Error Creating Element')
                             ->body('An unexpected error occurred: ' . $e->getMessage())
+                            ->persistent()
+                            ->send();
+                    }
+                }),
+
+            Actions\Action::make('import_form_template')
+                ->label('Import')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('primary')
+                ->outlined()
+                ->modalHeading('Import Form Template')
+                ->modalDescription('Upload a JSON template to import form elements and structure.')
+                ->form([
+                    Wizard::make([
+                        Wizard\Step::make('Upload Template')
+                            ->schema([
+                                FileUpload::make('schema_file')
+                                    ->label('Schema File')
+                                    ->acceptedFileTypes(['application/json'])
+                                    ->maxSize(5120)
+                                    ->helperText(function () {
+                                        return $this->parsedSchema !== null
+                                            ? 'Schema already parsed - upload disabled'
+                                            : 'Upload a JSON file with form schema (max 5MB)';
+                                    })
+                                    ->disabled(fn() => $this->parsedSchema !== null)
+                                    ->reactive()
+                                    ->afterStateUpdated(function (Set $set, ?\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $state) {
+                                        if ($state) {
+                                            $content = file_get_contents($state->getRealPath());
+                                            $set('schema_content', $content);
+                                            $parsed = SchemaParser::parseSchema($content);
+                                            $set('parsed_content', json_encode($parsed));
+                                            Log::debug('Wizard afterStateUpdated', [
+                                                'schema_content' => $content,
+                                                'parsed_content' => $parsed,
+                                            ]);
+                                            $this->importWizard = [
+                                                'schema_content' => $content,
+                                                'parsed_content' => $parsed,
+                                            ];
+                                        } else {
+                                            $set('schema_content', null);
+                                            $set('parsed_content', null);
+                                        }
+                                    }),
+                            ]),
+                        Wizard\Step::make('Preview & Import')
+                            ->schema([
+                                Forms\Components\Textarea::make('schema_content')
+                                    ->label('Schema Content')
+                                    ->rows(10)
+                                    ->disabled()
+                                    ->helperText('This is the raw JSON content of the uploaded schema file.'),
+                                Forms\Components\Textarea::make('parsed_content')
+                                    ->label('Parsed Schema')
+                                    ->rows(10)
+                                    ->disabled()
+                                    ->formatStateUsing(fn($state) => \App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion::formatJsonForTextarea($state))
+                                    ->helperText('This is the parsed schema structure.'),
+                            ]),
+                        Wizard\Step::make('Import Elements')
+                            ->schema([
+                                \Filament\Forms\Components\Placeholder::make('import_elements_info')
+                                    ->content('Click the button below to import all parsed elements into this form version.'),
+
+                            ]),
+                    ])
+                        ->statePath('importWizard') // <-- Change from 'data' to 'importWizard'
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $this->importParsedSchemaElements();
+                    } catch (\Exception $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->danger()
+                            ->title('Import Failed')
+                            ->body($e->getMessage())
                             ->persistent()
                             ->send();
                     }
@@ -709,5 +808,144 @@ class BuildFormVersion extends Page implements HasForms
             }
         });
         ";
+    }
+
+    private static function formatJsonForTextarea($value): string
+    {
+        if (is_string($value)) {
+            // Try to decode and re-encode for pretty print
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+            return $value;
+        }
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+        return (string) $value;
+    }
+
+    /**
+     * Import all parsed schema elements as new form elements
+     */
+    public function importParsedSchemaElements()
+    {
+        $schemaContent = $this->importWizard['schema_content'] ?? null;
+        if (empty($schemaContent)) {
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('No Parsed Schema')
+                ->body('No schema content found to import.')
+                ->send();
+            return;
+        }
+
+        // Generate a unique cache key for this import
+        $cacheKey = 'import_form_version_' . $this->record->id . '_' . uniqid();
+        Cache::put($cacheKey . '_status', 'queued', 3600);
+
+        ImportFormVersionElementsJob::dispatch(
+            $this->record->id,
+            $schemaContent,
+            $cacheKey,
+            auth()->id()
+        );
+
+        session()->put('import_job_cache_key', $cacheKey);
+
+        $this->importJobStatus = [
+            'status' => 'queued',
+            'done' => false,
+            'cacheKey' => $cacheKey,
+        ];
+
+        \Filament\Notifications\Notification::make()
+            ->info()
+            ->title('Import Started')
+            ->body('The import is being processed in the background. This page will refresh when it is complete.')
+            ->persistent()
+            ->send();
+    }
+
+    public function pollImportStatus()
+    {
+        $cacheKey = $this->importJobStatus['cacheKey'] ?? session('import_job_cache_key');
+        if (!$cacheKey) {
+            $this->importJobStatus['done'] = false;
+            return;
+        }
+
+        $status = Cache::get($cacheKey . '_status');
+        $error = Cache::get($cacheKey . '_error');
+
+        if ($status === 'complete') {
+            Cache::forget($cacheKey . '_status');
+            Cache::forget($cacheKey . '_progress');
+            session()->forget('import_job_cache_key');
+            $this->importJobStatus['done'] = true;
+            $this->importJobStatus['status'] = 'complete';
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('Import Complete')
+                ->body('Form elements have been successfully imported. The page will refresh to show the new elements.')
+                ->send();
+
+            $this->js('setTimeout(() => { window.location.reload(); }, 1500);');
+        } elseif ($status === 'error') {
+            Cache::forget($cacheKey . '_status');
+            Cache::forget($cacheKey . '_error');
+            Cache::forget($cacheKey . '_progress');
+            session()->forget('import_job_cache_key');
+
+            $this->importJobStatus['done'] = true;
+            $this->importJobStatus['status'] = 'error';
+
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Import Failed')
+                ->body($error ?: 'An error occurred during import.')
+                ->persistent()
+                ->send();
+        } else {
+            $this->importJobStatus['done'] = false;
+            $this->importJobStatus['status'] = $status ?: 'processing';
+            $progress = Cache::get($cacheKey . '_progress');
+            if ($progress) {
+                $this->importJobStatus['progress'] = $progress;
+            }
+        }
+    }
+
+    public function render(): \Illuminate\Contracts\View\View
+    {
+        $cacheKey = session('import_job_cache_key');
+        if ($cacheKey && !isset($this->importJobStatus['cacheKey'])) {
+            $this->importJobStatus = [
+                'status' => Cache::get($cacheKey . '_status', 'unknown'),
+                'done' => false,
+                'cacheKey' => $cacheKey,
+            ];
+        }
+
+        // If an import job is running, poll every 2 seconds
+        if (
+            isset($this->importJobStatus['cacheKey']) &&
+            $this->importJobStatus['cacheKey'] &&
+            !$this->importJobStatus['done']
+        ) {
+            $this->js(<<<JS
+                setTimeout(() => {
+                    if (typeof window.Livewire !== 'undefined') {
+                        const component = window.Livewire.find('{$this->getId()}');
+                        if (component) {
+                            component.call('pollImportStatus');
+                        }
+                    }
+                }, 2000);
+            JS);
+        }
+
+        return parent::render();
     }
 }
