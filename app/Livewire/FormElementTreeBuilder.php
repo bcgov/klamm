@@ -4,21 +4,15 @@ namespace App\Livewire;
 
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
-use App\Models\FormBuilding\FormElementTag;
 use App\Models\FormBuilding\FormVersion;
 use App\Helpers\DataBindingsHelper;
 use App\Helpers\ElementPropertiesHelper;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms;
+use App\Helpers\GeneralTabHelper;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
-use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 
 class FormElementTreeBuilder extends BaseWidget
@@ -58,127 +52,11 @@ class FormElementTreeBuilder extends BaseWidget
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema([
-                            TextInput::make('name')
-                                ->required()
-                                ->maxLength(255)
-                                ->label('Element Name')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-                                }),
-                            TextInput::make('reference_id')
-                                ->label('Reference ID')
-                                ->suffix(function ($get) {
-
-                                    return $get('uuid') ? $get('uuid') : '';
-                                })
-                                ->rules(['alpha_dash'])
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
-                                })
-                                ->suffixAction(
-                                    Action::make('copy')
-                                        ->icon('heroicon-s-clipboard')
-                                        ->action(function ($livewire, $state, $get) {
-                                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                                        })
-                                )
-                                ->extraAttributes([
-                                    'x-data' => '{
-                                        copyToClipboard(text) {
-                                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                                navigator.clipboard.writeText(text).then(() => {
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                }).catch(() => {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                });
-                                            } else {
-                                                const textArea = document.createElement("textarea");
-                                                textArea.value = text;
-                                                textArea.style.position = "fixed";
-                                                textArea.style.opacity = "0";
-                                                document.body.appendChild(textArea);
-                                                textArea.select();
-                                                try {
-                                                    document.execCommand("copy");
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                } catch (err) {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                }
-                                                document.body.removeChild(textArea);
-                                            }
-                                        }
-                                    }',
-                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                                ])
-                                ->disabled(),
-                            \Filament\Forms\Components\Hidden::make('elementable_type'),
-                            TextInput::make('elementable_type_display')
-                                ->label('Element Type')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-                                })
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->formatStateUsing(function ($state, callable $get) {
-                                    $elementType = $get('elementable_type');
-                                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
-                                }),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-                                })
-                                ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('visible_web')
-                                        ->label('Visible on Web')
-                                        ->default(true),
-                                    Toggle::make('visible_pdf')
-                                        ->label('Visible on PDF')
-                                        ->default(true),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
-                                    Toggle::make('is_template')
-                                        ->label('Is Template')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-                                        })
-                                        ->default(false),
-                                ]),
-                            Select::make('tags')
-                                ->label('Tags')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-                                })
-                                ->multiple()
-                                ->relationship('tags', 'name')
-                                ->createOptionAction(
-                                    fn(Forms\Components\Actions\Action $action) => $action
-                                        ->modalHeading('Create Tag')
-                                        ->modalWidth('md')
-                                )
-                                ->createOptionForm([
-                                    TextInput::make('name')
-                                        ->required()
-                                        ->maxLength(255)
-                                        ->unique(FormElementTag::class, 'name'),
-                                    Textarea::make('description')
-                                        ->rows(3),
-                                ])
-                                ->createOptionUsing(function (array $data) {
-                                    return FormElementTag::create($data)->id;
-                                })
-                                ->searchable()
-                                ->preload(),
-                        ]),
+                        ->schema(function () {
+                            return GeneralTabHelper::getEditSchema(
+                                fn() => $this->shouldShowTooltips()
+                            );
+                        }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
@@ -206,103 +84,11 @@ class FormElementTreeBuilder extends BaseWidget
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema([
-                            TextInput::make('name')
-                                ->disabled()
-                                ->label('Element Name')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-                                }),
-                            TextInput::make('reference_id')
-                                ->label('Reference ID')
-                                ->suffix(function ($get) {
-                                    return $get('uuid') ? $get('uuid') : '';
-                                })
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
-                                })
-                                ->suffixAction(
-                                    Action::make('copy')
-                                        ->icon('heroicon-s-clipboard')
-                                        ->action(function ($livewire, $state, $get) {
-                                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                                        })
-                                )
-                                ->extraAttributes([
-                                    'x-data' => '{
-                                        copyToClipboard(text) {
-                                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                                navigator.clipboard.writeText(text).then(() => {
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                }).catch(() => {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                });
-                                            } else {
-                                                const textArea = document.createElement("textarea");
-                                                textArea.value = text;
-                                                textArea.style.position = "fixed";
-                                                textArea.style.opacity = "0";
-                                                document.body.appendChild(textArea);
-                                                textArea.select();
-                                                try {
-                                                    document.execCommand("copy");
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                } catch (err) {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                }
-                                                document.body.removeChild(textArea);
-                                            }
-                                        }
-                                    }',
-                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                                ])
-                                ->disabled(),
-                            TextInput::make('elementable_type')
-                                ->label('Element Type')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-                                })
-                                ->disabled(),
-                            Textarea::make('description')
-                                ->disabled()
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-                                })
-                                ->disabled(),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('visible_web')
-                                        ->label('Visible on Web')
-                                        ->disabled(),
-                                    Toggle::make('visible_pdf')
-                                        ->label('Visible on PDF')
-                                        ->disabled(),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
-                                    Toggle::make('is_template')
-                                        ->label('Is Template')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-                                        })
-                                        ->disabled(),
-                                ]),
-                            Select::make('tags')
-                                ->label('Tags')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-                                })
-                                ->multiple()
-                                ->relationship('tags', 'name')
-                                ->disabled()
-                                ->searchable(),
-                        ]),
+                        ->schema(function () {
+                            return GeneralTabHelper::getViewSchema(
+                                fn() => $this->shouldShowTooltips()
+                            );
+                        }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
