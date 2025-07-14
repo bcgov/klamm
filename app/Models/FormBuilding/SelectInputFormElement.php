@@ -45,11 +45,31 @@ class SelectInputFormElement extends Model
                     \Filament\Forms\Components\TextInput::make('label')
                         ->label('Option Label')
                         ->required()
-                        ->columnSpan(2),
-                    \Filament\Forms\Components\Textarea::make('description')
-                        ->label('Description')
-                        ->rows(2)
-                        ->columnSpan(2),
+                        ->columnSpan(2)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function (callable $set, callable $get, $state) {
+                            $value = $get('value');
+                            if (empty($value) && !empty($state)) {
+                                $slug = \Illuminate\Support\Str::slug($state, '_');
+                                $set('value', $slug);
+                            }
+                        }),
+                    \Filament\Forms\Components\TextInput::make('value')
+                        ->label('Option Value')
+                        ->required()
+                        ->columnSpan(2)
+                        ->suffixAction(
+                            \Filament\Forms\Components\Actions\Action::make('regenerate_value')
+                                ->icon('heroicon-o-arrow-path')
+                                ->tooltip('Regenerate from Option Label')
+                                ->action(function (callable $set, callable $get) {
+                                    $label = $get('label');
+                                    if (!empty($label)) {
+                                        $slug = \Illuminate\Support\Str::slug($label, '_');
+                                        $set('value', $slug);
+                                    }
+                                })
+                        ),
                 ])
                 ->columns(2)
                 ->defaultItems(1)

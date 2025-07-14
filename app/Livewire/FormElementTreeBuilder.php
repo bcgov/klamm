@@ -472,7 +472,7 @@ class FormElementTreeBuilder extends BaseWidget
                             $options = $record->elementable->options->map(function ($option) {
                                 return [
                                     'label' => $option->label,
-                                    'description' => $option->description,
+                                    'value' => $option->value,
                                 ];
                             })->toArray();
                             $elementableData['options'] = $options;
@@ -512,7 +512,7 @@ class FormElementTreeBuilder extends BaseWidget
                             $options = $record->elementable->options->map(function ($option) {
                                 return [
                                     'label' => $option->label,
-                                    'description' => $option->description,
+                                    'value' => $option->value,
                                 ];
                             })->toArray();
                             $elementableData['options'] = $options;
@@ -626,7 +626,7 @@ class FormElementTreeBuilder extends BaseWidget
                     $options = $record->elementable->options->map(function ($option) {
                         return [
                             'label' => $option->label,
-                            'description' => $option->description,
+                            'value' => $option->value,
                         ];
                     })->toArray();
                     $elementableData['options'] = $options;
