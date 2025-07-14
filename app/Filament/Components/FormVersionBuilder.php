@@ -45,7 +45,7 @@ class FormVersionBuilder
             return [
                 'label' => $label,
                 // Insert selector and label/type as a comment for inline context
-                'insertText' => $context == 'style' ? '[id="' . $fullReferenceId . '"] /* ' . addslashes($label) . ' */ ' : '"' . $fullReferenceId . '" /* ' . addslashes($label) . ' */ ',
+                'insertText' => $context == 'style' ? "[id='" . $fullReferenceId . "'] /* " . addslashes($label) . ' */ ' : "'" . $fullReferenceId . "' /* " . addslashes($label) . ' */ ',
                 'detail' => "Selector: #$fullReferenceId\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
                 'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
             ];
