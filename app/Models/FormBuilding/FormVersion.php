@@ -31,7 +31,10 @@ class FormVersion extends Model
         'status',
         'form_developer_id',
         'comments',
-        'components'
+        'components',
+        'pdf_template_name',
+        'pdf_template_version',
+        'pdf_template_parameters',
     ];
 
     protected $casts = [];
