@@ -184,6 +184,7 @@ class FormVersionJsonService
             'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
+            'options' => $element->elementable?->options ?? [],
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
             'attributes' => $this->getElementAttributes($element)
         ];
