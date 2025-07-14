@@ -61,8 +61,26 @@ class SchemaParser
                 }
             };
 
-            // Handle import format
-            if (isset($data['data']) && isset($data['data']['elements'])) {
+            // Format 1: formversion structure
+            if (isset($data['formversion'])) {
+                $formversion = $data['formversion'];
+                if (isset($formversion['elements'])) {
+                    $countElements($formversion['elements']);
+                }
+                return [
+                    'form_id' => $formversion['id'] ?? null,
+                    'title' => $formversion['name'] ?? null,
+                    'field_count' => $fieldCount,
+                    'container_count' => $containerCount,
+                    'format' => 'formversion',
+                    'version' => $formversion['version'] ?? null,
+                    'status' => $formversion['status'] ?? null,
+                    'data_sources_count' => isset($formversion['dataSources']) ? count($formversion['dataSources']) : 0,
+                    'scripts_count' => isset($formversion['scripts']) ? count($formversion['scripts']) : 0,
+                ];
+            }
+            // Format 2: data structure
+            elseif (isset($data['data']) && isset($data['data']['elements'])) {
                 $countElements($data['data']['elements']);
                 return [
                     'form_id' => $data['form_id'] ?? null,
@@ -70,9 +88,24 @@ class SchemaParser
                     'field_count' => $fieldCount,
                     'container_count' => $containerCount,
                     'format' => 'adze-template',
+                    'data_sources_count' => isset($data['data']['dataSources']) ? count($data['data']['dataSources']) : 0,
+                    'javascript_sections_count' => isset($data['data']['javascript']) ? count($data['data']['javascript']) : 0,
                 ];
             }
-            // Handle old format
+            // Format 3: direct elements structure
+            elseif (isset($data['elements'])) {
+                $countElements($data['elements']);
+                return [
+                    'form_id' => $data['form_id'] ?? null,
+                    'title' => $data['title'] ?? null,
+                    'field_count' => $fieldCount,
+                    'container_count' => $containerCount,
+                    'format' => 'direct-elements',
+                    'data_sources_count' => isset($data['dataSources']) ? count($data['dataSources']) : 0,
+                    'javascript_sections_count' => isset($data['javascript']) ? count($data['javascript']) : 0,
+                ];
+            }
+            // Format 4: fields structure
             elseif (isset($data['fields'])) {
                 $countElements($data['fields']);
                 return [
@@ -80,7 +113,9 @@ class SchemaParser
                     'title' => $data['title'] ?? null,
                     'field_count' => $fieldCount,
                     'container_count' => $containerCount,
-                    'format' => $data['format'] ?? 'legacy',
+                    'format' => 'legacy',
+                    'data_sources_count' => isset($data['dataSources']) ? count($data['dataSources']) : 0,
+                    'javascript_sections_count' => isset($data['javascript']) ? count($data['javascript']) : 0,
                 ];
             } else {
                 // Unknown format
@@ -90,9 +125,12 @@ class SchemaParser
                     'field_count' => 0,
                     'container_count' => 0,
                     'format' => 'unknown',
+                    'data_sources_count' => 0,
+                    'javascript_sections_count' => 0,
                 ];
             }
         } catch (\Exception $e) {
+            Log::error('Import parsing error: ' . $e->getMessage());
             return null;
         }
     }

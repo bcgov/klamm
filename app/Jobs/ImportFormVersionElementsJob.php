@@ -45,19 +45,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 throw new \Exception('Invalid JSON content: ' . json_last_error_msg());
             }
 
-            // Process data sources and javascript
-            $this->processDataSources($parsed, $formVersion);
-            $this->processJavaScript($parsed, $formVersion);
+            // Normalize format
+            $normalizedSchema = $this->normalizeSchema($parsed);
 
-            // Get the root elements array
-            $elements = [];
-            if (isset($parsed['data']['elements'])) {
-                $elements = $parsed['data']['elements'];
-            } elseif (isset($parsed['fields'])) {
-                $elements = $parsed['fields'];
-            } elseif (isset($parsed['elements'])) {
-                $elements = $parsed['elements'];
-            }
+            // Process data sources and javascript
+            $this->processDataSources($normalizedSchema, $formVersion);
+            $this->processJavaScript($normalizedSchema, $formVersion);
+            $elements = $normalizedSchema['elements'] ?? [];
 
             if (empty($elements) || !is_array($elements)) {
                 throw new \Exception('No elements found in schema or invalid format.');
@@ -81,17 +75,119 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Process data sources from the schema
+     * Normalize different schema formats into a consistent structure
      */
-    private function processDataSources(array $parsed, $formVersion): void
+    private function normalizeSchema(array $parsed): array
     {
-        // Look for data sources in multiple possible locations
-        $dataSources = null;
-        if (isset($parsed['data']['dataSources'])) {
-            $dataSources = $parsed['data']['dataSources'];
-        } elseif (isset($parsed['dataSources'])) {
-            $dataSources = $parsed['dataSources'];
+        // Format 1: formversion structure
+        if (isset($parsed['formversion'])) {
+            return [
+                'elements' => $parsed['formversion']['elements'] ?? [],
+                'dataSources' => $parsed['formversion']['dataSources'] ?? [],
+                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion'])
+            ];
         }
+
+        // Format 2: data structure
+        if (isset($parsed['data'])) {
+            return [
+                'elements' => $parsed['data']['elements'] ?? [],
+                'dataSources' => $parsed['data']['dataSources'] ?? [],
+                'javascript' => $parsed['data']['javascript'] ?? []
+            ];
+        }
+
+        // Format 3: direct structure (legacy)
+        if (isset($parsed['elements'])) {
+            return [
+                'elements' => $parsed['elements'],
+                'dataSources' => $parsed['dataSources'] ?? [],
+                'javascript' => $parsed['javascript'] ?? []
+            ];
+        }
+
+        // Format 4: fields structure
+        if (isset($parsed['fields'])) {
+            return [
+                'elements' => $parsed['fields'],
+                'dataSources' => $parsed['dataSources'] ?? [],
+                'javascript' => $parsed['javascript'] ?? []
+            ];
+        }
+
+        Log::warning('Unknown schema format, returning empty structure');
+        return [
+            'elements' => [],
+            'dataSources' => [],
+            'javascript' => []
+        ];
+    }
+
+    /**
+     * Extract JavaScript from formversion format
+     */
+    private function extractJavaScriptFromFormversion(array $formversion): array
+    {
+        $javascript = [];
+
+        // Check for scripts array in formversion format
+        if (isset($formversion['scripts']) && is_array($formversion['scripts'])) {
+            foreach ($formversion['scripts'] as $script) {
+                if (isset($script['type']) && isset($script['content'])) {
+                    // Parse the content to extract individual function sections
+                    $content = $script['content'];
+                    $sections = $this->parseJavaScriptSections($content);
+                    $javascript = array_merge($javascript, $sections);
+                }
+            }
+        }
+
+        return $javascript;
+    }
+
+    /**
+     * Parse JavaScript content to extract individual sections
+     */
+    private function parseJavaScriptSections(string $content): array
+    {
+        $sections = [];
+
+        // Split by section comments (// Section: sectionName)
+        $lines = explode("\n", $content);
+        $currentSection = null;
+        $currentCode = [];
+
+        foreach ($lines as $line) {
+            // Check if this is a section header
+            if (preg_match('/\/\/ Section: (.+)/', trim($line), $matches)) {
+                // Save previous section if exists
+                if ($currentSection && !empty($currentCode)) {
+                    $sections[$currentSection] = implode("\n", $currentCode);
+                }
+
+                // Start new section
+                $currentSection = trim($matches[1]);
+                $currentCode = [];
+            } elseif ($currentSection && trim($line) !== '') {
+                // Add line to current section (skip empty lines at start)
+                $currentCode[] = $line;
+            }
+        }
+
+        // Save the last section
+        if ($currentSection && !empty($currentCode)) {
+            $sections[$currentSection] = implode("\n", $currentCode);
+        }
+
+        return $sections;
+    }
+
+    /**
+     * Process data sources from the normalized schema
+     */
+    private function processDataSources(array $normalizedSchema, $formVersion): void
+    {
+        $dataSources = $normalizedSchema['dataSources'] ?? [];
 
         if (!$dataSources || !is_array($dataSources)) {
             return;
@@ -102,17 +198,30 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         foreach ($dataSources as $index => $dataSourceData) {
             try {
+                // Handle different field name formats
+                $name = $dataSourceData['name'] ?? 'Imported Data Source ' . ($index + 1);
+                $type = $dataSourceData['type'] ?? 'json';
+                $description = $dataSourceData['description'] ?? 'Imported from template';
+                $endpoint = $dataSourceData['endpoint'] ?? null;
+                $params = isset($dataSourceData['params']) ?
+                    (is_string($dataSourceData['params']) ? $dataSourceData['params'] : json_encode($dataSourceData['params'])) : null;
+                $body = isset($dataSourceData['body']) ?
+                    (is_string($dataSourceData['body']) ? $dataSourceData['body'] : json_encode($dataSourceData['body'])) : null;
+                $headers = isset($dataSourceData['headers']) ?
+                    (is_string($dataSourceData['headers']) ? $dataSourceData['headers'] : json_encode($dataSourceData['headers'])) : null;
+                $host = $dataSourceData['host'] ?? null;
+
                 // Create or find the data source
                 $dataSource = \App\Models\FormMetadata\FormDataSource::firstOrCreate([
-                    'name' => $dataSourceData['name'] ?? 'Imported Data Source ' . ($index + 1),
-                    'type' => $dataSourceData['type'] ?? 'json',
+                    'name' => $name,
+                    'type' => $type,
                 ], [
-                    'description' => $dataSourceData['description'] ?? 'Imported from template',
-                    'endpoint' => $dataSourceData['endpoint'] ?? null,
-                    'params' => isset($dataSourceData['params']) ? json_encode($dataSourceData['params']) : null,
-                    'body' => isset($dataSourceData['body']) ? json_encode($dataSourceData['body']) : null,
-                    'headers' => isset($dataSourceData['headers']) ? json_encode($dataSourceData['headers']) : null,
-                    'host' => $dataSourceData['host'] ?? null,
+                    'description' => $description,
+                    'endpoint' => $endpoint,
+                    'params' => $params,
+                    'body' => $body,
+                    'headers' => $headers,
+                    'host' => $host,
                 ]);
 
                 // Associate with form version
@@ -127,17 +236,11 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Process JavaScript from the schema
+     * Process JavaScript from the normalized schema
      */
-    private function processJavaScript(array $parsed, $formVersion): void
+    private function processJavaScript(array $normalizedSchema, $formVersion): void
     {
-        // Look for JavaScript in multiple possible locations
-        $javascript = null;
-        if (isset($parsed['data']['javascript'])) {
-            $javascript = $parsed['data']['javascript'];
-        } elseif (isset($parsed['javascript'])) {
-            $javascript = $parsed['javascript'];
-        }
+        $javascript = $normalizedSchema['javascript'] ?? [];
 
         if (!$javascript || !is_array($javascript)) {
             return;
@@ -253,6 +356,124 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
 
+    /**
+     * Extract options from different element formats
+     */
+    private function extractOptions(array $element): array
+    {
+        $options = [];
+
+        // Format 1: formversion format with options array
+        if (!empty($element['options']) && is_array($element['options'])) {
+
+            foreach ($element['options'] as $index => $option) {
+                if (is_array($option)) {
+                    $optionData = [
+                        'label' => $option['label'] ?? '',
+                        'order' => $option['order'] ?? ($index + 1),
+                        'description' => $option['description'] ?? null,
+                    ];
+                    $options[] = $optionData;
+                } else {
+                    $optionData = [
+                        'label' => (string)$option,
+                        'order' => $index + 1,
+                        'description' => null,
+                    ];
+                    $options[] = $optionData;
+                }
+            }
+        }
+        // Format 2: listItems array
+        elseif (!empty($element['listItems']) && is_array($element['listItems'])) {
+            foreach ($element['listItems'] as $idx => $item) {
+                if (is_array($item)) {
+                    $options[] = [
+                        'label' => $item['label'] ?? $item['text'] ?? $item['name'] ?? $item['value'] ?? '',
+                        'order' => $item['order'] ?? ($idx + 1),
+                        'description' => $item['description'] ?? null,
+                    ];
+                } else {
+                    $options[] = [
+                        'label' => isset($item['value']) ? $item['value'] : (string)$item,
+                        'order' => $idx + 1,
+                        'description' => null,
+                    ];
+                }
+            }
+        }
+        // Format 3: attributes.options
+        elseif (!empty($element['attributes']['options']) && is_array($element['attributes']['options'])) {
+            foreach ($element['attributes']['options'] as $idx => $option) {
+                if (is_array($option)) {
+                    $options[] = [
+                        'label' => $option['label'] ?? '',
+                        'order' => $option['order'] ?? ($idx + 1),
+                        'description' => $option['description'] ?? null,
+                    ];
+                }
+            }
+        }
+
+        // Filter out options with empty labels
+        $options = array_filter($options, function ($option) {
+            return !empty(trim($option['label']));
+        });
+
+        // Re-index and ensure proper order
+        $options = array_values($options);
+        foreach ($options as $index => &$option) {
+            if (!isset($option['order']) || $option['order'] <= 0) {
+                $option['order'] = $index + 1;
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Create select options for SelectInputFormElement
+     */
+    private function createSelectOptions($selectModel, array $options): void
+    {
+        if (empty($options)) return;
+
+        foreach ($options as $index => $optionData) {
+            if (empty($optionData['label'])) continue; // Skip options without labels
+
+            try {
+                \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
+            } catch (\Exception $e) {
+                Log::error('Failed to create select option', [
+                    'option_data' => $optionData,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Create radio options for RadioInputFormElement
+     */
+    private function createRadioOptions($radioModel, array $options): void
+    {
+
+        if (empty($options)) return;
+
+        foreach ($options as $index => $optionData) {
+            if (empty($optionData['label'])) continue; // Skip options without labels
+            try {
+                \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
+            } catch (\Exception $e) {
+                Log::error('Failed to create radio option', [
+                    'option_data' => $optionData,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        }
+    }
 
     // Updated to include progress tracking
     protected function importElementsRecursive(array $elements, $parentId, $formVersion, $processedElements = 0, $totalElements = 0, $inRepeatableContainer = false, $inPlusContainer = false)
@@ -299,24 +520,30 @@ class ImportFormVersionElementsJob implements ShouldQueue
                         'container' => \App\Models\FormBuilding\ContainerFormElement::class,
                         'text-input' => \App\Models\FormBuilding\TextInputFormElement::class,
                         'textarea' => \App\Models\FormBuilding\TextareaInputFormElement::class,
+                        'textarea-input' => \App\Models\FormBuilding\TextareaInputFormElement::class,
                         'radio' => \App\Models\FormBuilding\RadioInputFormElement::class,
+                        'radio-input' => \App\Models\FormBuilding\RadioInputFormElement::class,
                         'dropdown' => \App\Models\FormBuilding\SelectInputFormElement::class,
+                        'dropdown-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
                         'select' => \App\Models\FormBuilding\SelectInputFormElement::class,
+                        'select-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
                         'checkbox' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
+                        'checkbox-input' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
                         'date' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
+                        'date-select-input' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
                         'number' => \App\Models\FormBuilding\NumberInputFormElement::class,
+                        'number-input' => \App\Models\FormBuilding\NumberInputFormElement::class,
                         'html' => \App\Models\FormBuilding\HTMLFormElement::class,
                         'text-info' => \App\Models\FormBuilding\TextInfoFormElement::class,
                         'button' => \App\Models\FormBuilding\ButtonInputFormElement::class,
+                        'button-input' => \App\Models\FormBuilding\ButtonInputFormElement::class,
                     ];
                     if (isset($typeMap[$elementType])) {
                         $type = $typeMap[$elementType];
                     }
                 }
 
-                if (!$type) {
-                    continue;
-                }
+                if (!$type) continue;
 
                 $isRepeatableContainer = false;
                 if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
@@ -338,12 +565,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 // Extract data binding information before creating the element
                 $dataBindingInfo = $this->extractDataBindingInfo($element);
 
-                $options = [];
-                if (!empty($element['listItems']) && is_array($element['listItems'])) {
-                    $options = $element['listItems'];
-                } elseif (!empty($element['options']) && is_array($element['options'])) {
-                    $options = $element['options'];
-                }
+                // Extract options from different formats
+                $options = $this->extractOptions($element);
 
                 // Get the human-readable label for both name and label fields
                 $humanReadableLabel = null;
@@ -390,26 +613,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $selectModel = \App\Models\FormBuilding\SelectInputFormElement::create($attributes);
                     $elementData['elementable_id'] = $selectModel->id;
                     $formElement = FormElement::create($elementData);
-                    foreach ($options as $idx => $opt) {
-                        $optionData = [
-                            'label' => $opt['label'] ?? $opt['text'] ?? $opt['name'] ?? $opt['value'] ?? '',
-                            'order' => $opt['order'] ?? ($idx + 1),
-                            'description' => $opt['description'] ?? null,
-                        ];
-                        \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
-                    }
+                    $this->createSelectOptions($selectModel, $options);
                 } elseif ($type === \App\Models\FormBuilding\RadioInputFormElement::class) {
                     $radioModel = \App\Models\FormBuilding\RadioInputFormElement::create($attributes);
                     $elementData['elementable_id'] = $radioModel->id;
                     $formElement = FormElement::create($elementData);
-                    foreach ($options as $idx => $opt) {
-                        $optionData = [
-                            'label' => $opt['label'] ?? $opt['text'] ?? $opt['name'] ?? $opt['value'] ?? '',
-                            'order' => $opt['order'] ?? ($idx + 1),
-                            'description' => $opt['description'] ?? null,
-                        ];
-                        \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
-                    }
+                    $this->createRadioOptions($radioModel, $options);
                 } elseif ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
                     $containerModel = \App\Models\FormBuilding\ContainerFormElement::create($attributes);
                     $elementData['elementable_id'] = $containerModel->id;
@@ -449,9 +658,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $processedElements = $this->importElementsRecursive($childElements, $formElement->id, $formVersion, $processedElements, $totalElements, $childInRepeatable, $childInPlusContainer);
                 }
             } catch (\Exception $e) {
-                Log::warning('Failed to import individual element', [
+                Log::error('Failed to import individual element', [
                     'element' => $element,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
                 ]);
             }
         }
@@ -460,13 +670,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Extract data binding information from element
+     * Extract data binding information from element (handles both formats)
      */
     private function extractDataBindingInfo(array $element): ?array
     {
         $dataBindingInfo = null;
 
-        // Handle dataBinding object structure
+        // Format 1: dataBinding object structure (HR0080R-truncated-revised.json)
         if (isset($element['dataBinding']) && is_array($element['dataBinding'])) {
             $dataBinding = $element['dataBinding'];
 
@@ -477,14 +687,25 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 ];
             }
         }
-        // Handle direct dataBinding string (legacy support)
+        // Format 2: direct dataBinding string (legacy support)
         elseif (isset($element['dataBinding']) && is_string($element['dataBinding'])) {
             $dataBindingInfo = [
                 'path' => $element['dataBinding'],
                 'type' => 'jsonpath'
             ];
         }
-        // Handle binding_ref (alternative format)
+        // Format 3: dataBindings array (formversion format)
+        elseif (isset($element['dataBindings']) && is_array($element['dataBindings'])) {
+            // Take the first data binding if multiple exist
+            $firstBinding = reset($element['dataBindings']);
+            if ($firstBinding && isset($firstBinding['path'])) {
+                $dataBindingInfo = [
+                    'path' => $firstBinding['path'],
+                    'type' => 'jsonpath'
+                ];
+            }
+        }
+        // Format 4: binding_ref (alternative format)
         elseif (isset($element['binding_ref']) && is_string($element['binding_ref'])) {
             $dataBindingInfo = [
                 'path' => $element['binding_ref'],
@@ -564,41 +785,66 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
     private function extractElementAttributes(array $element): array
     {
-        $exclude = ['elements', 'children', 'token', 'parentId', 'elementType', 'type'];
+        $exclude = ['elements', 'children', 'token', 'parentId', 'elementType', 'type', 'dataBinding', 'dataBindings'];
         $attributes = [];
+
         foreach ($element as $key => $value) {
             if (!in_array($key, $exclude, true)) {
                 $attributes[$key] = $value;
             }
         }
 
+        // Handle both formats for repeatable containers
         if (isset($element['repeats'])) {
             $attributes['is_repeatable'] = (bool)$element['repeats'];
+        } elseif (isset($element['is_repeatable'])) {
+            $attributes['is_repeatable'] = (bool)$element['is_repeatable'];
         }
 
+        // Handle min/max repeats
         if (isset($element['minRepeats'])) {
             $attributes['min_repeats'] = (int)$element['minRepeats'];
+        } elseif (isset($element['min_repeats'])) {
+            $attributes['min_repeats'] = (int)$element['min_repeats'];
         }
 
         if (isset($element['maxRepeats'])) {
             $attributes['max_repeats'] = (int)$element['maxRepeats'];
+        } elseif (isset($element['max_repeats'])) {
+            $attributes['max_repeats'] = (int)$element['max_repeats'];
+        }
+
+        // Handle container type mapping
+        if (isset($element['containerType'])) {
+            $attributes['container_type'] = $element['containerType'];
+        }
+
+        // Handle collapsible properties
+        if (isset($element['collapsible'])) {
+            $attributes['collapsible'] = (bool)$element['collapsible'];
+        }
+        if (isset($element['collapsedByDefault'])) {
+            $attributes['collapsed_by_default'] = (bool)$element['collapsedByDefault'];
         }
 
         $elementType = $element['elementType'] ?? $element['type'] ?? '';
 
+        // For TextInfo elements, ensure content is properly mapped
         if ($elementType === 'TextInfoFormElements' && isset($element['content'])) {
             $attributes['content'] = $element['content'];
         }
 
+        // Handle options/list items (both formats)
         if (isset($element['listItems'])) {
             $attributes['listItems'] = $element['listItems'];
+        } elseif (isset($element['options'])) {
+            $attributes['options'] = $element['options'];
         }
-        if (isset($element['dataBinding'])) {
-            $attributes['dataBinding'] = $element['dataBinding'];
-        }
+
         if (isset($element['dataFormat'])) {
             $attributes['dataFormat'] = $element['dataFormat'];
         }
+
         return $attributes;
     }
 

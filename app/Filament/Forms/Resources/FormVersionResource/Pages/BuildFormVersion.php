@@ -34,6 +34,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Get;
+use Filament\Support\Exceptions\Halt;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -51,7 +53,7 @@ class BuildFormVersion extends Page implements HasForms
     protected static string $view = 'filament.forms.resources.form-version-resource.pages.build-form-version';
 
     public array $data = [];
-    public array $importWizard = []; // <-- Add this
+    public array $importWizard = [];
     public array $importJobStatus = [
         'status' => null,
         'done' => false,
@@ -233,75 +235,63 @@ class BuildFormVersion extends Page implements HasForms
                 ->outlined()
                 ->modalHeading('Import Form Template')
                 ->modalDescription('Upload a JSON template to import form elements and structure.')
-                ->form([
-                    Wizard::make([
-                        Wizard\Step::make('Upload Template')
-                            ->schema([
-                                FileUpload::make('schema_file')
-                                    ->label('Schema File')
-                                    ->acceptedFileTypes(['application/json'])
-                                    ->maxSize(5120)
-                                    ->helperText(function () {
-                                        return $this->parsedSchema !== null
-                                            ? 'Schema already parsed - upload disabled'
-                                            : 'Upload a JSON file with form schema (max 5MB)';
-                                    })
-                                    ->disabled(fn() => $this->parsedSchema !== null)
-                                    ->reactive()
-                                    ->afterStateUpdated(function (Set $set, ?\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $state) {
-                                        if ($state) {
-                                            $content = file_get_contents($state->getRealPath());
-                                            $set('schema_content', $content);
-                                            $parsed = SchemaParser::parseSchema($content);
-                                            $set('parsed_content', json_encode($parsed));
-                                            Log::debug('Wizard afterStateUpdated', [
-                                                'schema_content' => $content,
-                                                'parsed_content' => $parsed,
-                                            ]);
-                                            $this->importWizard = [
-                                                'schema_content' => $content,
-                                                'parsed_content' => $parsed,
-                                            ];
-                                        } else {
-                                            $set('schema_content', null);
-                                            $set('parsed_content', null);
-                                        }
-                                    }),
-                            ]),
-                        Wizard\Step::make('Preview & Import')
-                            ->schema([
-                                Forms\Components\Textarea::make('schema_content')
-                                    ->label('Schema Content')
-                                    ->rows(10)
-                                    ->disabled()
-                                    ->helperText('This is the raw JSON content of the uploaded schema file.'),
-                                Forms\Components\Textarea::make('parsed_content')
-                                    ->label('Parsed Schema')
-                                    ->rows(10)
-                                    ->disabled()
-                                    ->formatStateUsing(fn($state) => \App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion::formatJsonForTextarea($state))
-                                    ->helperText('This is the parsed schema structure.'),
-                            ]),
-                        Wizard\Step::make('Import Elements')
-                            ->schema([
-                                \Filament\Forms\Components\Placeholder::make('import_elements_info')
-                                    ->content('Click the button below to import all parsed elements into this form version.'),
+                ->steps([
+                    Wizard\Step::make('Upload Template')
+                        ->schema([
+                            FileUpload::make('schema_file')
+                                ->label('Schema File')
+                                ->acceptedFileTypes(['application/json'])
+                                ->maxSize(5120)
+                                ->helperText(function () {
+                                    return $this->parsedSchema !== null
+                                        ? 'Schema already parsed - upload disabled'
+                                        : 'Upload a JSON file with form schema (max 5MB)';
+                                })
+                                ->disabled(fn() => $this->parsedSchema !== null)
+                                ->reactive()
+                                ->afterStateUpdated(function (Set $set, ?\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $state) {
+                                    if ($state) {
+                                        $content = file_get_contents($state->getRealPath());
+                                        $set('schema_content', $content);
+                                        $parsed = SchemaParser::parseSchema($content);
+                                        $set('parsed_content', json_encode($parsed));
+                                        $this->importWizard = [
+                                            'schema_content' => $content,
+                                            'parsed_content' => $parsed,
+                                        ];
+                                    } else {
+                                        $set('schema_content', null);
+                                        $set('parsed_content', null);
+                                    }
+                                }),
+                        ])
+                        ->afterValidation(function (Get $get) {
+                            // Reset parsed schema if a new file is uploaded
+                            if ($get('schema_content') == null) {
+                                throw new Halt();
+                            }
+                        }),
+                    Wizard\Step::make('Preview & Import')
+                        ->schema([
+                            Forms\Components\Textarea::make('schema_content')
+                                ->label('Schema Content')
+                                ->rows(10)
+                                ->disabled()
+                                ->helperText('This is the raw JSON content of the uploaded schema file.'),
+                            Forms\Components\Textarea::make('parsed_content')
+                                ->label('Parsed Schema')
+                                ->rows(10)
+                                ->disabled()
+                                ->formatStateUsing(fn($state) => \App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion::formatJsonForTextarea($state))
+                                ->helperText('This is the parsed schema structure.'),
+                        ]),
 
-                            ]),
-                    ])
-                        ->statePath('importWizard') // <-- Change from 'data' to 'importWizard'
                 ])
-                ->action(function (array $data) {
-                    try {
-                        $this->importParsedSchemaElements();
-                    } catch (\Exception $e) {
-                        \Filament\Notifications\Notification::make()
-                            ->danger()
-                            ->title('Import Failed')
-                            ->body($e->getMessage())
-                            ->persistent()
-                            ->send();
-                    }
+                ->modalHeading('Confirm Import')
+                ->modalDescription('Importing a form from a JSON export will introduce new form fields to the existing form.')
+                ->modalSubmitActionLabel('Import Form')
+                ->action(function () {
+                    $this->importParsedSchemaElements();
                 }),
 
             ActionGroup::make([
