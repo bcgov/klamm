@@ -35,9 +35,12 @@ class FormVersion extends Model
         'pdf_template_name',
         'pdf_template_version',
         'pdf_template_parameters',
+        'uses_pets_template',
     ];
 
-    protected $casts = [];
+    protected $casts = [
+        'uses_pets_template' => 'boolean',
+    ];
 
     protected static $logAttributes = [
         'form_id',
@@ -45,6 +48,7 @@ class FormVersion extends Model
         'status',
         'form_developer_id',
         'comments',
+        'uses_pets_template',
     ];
 
     public static function boot()

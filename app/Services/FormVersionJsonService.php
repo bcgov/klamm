@@ -23,20 +23,26 @@ class FormVersionJsonService
             'pdfFormScript'
         ]);
 
+        $formVersionData = [
+            'uuid' => $formVersion->uuid ?? $formVersion->id,
+            'name' => $formVersion->form->form_title ?? 'Unknown Form',
+            'id' => $formVersion->form->form_id ?? '',
+            'version' => $formVersion->version_number,
+            'status' => $formVersion->status,
+            'data' => $this->getFormVersionData($formVersion),
+            'dataSources' => $this->getDataSources($formVersion),
+            'styles' => $this->getStyles($formVersion),
+            'scripts' => $this->getScripts($formVersion),
+            'elements' => $this->getElements($formVersion)
+        ];
+
+        // Only add pdfTemplate if uses_pets_template is true
+        if ($formVersion->uses_pets_template) {
+            $formVersionData['pdfTemplate'] = $this->getPdfTemplate($formVersion);
+        }
+
         return [
-            'formversion' => [
-                'uuid' => $formVersion->uuid ?? $formVersion->id,
-                'name' => $formVersion->form->form_title ?? 'Unknown Form',
-                'id' => $formVersion->form->form_id ?? '',
-                'version' => $formVersion->version_number,
-                'status' => $formVersion->status,
-                'data' => $this->getFormVersionData($formVersion),
-                'dataSources' => $this->getDataSources($formVersion),
-                'styles' => $this->getStyles($formVersion),
-                'scripts' => $this->getScripts($formVersion),
-                'pdfTemplate' => $this->getPdfTemplate($formVersion),
-                'elements' => $this->getElements($formVersion)
-            ]
+            'formversion' => $formVersionData
         ];
     }
 
@@ -61,7 +67,7 @@ class FormVersionJsonService
             'pdfFormScript'
         ]);
 
-        return [
+        $preMigrationData = [
             'version' => $formVersion->version_number,
             'id' => $formVersion->uuid ?? $formVersion->id,
             'lastModified' => $formVersion->updated_at?->format('c') ?? now()->format('c'),
@@ -70,13 +76,19 @@ class FormVersionJsonService
             'deployed_to' => null,
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
-            'pdfTemplate' => $this->getPdfTemplate($formVersion),
             'data' => [
                 'styles' => $this->getStyles($formVersion),
                 'scripts' => $this->getScripts($formVersion),
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
         ];
+
+        // Only add pdfTemplate if uses_pets_template is true
+        if ($formVersion->uses_pets_template) {
+            $preMigrationData['pdfTemplate'] = $this->getPdfTemplate($formVersion);
+        }
+
+        return $preMigrationData;
     }
 
     protected function getFormVersionData(FormVersion $formVersion): array
@@ -580,7 +592,7 @@ class FormVersionJsonService
                     $optionsCollection = $element->elementable->options()->ordered()->get();
                     $radioOptions = $optionsCollection->map(function ($option) {
                         return [
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                             'text' => $option->label ?? '',
                         ];
                     })->toArray();
@@ -599,7 +611,7 @@ class FormVersionJsonService
                         return [
                             'name' => $option->label ?? '',
                             'text' => $option->label ?? '',
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                         ];
                     })->toArray();
                 }

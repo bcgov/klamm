@@ -104,15 +104,23 @@ class FormVersionResource extends Resource
                                 Fieldset::make('PETS template')
                                     ->columns(4)
                                     ->schema([
+                                        \Filament\Forms\Components\Toggle::make('uses_pets_template')
+                                            ->label('Use PETS Template')
+                                            ->columnSpanFull()
+                                            ->live()
+                                            ->default(false),
                                         TextInput::make('pdf_template_name')
                                             ->label('Name')
-                                            ->columnSpan(3),
+                                            ->columnSpan(3)
+                                            ->visible(fn(callable $get) => $get('uses_pets_template')),
                                         TextInput::make('pdf_template_version')
                                             ->label('Version')
-                                            ->columnSpan(1),
+                                            ->columnSpan(1)
+                                            ->visible(fn(callable $get) => $get('uses_pets_template')),
                                         Textarea::make('pdf_template_parameters')
                                             ->label('Parameters')
-                                            ->columnSpanFull(),
+                                            ->columnSpanFull()
+                                            ->visible(fn(callable $get) => $get('uses_pets_template')),
                                     ]),
                                 Textarea::make('comments')
                                     ->columnSpanFull()
