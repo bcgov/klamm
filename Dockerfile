@@ -64,7 +64,7 @@ RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/storage/app/form_data \
     && chmod -R 775 /var/www/storage/app/livewire-tmp \
-    && chmod g+s /var/www/storage/app/form_data
+    && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/livewire-tmp
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf

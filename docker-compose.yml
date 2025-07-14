@@ -14,7 +14,6 @@ services:
             - storage_sessions:/var/www/storage/framework/sessions
             - storage_views:/var/www/storage/framework/views
             - form_data:/var/www/storage/app/form_data
-            - livewire_tmp:/var/www/storage/app/livewire-tmp
         environment:
             - APP_ENV=local
             - APP_DEBUG=true
