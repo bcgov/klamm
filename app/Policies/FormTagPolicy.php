@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\FormTag;
+use App\Models\FormMetadata\FormTag;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 

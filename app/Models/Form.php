@@ -9,6 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Spatie\Activitylog\Models\Activity;
+use App\Models\FormDeployment;
+use App\Models\FormBuilding\FormVersion;
+use App\Models\FormMetadata\FormFrequency;
+use App\Models\FormMetadata\FormReach;
+use App\Models\FormMetadata\FormTag;
+use App\Models\FormMetadata\FormLocation;
+use App\Models\FormMetadata\FormRepository;
+use App\Models\FormMetadata\FormSoftwareSource;
 
 class Form extends Model
 {
@@ -139,11 +147,67 @@ class Form extends Model
             'subject_id',
             'id',
             'id'
-        )->where('subject_type', FormVersion::class)
-            ->select([
-                'activity_log.*',
-                'form_versions.created_at as version_created_at',
-                'form_versions.updated_at as version_updated_at'
-            ]);
+        )->where('subject_type', FormVersion::class);
+    }
+
+    // Return activities for both FormVersions and FormApprovalRequests related to those versions
+    public function getAllActivities()
+    {
+        $formVersionIds = $this->formVersions()->pluck('form_versions.id');
+        $approvalRequestIds = $this->approvalRequests()->pluck('form_approval_requests.id');
+
+        return Activity::query()
+            ->where(function ($query) use ($formVersionIds, $approvalRequestIds) {
+                $query->where(function ($subQuery) use ($formVersionIds) {
+                    $subQuery->where('subject_type', FormVersion::class)
+                        ->whereIn('subject_id', $formVersionIds);
+                })->orWhere(function ($subQuery) use ($approvalRequestIds) {
+                    $subQuery->where('subject_type', FormApprovalRequest::class)
+                        ->whereIn('subject_id', $approvalRequestIds);
+                });
+            })
+            ->orderBy('created_at', 'desc');
+    }
+
+    public function approvalRequests(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            FormApprovalRequest::class,
+            FormVersion::class,
+            'form_id',
+            'form_version_id',
+            'id',
+            'id'
+        );
+    }
+
+    public function getMigration2025StatusAttribute(): string
+    {
+        $hasTag = $this->formTags->contains('name', 'migration2025');
+        if (!$hasTag) {
+            return 'Not Applicable';
+        }
+        $versions = $this->formVersions;
+        $hasPublished = $versions->contains(fn($v) => $v->status === 'published');
+        $hasDraftOrReview = $versions->contains(fn($v) => in_array($v->status, ['draft', 'under_review']));
+        if ($hasPublished) {
+            return 'Completed';
+        } elseif ($hasDraftOrReview) {
+            return 'In Progress';
+        } else {
+            return 'To Be Done';
+        }
+    }
+
+    public function deployments(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            FormDeployment::class,
+            FormVersion::class,
+            'form_id',
+            'form_version_id',
+            'id',
+            'id'
+        );
     }
 }

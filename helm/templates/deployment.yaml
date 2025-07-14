@@ -22,6 +22,8 @@ spec:
           volumeMounts:
             - name: storage-volume
               mountPath: /var/www/storage
+            - name: form-data-volume
+              mountPath: /var/www/storage/app/form_data
           envFrom:
             - secretRef:
                 name: app-secrets
@@ -66,6 +68,11 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: MAIL_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: klamm-cache-redis
+                  key: redis-password
           resources:
             limits:
               cpu: {{ .Values.resources.limits.cpu }}
@@ -80,6 +87,9 @@ spec:
         - name: storage-volume
           persistentVolumeClaim:
             claimName: klamm-app-shared-pvc
+        - name: form-data-volume
+          persistentVolumeClaim:
+            claimName: klamm-form-data-pvc
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst

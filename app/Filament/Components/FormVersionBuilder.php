@@ -2,249 +2,418 @@
 
 namespace App\Filament\Components;
 
-use App\Helpers\FormDataHelper;
-use App\Filament\Components\ContainerBlock;
-use App\Filament\Components\FieldGroupBlock;
-use App\Filament\Components\FormFieldBlock;
-use App\Helpers\UniqueIDsHelper;
+use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
+
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\Builder;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
-use Illuminate\Support\Facades\Session;
-use App\Models\FormVersion;
-use Filament\Notifications\Notification;
+use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormScript;
+use App\Events\FormVersionUpdateEvent;
+use Filament\Forms\Components\Tabs;
+use Filament\Forms\Components\Tabs\Tab;
+use Filament\Resources\Pages\ViewRecord;
+use Filament\Support\Enums\Alignment;
+use App\Filament\Components\AutocompleteBadgeList;
+use Filament\Forms\Components\Grid;
 
 class FormVersionBuilder
 {
-    public static function schema()
+    /**
+     * Get autocomplete options for Monaco editor from form element tree.
+     *
+     * @param int|null $formVersionId
+     * @param string $context 'style' or 'script' to adjust formatting if needed
+     * @return array
+     */
+    public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
     {
-        FormDataHelper::load();
+        if (!$formVersionId) return [];
+        $elements = \App\Models\FormBuilding\FormElement::where('form_version_id', $formVersionId)->get();
+        return $elements->map(function ($element) use ($context) {
+            // Format the type using the same logic as the TextInput::formatStateUsing
+            $elementType = $element->elementable_type;
+            $availableTypes = \App\Models\FormBuilding\FormElement::getAvailableElementTypes();
+            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+            $labelBase = $element->label ?? $element->name ?? 'Element';
+            $label = $labelBase . ' (' . $typeDisplay . ')';
 
-        return Grid::make()
-            ->schema([
-                Select::make('form_id')
-                    ->relationship('form', 'form_id_title')
-                    ->required()
-                    ->reactive()
-                    ->preload()
-                    ->searchable()
-                    ->default(request()->query('form_id_title')),
-                Select::make('status')
-                    ->options(FormVersion::getStatusOptions())
-                    ->required(),
-                Section::make('Form Properties')
-                    ->collapsible()
-                    ->collapsed()
-                    ->columns(3)
-                    ->compact()
+            // Create the full reference ID (reference_id + uuid)
+            $fullReferenceId = $element->getFullReferenceId();
+
+            return [
+                'label' => $label,
+                // Insert selector and label/type as a comment for inline context
+                'insertText' => $context == 'style' ? '[id="' . $fullReferenceId . '"] /* ' . addslashes($label) . ' */ ' : '"' . $fullReferenceId . '" /* ' . addslashes($label) . ' */ ',
+                'detail' => "Selector: #$fullReferenceId\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
+                'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
+            ];
+        })->values()->toArray();
+    }
+
+    public static function schema($editable = true)
+    {
+        $makeAutocompleteOptions = function ($context) {
+            return function ($get, $livewire) use ($context) {
+                $record = $livewire->getRecord();
+                if (!$record || !$record->id) {
+                    return [];
+                }
+                return \App\Filament\Components\FormVersionBuilder::getElementTreeAutocompleteOptions($record->id, $context);
+            };
+        };
+        $autocompleteOptionsStyle = $makeAutocompleteOptions('style');
+        $autocompleteOptionsScript = $makeAutocompleteOptions('script');
+        $styleSheetOptions = StyleSheet::with(['formVersion.form'])
+            ->get()
+            ->mapWithKeys(function ($sheet) {
+                $form = $sheet->formVersion->form;
+                $version = $sheet->formVersion;
+                $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$sheet->type})";
+                return [$sheet->id => $label];
+            })->toArray();
+
+        $formScriptOptions = FormScript::with(['formVersion.form'])
+            ->get()
+            ->mapWithKeys(function ($script) {
+                $form = $script->formVersion->form;
+                $version = $script->formVersion;
+                $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$script->type})";
+                return [$script->id => $label];
+            })->toArray();
+
+        return Tabs::make()
+            ->columnSpanFull()
+            ->persistTab()
+            ->id('build-tabs')
+            ->tabs([
+                Tab::make('Build')
+                    ->icon('heroicon-o-cog')
                     ->schema([
-                        Fieldset::make('Requester Information')
-                            ->schema([
-                                TextInput::make('form_requester_name')
-                                    ->label('Name'),
-                                TextInput::make('form_requester_email')
-                                    ->label('Email')
-                                    ->email(),
-                            ])
-                            ->label('Requester Information'),
-                        Fieldset::make('Approver Information')
-                            ->schema([
-                                TextInput::make('form_approver_name')
-                                    ->label('Name'),
-                                TextInput::make('form_approver_email')
-                                    ->label('Email')
-                                    ->email(),
-                            ])
-                            ->label('Approver Information'),
-                        Fieldset::make('PETS template')
-                            ->columns(4)
-                            ->schema([
-                                TextInput::make('pdf_template_name')
-                                    ->label('Name')
-                                    ->columnSpan(3),
-                                TextInput::make('pdf_template_version')
-                                    ->label('Version')
-                                    ->columnSpan(1),
-                                Textarea::make('pdf_template_parameters')
-                                    ->label('Parameters')
-                                    ->columnSpanFull(),
-                            ]),
-                        Select::make('deployed_to')
-                            ->label('Deployed To')
-                            ->options([
-                                'dev' => 'Development',
-                                'test' => 'Testing',
-                                'prod' => 'Production',
-                            ])
-                            ->columnSpan(1)
-                            ->nullable()
-                            ->afterStateUpdated(fn(callable $set) => $set('deployed_at', now())),
-                        DateTimePicker::make('deployed_at')
-                            ->label('Deployment Date')
-                            ->columnSpan(1),
-                        Select::make('form_data_sources')
-                            ->multiple()
-                            ->preload()
-                            ->columnSpan(1)
-                            ->relationship('formDataSources', 'name'),
-                        TextInput::make('footer')
+                        \Filament\Forms\Components\View::make('components.form-element-tree')
+                            ->viewData(function ($livewire) use ($editable) {
+                                $record = $livewire->getRecord() ?? null;
+                                return [
+                                    'formVersionId' => $record?->id,
+                                    'editable' => $editable,
+                                ];
+                            })
                             ->columnSpanFull(),
-                        Textarea::make('comments')
-                            ->columnSpanFull()
-                            ->maxLength(500),
                     ]),
-                Builder::make('components')
-                    ->label('Form Elements')
-                    ->addActionLabel('Add to Form Elements')
-                    ->addBetweenActionLabel('Insert between elements')
-                    ->cloneAction(UniqueIDsHelper::cloneElement())
-                    ->columnSpan(2)
-                    ->blockNumbers(false)
-                    ->cloneable()
-                    ->blockPreviews()
-                    ->editAction(
-                        fn(Action $action) => $action
-                            ->visible(fn() => true)
-                            ->icon(function ($livewire) {
-                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
-                                    ? 'heroicon-o-eye'
-                                    : 'heroicon-o-pencil';
-                            })
-                            ->label(function ($livewire) {
-                                return $livewire instanceof \Filament\Resources\Pages\ViewRecord
-                                    ? 'View'
-                                    : 'Edit';
-                            })
-                            ->disabledForm(fn($livewire) => ($livewire instanceof \Filament\Resources\Pages\ViewRecord)) // Disable the form
-                            ->modalHeading('View Form Field')
-                            ->modalSubmitAction(function ($action, $livewire) {
-                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
-                                    return false;
-                                } else {
-                                    $action->label('Save');
-                                }
-                            })
-                            ->modalCancelAction(function ($action, $livewire) {
-                                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord) {
-                                    $action->label('Close');
-                                } else {
-                                    $action->label('Cancel');
-                                }
-                            })
-                    )
-                    ->afterStateHydrated(function (Set $set, Get $get) {
-                        Session::put('elementCounter', self::getHighestID($get('components')) + 1);
-                        FormDataHelper::ensureFullyLoaded();
-                    })
-                    ->blocks([
-                        FormFieldBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
-                        FieldGroupBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
-                        ContainerBlock::make(fn() => UniqueIDsHelper::calculateElementID()),
+                Tab::make('Style')
+                    ->icon('heroicon-o-paint-brush')
+                    ->schema([
+                        Grid::make([
+                            'default' => 6,
+                            'sm' => 1,
+                        ])
+                            ->columns(6)
+                            ->schema([
+                                Hidden::make('selectedStyleSheetName'),
+                                AutocompleteBadgeList::make($autocompleteOptionsStyle, 'style', 'Form Elements')
+                                    ->columnSpan(1),
+                                Tabs::make('style_sheet_type')
+                                    ->contained(false)
+                                    ->columnSpan(5)
+                                    ->tabs([
+                                        Tab::make('web_style_sheet')
+                                            ->label('Web')
+                                            ->icon('heroicon-o-globe-alt')
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_css_content_web')
+                                                        ->label('Insert CSS')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form([
+                                                            Select::make('selectedStyleSheetId')
+                                                                ->label('Select a Style Sheet')
+                                                                ->options($styleSheetOptions)
+                                                                ->required()
+                                                                ->live()
+                                                                ->reactive()
+                                                                ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
+                                                                    $displayName = $styleSheetOptions[$state];
+                                                                    $set('selectedStyleSheetName', $displayName);
+                                                                }),
+                                                        ])
+                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
+                                                            $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
+                                                            $existing = $get('css_content_web');
+                                                            $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
+                                                            $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+                                                            $set('css_content_web', $appended);
+                                                        }),
+                                                    Action::make('save_styles_web')
+                                                        ->label('Save Styles')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $cssContentWeb = $get('css_content_web') ?? '';
+                                                            $cssContentPdf = $get('css_content_pdf') ?? '';
+                                                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                                                            StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
+                                                            // Fire update event for styles
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
+                                                                'styles',
+                                                                false
+                                                            );
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Styles Saved')
+                                                                ->body('CSS stylesheets have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+                                                CustomMonacoEditor::make('css_content_web')
+                                                    ->label(false)
+                                                    ->language('css')
+                                                    ->theme('vs-dark')
+                                                    ->live()
+                                                    ->autocomplete($autocompleteOptionsStyle)
+                                                    ->reactive()
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
+                                            ]),
+                                        Tab::make('pdf_style_sheet')
+                                            ->label('PDF')
+                                            ->icon('heroicon-o-document-text')
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_css_content_pdf')
+                                                        ->label('Insert CSS')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form([
+                                                            Select::make('selectedStyleSheetId')
+                                                                ->label('Select a Style Sheet')
+                                                                ->options($styleSheetOptions)
+                                                                ->required()
+                                                                ->live()
+                                                                ->reactive()
+                                                                ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
+                                                                    $displayName = $styleSheetOptions[$state];
+                                                                    $set('selectedStyleSheetName', $displayName);
+                                                                }),
+                                                        ])
+                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
+                                                            $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
+                                                            $existing = $get('css_content_pdf');
+                                                            $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
+                                                            $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+                                                            $set('css_content_pdf', $appended);
+                                                        }),
+                                                    Action::make('save_styles_pdf')
+                                                        ->label('Save Styles')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $cssContentWeb = $get('css_content_web') ?? '';
+                                                            $cssContentPdf = $get('css_content_pdf') ?? '';
+                                                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                                                            StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
+                                                            // Fire update event for styles
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
+                                                                'styles',
+                                                                false
+                                                            );
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Styles Saved')
+                                                                ->body('CSS stylesheets have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+                                                CustomMonacoEditor::make('css_content_pdf')
+                                                    ->label(false)
+                                                    ->language('css')
+                                                    ->theme('vs-dark')
+                                                    ->live()
+                                                    ->autocomplete($autocompleteOptionsStyle)
+                                                    ->reactive()
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
+                                            ]),
+                                    ])
+                            ]),
                     ]),
-                // Used by the Create and Edit pages to store IDs in session, so that Blocks can validate their rules.
-                Hidden::make('all_instance_ids')
-                    ->default(fn(Get $get) => $get('all_instance_ids') ?? [])
-                    ->dehydrated(fn() => true),
-                // Components for view View page
-                Actions::make([
-                    Action::make('Generate Form Template')
-                        ->action(function (Get $get, Set $set, $livewire) {
-                            $formId = $get('id');
-                            $jsonTemplate = \App\Helpers\FormTemplateHelper::generateJsonTemplate($formId);
-                            $set('generated_text', $jsonTemplate);
-                            $livewire->js('
-                                setTimeout(() => {
-                                    const textarea = document.getElementById("data.generated_text");
-                                    if (!textarea || !textarea.value) {
-                                        console.error("Could not find textarea or it has no value");
-                                        return;
-                                    }
-                                    const textToCopy = textarea.value;
-                                    if (navigator.clipboard) {
-                                        navigator.clipboard.writeText(textToCopy)
-                                            .catch(err => {
-                                                console.error("Failed to copy: ", err);
-                                            });
-                                    } else {
-                                        // Fallback
-                                        try {
-                                            textarea.select();
-                                            document.execCommand("copy");
-                                        } catch (err) {
-                                            console.error("Fallback copy failed: ", err);
-                                        }
-                                    }
-                                }, 500);
-                            ');
-                            Notification::make()
-                                ->title('Template Generated!')
-                                ->body('Form template generated successfully and copied to clipboard.')
-                                ->success()
-                                ->send();
-                        })
-                        ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
-                ]),
-                Textarea::make('generated_text')
-                    ->label('Generated Form Template')
-                    ->columnSpan(2)
-                    ->rows(15)
-                    ->hidden(fn($livewire) => ! ($livewire instanceof \Filament\Resources\Pages\ViewRecord)),
+                Tab::make('Scripts')
+                    ->icon('heroicon-o-code-bracket-square')
+                    ->schema([
+                        Grid::make()
+                            ->columns(6)
+                            ->schema([
+                                Hidden::make('selectedFormScriptName'),
+                                AutocompleteBadgeList::make($autocompleteOptionsScript, 'script', 'Form Elements')
+                                    ->columnSpan(1),
+                                Tabs::make('form_script_type')
+                                    ->contained(false)
+                                    ->tabs([
+                                        Tab::make('web_form_script')
+                                            ->label('Web')
+                                            ->icon('heroicon-o-globe-alt')
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_js_content_web')
+                                                        ->label('Insert JavaScript')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form([
+                                                            Select::make('selectedFormScriptId')
+                                                                ->label('Select a Form Script')
+                                                                ->options($formScriptOptions)
+                                                                ->required()
+                                                                ->live()
+                                                                ->reactive()
+                                                                ->afterStateUpdated(function ($state, callable $set) use ($formScriptOptions) {
+                                                                    $displayName = $formScriptOptions[$state];
+                                                                    $set('selectedFormScriptName', $displayName);
+                                                                }),
+                                                        ])
+                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($formScriptOptions) {
+                                                            $content = FormScript::find($data['selectedFormScriptId'])->getJsContent();
+                                                            $existing = $get('js_content_web');
+                                                            $selectedFormScript = $formScriptOptions[$data['selectedFormScriptId']];
+                                                            $comment = "/* Imported from {$selectedFormScript} */" . "\n\n";
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+
+                                                            $set('js_content_web', $appended);
+                                                        }),
+                                                    Action::make('save_scripts_web')
+                                                        ->label('Save Scripts')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $jsContentWeb = $get('js_content_web') ?? '';
+                                                            $jsContentPdf = $get('js_content_pdf') ?? '';
+
+                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                                                            // Fire update event for scripts
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
+                                                                'scripts',
+                                                                false
+                                                            );
+
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Scripts Saved')
+                                                                ->body('JavaScript form scripts have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+                                                CustomMonacoEditor::make('js_content_web')
+                                                    ->label(false)
+                                                    ->language('javascript')
+                                                    ->theme('vs-dark')
+                                                    ->live()
+                                                    ->autocomplete($autocompleteOptionsScript)
+                                                    ->reactive()
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
+
+                                            ]),
+                                        Tab::make('pdf_form_script')
+                                            ->label('PDF')
+                                            ->icon('heroicon-o-document-text')
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_js_content_pdf')
+                                                        ->label('Insert JavaScript')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form([
+                                                            Select::make('selectedFormScriptId')
+                                                                ->label('Select a Form Script')
+                                                                ->options($formScriptOptions)
+                                                                ->required()
+                                                                ->live()
+                                                                ->reactive()
+                                                                ->afterStateUpdated(function ($state, callable $set) use ($formScriptOptions) {
+                                                                    $displayName = $formScriptOptions[$state];
+                                                                    $set('selectedFormScriptName', $displayName);
+                                                                }),
+                                                        ])
+                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($formScriptOptions) {
+                                                            $content = FormScript::find($data['selectedFormScriptId'])->getJsContent();
+                                                            $existing = $get('js_content_pdf');
+                                                            $selectedFormScript = $formScriptOptions[$data['selectedFormScriptId']];
+                                                            $comment = "/* Imported from {$selectedFormScript} */" . "\n\n";
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+
+                                                            $set('js_content_pdf', $appended);
+                                                        }),
+                                                    Action::make('save_scripts_pdf')
+                                                        ->label('Save Scripts')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $jsContentWeb = $get('js_content_web') ?? '';
+                                                            $jsContentPdf = $get('js_content_pdf') ?? '';
+
+                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                                                            // Fire update event for scripts
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
+                                                                'scripts',
+                                                                false
+                                                            );
+
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Scripts Saved')
+                                                                ->body('JavaScript form scripts have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+
+                                                CustomMonacoEditor::make('js_content_pdf')
+                                                    ->label(false)
+                                                    ->language('javascript')
+                                                    ->theme('vs-dark')
+                                                    ->reactive()
+                                                    ->height('475px')
+                                                    ->live()
+                                                    ->autocomplete($autocompleteOptionsScript)
+                                                    ->disabled(!$editable),
+                                            ]),
+                                    ])
+                                    ->columnSpan(5)
+                            ]),
+                    ]),
             ]);
-    }
-
-    // Function to find highest used instance ID
-    protected static function getHighestID(array $blocks): int
-    {
-        $maxID = 0;
-        foreach ($blocks as $block) {
-            // Check top-level elements
-            if (isset($block['data']['instance_id'])) {
-                $idString = $block['data']['instance_id'];
-                $numericPart = str_replace('element', '', $idString); // Remove the 'element' prefix
-                if (is_numeric($numericPart) && $numericPart > 0) {
-                    $id = (int) $numericPart;
-                    $maxID = max($maxID, $id); // Update the maximum ID
-                }
-            }
-            // Recursively check elements inside of Containers
-            if (isset($block['data']['components']) && is_array($block['data']['components'])) {
-                $nestedMaxID = self::getHighestID($block['data']['components']);
-                $maxID = max($maxID, $nestedMaxID);
-            }
-            // Recursively check elements inside of Groups
-            if (isset($block['data']['form_fields']) && is_array($block['data']['form_fields'])) {
-                $nestedMaxID = self::getHighestID($block['data']['form_fields']);
-                $maxID = max($maxID, $nestedMaxID);
-            }
-        }
-
-        return $maxID;
-    }
-
-    // Recursively assign new instance IDs to cloned elements
-    protected static function processNestedInstanceIDs(array $data): array
-    {
-        return collect($data)
-            ->map(function ($value) {
-                if (is_array($value)) {
-                    if (array_key_exists('instance_id', $value)) {
-                        $value['instance_id'] = UniqueIDsHelper::calculateElementID();
-                    }
-                    return static::processNestedInstanceIDs($value);
-                }
-
-                return $value;
-            })
-            ->all();
     }
 }

@@ -54,9 +54,10 @@ User::factory()->unverified()->create();
 ## Supported Roles
 
 - `admin` - Full access
-- `fodig` / `fodig-view-only` - FODIG resources
-- `forms` / `forms-view-only` - Forms resources  
-- `bre` / `bre-view-only` - BRE resources
+- `fodig` - FODIG resources (full access)
+- `forms` - Forms resources (full access)
+- `bre` - BRE resources (full access)
+- `user` - Read-only access to all resources
 - `form-developer` - Form development
 
 ## How-To Guide

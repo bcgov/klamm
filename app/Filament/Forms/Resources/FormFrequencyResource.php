@@ -4,7 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormFrequencyResource\Pages;
 use App\Filament\Forms\Resources\FormFrequencyResource\RelationManagers;
-use App\Models\FormFrequency;
+use App\Models\FormMetadata\FormFrequency;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -76,5 +76,15 @@ class FormFrequencyResource extends Resource
             'create' => Pages\CreateFormFrequency::route('/create'),
             'edit' => Pages\EditFormFrequency::route('/{record}/edit'),
         ];
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Usage Frequency';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Usage Frequencies';
     }
 }

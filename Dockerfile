@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     postgresql-client \
+    nodejs \
+    npm \
     && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -36,7 +38,10 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 # Create necessary directories
 RUN mkdir -p /var/www/storage/logs \
     /var/www/storage/framework/{cache,sessions,views,testing} \
-    /var/www/bootstrap/cache
+    /var/www/bootstrap/cache \
+    /var/www/storage/app/form_data/stylesheets \
+    /var/www/storage/app/form_data/scripts \
+    /var/www/storage/app/form_data/templates
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -44,12 +49,20 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Copy existing application directory contents
 COPY . /var/www
 
+# Install Node.js dependencies if package.json exists
+RUN if [ -f package.json ]; then npm install; fi
+
+# 🛠 NEW: Build frontend assets using Vite (required for Filament Monaco etc.)
+RUN npm run build
+
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
 # Set correct permissions for storage, database and logs
 RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/storage/logs
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database \
+    && chmod -R 775 /var/www/storage/app/form_data \
+    && chmod g+s /var/www/storage/app/form_data
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
@@ -61,7 +74,17 @@ RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
 
 # Expose ports
-EXPOSE 8080 443
+EXPOSE 8080 443 6001
 
-# Start Apache server
-CMD ["apache2-foreground"]
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+    if [ "$CONTAINER_ROLE" = "worker" ]; then\n\
+    echo "Running as Reverb worker..."\n\
+    exec php artisan reverb:start --host=0.0.0.0 --port=6001\n\
+    else\n\
+    echo "Running as web server..."\n\
+    exec apache2-foreground\n\
+    fi' > /var/www/entrypoint.sh && chmod +x /var/www/entrypoint.sh
+
+# Start with entrypoint script
+CMD ["/var/www/entrypoint.sh"]

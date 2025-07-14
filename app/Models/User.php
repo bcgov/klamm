@@ -27,6 +27,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'tooltips_enabled',
     ];
 
     /**
@@ -39,6 +40,21 @@ class User extends Authenticatable implements FilamentUser
         'remember_token',
         'api_token',
     ];
+
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // if a user doesn't have a role, give them the user role
+        static::created(function ($user) {
+            if (!$user->hasAnyRole()) {
+                $user->assignRole('user');
+            }
+        });
+    }
 
     public function canAccessPanel(Panel $panel): bool
     {

@@ -3,15 +3,12 @@
 namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormDataSourceResource\Pages;
-use App\Filament\Forms\Resources\FormDataSourceResource\RelationManagers;
-use App\Models\FormDataSource;
+use App\Models\FormMetadata\FormDataSource;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Http\Middleware\CheckRole;
 
 class FormDataSourceResource extends Resource
@@ -106,5 +103,15 @@ class FormDataSourceResource extends Resource
             'view' => Pages\ViewFormDataSource::route('/{record}'),
             'edit' => Pages\EditFormDataSource::route('/{record}/edit'),
         ];
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Databinding Source';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Databinding Sources';
     }
 }

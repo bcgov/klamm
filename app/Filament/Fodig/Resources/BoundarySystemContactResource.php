@@ -62,6 +62,7 @@ class BoundarySystemContactResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn($query) => $query->with('emails'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->columnSpanFull()
@@ -71,7 +72,6 @@ class BoundarySystemContactResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('emails_list')
                     ->label('Emails')
-                    ->getStateUsing(fn($record) => $record->emails->pluck('email')->join(', '))
                     ->columnSpanFull()
                     ->searchable(),
             ])
@@ -90,7 +90,7 @@ class BoundarySystemContactResource extends Resource
                 25,
                 50,
                 100,
-            ]);;
+            ]);
     }
 
     public static function getRelations(): array

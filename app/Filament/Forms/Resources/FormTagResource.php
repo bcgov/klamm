@@ -4,7 +4,7 @@ namespace App\Filament\Forms\Resources;
 
 use App\Filament\Forms\Resources\FormTagResource\Pages;
 use App\Filament\Forms\Resources\FormTagResource\RelationManagers;
-use App\Models\FormTag;
+use App\Models\FormMetadata\FormTag;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -29,7 +29,8 @@ class FormTagResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->required(),
+                    ->required()
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
             ]);
@@ -64,7 +65,7 @@ class FormTagResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\FormsRelationManager::class,
         ];
     }
 
@@ -75,5 +76,15 @@ class FormTagResource extends Resource
             'create' => Pages\CreateFormTag::route('/create'),
             'edit' => Pages\EditFormTag::route('/{record}/edit'),
         ];
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Tag';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Tags';
     }
 }

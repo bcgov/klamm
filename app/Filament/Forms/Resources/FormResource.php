@@ -24,12 +24,14 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\Grid as InfolistGrid;
 use Illuminate\Support\Facades\Gate;
 use App\Models\Ministry;
-use App\Models\FormReach;
-use App\Models\FormFrequency;
-use App\Models\FormRepository;
+use App\Models\FormMetadata\FormReach;
+use App\Models\FormMetadata\FormFrequency;
+use App\Models\FormMetadata\FormRepository;
 use App\Models\UserType;
+use App\Filament\Components\FormDeploymentsManager;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
+use Illuminate\Database\Eloquent\Builder;
 
 
 class FormResource extends Resource
@@ -188,6 +190,57 @@ class FormResource extends Resource
                     ])
                     ->hidden(fn() => !Gate::allows('admin') && !Gate::allows('form-developer')),
 
+                Section::make('Deployments')
+                    ->collapsible()
+                    ->collapsed(false)
+                    ->schema([
+                        InfolistGrid::make(1)
+                            ->schema([
+                                TextEntry::make('test_deployment')
+                                    ->label(new HtmlString(self::formatLabel('Test Environment')))
+                                    ->getStateUsing(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
+                                        if ($deployment) {
+                                            return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        }
+                                        return 'No deployment';
+                                    })
+                                    ->badge()
+                                    ->color(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
+                                        return $deployment ? 'warning' : 'gray';
+                                    }),
+                                TextEntry::make('dev_deployment')
+                                    ->label(new HtmlString(self::formatLabel('Development Environment')))
+                                    ->getStateUsing(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'dev');
+                                        if ($deployment) {
+                                            return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        }
+                                        return 'No deployment';
+                                    })
+                                    ->badge()
+                                    ->color(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'dev');
+                                        return $deployment ? 'info' : 'gray';
+                                    }),
+                                TextEntry::make('prod_deployment')
+                                    ->label(new HtmlString(self::formatLabel('Production Environment')))
+                                    ->getStateUsing(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'prod');
+                                        if ($deployment) {
+                                            return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        }
+                                        return 'No deployment';
+                                    })
+                                    ->badge()
+                                    ->color(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'prod');
+                                        return $deployment ? 'success' : 'gray';
+                                    }),
+                            ]),
+                    ]),
+
                 Section::make('Additional Details')
                     ->schema([
                         InfolistGrid::make(1)
@@ -208,7 +261,26 @@ class FormResource extends Resource
                                     ->label(new HtmlString(self::formatLabel('Retention Needs (years)'))),
                             ]),
                     ])
-                    ->hidden()
+                    ->hidden(),
+                Section::make()
+                    ->schema([
+                        InfolistGrid::make(1)
+                            ->schema([
+                                TextEntry::make('migration2025_status')
+                                    ->label(new HtmlString(self::formatLabel('Migration 2025 Status')))
+                                    ->badge()
+                                    ->getStateUsing(fn($record) => $record->migration2025_status)
+                                    ->color(function ($state) {
+                                        return match ($state) {
+                                            'Completed' => 'success',
+                                            'In Progress' => 'info',
+                                            'To Be Done' => 'warning',
+                                            default => 'gray',
+                                        };
+                                    }),
+                            ]),
+                    ])
+                    ->visible(fn($record) => (Gate::allows('admin') && $record->migration2025_status !== 'Not Applicable')),
             ]);
     }
 
@@ -335,6 +407,8 @@ class FormResource extends Resource
 
                     ]),
 
+                FormDeploymentsManager::schema(),
+
                 Forms\Components\Section::make('Additional Details')
                     ->hidden()
                     ->collapsed()
@@ -376,6 +450,9 @@ class FormResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->query(
+                Form::query()->with(['formVersions', 'formTags'])
+            )
             ->columns([
                 Tables\Columns\TextColumn::make('form_id')
                     ->searchable()
@@ -438,12 +515,69 @@ class FormResource extends Resource
                     ->toggleable()
                     ->toggledHiddenByDefault(true)
                     ->label('DCV Material Number'),
-
+                Tables\Columns\TextColumn::make('migration2025_status')
+                    ->label('Migration 2025 Status')
+                    ->badge()
+                    ->getStateUsing(fn($record) => $record->migration2025_status)
+                    ->color(function ($state) {
+                        return match ($state) {
+                            'Completed' => 'success',
+                            'In Progress' => 'info',
+                            'To Be Done' => 'warning',
+                            default => 'gray',
+                        };
+                    })
+                    ->visible(Gate::allows('admin')),
             ])
             ->searchable()
             ->persistSearchInSession()
             ->searchDebounce(500)
             ->filters([
+                Tables\Filters\SelectFilter::make('migration2025_status')
+                    ->label('Migration 2025 Status')
+                    ->options([
+                        'Completed' => 'Completed',
+                        'In Progress' => 'In Progress',
+                        'To Be Done' => 'To Be Done',
+                        'Not Applicable' => 'Not Applicable',
+                    ])
+                    ->visible(Gate::allows('admin'))
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) {
+                            return $query;
+                        }
+                        $value = $data['value'];
+                        if ($value === 'Not Applicable') {
+                            return $query->whereDoesntHave('formTags', function ($q) {
+                                $q->where('name', 'migration2025');
+                            });
+                        }
+                        $query = $query->whereHas('formTags', function ($q) {
+                            $q->where('name', 'migration2025');
+                        });
+                        if ($value === 'Completed') {
+                            return $query->whereHas('formVersions', function ($q) {
+                                $q->where('status', 'published');
+                            });
+                        } elseif ($value === 'In Progress') {
+                            return $query
+                                ->whereHas('formVersions', function ($q) {
+                                    $q->whereIn('status', ['draft', 'under_review']);
+                                })
+                                ->whereDoesntHave('formVersions', function ($q) {
+                                    $q->where('status', 'published');
+                                });
+                        } elseif ($value === 'To Be Done') {
+                            return $query
+                                ->whereDoesntHave('formVersions', function ($q) {
+                                    $q->where('status', 'published');
+                                })
+                                ->whereDoesntHave('formVersions', function ($q) {
+                                    $q->whereIn('status', ['draft', 'under_review']);
+                                });
+                        }
+                        return $query;
+                    }),
                 Tables\Filters\SelectFilter::make('decommissioned')
                     ->label('Status')
                     ->default(false)

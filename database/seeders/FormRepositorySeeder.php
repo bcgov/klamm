@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\FormRepository;
+use App\Models\FormMetadata\FormRepository;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
