@@ -609,9 +609,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
     {
         if (
             (isset($element['repeats']) && $element['repeats']) ||
-            (isset($element['is_repeatable']) && $element['is_repeatable']) ||
-            (isset($element['minRepeats']) && (int)$element['minRepeats'] > 0) ||
-            (isset($element['maxRepeats']) && (int)$element['maxRepeats'] > 1)
+            (isset($element['is_repeatable']) && $element['is_repeatable'])
         ) {
             return true;
         }
