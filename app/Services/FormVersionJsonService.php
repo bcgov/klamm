@@ -571,7 +571,7 @@ class FormVersionJsonService
                     $optionsCollection = $element->elementable->options()->ordered()->get();
                     $radioOptions = $optionsCollection->map(function ($option) {
                         return [
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                             'text' => $option->label ?? '',
                         ];
                     })->toArray();
@@ -590,7 +590,7 @@ class FormVersionJsonService
                         return [
                             'name' => $option->label ?? '',
                             'text' => $option->label ?? '',
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                         ];
                     })->toArray();
                 }
