@@ -161,8 +161,7 @@ class FormVersionResource extends Resource
                         // Duplicate all FormElements and map new to old
                         $oldToNewElementMap = [];
                         foreach ($record->formElements()->orderBy('order')->get() as $element) {
-                            $newElement = $element->replicate(['id', 'uuid', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
-                            $newElement->uuid = (string) Str::uuid();
+                            $newElement = $element->replicate(['id', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
                             $newElement->form_version_id = $newVersion->id;
                             $newElement->parent_id = null;
                             $newElement->save();
@@ -217,7 +216,11 @@ class FormVersionResource extends Resource
                         }
 
                         // Redirect to build the new version
-                        return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
+                        if (Gate::allows('form-developer')) {
+                            return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');
+                        } else {
+                            return redirect()->to(FormVersionResource::getUrl('view', ['record' => $newVersion]));
+                        }
                     })
                     ->requiresConfirmation()
                     ->modalDescription('This will create a new draft version based on this form version, including all form elements.'),

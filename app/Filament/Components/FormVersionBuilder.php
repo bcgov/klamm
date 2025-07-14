@@ -38,18 +38,21 @@ class FormVersionBuilder
             $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
             $labelBase = $element->label ?? $element->name ?? 'Element';
             $label = $labelBase . ' (' . $typeDisplay . ')';
-            $uuid = $element->uuid;
+
+            // Create the full reference ID (reference_id + uuid)
+            $fullReferenceId = $element->getFullReferenceId();
+
             return [
                 'label' => $label,
                 // Insert selector and label/type as a comment for inline context
-                'insertText' => $context == 'style' ? '[id="' . $uuid . '"] /* ' . addslashes($label) . ' */ ' : '"' . $uuid . '" /* ' . addslashes($label) . ' */ ',
-                'detail' => "Selector: #$uuid\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
-                'documentation' => "**Selector:** `#$uuid`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**UUID:** $uuid",
+                'insertText' => $context == 'style' ? '[id="' . $fullReferenceId . '"] /* ' . addslashes($label) . ' */ ' : '"' . $fullReferenceId . '" /* ' . addslashes($label) . ' */ ',
+                'detail' => "Selector: #$fullReferenceId\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
+                'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
             ];
         })->values()->toArray();
     }
 
-    public static function schema()
+    public static function schema($editable = true)
     {
         $makeAutocompleteOptions = function ($context) {
             return function ($get, $livewire) use ($context) {
@@ -89,10 +92,11 @@ class FormVersionBuilder
                     ->icon('heroicon-o-cog')
                     ->schema([
                         \Filament\Forms\Components\View::make('components.form-element-tree')
-                            ->viewData(function ($livewire) {
+                            ->viewData(function ($livewire) use ($editable) {
                                 $record = $livewire->getRecord() ?? null;
                                 return [
                                     'formVersionId' => $record?->id,
+                                    'editable' => $editable,
                                 ];
                             })
                             ->columnSpanFull(),
@@ -121,7 +125,7 @@ class FormVersionBuilder
                                                     Action::make('import_css_content_web')
                                                         ->label('Insert CSS')
                                                         ->icon('heroicon-o-document-arrow-down')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->form([
                                                             Select::make('selectedStyleSheetId')
                                                                 ->label('Select a Style Sheet')
@@ -146,7 +150,7 @@ class FormVersionBuilder
                                                         ->label('Save Styles')
                                                         ->icon('heroicon-o-check')
                                                         ->color('success')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->action(function (callable $get, $livewire) {
                                                             $record = $livewire->getRecord();
                                                             $cssContentWeb = $get('css_content_web') ?? '';
@@ -177,7 +181,8 @@ class FormVersionBuilder
                                                     ->live()
                                                     ->autocomplete($autocompleteOptionsStyle)
                                                     ->reactive()
-                                                    ->height('475px'),
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
                                             ]),
                                         Tab::make('pdf_style_sheet')
                                             ->label('PDF')
@@ -187,7 +192,7 @@ class FormVersionBuilder
                                                     Action::make('import_css_content_pdf')
                                                         ->label('Insert CSS')
                                                         ->icon('heroicon-o-document-arrow-down')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->form([
                                                             Select::make('selectedStyleSheetId')
                                                                 ->label('Select a Style Sheet')
@@ -212,7 +217,7 @@ class FormVersionBuilder
                                                         ->label('Save Styles')
                                                         ->icon('heroicon-o-check')
                                                         ->color('success')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->action(function (callable $get, $livewire) {
                                                             $record = $livewire->getRecord();
                                                             $cssContentWeb = $get('css_content_web') ?? '';
@@ -243,7 +248,8 @@ class FormVersionBuilder
                                                     ->live()
                                                     ->autocomplete($autocompleteOptionsStyle)
                                                     ->reactive()
-                                                    ->height('475px'),
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
                                             ]),
                                     ])
                             ]),
@@ -268,7 +274,7 @@ class FormVersionBuilder
                                                     Action::make('import_js_content_web')
                                                         ->label('Insert JavaScript')
                                                         ->icon('heroicon-o-document-arrow-down')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->form([
                                                             Select::make('selectedFormScriptId')
                                                                 ->label('Select a Form Script')
@@ -294,7 +300,7 @@ class FormVersionBuilder
                                                         ->label('Save Scripts')
                                                         ->icon('heroicon-o-check')
                                                         ->color('success')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->action(function (callable $get, $livewire) {
                                                             $record = $livewire->getRecord();
                                                             $jsContentWeb = $get('js_content_web') ?? '';
@@ -328,7 +334,8 @@ class FormVersionBuilder
                                                     ->live()
                                                     ->autocomplete($autocompleteOptionsScript)
                                                     ->reactive()
-                                                    ->height('475px'),
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
 
                                             ]),
                                         Tab::make('pdf_form_script')
@@ -339,7 +346,7 @@ class FormVersionBuilder
                                                     Action::make('import_js_content_pdf')
                                                         ->label('Insert JavaScript')
                                                         ->icon('heroicon-o-document-arrow-down')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->form([
                                                             Select::make('selectedFormScriptId')
                                                                 ->label('Select a Form Script')
@@ -365,7 +372,7 @@ class FormVersionBuilder
                                                         ->label('Save Scripts')
                                                         ->icon('heroicon-o-check')
                                                         ->color('success')
-                                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                                                         ->action(function (callable $get, $livewire) {
                                                             $record = $livewire->getRecord();
                                                             $jsContentWeb = $get('js_content_web') ?? '';
@@ -400,7 +407,8 @@ class FormVersionBuilder
                                                     ->reactive()
                                                     ->height('475px')
                                                     ->live()
-                                                    ->autocomplete($autocompleteOptionsScript),
+                                                    ->autocomplete($autocompleteOptionsScript)
+                                                    ->disabled(!$editable),
                                             ]),
                                     ])
                                     ->columnSpan(5)
