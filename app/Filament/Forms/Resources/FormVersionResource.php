@@ -24,7 +24,7 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Filament\Forms\Components\Fieldset;
 
 class FormVersionResource extends Resource
 {
@@ -101,8 +101,19 @@ class FormVersionResource extends Resource
                                     ->collapsed()
                                     ->columnSpanFull()
                                     ->defaultItems(0),
-                                TextInput::make('footer')
-                                    ->columnSpanFull(),
+                                Fieldset::make('PETS template')
+                                    ->columns(4)
+                                    ->schema([
+                                        TextInput::make('pdf_template_name')
+                                            ->label('Name')
+                                            ->columnSpan(3),
+                                        TextInput::make('pdf_template_version')
+                                            ->label('Version')
+                                            ->columnSpan(1),
+                                        Textarea::make('pdf_template_parameters')
+                                            ->label('Parameters')
+                                            ->columnSpanFull(),
+                                    ]),
                                 Textarea::make('comments')
                                     ->columnSpanFull()
                                     ->maxLength(500),
