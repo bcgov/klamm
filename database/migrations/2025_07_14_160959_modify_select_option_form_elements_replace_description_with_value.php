@@ -28,7 +28,7 @@ return new class extends Migration
                 foreach ($options as $option) {
                     DB::table('select_option_form_elements')
                         ->where('id', $option->id)
-                        ->update(['value' => \Illuminate\Support\Str::slug($option->label, '_')]);
+                        ->update(['value' => \Illuminate\Support\Str::slug($option->label, '-')]);
                 }
             });
 

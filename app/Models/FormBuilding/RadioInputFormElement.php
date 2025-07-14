@@ -54,7 +54,7 @@ class RadioInputFormElement extends Model
                         ->afterStateUpdated(function (callable $set, callable $get, $state) {
                             $value = $get('value');
                             if (empty($value) && !empty($state)) {
-                                $slug = \Illuminate\Support\Str::slug($state, '_');
+                                $slug = \Illuminate\Support\Str::slug($state, '-');
                                 $set('value', $slug);
                             }
                         }),
@@ -69,7 +69,7 @@ class RadioInputFormElement extends Model
                                 ->action(function (callable $set, callable $get) {
                                     $label = $get('label');
                                     if (!empty($label)) {
-                                        $slug = \Illuminate\Support\Str::slug($label, '_');
+                                        $slug = \Illuminate\Support\Str::slug($label, '-');
                                         $set('value', $slug);
                                     }
                                 })
