@@ -41,7 +41,8 @@ RUN mkdir -p /var/www/storage/logs \
     /var/www/bootstrap/cache \
     /var/www/storage/app/form_data/stylesheets \
     /var/www/storage/app/form_data/scripts \
-    /var/www/storage/app/form_data/templates
+    /var/www/storage/app/form_data/templates \
+    /var/www/storage/app/livewire-tmp
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -62,6 +63,7 @@ RUN composer install --no-dev --optimize-autoloader
 RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/storage/app/form_data \
+    && chmod -R 775 /var/www/storage/app/livewire-tmp \
     && chmod g+s /var/www/storage/app/form_data
 
 # Copy custom Apache configuration
