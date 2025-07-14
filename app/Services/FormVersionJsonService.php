@@ -34,6 +34,7 @@ class FormVersionJsonService
                 'dataSources' => $this->getDataSources($formVersion),
                 'styles' => $this->getStyles($formVersion),
                 'scripts' => $this->getScripts($formVersion),
+                'pdfTemplate' => $this->getPdfTemplate($formVersion),
                 'elements' => $this->getElements($formVersion)
             ]
         ];
@@ -69,6 +70,7 @@ class FormVersionJsonService
             'deployed_to' => null,
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
+            'pdfTemplate' => $this->getPdfTemplate($formVersion),
             'data' => [
                 'styles' => $this->getStyles($formVersion),
                 'scripts' => $this->getScripts($formVersion),
@@ -126,6 +128,15 @@ class FormVersionJsonService
         }
 
         return $scripts;
+    }
+
+    protected function getPdfTemplate(FormVersion $formVersion): array
+    {
+        return [
+            'name' => $formVersion->pdf_template_name,
+            'version' => $formVersion->pdf_template_version,
+            'parameters' => $formVersion->pdf_template_parameters,
+        ];
     }
 
     protected function getElements(FormVersion $formVersion): array
