@@ -38,13 +38,16 @@ class FormVersionBuilder
             $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
             $labelBase = $element->label ?? $element->name ?? 'Element';
             $label = $labelBase . ' (' . $typeDisplay . ')';
-            $uuid = $element->uuid;
+
+            // Create the full reference ID (reference_id + uuid)
+            $fullReferenceId = $element->getFullReferenceId();
+
             return [
                 'label' => $label,
                 // Insert selector and label/type as a comment for inline context
-                'insertText' => $context == 'style' ? '[id="' . $uuid . '"] /* ' . addslashes($label) . ' */ ' : '"' . $uuid . '" /* ' . addslashes($label) . ' */ ',
-                'detail' => "Selector: #$uuid\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
-                'documentation' => "**Selector:** `#$uuid`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**UUID:** $uuid",
+                'insertText' => $context == 'style' ? "[id='" . $fullReferenceId . "'] /* " . addslashes($label) . ' */ ' : "'" . $fullReferenceId . "' /* " . addslashes($label) . ' */ ',
+                'detail' => "Selector: #$fullReferenceId\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
+                'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
             ];
         })->values()->toArray();
     }
@@ -87,6 +90,8 @@ class FormVersionBuilder
             ->tabs([
                 Tab::make('Build')
                     ->icon('heroicon-o-cog')
+                    ->live()
+                    ->reactive()
                     ->schema([
                         \Filament\Forms\Components\View::make('components.form-element-tree')
                             ->viewData(function ($livewire) use ($editable) {

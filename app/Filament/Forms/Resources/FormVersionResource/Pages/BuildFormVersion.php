@@ -24,9 +24,18 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
+use Illuminate\Support\Facades\Log;
+use Filament\Forms\Set;
+use Filament\Forms\Components\FileUpload;
+use App\Filament\Forms\Helpers\SchemaParser;
+use Filament\Forms\Components\Wizard;
+use App\Jobs\ImportFormVersionElementsJob;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Get;
+use Filament\Support\Exceptions\Halt;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -35,9 +44,21 @@ class BuildFormVersion extends Page implements HasForms
 
     protected static string $resource = FormVersionResource::class;
 
+    private ?array $parsedSchema = null;
+    private ?array $parsedContent = null; // Store parsed content for preview
+
+    private ?array $fieldMappingSchema = null; // Add field mapping schema storage
+    private ?array $currentFieldMappings = null; // Store current field mappings for preview
+
     protected static string $view = 'filament.forms.resources.form-version-resource.pages.build-form-version';
 
     public array $data = [];
+    public array $importWizard = [];
+    public array $importJobStatus = [
+        'status' => null,
+        'done' => false,
+        'cacheKey' => null,
+    ];
 
     protected function isEditable(): bool
     {
@@ -91,6 +112,8 @@ class BuildFormVersion extends Page implements HasForms
                 ] : []),
                 FormVersionBuilder::schema($this->isEditable())
             ])
+            ->live()
+            ->reactive()
             ->statePath('data')
             ->model($this->record);
     }
@@ -109,6 +132,8 @@ class BuildFormVersion extends Page implements HasForms
                     try {
                         $data['form_version_id'] = $this->record->id;
 
+                        // Capture the template ID before removing it
+                        $templateId = $data['template_id'] ?? null;
                         // Remove template_id as it's only used for prefilling
                         unset($data['template_id']);
 
@@ -129,6 +154,11 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableData = array_filter($elementableData, function ($value) {
                             return $value !== null;
                         });
+
+                        // Set source_element_id if created from template
+                        if ($templateId) {
+                            $data['source_element_id'] = $templateId;
+                        }
 
                         // Create the polymorphic model first if there's data
                         $elementableModel = null;
@@ -196,6 +226,72 @@ class BuildFormVersion extends Page implements HasForms
                             ->persistent()
                             ->send();
                     }
+                }),
+
+            Actions\Action::make('import_form_template')
+                ->label('Import')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('primary')
+                ->outlined()
+                ->modalHeading('Import Form Template')
+                ->modalDescription('Upload a JSON template to import form elements and structure.')
+                ->steps([
+                    Wizard\Step::make('Upload Template')
+                        ->schema([
+                            FileUpload::make('schema_file')
+                                ->label('Schema File')
+                                ->acceptedFileTypes(['application/json'])
+                                ->maxSize(5120)
+                                ->helperText(function () {
+                                    return $this->parsedSchema !== null
+                                        ? 'Schema already parsed - upload disabled'
+                                        : 'Upload a JSON file with form schema (max 5MB)';
+                                })
+                                ->disabled(fn() => $this->parsedSchema !== null)
+                                ->reactive()
+                                ->afterStateUpdated(function (Set $set, ?\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $state) {
+                                    if ($state) {
+                                        $content = file_get_contents($state->getRealPath());
+                                        $set('schema_content', $content);
+                                        $parsed = SchemaParser::parseSchema($content);
+                                        $set('parsed_content', json_encode($parsed));
+                                        $this->importWizard = [
+                                            'schema_content' => $content,
+                                            'parsed_content' => $parsed,
+                                        ];
+                                    } else {
+                                        $set('schema_content', null);
+                                        $set('parsed_content', null);
+                                    }
+                                }),
+                        ])
+                        ->afterValidation(function (Get $get) {
+                            // Reset parsed schema if a new file is uploaded
+                            if ($get('schema_content') == null) {
+                                throw new Halt();
+                            }
+                        }),
+                    Wizard\Step::make('Preview & Import')
+                        ->schema([
+                            Forms\Components\Textarea::make('schema_content')
+                                ->label('Schema Content')
+                                ->rows(10)
+                                ->disabled()
+                                ->helperText('This is the raw JSON content of the uploaded schema file.'),
+                            Forms\Components\Textarea::make('parsed_content')
+                                ->label('Parsed Schema')
+                                ->rows(10)
+                                ->disabled()
+                                ->formatStateUsing(fn($state) => \App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion::formatJsonForTextarea($state))
+                                ->helperText('This is the parsed schema structure.'),
+                        ]),
+
+                ])
+                ->modalHeading('Confirm Import')
+                ->modalDescription('Importing a form from a JSON export will introduce new form fields to the existing form.')
+                ->modalSubmitActionLabel('Import Form')
+                ->action(function () {
+                    $this->importParsedSchemaElements();
                 }),
 
             ActionGroup::make([
@@ -353,6 +449,7 @@ class BuildFormVersion extends Page implements HasForms
                                     $set('description', $template->description);
                                     $set('help_text', $template->help_text);
                                     $set('elementable_type', $template->elementable_type);
+                                    $set('is_required', $template->is_required);
                                     $set('visible_web', $template->visible_web);
                                     $set('visible_pdf', $template->visible_pdf);
                                     $set('is_template', false); // New element should not be a template by default
@@ -376,11 +473,40 @@ class BuildFormVersion extends Page implements HasForms
                                 ->required()
                                 ->maxLength(255)
                                 ->label('Element Name')
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                    // Auto-generate reference_id if it's empty and we have a name
+                                    if (!empty($state) && empty($get('reference_id'))) {
+                                        $slug = \Illuminate\Support\Str::slug($state, '-');
+                                        $set('reference_id', $slug);
+                                    }
+                                })
                                 ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Internal name for form builders to distinguish between elements');
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
                                 }),
+                            \Filament\Forms\Components\TextInput::make('reference_id')
+                                ->label('Reference ID')
+                                ->rules(['alpha_dash'])
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
+                                })
+                                ->suffixAction(
+                                    \Filament\Forms\Components\Actions\Action::make('regenerate_reference_id')
+                                        ->icon('heroicon-o-arrow-path')
+                                        ->tooltip('Regenerate from Element Name')
+                                        ->action(function (callable $set, callable $get) {
+                                            $name = $get('name');
+                                            if (!empty($name)) {
+                                                $slug = \Illuminate\Support\Str::slug($name, '-');
+                                                $set('reference_id', $slug);
+                                            }
+                                        })
+                                ),
                             \Filament\Forms\Components\Select::make('elementable_type')
                                 ->label('Element Type')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
+                                })
                                 ->options(FormElement::getAvailableElementTypes())
                                 ->required()
                                 ->live()
@@ -391,8 +517,11 @@ class BuildFormVersion extends Page implements HasForms
                             \Filament\Forms\Components\Textarea::make('description')
                                 ->rows(3),
                             \Filament\Forms\Components\TextInput::make('help_text')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
+                                })
                                 ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(3)
+                            \Filament\Forms\Components\Grid::make(2)
                                 ->schema([
                                     \Filament\Forms\Components\Toggle::make('visible_web')
                                         ->label('Visible on Web')
@@ -400,12 +529,24 @@ class BuildFormVersion extends Page implements HasForms
                                     \Filament\Forms\Components\Toggle::make('visible_pdf')
                                         ->label('Visible on PDF')
                                         ->default(true),
+                                ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    \Filament\Forms\Components\Toggle::make('is_required')
+                                        ->label('Is Required')
+                                        ->default(false),
                                     \Filament\Forms\Components\Toggle::make('is_template')
                                         ->label('Is Template')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
+                                        })
                                         ->default(false),
                                 ]),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
+                                ->when($this->shouldShowTooltips(), function ($component) {
+                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
+                                })
                                 ->multiple()
                                 ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
                                 ->createOptionAction(
@@ -462,6 +603,9 @@ class BuildFormVersion extends Page implements HasForms
                                     ->schema([
                                         Select::make('form_data_source_id')
                                             ->label('Data Source')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
+                                            })
                                             ->options(function () use ($formVersion) {
                                                 return $formVersion->formDataSources->pluck('name', 'id')->toArray();
                                             })
@@ -471,6 +615,9 @@ class BuildFormVersion extends Page implements HasForms
                                             ->live(onBlur: true),
                                         \Filament\Forms\Components\TextInput::make('path')
                                             ->label('Data Path')
+                                            ->when($this->shouldShowTooltips(), function ($component) {
+                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
+                                            })
                                             ->required()
                                             ->placeholder("$.['Contact'].['Birth Date']")
                                             ->helperText('The path to the data field in the selected data source'),
@@ -651,5 +798,144 @@ class BuildFormVersion extends Page implements HasForms
             }
         });
         ";
+    }
+
+    private static function formatJsonForTextarea($value): string
+    {
+        if (is_string($value)) {
+            // Try to decode and re-encode for pretty print
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+            return $value;
+        }
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+        return (string) $value;
+    }
+
+    /**
+     * Import all parsed schema elements as new form elements
+     */
+    public function importParsedSchemaElements()
+    {
+        $schemaContent = $this->importWizard['schema_content'] ?? null;
+        if (empty($schemaContent)) {
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('No Parsed Schema')
+                ->body('No schema content found to import.')
+                ->send();
+            return;
+        }
+
+        // Generate a unique cache key for this import
+        $cacheKey = 'import_form_version_' . $this->record->id . '_' . uniqid();
+        Cache::put($cacheKey . '_status', 'queued', 3600);
+
+        ImportFormVersionElementsJob::dispatch(
+            $this->record->id,
+            $schemaContent,
+            $cacheKey,
+            auth()->id()
+        );
+
+        session()->put('import_job_cache_key', $cacheKey);
+
+        $this->importJobStatus = [
+            'status' => 'queued',
+            'done' => false,
+            'cacheKey' => $cacheKey,
+        ];
+
+        \Filament\Notifications\Notification::make()
+            ->info()
+            ->title('Import Started')
+            ->body('The import is being processed in the background. This page will refresh when it is complete.')
+            ->persistent()
+            ->send();
+    }
+
+    public function pollImportStatus()
+    {
+        $cacheKey = $this->importJobStatus['cacheKey'] ?? session('import_job_cache_key');
+        if (!$cacheKey) {
+            $this->importJobStatus['done'] = false;
+            return;
+        }
+
+        $status = Cache::get($cacheKey . '_status');
+        $error = Cache::get($cacheKey . '_error');
+
+        if ($status === 'complete') {
+            Cache::forget($cacheKey . '_status');
+            Cache::forget($cacheKey . '_progress');
+            session()->forget('import_job_cache_key');
+            $this->importJobStatus['done'] = true;
+            $this->importJobStatus['status'] = 'complete';
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('Import Complete')
+                ->body('Form elements have been successfully imported. The page will refresh to show the new elements.')
+                ->send();
+
+            $this->js('setTimeout(() => { window.location.reload(); }, 1500);');
+        } elseif ($status === 'error') {
+            Cache::forget($cacheKey . '_status');
+            Cache::forget($cacheKey . '_error');
+            Cache::forget($cacheKey . '_progress');
+            session()->forget('import_job_cache_key');
+
+            $this->importJobStatus['done'] = true;
+            $this->importJobStatus['status'] = 'error';
+
+            \Filament\Notifications\Notification::make()
+                ->danger()
+                ->title('Import Failed')
+                ->body($error ?: 'An error occurred during import.')
+                ->persistent()
+                ->send();
+        } else {
+            $this->importJobStatus['done'] = false;
+            $this->importJobStatus['status'] = $status ?: 'processing';
+            $progress = Cache::get($cacheKey . '_progress');
+            if ($progress) {
+                $this->importJobStatus['progress'] = $progress;
+            }
+        }
+    }
+
+    public function render(): \Illuminate\Contracts\View\View
+    {
+        $cacheKey = session('import_job_cache_key');
+        if ($cacheKey && !isset($this->importJobStatus['cacheKey'])) {
+            $this->importJobStatus = [
+                'status' => Cache::get($cacheKey . '_status', 'unknown'),
+                'done' => false,
+                'cacheKey' => $cacheKey,
+            ];
+        }
+
+        // If an import job is running, poll every 2 seconds
+        if (
+            isset($this->importJobStatus['cacheKey']) &&
+            $this->importJobStatus['cacheKey'] &&
+            !$this->importJobStatus['done']
+        ) {
+            $this->js(<<<JS
+                setTimeout(() => {
+                    if (typeof window.Livewire !== 'undefined') {
+                        const component = window.Livewire.find('{$this->getId()}');
+                        if (component) {
+                            component.call('pollImportStatus');
+                        }
+                    }
+                }, 2000);
+            JS);
+        }
+
+        return parent::render();
     }
 }

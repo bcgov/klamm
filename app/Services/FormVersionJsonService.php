@@ -23,19 +23,26 @@ class FormVersionJsonService
             'pdfFormScript'
         ]);
 
+        $formVersionData = [
+            'uuid' => $formVersion->uuid ?? $formVersion->id,
+            'name' => $formVersion->form->form_title ?? 'Unknown Form',
+            'id' => $formVersion->form->form_id ?? '',
+            'version' => $formVersion->version_number,
+            'status' => $formVersion->status,
+            'data' => $this->getFormVersionData($formVersion),
+            'dataSources' => $this->getDataSources($formVersion),
+            'styles' => $this->getStyles($formVersion),
+            'scripts' => $this->getScripts($formVersion),
+            'elements' => $this->getElements($formVersion)
+        ];
+
+        // Only add pdfTemplate if uses_pets_template is true
+        if ($formVersion->uses_pets_template) {
+            $formVersionData['pdfTemplate'] = $this->getPdfTemplate($formVersion);
+        }
+
         return [
-            'formversion' => [
-                'uuid' => $formVersion->uuid ?? $formVersion->id,
-                'name' => $formVersion->form->form_title ?? 'Unknown Form',
-                'id' => $formVersion->form->form_id ?? '',
-                'version' => $formVersion->version_number,
-                'status' => $formVersion->status,
-                'data' => $this->getFormVersionData($formVersion),
-                'dataSources' => $this->getDataSources($formVersion),
-                'styles' => $this->getStyles($formVersion),
-                'scripts' => $this->getScripts($formVersion),
-                'elements' => $this->getElements($formVersion)
-            ]
+            'formversion' => $formVersionData
         ];
     }
 
@@ -60,14 +67,14 @@ class FormVersionJsonService
             'pdfFormScript'
         ]);
 
-        return [
+        $preMigrationData = [
             'version' => $formVersion->version_number,
             'id' => $formVersion->uuid ?? $formVersion->id,
             'lastModified' => $formVersion->updated_at?->format('c') ?? now()->format('c'),
             'title' => $formVersion->form->form_title ?? 'Unknown Form',
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => null,
-            'footer' => $formVersion->footer,
+            'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'data' => [
                 'styles' => $this->getStyles($formVersion),
@@ -75,12 +82,18 @@ class FormVersionJsonService
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
         ];
+
+        // Only add pdfTemplate if uses_pets_template is true
+        if ($formVersion->uses_pets_template) {
+            $preMigrationData['pdfTemplate'] = $this->getPdfTemplate($formVersion);
+        }
+
+        return $preMigrationData;
     }
 
     protected function getFormVersionData(FormVersion $formVersion): array
     {
         return [
-            'footer' => $formVersion->footer,
             'comments' => $formVersion->comments,
             'created_at' => $formVersion->created_at?->toISOString(),
             'updated_at' => $formVersion->updated_at?->toISOString(),
@@ -129,6 +142,15 @@ class FormVersionJsonService
         return $scripts;
     }
 
+    protected function getPdfTemplate(FormVersion $formVersion): array
+    {
+        return [
+            'name' => $formVersion->pdf_template_name,
+            'version' => $formVersion->pdf_template_version,
+            'parameters' => $formVersion->pdf_template_parameters,
+        ];
+    }
+
     protected function getElements(FormVersion $formVersion): array
     {
         // Get root elements (elements without a parent - parent_id is -1 for root elements)
@@ -147,17 +169,22 @@ class FormVersionJsonService
 
     protected function transformElement(FormElement $element): array
     {
+        // Create the full reference ID (reference_id + uuid)
+        $fullReferenceId = $element->getFullReferenceId();
+
         $elementData = [
-            'uuid' => $element->uuid ?? $element->id,
+            'uuid' => $fullReferenceId,
             'type' => $this->getElementType($element),
             'name' => $element->name,
             'description' => $element->description,
             'help_text' => $element->help_text,
+            'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
+            'options' => $element->elementable?->options ?? [],
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
             'attributes' => $this->getElementAttributes($element)
         ];
@@ -234,28 +261,70 @@ class FormVersionJsonService
     {
         $elementType = $this->getElementType($element);
 
+        // Create the full reference ID (reference_id + uuid)
+        $fullReferenceId = $element->getFullReferenceId();
+
         $elementData = [
             'type' => $this->mapElementTypeToPreMigration($elementType),
-            'id' => $element->uuid,
+            'id' => $fullReferenceId,
         ];
 
-        // Handle different element types
-        if ($elementType === 'container') {
+        // Handle repeatable containers as groups FIRST, before other container logic
+        if ($elementType === 'container' && $element->elementable?->is_repeatable) {
+            return $this->transformRepeatableContainerAsGroup($element, $elementData);
+        }
+        // Handle non-repeatable containers
+        elseif ($elementType === 'container' && !$element->elementable?->is_repeatable) {
             return $this->transformContainerElement($element, $elementData);
-        } elseif ($this->isGroupElement($elementType)) {
+        }
+        // Handle explicit group elements
+        elseif ($this->isGroupElement($elementType)) {
             return $this->transformGroupElement($element, $elementData);
-        } else {
+        }
+        // Handle all other standard elements
+        else {
             return $this->transformStandardElement($element, $elementData, $elementType);
         }
     }
 
     protected function transformContainerElement(FormElement $element, array $elementData): array
     {
+        // Check if this container is repeatable - if so, transform it as a group
+        if ($element->elementable?->is_repeatable) {
+            return $this->transformRepeatableContainerAsGroup($element, $elementData);
+        }
+
         $elementData['containerId'] = (string)($element->id ?? '');
         $elementData['clear_button'] = false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
         ];
+        $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
+        $elementData['label'] = $elementData['attributes']['legend'] ?? null;
+
+        $elementData['repeater'] = false;
+        $elementData['repeaterLabel'] = null;
+
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
 
         // Add children if this is a container
         $children = FormElement::where('parent_id', $element->id)
@@ -273,15 +342,103 @@ class FormVersionJsonService
         return $elementData;
     }
 
-    protected function transformGroupElement(FormElement $element, array $elementData): array
+    protected function transformRepeatableContainerAsGroup(FormElement $element, array $elementData): array
     {
-        $elementData['label'] = $element->name;
+        // Transform repeatable container to group format for renderer compatibility
+        $elementData['type'] = 'group'; // Override type to group
+        $elementData['label'] = $element->label ?? $element->name;
         $elementData['groupId'] = (string)($element->id ?? '1');
-        $elementData['repeater'] = false;
-        $elementData['clear_button'] = false;
+        $elementData['repeater'] = true; // Always true for repeatable containers
+        $elementData['repeaterLabel'] = $element->label ?? $element->name;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
+
+        // Add styles
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
+
+        // Get children and transform them as group fields
+        $children = FormElement::where('parent_id', $element->id)
+            ->orderBy('order')
+            ->with(['elementable', 'dataBindings.formDataSource'])
+            ->get();
+
+        $fields = [];
+        if ($children->count() > 0) {
+            $fields = $children->map(function (FormElement $child) {
+                return $this->transformElementToPreMigrationFormat($child);
+            })->toArray();
+        }
+
+        // Create groupItems structure expected by the renderer
+        $elementData['groupItems'] = [
+            ['fields' => $fields]
+        ];
+
+        // Add container-specific attributes
+        $attributes = $this->getElementAttributes($element);
+        if (!empty($attributes)) {
+            $elementData['attributes'] = $this->remapAttributes($attributes);
+        }
+
+        $this->addElementStyles($elementData, $element);
+        return $elementData;
+    }
+
+    protected function transformGroupElement(FormElement $element, array $elementData): array
+    {
+        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['groupId'] = (string)($element->id ?? '1');
+        $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
+        $elementData['repeaterLabel'] = $element->label ?? $element->name;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
+        $elementData['codeContext'] = [
+            'name' => $this->generateCodeContextName($element->name ?? 'group')
+        ];
+
+        // Add styles
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+
+        // Add validation rules
+        $validation = $this->transformValidationRules($element);
+        if (!empty($validation)) {
+            $elementData['validation'] = $validation;
+        }
+
+        // Add conditions
+        $conditions = $this->transformConditions($element);
+        if (!empty($conditions)) {
+            $elementData['conditions'] = $conditions;
+        }
 
         // Get children and group them into fields
         $children = FormElement::where('parent_id', $element->id)
@@ -300,18 +457,34 @@ class FormVersionJsonService
             ['fields' => $fields]
         ];
 
+        // Add group-specific attributes
+        $attributes = $this->getElementAttributes($element);
+        if (!empty($attributes)) {
+            $elementData['attributes'] = $this->remapAttributes($attributes);
+        }
+
         $this->addElementStyles($elementData, $element);
         return $elementData;
     }
 
     protected function transformStandardElement(FormElement $element, array $elementData, string $originalType): array
     {
+        $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         // Basic properties for all standard elements
-        $elementData['label'] = $element->name;
+        $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
+        ];
+
+        $elementData['pdfStyles'] = [
+            'display' => $element->visible_pdf ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
+        ];
+        $elementData['webStyles'] = [
+            'display' => $element->visible_web ? null : 'none',
+            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add input type for specific elements
@@ -420,7 +593,7 @@ class FormVersionJsonService
                     $optionsCollection = $element->elementable->options()->ordered()->get();
                     $radioOptions = $optionsCollection->map(function ($option) {
                         return [
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                             'text' => $option->label ?? '',
                         ];
                     })->toArray();
@@ -439,7 +612,7 @@ class FormVersionJsonService
                         return [
                             'name' => $option->label ?? '',
                             'text' => $option->label ?? '',
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                         ];
                     })->toArray();
                 }
@@ -490,7 +663,7 @@ class FormVersionJsonService
         $attributes = $this->getElementAttributes($element);
 
         // Handle different validation types based on element attributes
-        if (isset($attributes['required']) && $attributes['required']) {
+        if (isset($attributes['required']) && $attributes['required'] || $element->is_required) {
             $validation[] = [
                 'type' => 'required',
                 'value' => 'true',
@@ -705,5 +878,76 @@ class FormVersionJsonService
         }
 
         return $dataSources;
+    }
+
+    /**
+     * Utility to convert snake_case to camelCase.
+     */
+    protected function toCamelCase(string $str): string
+    {
+        return preg_replace_callback('/_([a-z])/', function ($matches) {
+            return strtoupper($matches[1]);
+        }, $str);
+    }
+
+    /**
+     * Custom mapping for special attribute cases.
+     * This method allows for specific keys to be transformed into
+     * different keys or values in the final JSON output.
+     * This is required for the pre-migration format
+     * where some attributes need to be renamed or transformed.
+     * @param string $key
+     * @param mixed $value
+     * @return array|null
+     */
+    protected function customAttributeMapping(string $key, $value): ?array
+    {
+        switch ($key) {
+            case 'default_value':
+                return ['value', $value];
+            case 'button_type':
+                return ['kind', $value];
+            case 'default_date':
+                return ['value', $value];
+            case 'placeholder_text':
+                return ['placeholder', $value];
+            case 'visible_label':
+                return ['hideLabel', !$value];
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Normalize and camelCase attributes, with custom mapping.
+     * @param array $attributes
+     * @return array
+     */
+    protected function normalizeAttributes($attributes): array
+    {
+        if (!$attributes || !is_array($attributes)) {
+            return [];
+        }
+        $result = [];
+        foreach ($attributes as $k => $v) {
+            $custom = $this->customAttributeMapping($k, $v);
+            if ($custom) {
+                [$newKey, $newValue] = $custom;
+                $result[$newKey] = $newValue;
+            } else {
+                $result[$this->toCamelCase($k)] = $v;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Remap/clean attributes array for export using custom rules and camelCase normalization.
+     * @param array $attributes
+     * @return array
+     */
+    protected function remapAttributes(array $attributes): array
+    {
+        return $this->normalizeAttributes($attributes);
     }
 }

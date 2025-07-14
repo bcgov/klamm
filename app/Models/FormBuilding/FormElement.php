@@ -17,6 +17,7 @@ class FormElement extends Model
 
     protected $fillable = [
         'uuid',
+        'reference_id',
         'name',
         'order',
         'description',
@@ -27,16 +28,19 @@ class FormElement extends Model
         'help_text',
         'calculated_value',
         'is_read_only',
+        'is_required',
         'save_on_submit',
         'visible_web',
         'visible_pdf',
         'is_template',
+        'source_element_id',
     ];
 
     protected $casts = [
         'order' => 'integer',
         'parent_id' => 'integer',
         'is_read_only' => 'boolean',
+        'is_required' => 'boolean',
         'save_on_submit' => 'boolean',
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
@@ -132,6 +136,22 @@ class FormElement extends Model
     }
 
     /**
+     * Get the source element (template) this element was created from.
+     */
+    public function sourceElement(): BelongsTo
+    {
+        return $this->belongsTo(FormElement::class, 'source_element_id');
+    }
+
+    /**
+     * Get all elements that were created from this template.
+     */
+    public function derivedElements(): HasMany
+    {
+        return $this->hasMany(FormElement::class, 'source_element_id');
+    }
+
+    /**
      * Scope to get root elements (no parent)
      */
     public function scopeRoot($query)
@@ -187,6 +207,11 @@ class FormElement extends Model
         return $query->where('is_read_only', true);
     }
 
+    public function scopeIsRequired($query)
+    {
+        return $query->where('is_required', true);
+    }
+
     /**
      * Scope to get editable elements
      */
@@ -240,6 +265,24 @@ class FormElement extends Model
     }
 
     /**
+     * Get the full reference ID (reference_id + uuid with hyphen)
+     * Falls back to just uuid if reference_id is empty
+     */
+    public function getFullReferenceId(): string
+    {
+        return $this->reference_id ? $this->reference_id . '-' . $this->uuid : $this->uuid;
+    }
+
+    /**
+     * Static helper to construct full reference ID from separate values
+     * Falls back to just uuid if reference_id is empty
+     */
+    public static function buildFullReferenceId(?string $referenceId, string $uuid): string
+    {
+        return $referenceId ? $referenceId . '-' . $uuid : $uuid;
+    }
+
+    /**
      * Check if this element is of a specific type
      */
     public function isType(string $type): bool
@@ -274,6 +317,22 @@ class FormElement extends Model
     }
 
     /**
+     * Check if this element was created from a template
+     */
+    public function wasCreatedFromTemplate(): bool
+    {
+        return $this->source_element_id !== null;
+    }
+
+    /**
+     * Get the template this element was created from
+     */
+    public function getSourceTemplate(): ?self
+    {
+        return $this->sourceElement;
+    }
+
+    /**
      * Get all available element types
      */
     public static function getAvailableElementTypes(): array
@@ -281,14 +340,14 @@ class FormElement extends Model
         return [
             ContainerFormElement::class => 'Container',
             TextInputFormElement::class => 'Text Input',
-            TextareaInputFormElement::class => 'Textarea Input',
-            TextInfoFormElement::class => 'Text Info',
-            DateSelectInputFormElement::class => 'Date Select Input',
-            CheckboxInputFormElement::class => 'Checkbox Input',
-            SelectInputFormElement::class => 'Select Input',
-            RadioInputFormElement::class => 'Radio Input',
+            TextareaInputFormElement::class => 'Textarea',
+            TextInfoFormElement::class => 'Text Display',
+            DateSelectInputFormElement::class => 'Date Select',
+            CheckboxInputFormElement::class => 'Checkbox',
+            SelectInputFormElement::class => 'Dropdown',
+            RadioInputFormElement::class => 'Radio',
             NumberInputFormElement::class => 'Number Input',
-            ButtonInputFormElement::class => 'Button Input',
+            ButtonInputFormElement::class => 'Button',
             HTMLFormElement::class => 'HTML',
         ];
     }

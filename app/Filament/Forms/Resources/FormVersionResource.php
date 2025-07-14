@@ -24,7 +24,7 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Filament\Forms\Components\Fieldset;
 
 class FormVersionResource extends Resource
 {
@@ -101,8 +101,27 @@ class FormVersionResource extends Resource
                                     ->collapsed()
                                     ->columnSpanFull()
                                     ->defaultItems(0),
-                                TextInput::make('footer')
-                                    ->columnSpanFull(),
+                                Fieldset::make('PETS template')
+                                    ->columns(4)
+                                    ->schema([
+                                        \Filament\Forms\Components\Toggle::make('uses_pets_template')
+                                            ->label('Use PETS Template')
+                                            ->columnSpanFull()
+                                            ->live()
+                                            ->default(false),
+                                        TextInput::make('pdf_template_name')
+                                            ->label('Name')
+                                            ->columnSpan(3)
+                                            ->visible(fn(callable $get) => $get('uses_pets_template')),
+                                        TextInput::make('pdf_template_version')
+                                            ->label('Version')
+                                            ->columnSpan(1)
+                                            ->visible(fn(callable $get) => $get('uses_pets_template')),
+                                        Textarea::make('pdf_template_parameters')
+                                            ->label('Parameters')
+                                            ->columnSpanFull()
+                                            ->visible(fn(callable $get) => $get('uses_pets_template')),
+                                    ]),
                                 Textarea::make('comments')
                                     ->columnSpanFull()
                                     ->maxLength(500),
@@ -161,8 +180,7 @@ class FormVersionResource extends Resource
                         // Duplicate all FormElements and map new to old
                         $oldToNewElementMap = [];
                         foreach ($record->formElements()->orderBy('order')->get() as $element) {
-                            $newElement = $element->replicate(['id', 'uuid', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
-                            $newElement->uuid = (string) Str::uuid();
+                            $newElement = $element->replicate(['id', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
                             $newElement->form_version_id = $newVersion->id;
                             $newElement->parent_id = null;
                             $newElement->save();

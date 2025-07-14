@@ -15,7 +15,7 @@ class SelectOptionFormElement extends Model
         'optionable_id',
         'label',
         'order',
-        'description',
+        'value',
     ];
 
     protected $casts = [
@@ -45,6 +45,7 @@ class SelectOptionFormElement extends Model
     {
         $optionData['optionable_type'] = SelectInputFormElement::class;
         $optionData['optionable_id'] = $selectInput->id;
+        $optionData['value'] = $optionData['value'] ?? \Illuminate\Support\Str::slug($optionData['label'], '-');
 
         return self::create($optionData);
     }
@@ -56,6 +57,7 @@ class SelectOptionFormElement extends Model
     {
         $optionData['optionable_type'] = RadioInputFormElement::class;
         $optionData['optionable_id'] = $radioInput->id;
+        $optionData['value'] = $optionData['value'] ?? \Illuminate\Support\Str::slug($optionData['label'], '-');
 
         return self::create($optionData);
     }
