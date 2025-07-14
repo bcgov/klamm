@@ -8,11 +8,11 @@ use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
-use App\Models\FormMetadata\FormDataSource;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
 use App\Filament\Forms\Resources\FormResource;
 use App\Helpers\DataBindingsHelper;
+use App\Helpers\ElementPropertiesHelper;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -23,7 +23,6 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
-
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
@@ -483,15 +482,9 @@ class BuildFormVersion extends Page implements HasForms
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
-                                        ->label('')
-                                        ->content('Please select an element type in the General tab first.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType);
+                            return ElementPropertiesHelper::getCreateSchema(
+                                $get('elementable_type')
+                            );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
@@ -506,20 +499,7 @@ class BuildFormVersion extends Page implements HasForms
         ];
     }
 
-    protected function getElementSpecificSchema(string $elementType): array
-    {
-        // Check if the element type class exists and has the getFilamentSchema method
-        if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
-            return $elementType::getFilamentSchema(false);
-        }
 
-        // Fallback for element types that don't have schema defined yet
-        return [
-            \Filament\Forms\Components\Placeholder::make('no_specific_properties')
-                ->label('')
-                ->content('This element type has no specific properties defined yet.')
-        ];
-    }
 
     protected function mutateFormDataBeforeFill(array $data): array
     {

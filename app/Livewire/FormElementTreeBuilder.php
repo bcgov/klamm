@@ -6,21 +6,18 @@ use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
 use App\Models\FormBuilding\FormElementTag;
 use App\Models\FormBuilding\FormVersion;
-
 use App\Helpers\DataBindingsHelper;
+use App\Helpers\ElementPropertiesHelper;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
-use Filament\Forms\Set;
-use Illuminate\Support\Str;
 use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 
@@ -185,16 +182,9 @@ class FormElementTreeBuilder extends BaseWidget
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
-                            // For edit, get the element type from the form data
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_element_type')
-                                        ->label('')
-                                        ->content('No element type available.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType);
+                            return ElementPropertiesHelper::getEditSchema(
+                                $get('elementable_type')
+                            );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
@@ -316,15 +306,9 @@ class FormElementTreeBuilder extends BaseWidget
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
-                                        ->label('')
-                                        ->content('No specific properties available.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType, true);
+                            return ElementPropertiesHelper::getViewSchema(
+                                $get('elementable_type')
+                            );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
@@ -339,20 +323,7 @@ class FormElementTreeBuilder extends BaseWidget
         ];
     }
 
-    protected function getElementSpecificSchema(string $elementType, bool $disabled = false): array
-    {
-        // Check if the element type class exists and has the getFilamentSchema method
-        if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
-            return $elementType::getFilamentSchema($disabled);
-        }
 
-        // Fallback for element types that don't have schema defined yet
-        return [
-            \Filament\Forms\Components\Placeholder::make('no_specific_properties')
-                ->label('')
-                ->content('This element type has no specific properties defined yet.')
-        ];
-    }
 
     protected function getTreeActions(): array
     {
