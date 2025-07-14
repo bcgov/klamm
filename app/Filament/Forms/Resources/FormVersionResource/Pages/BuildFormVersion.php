@@ -12,6 +12,7 @@ use App\Models\FormMetadata\FormDataSource;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
 use App\Filament\Forms\Resources\FormResource;
+use App\Helpers\DataBindingsHelper;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -22,8 +23,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Repeater;
+
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
@@ -496,56 +496,10 @@ class BuildFormVersion extends Page implements HasForms
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
-                            // Get data sources assigned to this form version
-                            $formVersion = $this->record;
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('Please add Data Sources in the Form Version before adding Data Bindings.')
-                                        ->extraAttributes(['class' => 'text-warning'])
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->defaultItems(0)
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
-                                            })
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->required()
-                                            ->live(onBlur: true),
-                                        \Filament\Forms\Components\TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
-                                            })
-                                            ->required()
-                                            ->placeholder("$.['Contact'].['Birth Date']")
-                                            ->helperText('The path to the data field in the selected data source'),
-                                    ])
-                                    ->orderColumn('order')
-                                    ->itemLabel(
-                                        fn(array $state): ?string =>
-                                        isset($state['form_data_source_id']) && isset($state['path'])
-                                            ? (FormDataSource::find($state['form_data_source_id'])?->name ?? 'Data Source') . ': ' . $state['path']
-                                            : 'New Data Binding'
-                                    )
-                                    ->addActionLabel('Add Data Binding')
-                                    ->reorderableWithButtons()
-                                    ->collapsible()
-                                    ->collapsed()
-                                    ->columnSpanFull(),
-                            ];
+                            return DataBindingsHelper::getCreateSchema(
+                                $this->record,
+                                fn() => $this->shouldShowTooltips()
+                            );
                         }),
                 ])
                 ->columnSpanFull(),

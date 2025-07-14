@@ -6,7 +6,8 @@ use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
 use App\Models\FormBuilding\FormElementTag;
 use App\Models\FormBuilding\FormVersion;
-use App\Models\FormMetadata\FormDataSource;
+
+use App\Helpers\DataBindingsHelper;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -198,66 +199,10 @@ class FormElementTreeBuilder extends BaseWidget
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
-                            // Get the form version ID from the form element
-                            $formVersionId = $this->formVersionId;
-                            if (!$formVersionId) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
-                                        ->label('')
-                                        ->content('Form version not available.')
-                                ];
-                            }
-
-                            // Get data sources assigned to this form version
-                            $formVersion = FormVersion::find($formVersionId);
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('Please add Data Sources in the Form Version before adding Data Bindings.')
-                                        ->extraAttributes(['class' => 'text-warning'])
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->relationship()
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
-                                            })
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->required()
-                                            ->live(onBlur: true),
-                                        TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
-                                            })
-                                            ->required()
-                                            ->placeholder("$.['Contact'].['Birth Date']")
-                                            ->helperText('The path to the data field in the selected data source'),
-                                    ])
-                                    ->orderColumn('order')
-                                    ->itemLabel(
-                                        fn(array $state): ?string =>
-                                        isset($state['form_data_source_id']) && isset($state['path'])
-                                            ? (FormDataSource::find($state['form_data_source_id'])?->name ?? 'Data Source') . ': ' . $state['path']
-                                            : 'New Data Binding'
-                                    )
-                                    ->addActionLabel('Add Data Binding')
-                                    ->reorderableWithButtons()
-                                    ->collapsible()
-                                    ->collapsed()
-                                    ->columnSpanFull(),
-                            ];
+                            return DataBindingsHelper::getEditSchema(
+                                $this->formVersionId,
+                                fn() => $this->shouldShowTooltips()
+                            );
                         }),
                 ])
                 ->columnSpanFull(),
@@ -384,50 +329,10 @@ class FormElementTreeBuilder extends BaseWidget
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
-                            // Get the form version ID from the form element
-                            $formVersionId = $this->formVersionId;
-                            if (!$formVersionId) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
-                                        ->label('')
-                                        ->content('Form version not available.')
-                                ];
-                            }
-
-                            // Get data sources assigned to this form version
-                            $formVersion = FormVersion::find($formVersionId);
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('No Data Sources are assigned to this Form Version.')
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->relationship()
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
-                                            })
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->disabled(),
-                                        TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
-                                            })
-                                            ->disabled(),
-                                    ])
-                                    ->disabled()
-                                    ->columnSpanFull(),
-                            ];
+                            return DataBindingsHelper::getViewSchema(
+                                $this->formVersionId,
+                                fn() => $this->shouldShowTooltips()
+                            );
                         }),
                 ])
                 ->columnSpanFull(),
