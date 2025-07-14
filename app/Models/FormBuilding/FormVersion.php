@@ -30,7 +30,6 @@ class FormVersion extends Model
         'version_number',
         'status',
         'form_developer_id',
-        'footer',
         'comments',
         'components'
     ];

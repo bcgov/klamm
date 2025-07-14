@@ -67,7 +67,6 @@ class FormVersionJsonService
             'title' => $formVersion->form->form_title ?? 'Unknown Form',
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => null,
-            'footer' => $formVersion->footer,
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'data' => [
@@ -81,7 +80,6 @@ class FormVersionJsonService
     protected function getFormVersionData(FormVersion $formVersion): array
     {
         return [
-            'footer' => $formVersion->footer,
             'comments' => $formVersion->comments,
             'created_at' => $formVersion->created_at?->toISOString(),
             'updated_at' => $formVersion->updated_at?->toISOString(),
