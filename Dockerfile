@@ -1,6 +1,9 @@
 # Use PHP official image with Apache
 FROM php:8.2-apache
 
+# Build argument for OpenShift UID (can be overridden at build time)
+ARG OPENSHIFT_UID=1000
+
 # Install system dependencies for PHP extensions and other utilities
 RUN apt-get update && apt-get install -y \
     libpq-dev \
@@ -61,12 +64,9 @@ RUN npm run build
 RUN composer install --no-dev --optimize-autoloader
 
 # Set correct permissions for storage, database and logs
-RUN chown -R $(whoami):$(whoami) /var/www/storage /var/www/bootstrap/cache /var/www/database \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database \
-    && chmod -R 775 /var/www/storage/app/public \
-    && chmod -R 775 /var/www/storage/app/form_data \
-    && chmod -R 775 /var/www/storage/livewire-tmp \
-    && chmod g+s /var/www/storage/app/public /var/www/storage/app/form_data /var/www/storage/livewire-tmp
+# Use specific UID/GID for OpenShift (can be overridden via build arg)
+RUN chown -R ${OPENSHIFT_UID}:${OPENSHIFT_UID} /var/www/storage /var/www/bootstrap/cache /var/www/database \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf

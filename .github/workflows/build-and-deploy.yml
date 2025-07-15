@@ -144,7 +144,21 @@ jobs:
 
       - name: Run Helm upgrade
         run: |
-          helm upgrade --install klamm-app ./helm --set image.tag=${{ needs.build.outputs.image_tag }}
+          # Determine environment and values file
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VALUES_FILE="values-prod.yaml"
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            VALUES_FILE="values-dev.yaml"
+          elif [ "${{ github.ref }}" == "refs/heads/test" ]; then
+            VALUES_FILE="values-test.yaml"
+          else
+            VALUES_FILE="values.yaml"
+          fi
+          
+          helm upgrade --install klamm-app ./helm \
+            -f ./helm/values.yaml \
+            -f ./helm/$VALUES_FILE \
+            --set image.tag=${{ needs.build.outputs.image_tag }}
 
       - name: Trigger OpenShift Rollout
         run: |

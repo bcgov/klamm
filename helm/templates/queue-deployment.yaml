@@ -95,6 +95,9 @@ spec:
       securityContext:
         runAsNonRoot: true
         allowPrivilegeEscalation: false
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
       schedulerName: default-scheduler
   strategy:
     type: Recreate

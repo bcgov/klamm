@@ -1,0 +1,9 @@
+# Production environment specific values
+image:
+  tag: "main"
+
+# Security context for OpenShift production environment
+securityContext:
+  runAsUser: 1017180000
+  runAsGroup: 1017180000
+  fsGroup: 1017180000 

@@ -1,0 +1,9 @@
+# Test environment specific values
+image:
+  tag: "test"
+
+# Security context for OpenShift test environment
+securityContext:
+  runAsUser: 1014970000
+  runAsGroup: 1014970000
+  fsGroup: 1014970000 
