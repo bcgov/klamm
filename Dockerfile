@@ -51,9 +51,8 @@ RUN npm run build
 RUN composer install --no-dev --optimize-autoloader
 
 # Set correct permissions for storage, database and logs
-RUN chown -R $(whoami):$(whoami) /var/www/bootstrap/cache /var/www/database \
+RUN chown -R www-data:www-data /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/bootstrap/cache /var/www/database
-
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
@@ -64,19 +63,32 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
 
+# Create the storage directory if it doesn't exist as part of the image
+RUN mkdir -p /var/www/storage
+
+# Set group ownership to nonroot and make it group-writable
+RUN chown -R www-data:www-data /var/www/storage \
+    && chmod -R 775 /var/www/storage \
+    && chmod g+s /var/www/storage
+
+# Switch to non-root user
+USER www-data
+
 # Expose ports
 EXPOSE 8080 443 6001
 
 # Create entrypoint script
-RUN echo '#!/bin/bash\n\
+# RUN echo '#!/bin/bash\n\
 
-    if [ "$CONTAINER_ROLE" = "worker" ]; then\n\
-    echo "Running as Reverb worker..."\n\
-    exec php artisan reverb:start --host=0.0.0.0 --port=6001\n\
-    else\n\
-    echo "Running as web server..."\n\
-    exec apache2-foreground\n\
-    fi' > /var/www/entrypoint.sh && chmod +x /var/www/entrypoint.sh
+#     if [ "$CONTAINER_ROLE" = "worker" ]; then\n\
+#     echo "Running as Reverb worker..."\n\
+#     exec php artisan reverb:start --host=0.0.0.0 --port=6001\n\
+#     else\n\
+#     echo "Running as web server..."\n\
+#     exec apache2-foreground\n\
+#     fi' > /var/www/entrypoint.sh && chmod +x /var/www/entrypoint.sh
+
+CMD ["apache2-foreground"]
 
 # Start with entrypoint script
-CMD ["/var/www/entrypoint.sh"]
+# CMD ["/var/www/entrypoint.sh"]
