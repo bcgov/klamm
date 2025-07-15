@@ -64,8 +64,9 @@ RUN composer install --no-dev --optimize-autoloader
 #     && chmod -R 775 /var/www/storage/app/form_data \
 #     && chmod g+s /var/www/storage/app/form_data
 
-RUN chown -R www-data:www-data /var/www/bootstrap/cache /var/www/database \
+RUN chown -R $(whoami):$(whoami) /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/bootstrap/cache /var/www/database
+
 
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
