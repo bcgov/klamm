@@ -345,19 +345,28 @@ class GeneralTabHelper
                 $templateToggle,
             ]);
 
+        // Read Only and Save on Submit toggles
+        $readOnlyToggle = Toggle::make('is_read_only')
+            ->label('Is Read Only')
+            ->default(true)
+            ->disabled($disabled);
+
+        $saveOnSubmitToggle = Toggle::make('save_on_submit')
+            ->label('Save on Submit')
+            ->default(true)
+            ->disabled($disabled);
+
+        // Add tooltip if callback is provided
+        if ($shouldShowTooltipsCallback) {
+            $saveOnSubmitToggle = $saveOnSubmitToggle->when($shouldShowTooltipsCallback, function ($component) {
+                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
+            });
+        }
+
         $schema[] = Grid::make(2)
             ->schema([
-                Toggle::make('is_read_only')
-                    ->label('Is Read Only')
-                    ->default(true)
-                    ->disabled($disabled),
-                Toggle::make('save_on_submit')
-                    ->label('Save on Submit')
-                    ->default(true)
-                    ->disabled($disabled)
-                    ->when($shouldShowTooltipsCallback, function ($component) {
-                        return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
-                    }),
+                $readOnlyToggle,
+                $saveOnSubmitToggle,
             ]);
 
         // Tags field
