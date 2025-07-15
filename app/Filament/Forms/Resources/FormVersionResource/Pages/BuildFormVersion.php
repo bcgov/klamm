@@ -453,6 +453,18 @@ class BuildFormVersion extends Page implements HasForms
                                         })
                                         ->default(false),
                                 ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    \Filament\Forms\Components\Toggle::make('is_read_only')
+                                        ->label('Read Only')
+                                        ->default(false),
+                                    \Filament\Forms\Components\Toggle::make('save_on_submit')
+                                        ->label('Save on Submit')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
+                                        })
+                                        ->default(true),
+                                ]),
                             \Filament\Forms\Components\Select::make('tags')
                                 ->label('Tags')
                                 ->when($this->shouldShowTooltips(), function ($component) {

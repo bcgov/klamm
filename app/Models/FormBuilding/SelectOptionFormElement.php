@@ -15,7 +15,7 @@ class SelectOptionFormElement extends Model
         'optionable_id',
         'label',
         'order',
-        'description',
+        'value',
     ];
 
     protected $casts = [

@@ -15,6 +15,7 @@ class ContainerFormElement extends Model
         'collapsible',
         'collapsed_by_default',
         'is_repeatable',
+        'repeater_item_label',
         'legend',
     ];
 
@@ -60,7 +61,13 @@ class ContainerFormElement extends Model
                 ->label('Repeatable')
                 ->helperText('Allow users to add multiple instances of this container')
                 ->default(false)
+                ->live()
                 ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.repeater_item_label')
+                ->label('Repeater Item Label')
+                ->helperText('Label for individual repeater items (e.g., "Item", "Entry")')
+                ->disabled($disabled)
+                ->visible(fn(callable $get) => $get('elementable_data.is_repeatable')),
         ];
     }
 
@@ -82,6 +89,7 @@ class ContainerFormElement extends Model
             'collapsible' =>         $this->collapsible,
             'collapsed_by_default' =>         $this->collapsed_by_default,
             'is_repeatable' =>         $this->is_repeatable,
+            'repeater_item_label' =>         $this->repeater_item_label,
             'legend' =>         $this->legend,
         ];
     }

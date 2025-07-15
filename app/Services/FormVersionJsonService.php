@@ -23,19 +23,26 @@ class FormVersionJsonService
             'pdfFormScript'
         ]);
 
+        $formVersionData = [
+            'uuid' => $formVersion->uuid ?? $formVersion->id,
+            'name' => $formVersion->form->form_title ?? 'Unknown Form',
+            'id' => $formVersion->form->form_id ?? '',
+            'version' => $formVersion->version_number,
+            'status' => $formVersion->status,
+            'data' => $this->getFormVersionData($formVersion),
+            'dataSources' => $this->getDataSources($formVersion),
+            'styles' => $this->getStyles($formVersion),
+            'scripts' => $this->getScripts($formVersion),
+            'elements' => $this->getElements($formVersion)
+        ];
+
+        // Only add pdfTemplate if uses_pets_template is true
+        if ($formVersion->uses_pets_template) {
+            $formVersionData['pdfTemplate'] = $this->getPdfTemplate($formVersion);
+        }
+
         return [
-            'formversion' => [
-                'uuid' => $formVersion->uuid ?? $formVersion->id,
-                'name' => $formVersion->form->form_title ?? 'Unknown Form',
-                'id' => $formVersion->form->form_id ?? '',
-                'version' => $formVersion->version_number,
-                'status' => $formVersion->status,
-                'data' => $this->getFormVersionData($formVersion),
-                'dataSources' => $this->getDataSources($formVersion),
-                'styles' => $this->getStyles($formVersion),
-                'scripts' => $this->getScripts($formVersion),
-                'elements' => $this->getElements($formVersion)
-            ]
+            'formversion' => $formVersionData
         ];
     }
 
@@ -60,14 +67,13 @@ class FormVersionJsonService
             'pdfFormScript'
         ]);
 
-        return [
+        $preMigrationData = [
             'version' => $formVersion->version_number,
             'id' => $formVersion->uuid ?? $formVersion->id,
             'lastModified' => $formVersion->updated_at?->format('c') ?? now()->format('c'),
             'title' => $formVersion->form->form_title ?? 'Unknown Form',
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => null,
-            'footer' => $formVersion->footer,
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'data' => [
@@ -76,12 +82,18 @@ class FormVersionJsonService
                 'items' => $this->transformElementsToPreMigrationFormat($formVersion)
             ]
         ];
+
+        // Only add pdfTemplate if uses_pets_template is true
+        if ($formVersion->uses_pets_template) {
+            $preMigrationData['pdfTemplate'] = $this->getPdfTemplate($formVersion);
+        }
+
+        return $preMigrationData;
     }
 
     protected function getFormVersionData(FormVersion $formVersion): array
     {
         return [
-            'footer' => $formVersion->footer,
             'comments' => $formVersion->comments,
             'created_at' => $formVersion->created_at?->toISOString(),
             'updated_at' => $formVersion->updated_at?->toISOString(),
@@ -130,6 +142,15 @@ class FormVersionJsonService
         return $scripts;
     }
 
+    protected function getPdfTemplate(FormVersion $formVersion): array
+    {
+        return [
+            'name' => $formVersion->pdf_template_name,
+            'version' => $formVersion->pdf_template_version,
+            'parameters' => $formVersion->pdf_template_parameters,
+        ];
+    }
+
     protected function getElements(FormVersion $formVersion): array
     {
         // Get root elements (elements without a parent - parent_id is -1 for root elements)
@@ -162,6 +183,8 @@ class FormVersionJsonService
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
+            'readOnly' => $element->is_read_only,
+            'saveOnSubmit' => $element->save_on_submit,
             'order' => $element->order,
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
             'attributes' => $this->getElementAttributes($element)
@@ -274,6 +297,8 @@ class FormVersionJsonService
 
         $elementData['containerId'] = (string)($element->id ?? '');
         $elementData['clear_button'] = false;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
         ];
@@ -324,12 +349,14 @@ class FormVersionJsonService
     {
         // Transform repeatable container to group format for renderer compatibility
         $elementData['type'] = 'group'; // Override type to group
-        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['label'] = $element->elementable?->legend ?? null;
         $elementData['groupId'] = (string)($element->id ?? '1');
         $elementData['repeater'] = true; // Always true for repeatable containers
-        $elementData['repeaterLabel'] = $element->label ?? $element->name;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -386,12 +413,14 @@ class FormVersionJsonService
 
     protected function transformGroupElement(FormElement $element, array $elementData): array
     {
-        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['label'] = $element->elementable?->legend ?? null;
         $elementData['groupId'] = (string)($element->id ?? '1');
         $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
-        $elementData['repeaterLabel'] = $element->label ?? $element->name;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -452,6 +481,8 @@ class FormVersionJsonService
         $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
         ];
@@ -571,7 +602,7 @@ class FormVersionJsonService
                     $optionsCollection = $element->elementable->options()->ordered()->get();
                     $radioOptions = $optionsCollection->map(function ($option) {
                         return [
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                             'text' => $option->label ?? '',
                         ];
                     })->toArray();
@@ -590,7 +621,7 @@ class FormVersionJsonService
                         return [
                             'name' => $option->label ?? '',
                             'text' => $option->label ?? '',
-                            'value' => $option->id ?? '',
+                            'value' => $option->value ?? '',
                         ];
                     })->toArray();
                 }
