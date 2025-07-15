@@ -270,6 +270,24 @@ class GeneralTabHelper
                 ->afterStateUpdated(function ($state, callable $set) {
                     // Clear existing elementable data when type changes
                     $set('elementable_data', []);
+
+                    // Populate with defaults from the new element type
+                    if ($state && class_exists($state) && method_exists($state, 'getFilamentSchema')) {
+                        $schema = $state::getFilamentSchema(false);
+                        $defaults = [];
+
+                        foreach ($schema as $field) {
+                            $fieldName = str_replace('elementable_data.', '', $field->getName());
+                            $defaultValue = $field->getDefaultState();
+                            if ($defaultValue !== null) {
+                                $defaults[$fieldName] = $defaultValue;
+                            }
+                        }
+
+                        if (!empty($defaults)) {
+                            $set('elementable_data', $defaults);
+                        }
+                    }
                 })
                 : TextInput::make('elementable_type')
                 ->label('Element Type')

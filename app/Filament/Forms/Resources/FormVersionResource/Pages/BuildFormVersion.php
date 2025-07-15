@@ -134,8 +134,9 @@ class BuildFormVersion extends Page implements HasForms
                         }
 
                         // Filter out null values from elementable data to let model defaults apply
+                        // Keep false values as they are valid boolean values
                         $elementableData = array_filter($elementableData, function ($value) {
-                            return $value !== null;
+                            return $value !== null && $value !== '';
                         });
 
                         // Set source_element_id if created from template
