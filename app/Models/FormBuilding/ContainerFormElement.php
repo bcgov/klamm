@@ -41,6 +41,7 @@ class ContainerFormElement extends Model
                 ->label('Container Type')
                 ->options(static::getContainerTypes())
                 ->default('section')
+                ->required(true)
                 ->disabled($disabled),
             \Filament\Forms\Components\TextInput::make('elementable_data.legend')
                 ->label('Legend/Title')
