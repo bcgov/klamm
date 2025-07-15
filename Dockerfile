@@ -68,6 +68,7 @@ RUN composer install --no-dev --optimize-autoloader
 RUN chown -R ${OPENSHIFT_UID}:${OPENSHIFT_UID} /var/www/storage /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database
 
+
 # Copy custom Apache configuration
 COPY ports.conf /etc/apache2/ports.conf
 COPY apache2.conf /etc/apache2/apache2.conf
