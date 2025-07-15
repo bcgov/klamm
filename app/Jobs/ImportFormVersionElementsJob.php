@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Bus\Dispatchable;
 use App\Models\FormBuilding\FormElement;
+use Illuminate\Support\Str;
+use App\Events\FormVersionUpdateEvent;
 
 class ImportFormVersionElementsJob implements ShouldQueue
 {
@@ -68,6 +70,15 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
             Cache::put($this->cacheKey . '_progress', "Completed: {$processedElements}/{$totalElements} elements", 3600);
             Cache::put($this->cacheKey . '_status', 'complete', 3600);
+
+            FormVersionUpdateEvent::dispatch(
+                $formVersion->id,
+                $formVersion->form_id,
+                $formVersion->version_number,
+                null,
+                'components',
+                false
+            );
         } catch (\Throwable $e) {
             Cache::put($this->cacheKey . '_status', 'error', 3600);
             Cache::put($this->cacheKey . '_error', $e->getMessage(), 3600);
@@ -592,6 +603,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $technicalName = $element['name'] ?? $humanReadableLabel;
 
+                $referenceId = null;
+                if (!empty($humanReadableLabel)) {
+                    $referenceId = Str::slug($humanReadableLabel, '-');
+                } else {
+                    $referenceId = 'imported-element-' . uniqid();
+                }
+
                 $elementData = [
                     'form_version_id' => $formVersion->id,
                     'parent_id' => $parentId,
@@ -599,6 +617,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'label' => $humanReadableLabel,
                     'order' => $processedElements,
                     'elementable_type' => $type,
+                    'reference_id' => $referenceId,
                 ];
 
                 $elementData['properties'] = [

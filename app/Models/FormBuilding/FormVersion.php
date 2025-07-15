@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\FormApprovalRequest;
 use App\Models\FormMetadata\FormDataSource;
 use App\Models\FormBuilding\FormVersionFormDataSource;
+use Spatie\Activitylog\Models\Activity;
 
 class FormVersion extends Model
 {
@@ -140,6 +141,36 @@ class FormVersion extends Model
 
                 return "Form {$formTitle} version {$this->version_number} was {$eventName}";
             });
+    }
+
+    // Return activities for both FormVersions and FormApprovalRequests related to those versions
+    public function getAllActivities()
+    {
+        // Get all related IDs
+        $formVersionId = $this->id;
+        $formElementIds = $this->formElements()->pluck('id');
+        $approvalRequestIds = $this->approvalRequests()->pluck('id');
+
+        return Activity::query()
+            ->where(function ($query) use ($formVersionId, $formElementIds, $approvalRequestIds) {
+                $query
+                    // Activities for this FormVersion
+                    // ->orWhere(function ($subQuery) use ($formVersionId) {
+                    //     $subQuery->where('subject_type', FormVersion::class)
+                    //         ->where('subject_id', $formVersionId);
+                    // })
+                    // Activities for FormElements in this FormVersion
+                    ->orWhere(function ($subQuery) use ($formElementIds) {
+                        $subQuery->where('subject_type', \App\Models\FormBuilding\FormElement::class)
+                            ->whereIn('subject_id', $formElementIds);
+                    });
+                // Activities for ApprovalRequests in this FormVersion
+                // ->orWhere(function ($subQuery) use ($approvalRequestIds) {
+                //     $subQuery->where('subject_type', \App\Models\FormApprovalRequest::class)
+                //         ->whereIn('subject_id', $approvalRequestIds);
+                // });
+            })
+            ->orderBy('created_at', 'desc');
     }
 
     public function getLogNameToUse(): string
