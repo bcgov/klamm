@@ -28,9 +28,9 @@ spec:
               chmod -R 775 /var/www/storage || true
 
               # Create needed subdirectories
-              # mkdir -p /var/www/storage/app/public || true
-              # mkdir -p /var/www/storage/framework/cache || true
-              # mkdir -p /var/www/storage/logs || true
+              mkdir -p /var/www/storage/app/public || true
+              mkdir -p /var/www/storage/framework/cache || true
+              mkdir -p /var/www/storage/logs || true
               
               # Make sure public web root is clean for new symlink
               rm -rf /var/www/public/storage
@@ -38,8 +38,8 @@ spec:
               # Create the symbolic link: public/storage -> storage/app/public
               # Based on your volume mounts:
               # `public/storage` -> `/var/www/storage/app/public`
-              echo "Creating symlink from /var/www/html/public/storage to /var/www/storage/app/public"
-              php /var/www/html/artisan storage:link --force
+              # echo "Creating symlink from /var/www/html/public/storage to /var/www/storage/app/public"
+              # php /var/www/html/artisan storage:link --force
           volumeMounts:
             - name: storage-volume
               mountPath: /var/www/storage
