@@ -40,7 +40,7 @@ class ViewFormElementActivitiesRelationManager extends RelationManager
             ->filters(CustomActivitylogResource::getStandardFilters())
             ->defaultSort('activity_log.created_at', 'desc')
             ->actions([
-                // ViewAction::make(),
+                ViewAction::make(),
             ]);
     }
 }

@@ -104,7 +104,7 @@ class FormElement extends Model
                 $formTitle = $this->form ? $this->form->form_title : 'Unknown Form';
 
                 if ($eventName === 'created') {
-                    return "{$elementName} created. Form: {$formTitle} Version: {$formVersion}";
+                    return "{$elementName} created on Form: {$formTitle}, Version: {$formVersion}";
                 }
 
                 $changes = array_keys($this->getDirty());
@@ -120,10 +120,10 @@ class FormElement extends Model
                     }, $changes);
 
                     $changesStr = implode(', ', array_unique($changes));
-                    return "{$elementName} had changes to: {$changesStr} Form: {$formTitle} Version: {$formVersion}";
+                    return "{$elementName} had changes to: {$changesStr} on Form: {$formTitle}, Version: {$formVersion}";
                 }
 
-                return "{$elementName}. Form: {$formTitle} Version: {$formVersion} was {$eventName}";
+                return "{$elementName} was {$eventName} on Form: {$formTitle}, Version: {$formVersion} ";
             });
     }
 
@@ -140,9 +140,12 @@ class FormElement extends Model
         return $this->belongsTo(FormVersion::class);
     }
 
-    public function form(): BelongsTo
+    /**
+     * Get the form that owns the form element
+     */
+    public function getFormAttribute()
     {
-        return $this->belongsTo(Form::class, 'form_version_id', 'id');
+        return $this->formVersion ? $this->formVersion->form : null;
     }
 
     /**

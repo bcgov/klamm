@@ -83,6 +83,8 @@ class FormsPanelProvider extends PanelProvider
                     ->navigationGroup('Activity Log')
                     ->navigationIcon('heroicon-o-shield-check')
                     ->navigationSort(2)
+                    ->isResourceActionHidden(true)
+                    ->isRestoreModelActionHidden(true)
                     ->resource(CustomActivitylogResource::class)
                     ->authorize(fn() => CheckRole::hasRole(request(), 'admin'))
             ])
