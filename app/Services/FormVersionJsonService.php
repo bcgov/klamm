@@ -183,6 +183,8 @@ class FormVersionJsonService
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
+            'readOnly' => $element->is_read_only,
+            'saveOnSubmit' => $element->save_on_submit,
             'order' => $element->order,
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
             'attributes' => $this->getElementAttributes($element)
@@ -295,6 +297,8 @@ class FormVersionJsonService
 
         $elementData['containerId'] = (string)($element->id ?? '');
         $elementData['clear_button'] = false;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
         ];
@@ -345,12 +349,14 @@ class FormVersionJsonService
     {
         // Transform repeatable container to group format for renderer compatibility
         $elementData['type'] = 'group'; // Override type to group
-        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['label'] = $element->elementable?->legend ?? null;
         $elementData['groupId'] = (string)($element->id ?? '1');
         $elementData['repeater'] = true; // Always true for repeatable containers
-        $elementData['repeaterLabel'] = $element->label ?? $element->name;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -407,12 +413,14 @@ class FormVersionJsonService
 
     protected function transformGroupElement(FormElement $element, array $elementData): array
     {
-        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['label'] = $element->elementable?->legend ?? null;
         $elementData['groupId'] = (string)($element->id ?? '1');
         $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
-        $elementData['repeaterLabel'] = $element->label ?? $element->name;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -473,6 +481,8 @@ class FormVersionJsonService
         $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
+        $elementData['readOnly'] = $element->is_read_only;
+        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
         ];
