@@ -48,12 +48,12 @@ class TextInputFormElement extends Model
             \Filament\Forms\Components\TextInput::make('elementable_data.mask')
                 ->label('Input Mask')
                 ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.maxlength')
-                ->label('Maximum Length')
-                ->numeric()
-                ->disabled($disabled),
             \Filament\Forms\Components\TextInput::make('elementable_data.minlength')
                 ->label('Minimum Length')
+                ->numeric()
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.maxlength')
+                ->label('Maximum Length')
                 ->numeric()
                 ->disabled($disabled),
         ];
