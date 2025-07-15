@@ -348,7 +348,7 @@ class GeneralTabHelper
         // Read Only and Save on Submit toggles
         $readOnlyToggle = Toggle::make('is_read_only')
             ->label('Is Read Only')
-            ->default(true)
+            ->default(false)
             ->disabled($disabled);
 
         $saveOnSubmitToggle = Toggle::make('save_on_submit')
