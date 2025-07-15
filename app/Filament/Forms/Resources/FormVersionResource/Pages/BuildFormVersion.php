@@ -285,12 +285,12 @@ class BuildFormVersion extends Page implements HasForms
                         }),
                     Wizard\Step::make('Preview & Import')
                         ->schema([
-                            Forms\Components\Textarea::make('schema_content')
+                            \Filament\Forms\Components\Textarea::make('schema_content')
                                 ->label('Schema Content')
                                 ->rows(10)
                                 ->disabled()
                                 ->helperText('This is the raw JSON content of the uploaded schema file.'),
-                            Forms\Components\Textarea::make('parsed_content')
+                            \Filament\Forms\Components\Textarea::make('parsed_content')
                                 ->label('Parsed Schema')
                                 ->rows(10)
                                 ->disabled()
