@@ -62,6 +62,12 @@ return [
             'throw' => false,
         ],
 
+        'livewire-tmp' => [
+            'driver' => 'local',
+            'root' => storage_path('livewire-tmp'),
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

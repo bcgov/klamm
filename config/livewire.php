@@ -63,9 +63,9 @@ return [
     */
 
     'temporary_file_upload' => [
-        'disk' => 'local',     // Explicitly set to 'local' disk
+        'disk' => 'livewire-tmp',
         'rules' => null,       // Example: ['file', 'mimes:png,jpg']  | Default: ['required', 'file', 'max:12288'] (12MB)
-        'directory' => 'livewire-tmp',   // This will use storage/app/livewire-tmp when disk is 'local'
+        'directory' => 'null',
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs...
             'png',
