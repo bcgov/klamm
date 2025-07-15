@@ -14,7 +14,6 @@ class DateSelectInputFormElement extends Model
         'placeholder_text',
         'label',
         'visible_label',
-        'repeater_item_label',
         'min_date',
         'max_date',
         'default_date',
@@ -73,10 +72,6 @@ class DateSelectInputFormElement extends Model
                 ->label('Default Date')
                 ->helperText('Pre-selected date')
                 ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.repeater_item_label')
-                ->label('Repeater Item Label')
-                ->helperText('Used when this element is part of a repeater')
-                ->disabled($disabled),
         ];
     }
 
@@ -97,7 +92,6 @@ class DateSelectInputFormElement extends Model
             'placeholder_text' => $this->placeholder_text,
             'label' => $this->label,
             'visible_label' => $this->visible_label,
-            'repeater_item_label' => $this->repeater_item_label,
             'min_date' => $this->min_date,
             'max_date' => $this->max_date,
             'default_date' => $this->default_date,

@@ -7,11 +7,12 @@ use App\Filament\Components\FormVersionBuilder;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormElement;
-use App\Models\FormBuilding\FormElementTag;
-use App\Models\FormMetadata\FormDataSource;
 use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
 use App\Filament\Forms\Resources\FormResource;
+use App\Helpers\DataBindingsHelper;
+use App\Helpers\ElementPropertiesHelper;
+use App\Helpers\GeneralTabHelper;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -19,11 +20,8 @@ use Filament\Actions\ActionGroup;
 use Filament\Support\Enums\ActionSize;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Repeater;
 use Illuminate\Support\Facades\Log;
 use Filament\Forms\Set;
 use Filament\Forms\Components\FileUpload;
@@ -36,6 +34,7 @@ use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Get;
 use Filament\Support\Exceptions\Halt;
+use App\Helpers\FormElementHelper;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -150,9 +149,17 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableData = $data['elementable_data'] ?? [];
                         unset($data['elementable_data']);
 
+                        // Extract options data for select/radio elements before creating the main model
+                        $optionsData = null;
+                        if (isset($elementableData['options'])) {
+                            $optionsData = $elementableData['options'];
+                            unset($elementableData['options']);
+                        }
+
                         // Filter out null values from elementable data to let model defaults apply
+                        // Keep false values as they are valid boolean values
                         $elementableData = array_filter($elementableData, function ($value) {
-                            return $value !== null;
+                            return $value !== null && $value !== '';
                         });
 
                         // Set source_element_id if created from template
@@ -164,7 +171,7 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableModel = null;
                         if (!empty($elementableData) && class_exists($elementType)) {
                             $elementableModel = $elementType::create($elementableData);
-                        } elseif (empty($elementableData) && class_exists($elementType)) {
+                        } elseif (class_exists($elementType)) {
                             // Create with empty array to trigger model defaults
                             $elementableModel = $elementType::create([]);
                         }
@@ -177,6 +184,11 @@ class BuildFormVersion extends Page implements HasForms
 
                         // Create the main FormElement
                         $formElement = FormElement::create($data);
+
+                        // Handle options for select/radio elements
+                        if ($elementableModel && $optionsData && is_array($optionsData)) {
+                            FormElementHelper::createSelectOptions($elementableModel, $optionsData);
+                        }
 
                         // Attach tags if any were selected
                         if (!empty($tagIds)) {
@@ -403,270 +415,33 @@ class BuildFormVersion extends Page implements HasForms
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema([
-                            \Filament\Forms\Components\Select::make('template_id')
-                                ->label('Start from template')
-                                ->placeholder('Select a template (optional)')
-                                ->options(function () {
-                                    $templates = FormElement::templates()
-                                        ->with('elementable')
-                                        ->get();
-
-                                    $availableTypes = FormElement::getAvailableElementTypes();
-                                    $groupedOptions = [];
-
-                                    foreach ($templates as $template) {
-                                        $elementType = $template->elementable_type;
-                                        $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
-
-                                        if (!isset($groupedOptions[$groupName])) {
-                                            $groupedOptions[$groupName] = [];
-                                        }
-
-                                        $groupedOptions[$groupName][$template->id] = $template->name;
-                                    }
-
-                                    // Sort groups alphabetically
-                                    ksort($groupedOptions);
-
-                                    return $groupedOptions;
-                                })
-                                ->live()
-                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                    if (!$state) {
-                                        return;
-                                    }
-
-                                    // Load the template element with its relationships
-                                    $template = FormElement::with(['elementable', 'tags'])->find($state);
-
-                                    if (!$template) {
-                                        return;
-                                    }
-
-                                    // Prefill basic form element data
-                                    $set('name', $template->name);
-                                    $set('description', $template->description);
-                                    $set('help_text', $template->help_text);
-                                    $set('elementable_type', $template->elementable_type);
-                                    $set('is_required', $template->is_required);
-                                    $set('visible_web', $template->visible_web);
-                                    $set('visible_pdf', $template->visible_pdf);
-                                    $set('is_template', false); // New element should not be a template by default
-
-                                    // Prefill tags
-                                    if ($template->tags->isNotEmpty()) {
-                                        $set('tags', $template->tags->pluck('id')->toArray());
-                                    }
-
-                                    // Prefill elementable data if it exists
-                                    if ($template->elementable) {
-                                        $elementableData = $template->elementable->toArray();
-                                        // Remove timestamps and primary key
-                                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
-                                        $set('elementable_data', $elementableData);
-                                    }
-                                })
-                                ->searchable()
-                                ->columnSpanFull(),
-                            \Filament\Forms\Components\TextInput::make('name')
-                                ->required()
-                                ->maxLength(255)
-                                ->label('Element Name')
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                    // Auto-generate reference_id if it's empty and we have a name
-                                    if (!empty($state) && empty($get('reference_id'))) {
-                                        $slug = \Illuminate\Support\Str::slug($state, '-');
-                                        $set('reference_id', $slug);
-                                    }
-                                })
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-                                }),
-                            \Filament\Forms\Components\TextInput::make('reference_id')
-                                ->label('Reference ID')
-                                ->rules(['alpha_dash'])
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
-                                })
-                                ->suffixAction(
-                                    \Filament\Forms\Components\Actions\Action::make('regenerate_reference_id')
-                                        ->icon('heroicon-o-arrow-path')
-                                        ->tooltip('Regenerate from Element Name')
-                                        ->action(function (callable $set, callable $get) {
-                                            $name = $get('name');
-                                            if (!empty($name)) {
-                                                $slug = \Illuminate\Support\Str::slug($name, '-');
-                                                $set('reference_id', $slug);
-                                            }
-                                        })
-                                ),
-                            \Filament\Forms\Components\Select::make('elementable_type')
-                                ->label('Element Type')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-                                })
-                                ->options(FormElement::getAvailableElementTypes())
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(function ($state, callable $set) {
-                                    // Clear existing elementable data when type changes
-                                    $set('elementable_data', []);
-                                }),
-                            \Filament\Forms\Components\Textarea::make('description')
-                                ->rows(3),
-                            \Filament\Forms\Components\TextInput::make('help_text')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-                                })
-                                ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    \Filament\Forms\Components\Toggle::make('visible_web')
-                                        ->label('Visible on Web')
-                                        ->default(true),
-                                    \Filament\Forms\Components\Toggle::make('visible_pdf')
-                                        ->label('Visible on PDF')
-                                        ->default(true),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    \Filament\Forms\Components\Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
-                                    \Filament\Forms\Components\Toggle::make('is_template')
-                                        ->label('Is Template')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-                                        })
-                                        ->default(false),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    \Filament\Forms\Components\Toggle::make('is_read_only')
-                                        ->label('Read Only')
-                                        ->default(false),
-                                    \Filament\Forms\Components\Toggle::make('save_on_submit')
-                                        ->label('Save on Submit')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
-                                        })
-                                        ->default(true),
-                                ]),
-                            \Filament\Forms\Components\Select::make('tags')
-                                ->label('Tags')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-                                })
-                                ->multiple()
-                                ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
-                                ->createOptionAction(
-                                    fn(Forms\Components\Actions\Action $action) => $action
-                                        ->modalHeading('Create Tag')
-                                        ->modalWidth('md')
-                                )
-                                ->createOptionForm([
-                                    \Filament\Forms\Components\TextInput::make('name')
-                                        ->required()
-                                        ->maxLength(255)
-                                        ->unique(FormElementTag::class, 'name'),
-                                    \Filament\Forms\Components\Textarea::make('description')
-                                        ->rows(3),
-                                ])
-                                ->createOptionUsing(function (array $data) {
-                                    $tag = FormElementTag::create($data);
-                                    return $tag->id;
-                                })
-                                ->searchable()
-                                ->preload(),
-                        ]),
+                        ->schema(function () {
+                            return GeneralTabHelper::getCreateSchema(
+                                fn() => $this->shouldShowTooltips(),
+                                true
+                            );
+                        }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
-                                        ->label('')
-                                        ->content('Please select an element type in the General tab first.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType);
+                            return ElementPropertiesHelper::getCreateSchema(
+                                $get('elementable_type')
+                            );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
-                            // Get data sources assigned to this form version
-                            $formVersion = $this->record;
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('Please add Data Sources in the Form Version before adding Data Bindings.')
-                                        ->extraAttributes(['class' => 'text-warning'])
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->defaultItems(0)
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
-                                            })
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->required()
-                                            ->live(onBlur: true),
-                                        \Filament\Forms\Components\TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
-                                            })
-                                            ->required()
-                                            ->placeholder("$.['Contact'].['Birth Date']")
-                                            ->helperText('The path to the data field in the selected data source'),
-                                    ])
-                                    ->orderColumn('order')
-                                    ->itemLabel(
-                                        fn(array $state): ?string =>
-                                        isset($state['form_data_source_id']) && isset($state['path'])
-                                            ? (FormDataSource::find($state['form_data_source_id'])?->name ?? 'Data Source') . ': ' . $state['path']
-                                            : 'New Data Binding'
-                                    )
-                                    ->addActionLabel('Add Data Binding')
-                                    ->reorderableWithButtons()
-                                    ->collapsible()
-                                    ->collapsed()
-                                    ->columnSpanFull(),
-                            ];
+                            return DataBindingsHelper::getCreateSchema(
+                                $this->record,
+                                fn() => $this->shouldShowTooltips()
+                            );
                         }),
                 ])
                 ->columnSpanFull(),
         ];
     }
 
-    protected function getElementSpecificSchema(string $elementType): array
-    {
-        // Check if the element type class exists and has the getFilamentSchema method
-        if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
-            return $elementType::getFilamentSchema(false);
-        }
 
-        // Fallback for element types that don't have schema defined yet
-        return [
-            \Filament\Forms\Components\Placeholder::make('no_specific_properties')
-                ->label('')
-                ->content('This element type has no specific properties defined yet.')
-        ];
-    }
 
     protected function mutateFormDataBeforeFill(array $data): array
     {

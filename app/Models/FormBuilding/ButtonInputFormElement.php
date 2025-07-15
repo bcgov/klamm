@@ -28,6 +28,7 @@ class ButtonInputFormElement extends Model
             \Filament\Forms\Components\TextInput::make('elementable_data.label')
                 ->label('Button Text')
                 ->default('Submit')
+                ->required(true)
                 ->disabled($disabled),
             \Filament\Forms\Components\Select::make('elementable_data.button_type')
                 ->label('Button Type')
