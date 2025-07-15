@@ -14,16 +14,49 @@ spec:
       labels:
         app.kubernetes.io/name: klamm-app
     spec:
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+      initContainers:
+        - name: setup-laravel-storage
+          image: "{{ .Values.image.tag }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting Laravel storage setup initContainer..."
+              
+              # Ensure proper ownership and permissions on the mounted shared storage volume.
+              chown -R $(id -u):$(id -g) /var/www/storage || true
+              chmod -R 775 /var/www/storage || true
+
+              # Ensure the public web root is clean for the symlink
+              # /var/www/html/public is the default document root for php:apache images,
+              # and is mounted by public-html-volume emptyDir.
+              rm -rf /var/www/html/public/storage # Remove any pre-existing symlink or directory
+              
+              # Create the symbolic link: public/storage -> storage/app/public
+              # Based on the Klamm volume mounts:
+              # symlink target: /var/www/storage/app/public (actual path on shared PVC)
+              # symlink source: /var/www/html/public/storage (path in web server's docroot)
+              echo "Creating symlink from /var/www/html/public/storage to /var/www/storage/app/public"
+              php /var/www/html/artisan storage:link --force 
+
+              echo "Laravel storage setup completed."
+          volumeMounts:
+            - name: storage-volume
+              mountPath: /var/www/storage
+            - name: public-html-volume
+              mountPath: /var/www/html/public 
       containers:
         - name: klamm-app
           image: "{{ .Values.image.tag }}"
           ports:
             - containerPort: 8080
           volumeMounts:
-            - name: storage-volume
+            - name: storage-volume 
               mountPath: /var/www/storage
-            - name: form-data-volume
-              mountPath: /var/www/storage/app/form_data
+            - name: public-html-volume 
+              mountPath: /var/www/html/public
           envFrom:
             - secretRef:
                 name: app-secrets
@@ -86,16 +119,12 @@ spec:
       volumes:
         - name: storage-volume
           persistentVolumeClaim:
-            claimName: klamm-app-shared-pvc
-        - name: form-data-volume
-          persistentVolumeClaim:
-            claimName: klamm-form-data-pvc
+            claimName: klamm-app-shared-pvc 
+        - name: public-html-volume 
+          emptyDir: {}
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-      securityContext:
-        runAsNonRoot: true
-        allowPrivilegeEscalation: false
       schedulerName: default-scheduler
   strategy:
     type: Recreate
