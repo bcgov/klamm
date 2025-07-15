@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Placeholder;
+use App\Helpers\FormElementHelper;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -125,6 +126,13 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableData = $data['elementable_data'] ?? [];
                         unset($data['elementable_data']);
 
+                        // Extract options data for select/radio elements before creating the main model
+                        $optionsData = null;
+                        if (isset($elementableData['options'])) {
+                            $optionsData = $elementableData['options'];
+                            unset($elementableData['options']);
+                        }
+
                         // Filter out null values from elementable data to let model defaults apply
                         $elementableData = array_filter($elementableData, function ($value) {
                             return $value !== null;
@@ -139,7 +147,7 @@ class BuildFormVersion extends Page implements HasForms
                         $elementableModel = null;
                         if (!empty($elementableData) && class_exists($elementType)) {
                             $elementableModel = $elementType::create($elementableData);
-                        } elseif (empty($elementableData) && class_exists($elementType)) {
+                        } elseif (class_exists($elementType)) {
                             // Create with empty array to trigger model defaults
                             $elementableModel = $elementType::create([]);
                         }
@@ -152,6 +160,11 @@ class BuildFormVersion extends Page implements HasForms
 
                         // Create the main FormElement
                         $formElement = FormElement::create($data);
+
+                        // Handle options for select/radio elements
+                        if ($elementableModel && $optionsData && is_array($optionsData)) {
+                            FormElementHelper::createSelectOptions($elementableModel, $optionsData);
+                        }
 
                         // Attach tags if any were selected
                         if (!empty($tagIds)) {

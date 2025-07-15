@@ -14,6 +14,7 @@ use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\FormElementHelper;
 
 class FormElementTreeBuilder extends BaseWidget
 {
@@ -495,7 +496,7 @@ class FormElementTreeBuilder extends BaseWidget
 
             // Handle options for select/radio elements
             if ($elementableModel && $optionsData && is_array($optionsData)) {
-                $this->createSelectOptions($elementableModel, $optionsData);
+                FormElementHelper::createSelectOptions($elementableModel, $optionsData);
             }
 
             // Clear pending data
@@ -693,49 +694,13 @@ class FormElementTreeBuilder extends BaseWidget
         // The actual class application happens in the getTreeRecordClasses method
     }
 
-    /**
-     * Create select options for select/radio elements
-     */
-    protected function createSelectOptions($elementableModel, array $optionsData): void
-    {
-        if (!$elementableModel || empty($optionsData)) {
-            return;
-        }
 
-        // Check if the model supports options (SelectInputFormElement or RadioInputFormElement)
-        if (!method_exists($elementableModel, 'options')) {
-            return;
-        }
-
-        foreach ($optionsData as $index => $optionData) {
-            if (empty($optionData['label'])) {
-                continue; // Skip options without labels
-            }
-
-            $optionData['order'] = $index + 1;
-
-            // Create the option using the existing helper method
-            if ($elementableModel instanceof \App\Models\FormBuilding\SelectInputFormElement) {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($elementableModel, $optionData);
-            } elseif ($elementableModel instanceof \App\Models\FormBuilding\RadioInputFormElement) {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($elementableModel, $optionData);
-            }
-        }
-    }
 
     /**
      * Update select options for select/radio elements
      */
     protected function updateSelectOptions($elementableModel, array $optionsData): void
     {
-        if (!$elementableModel || !method_exists($elementableModel, 'options')) {
-            return;
-        }
-
-        // Delete existing options
-        $elementableModel->options()->delete();
-
-        // Create new options
-        $this->createSelectOptions($elementableModel, $optionsData);
+        FormElementHelper::updateSelectOptions($elementableModel, $optionsData);
     }
 }
