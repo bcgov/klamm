@@ -155,6 +155,18 @@ class FormElementTreeBuilder extends BaseWidget
                                         })
                                         ->default(false),
                                 ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Toggle::make('is_read_only')
+                                        ->label('Read Only')
+                                        ->default(false),
+                                    Toggle::make('save_on_submit')
+                                        ->label('Save on Submit')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
+                                        })
+                                        ->default(true),
+                                ]),
                             Select::make('tags')
                                 ->label('Tags')
                                 ->when($this->shouldShowTooltips(), function ($component) {
@@ -355,6 +367,18 @@ class FormElementTreeBuilder extends BaseWidget
                                         ->label('Is Template')
                                         ->when($this->shouldShowTooltips(), function ($component) {
                                             return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
+                                        })
+                                        ->disabled(),
+                                ]),
+                            \Filament\Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Toggle::make('is_read_only')
+                                        ->label('Read Only')
+                                        ->disabled(),
+                                    Toggle::make('save_on_submit')
+                                        ->label('Save on Submit')
+                                        ->when($this->shouldShowTooltips(), function ($component) {
+                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
                                         })
                                         ->disabled(),
                                 ]),
