@@ -345,11 +345,11 @@ class FormVersionJsonService
     {
         // Transform repeatable container to group format for renderer compatibility
         $elementData['type'] = 'group'; // Override type to group
-        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['label'] = $element->elementable?->legend ?? null;
         $elementData['groupId'] = (string)($element->id ?? '1');
         $elementData['repeater'] = true; // Always true for repeatable containers
-        $elementData['repeaterLabel'] = $element->label ?? $element->name;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->elementable?->legend ?? null);
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
@@ -407,11 +407,11 @@ class FormVersionJsonService
 
     protected function transformGroupElement(FormElement $element, array $elementData): array
     {
-        $elementData['label'] = $element->label ?? $element->name;
+        $elementData['label'] = $element->elementable?->legend ?? null;
         $elementData['groupId'] = (string)($element->id ?? '1');
         $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
-        $elementData['repeaterLabel'] = $element->label ?? $element->name;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->label ?? $element->name);
+        $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? ($element->elementable?->legend ?? null);
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
