@@ -26,6 +26,7 @@ class ContainerFormElement extends Model
     ];
 
     protected $attributes = [
+        'container_type' => 'section',
         'collapsible' => false,
         'collapsed_by_default' => false,
         'is_repeatable' => false,
@@ -41,6 +42,7 @@ class ContainerFormElement extends Model
                 ->label('Container Type')
                 ->options(static::getContainerTypes())
                 ->default('section')
+                ->required(true)
                 ->disabled($disabled),
             \Filament\Forms\Components\TextInput::make('elementable_data.legend')
                 ->label('Legend/Title')
@@ -50,6 +52,7 @@ class ContainerFormElement extends Model
                 ->label('Collapsible')
                 ->helperText('Allow users to expand/collapse this container')
                 ->default(false)
+                ->live()
                 ->disabled($disabled),
             \Filament\Forms\Components\Toggle::make('elementable_data.collapsed_by_default')
                 ->label('Collapsed by Default')

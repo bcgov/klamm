@@ -13,9 +13,7 @@ class HTMLFormElement extends Model
     protected $table = 'h_t_m_l_form_elements';
 
     protected $fillable = [
-        'name',
         'html_content',
-        'repeater_item_label',
     ];
 
     /**
@@ -24,16 +22,9 @@ class HTMLFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.name')
-                ->label('Element Name')
-                ->disabled($disabled),
             \Filament\Forms\Components\Textarea::make('elementable_data.html_content')
                 ->label('HTML Content')
                 ->rows(8)
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.repeater_item_label')
-                ->label('Repeater Item Label')
-                ->helperText('Used when this element is part of a repeater')
                 ->disabled($disabled),
         ];
     }
@@ -52,9 +43,7 @@ class HTMLFormElement extends Model
     public function getData(): array
     {
         return [
-            'name' => $this->name,
             'html_content' => $this->html_content,
-            'repeater_item_label' => $this->repeater_item_label,
         ];
     }
 
