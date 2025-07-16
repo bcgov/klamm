@@ -108,125 +108,180 @@ class FormVersionBuilder
             'Form Scripts' => $otherScripts,
         ];
 
-        $importJsContentAction = function ($contentField, $formScriptOptions) {
-            return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $formScriptOptions) {
-                // Get the original script content
-                $content = \App\Models\FormBuilding\FormScript::find($data['selectedFormScriptId'])->getJsContent();
+        // Import action for scripts and styles
+        $importContentAction = function ($contentField, $options, $type = 'script') {
+            return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
+                // Map type to model and field names
+                $modelClass = $type === 'script'
+                    ? \App\Models\FormBuilding\FormScript::class
+                    : \App\Models\FormBuilding\StyleSheet::class;
+                $idField = $type === 'script'
+                    ? 'selectedFormScriptId'
+                    : 'selectedStyleSheetId';
+                $getContentMethod = $type === 'script'
+                    ? 'getJsContent'
+                    : 'getCssContent';
 
-                // Replace placeholders with selected elements
+                $content = '';
+                $elementMappings = [];
                 $sourceSelections = $data['source_selections'] ?? [];
                 $targetSelections = $data['target_selections'] ?? [];
 
-                // Track element mappings for comment
-                $elementMappings = [];
-
-                // Replace source placeholders
-                $sourceIndex = 0;
-                $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, &$elementMappings) {
-                    $fullSelection = $sourceSelections[$sourceIndex]['element_id'] ?? '#{source_id}';
-                    $sourceIndex++;
-
-                    if ($fullSelection && $fullSelection !== '#{source_id}') {
-                        // Extract clean ID and comment
+                // Process element replacements
+                $processElementReplacement = function ($fullSelection, $index, $type, $prefix = '') use (&$elementMappings) {
+                    if ($fullSelection && $fullSelection !== '#{source_id}' && $fullSelection !== '#{target_id}') {
                         if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
                             $cleanId = $matches[1];
                             $comment = $matches[2];
-                            $elementMappings[] = "Source #{$sourceIndex}: {$comment} (ID: {$cleanId})";
-                            return $cleanId;
+                            $elementMappings[] = "$type #{$index}: {$comment} (ID: {$cleanId})";
+                            return $prefix . $cleanId;
                         }
                     }
                     return $fullSelection;
-                }, $content);
+                };
 
-                // Replace target placeholders
-                $targetIndex = 0;
-                $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetSelections, &$targetIndex, &$elementMappings) {
-                    $fullSelection = $targetSelections[$targetIndex]['element_id'] ?? '#{target_id}';
-                    $targetIndex++;
+                $record = $modelClass::find($data[$idField] ?? null);
+                if ($record && method_exists($record, $getContentMethod)) {
+                    $content = $record->{$getContentMethod}();
 
-                    if ($fullSelection && $fullSelection !== '#{target_id}') {
-                        // Extract clean ID and comment
-                        if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
-                            $cleanId = $matches[1];
-                            $comment = $matches[2];
-                            $elementMappings[] = "Target #{$targetIndex}: {$comment} (ID: {$cleanId})";
-                            return $cleanId;
+                    // Replace source placeholders
+                    if (!empty($sourceSelections)) {
+                        $sourceIndex = 0;
+                        $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, $processElementReplacement, $type) {
+                            $fullSelection = $sourceSelections[$sourceIndex]['element_id'] ?? '#{source_id}';
+                            $sourceIndex++;
+                            $prefix = ($type === 'style') ? '#' : '';
+                            return $processElementReplacement($fullSelection, $sourceIndex, 'Source', $prefix);
+                        }, $content);
+                    }
+
+                    // Replace target placeholders
+                    if (!empty($targetSelections)) {
+                        $targetIndex = 0;
+                        $patterns = ['/#{target_id}/', '/#target_id/'];
+
+                        foreach ($patterns as $pattern) {
+                            $content = preg_replace_callback($pattern, function ($matches) use ($targetSelections, &$targetIndex, $processElementReplacement, $type) {
+                                if ($targetIndex >= count($targetSelections)) {
+                                    return $matches[0]; // Return original if no more selections
+                                }
+                                $fullSelection = $targetSelections[$targetIndex]['element_id'] ?? '#{target_id}';
+                                $targetIndex++;
+                                $prefix = ($type === 'style') ? '#' : '';
+                                return $processElementReplacement($fullSelection, $targetIndex, 'Target', $prefix);
+                            }, $content);
                         }
                     }
-                    return $fullSelection;
-                }, $content);
+                }
 
                 $existing = $get($contentField);
-                $selectedFormScript = null;
-                foreach ($formScriptOptions as $group) {
-                    if (isset($group[$data['selectedFormScriptId']])) {
-                        $selectedFormScript = $group[$data['selectedFormScriptId']];
+                $selected = null;
+                foreach ($options as $group) {
+                    if (isset($group[$data[$idField] ?? null])) {
+                        $selected = $group[$data[$idField]];
                         break;
                     }
                 }
 
-                // Build enhanced comment with element mappings
-                $comment = "/* Imported from {$selectedFormScript}";
+                $comment = "/* Imported from {$selected}";
                 if (!empty($elementMappings)) {
                     $comment .= "\n * Element Mappings:\n * " . implode("\n * ", $elementMappings);
                 }
-                $comment .= " */" . "\n\n";
-
+                $comment .= " */\n\n";
                 $appended = rtrim($existing) . "\n\n" . $comment . $content;
                 $set($contentField, $appended);
             };
         };
 
-        $importJsContentForm = function ($formScriptOptions, $autocompleteOptionsScript) {
-            return [
-                Select::make('selectedFormScriptId')
-                    ->label('Select a Form Script')
-                    ->options($formScriptOptions)
-                    ->required()
-                    ->live()
-                    ->reactive()
-                    ->afterStateUpdated(function ($state, callable $set, callable $get = null) use ($formScriptOptions, $autocompleteOptionsScript) {
-                        // Set display name
-                        $displayName = null;
-                        foreach ($formScriptOptions as $group) {
-                            if (isset($group[$state])) {
-                                $displayName = $group[$state];
-                                break;
+        // Import Form for scripts and styles
+        $importContentForm = function ($options, $autocompleteOptions = null, $type = 'script') {
+            $isScript = $type === 'script';
+            $selectField = $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId';
+            $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
+            $previewField = $isScript ? 'js_preview' : 'css_preview';
+            $label = $isScript ? 'Select a Form Script' : 'Select a Style Sheet';
+            $previewLabel = $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview';
+            $placeholderContent = $isScript
+                ? 'Select a script to preview its content.'
+                : 'Select a stylesheet to preview its content.';
+
+            $afterStateUpdated = function ($state, callable $set, callable $get = null) use (
+                $options,
+                $autocompleteOptions,
+                $isScript,
+                $nameField,
+                $previewField,
+            ) {
+                $displayName = null;
+                foreach ($options as $group) {
+                    if (isset($group[$state])) {
+                        $displayName = $group[$state];
+                        break;
+                    }
+                }
+                $set($nameField, $displayName);
+                $content = '';
+                if ($state) {
+                    if ($isScript) {
+                        $script = \App\Models\FormBuilding\FormScript::find($state);
+                        if ($script) {
+                            $content = $script->getJsContent() ?? '';
+                            $sourceCount = preg_match_all('/#{source_id}/', $content);
+                            $targetCount = preg_match_all('/#{target_id}/', $content);
+                            $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
+                                static $sourceIndex = 0;
+                                $sourceIndex++;
+                                return "'#{source_id}' /* Source #{$sourceIndex} */";
+                            }, $content);
+                            $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
+                                static $targetIndex = 0;
+                                $targetIndex++;
+                                return "'#{target_id}' /* Target #{$targetIndex} */";
+                            }, $content);
+                            $sourceSelections = [];
+                            for ($i = 0; $i < $sourceCount; $i++) {
+                                $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
                             }
+                            $set('source_selections', $sourceSelections);
+                            $targetSelections = [];
+                            for ($i = 0; $i < $targetCount; $i++) {
+                                $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
+                            }
+                            $set('target_selections', $targetSelections);
                         }
-                        $set('selectedFormScriptName', $displayName);
+                    } else {
+                        $sheet = \App\Models\FormBuilding\StyleSheet::find($state);
+                        if ($sheet) {
+                            $content = $sheet->getCssContent() ?? '';
+                            if ($autocompleteOptions) {
+                                $sourceCount = preg_match_all('/#{source_id}/', $content);
+                                $targetCountCurly = preg_match_all('/#{target_id}/', $content);
+                                $targetCountPlain = preg_match_all('/#target_id/', $content);
+                                $targetCount = $targetCountCurly + $targetCountPlain;
 
-                        // Get script content and analyze placeholders
-                        $jsContent = '';
-                        if ($state) {
-                            $script = \App\Models\FormBuilding\FormScript::find($state);
-                            if ($script) {
-                                $jsContent = $script->getJsContent() ?? '';
-
-                                // Count source and target placeholders
-                                $sourceCount = preg_match_all('/#{source_id}/', $jsContent);
-                                $targetCount = preg_match_all('/#{target_id}/', $jsContent);
-
-                                // Format source and target selections so they include a count of which source/target it is
-                                $jsContent = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
+                                $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
                                     static $sourceIndex = 0;
                                     $sourceIndex++;
                                     return "'#{source_id}' /* Source #{$sourceIndex} */";
-                                }, $jsContent);
-                                $jsContent = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
+                                }, $content);
+
+                                // Replace patterns in preview
+                                $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
                                     static $targetIndex = 0;
                                     $targetIndex++;
                                     return "'#{target_id}' /* Target #{$targetIndex} */";
-                                }, $jsContent);
+                                }, $content);
+                                $content = preg_replace_callback('/#target_id/', function ($matches) use ($targetCount) {
+                                    static $targetIndex = 0;
+                                    $targetIndex++;
+                                    return "'#target_id' /* Target #{$targetIndex} */";
+                                }, $content);
 
-                                // Initialize source selections
                                 $sourceSelections = [];
                                 for ($i = 0; $i < $sourceCount; $i++) {
                                     $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
                                 }
                                 $set('source_selections', $sourceSelections);
-
-                                // Initialize target selections
                                 $targetSelections = [];
                                 for ($i = 0; $i < $targetCount; $i++) {
                                     $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
@@ -234,23 +289,35 @@ class FormVersionBuilder
                                 $set('target_selections', $targetSelections);
                             }
                         }
-                        $set('js_preview', $jsContent);
-                        $set('js_original', $jsContent);
-                    }),
+                    }
+                }
+                $set($previewField, $content);
+            };
 
-                // Source selections
-                \Filament\Forms\Components\Repeater::make('source_selections')
+            $fields = [
+                Select::make($selectField)
+                    ->label($label)
+                    ->options($options)
+                    ->required()
+                    ->live()
+                    ->reactive()
+                    ->afterStateUpdated($afterStateUpdated),
+            ];
+
+            // Add repeaters if autocompleteOptions is provided (for both scripts and styles)
+            if ($autocompleteOptions) {
+                $fields[] = Repeater::make('source_selections')
                     ->label('Source Element Selections')
                     ->schema([
                         Select::make('element_id')
                             ->label(fn($get) => 'Source #' . ($get('order') ?? ''))
                             ->searchable()
-                            ->options(function () use ($autocompleteOptionsScript) {
+                            ->options(function () use ($autocompleteOptions) {
                                 $livewire = \Livewire\Livewire::current();
                                 $get = function ($key) use ($livewire) {
                                     return $livewire->getState()[$key] ?? null;
                                 };
-                                $options = $autocompleteOptionsScript($get, $livewire);
+                                $options = $autocompleteOptions($get, $livewire);
                                 $selectOptions = [];
                                 foreach ($options as $option) {
                                     $selectOptions[$option['insertText']] = $option['label'];
@@ -261,21 +328,19 @@ class FormVersionBuilder
                     ->addable(false)
                     ->deletable(false)
                     ->reorderable(false)
-                    ->visible(fn($get) => !empty($get('selectedFormScriptId'))),
-
-                // Target selections
-                \Filament\Forms\Components\Repeater::make('target_selections')
+                    ->visible(fn($get) => !empty($get($selectField)));
+                $fields[] = Repeater::make('target_selections')
                     ->label('Target Element Selections')
                     ->schema([
                         Select::make('element_id')
                             ->label(fn($get) => 'Target #' . ($get('order') ?? ''))
                             ->searchable()
-                            ->options(function () use ($autocompleteOptionsScript) {
+                            ->options(function () use ($autocompleteOptions) {
                                 $livewire = \Livewire\Livewire::current();
                                 $get = function ($key) use ($livewire) {
                                     return $livewire->getState()[$key] ?? null;
                                 };
-                                $options = $autocompleteOptionsScript($get, $livewire);
+                                $options = $autocompleteOptions($get, $livewire);
                                 $selectOptions = [];
                                 foreach ($options as $option) {
                                     $selectOptions[$option['insertText']] = $option['label'];
@@ -286,18 +351,20 @@ class FormVersionBuilder
                     ->addable(false)
                     ->deletable(false)
                     ->reorderable(false)
-                    ->visible(fn($get) => !empty($get('selectedFormScriptId'))),
+                    ->visible(fn($get) => !empty($get($selectField)));
+            }
 
-                TextArea::make('js_preview')
-                    ->label('JavaScript Content Preview')
-                    ->rows(12)
-                    ->readOnly()
-                    ->visible(fn($get) => !empty($get('js_preview'))),
-                Placeholder::make('js_preview_placeholder')
-                    ->label('')
-                    ->content('Select a script to preview its content.')
-                    ->visible(fn($get) => empty($get('js_preview'))),
-            ];
+            $fields[] = TextArea::make($previewField)
+                ->label($previewLabel)
+                ->rows(12)
+                ->readOnly()
+                ->visible(fn($get) => !empty($get($previewField)));
+            $fields[] = Placeholder::make($previewField . '_placeholder')
+                ->label('')
+                ->content($placeholderContent)
+                ->visible(fn($get) => empty($get($previewField)));
+
+            return $fields;
         };
 
         return Tabs::make()
@@ -345,38 +412,8 @@ class FormVersionBuilder
                                                         ->label('Insert CSS')
                                                         ->icon('heroicon-o-document-arrow-down')
                                                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form([
-                                                            Select::make('selectedStyleSheetId')
-                                                                ->label('Select a Style Sheet')
-                                                                ->options($styleSheetOptions)
-                                                                ->required()
-                                                                ->live()
-                                                                ->reactive()
-                                                                ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
-                                                                    $displayName = null;
-                                                                    foreach ($styleSheetOptions as $group) {
-                                                                        if (isset($group[$state])) {
-                                                                            $displayName = $group[$state];
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                    $set('selectedStyleSheetName', $displayName);
-                                                                }),
-                                                        ])
-                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
-                                                            $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
-                                                            $existing = $get('css_content_web');
-                                                            $selectedStyleSheet = null;
-                                                            foreach ($styleSheetOptions as $group) {
-                                                                if (isset($group[$data['selectedStyleSheetId']])) {
-                                                                    $selectedStyleSheet = $group[$data['selectedStyleSheetId']];
-                                                                    break;
-                                                                }
-                                                            }
-                                                            $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
-                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
-                                                            $set('css_content_web', $appended);
-                                                        }),
+                                                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                                                        ->action($importContentAction('css_content_web', $styleSheetOptions, 'style')),
                                                     Action::make('save_styles_web')
                                                         ->label('Save Styles')
                                                         ->icon('heroicon-o-check')
@@ -424,38 +461,8 @@ class FormVersionBuilder
                                                         ->label('Insert CSS')
                                                         ->icon('heroicon-o-document-arrow-down')
                                                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form([
-                                                            Select::make('selectedStyleSheetId')
-                                                                ->label('Select a Style Sheet')
-                                                                ->options($styleSheetOptions)
-                                                                ->required()
-                                                                ->live()
-                                                                ->reactive()
-                                                                ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
-                                                                    $displayName = null;
-                                                                    foreach ($styleSheetOptions as $group) {
-                                                                        if (isset($group[$state])) {
-                                                                            $displayName = $group[$state];
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                    $set('selectedStyleSheetName', $displayName);
-                                                                }),
-                                                        ])
-                                                        ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
-                                                            $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
-                                                            $existing = $get('css_content_pdf');
-                                                            $selectedStyleSheet = null;
-                                                            foreach ($styleSheetOptions as $group) {
-                                                                if (isset($group[$data['selectedStyleSheetId']])) {
-                                                                    $selectedStyleSheet = $group[$data['selectedStyleSheetId']];
-                                                                    break;
-                                                                }
-                                                            }
-                                                            $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
-                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
-                                                            $set('css_content_pdf', $appended);
-                                                        }),
+                                                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                                                        ->action($importContentAction('css_content_pdf', $styleSheetOptions, 'style')),
                                                     Action::make('save_styles_pdf')
                                                         ->label('Save Styles')
                                                         ->icon('heroicon-o-check')
@@ -518,8 +525,8 @@ class FormVersionBuilder
                                                         ->label('Insert JavaScript')
                                                         ->icon('heroicon-o-document-arrow-down')
                                                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importJsContentForm($formScriptOptions, $autocompleteOptionsScript))
-                                                        ->action($importJsContentAction('js_content_web', $formScriptOptions)),
+                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                                                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
                                                     Action::make('save_scripts_web')
                                                         ->label('Save Scripts')
                                                         ->icon('heroicon-o-check')
@@ -560,7 +567,6 @@ class FormVersionBuilder
                                                     ->reactive()
                                                     ->height('475px')
                                                     ->disabled(!$editable),
-
                                             ]),
                                         Tab::make('pdf_form_script')
                                             ->label('PDF')
@@ -571,8 +577,8 @@ class FormVersionBuilder
                                                         ->label('Insert JavaScript')
                                                         ->icon('heroicon-o-document-arrow-down')
                                                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importJsContentForm($formScriptOptions, $autocompleteOptionsScript))
-                                                        ->action($importJsContentAction('js_content_pdf', $formScriptOptions)),
+                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
+                                                        ->action($importContentAction('js_content_pdf', $formScriptOptions)),
                                                     Action::make('save_scripts_pdf')
                                                         ->label('Save Scripts')
                                                         ->icon('heroicon-o-check')

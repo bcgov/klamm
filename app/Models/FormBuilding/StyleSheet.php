@@ -22,6 +22,7 @@ class StyleSheet extends Model
     protected $fillable = [
         'form_version_id',
         'filename',
+        'description',
         'type',
     ];
 
@@ -39,7 +40,7 @@ class StyleSheet extends Model
         parent::boot();
 
 
-        // If StyleSheet is deleted, delete the associated CSS file. 
+        // If StyleSheet is deleted, delete the associated CSS file.
         static::deleting(function ($styleSheet) {
             $styleSheet->deleteCssFile();
         });
@@ -149,6 +150,7 @@ class StyleSheet extends Model
         return [
             'web' => 'Web',
             'pdf' => 'PDF',
+            'template' => 'Template',
         ];
     }
 
