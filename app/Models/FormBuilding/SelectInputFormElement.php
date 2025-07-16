@@ -2,6 +2,7 @@
 
 namespace App\Models\FormBuilding;
 
+use App\Helpers\SchemaHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -12,17 +13,18 @@ class SelectInputFormElement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'label',
-        'visible_label',
+        'labelText',
+        'hideLabel',
+        'helperText',
     ];
 
     protected $casts = [
-        'visible_label' => 'boolean',
+        'hideLabel' => 'boolean',
     ];
 
     protected $attributes = [
-        'visible_label' => true,
-        'label' => '',
+        'hideLabel' => false,
+        'labelText' => '',
     ];
 
     /**
@@ -31,14 +33,10 @@ class SelectInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.label')
-                ->label('Field Label')
-                ->required()
-                ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
-                ->label('Show Label')
-                ->default(true)
-                ->disabled($disabled),
+            SchemaHelper::getLabelTextField($disabled)
+                ->required(),
+            SchemaHelper::getHideLabelToggle($disabled),
+            SchemaHelper::getHelperTextField($disabled),
             \Filament\Forms\Components\Repeater::make('elementable_data.options')
                 ->label('Options')
                 ->schema([
@@ -96,8 +94,9 @@ class SelectInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'label' => $this->label,
-            'visible_label' => $this->visible_label,
+            'labelText' => $this->labelText,
+            'hideLabel' => $this->hideLabel,
+            'helperText' => $this->helperText,
         ];
     }
 
