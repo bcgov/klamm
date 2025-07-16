@@ -61,15 +61,8 @@ class FormScript extends Model
 
     public static function createFormScript($formVersion, string $js_content, string $type)
     {
-        Log::info('createFormScript called', [
-            'form_version_id' => $formVersion->id,
-            'type' => $type,
-            'content_length' => strlen($js_content)
-        ]);
-
         // Delete record if no JS content
         if (!$js_content) {
-            Log::info('No JS content provided, cleaning up existing script');
             $formScript = FormScript::where('form_version_id', $formVersion->id)->where('type', $type)->first();
             $formScript?->deleteJsFile();
             $formScript?->delete();
@@ -79,17 +72,13 @@ class FormScript extends Model
         try {
             // Create record
             $filename = FormScript::createJsFilename($formVersion, $type);
-            Log::info('Generated filename', ['filename' => $filename]);
 
             if ($type === 'web' && $formVersion->webFormScript) {
                 $filename = $formVersion->webFormScript->filename;
-                Log::info('Using existing web script filename', ['filename' => $filename]);
             } else if ($type === 'pdf' && $formVersion->pdfFormScript) {
                 $filename = $formVersion->pdfFormScript->filename;
-                Log::info('Using existing pdf script filename', ['filename' => $filename]);
             }
 
-            Log::info('About to updateOrCreate FormScript record');
             $formScript = FormScript::updateOrCreate(
                 ['form_version_id' => $formVersion->id, 'type' => $type],
                 [
@@ -99,18 +88,8 @@ class FormScript extends Model
                 ]
             );
 
-            Log::info('FormScript record created/updated', [
-                'id' => $formScript->id,
-                'filename' => $formScript->filename
-            ]);
-
             // Create JS file
             $saveResult = $formScript->saveJsContent($js_content);
-            Log::info('JS file save result', [
-                'success' => $saveResult,
-                'filename' => $formScript->filename . '.js'
-            ]);
-
             if (!$saveResult) {
                 throw new \Exception('Failed to save JS content to file');
             }
@@ -156,20 +135,7 @@ class FormScript extends Model
     {
         try {
             $filename = $this->filename . '.js';
-            Log::info('Attempting to save JS file', [
-                'filename' => $filename,
-                'content_length' => strlen($content),
-                'disk' => 'scripts'
-            ]);
-
             $result = Storage::disk('scripts')->put($filename, trim($content));
-
-            Log::info('JS file save attempt completed', [
-                'filename' => $filename,
-                'result' => $result,
-                'file_exists' => Storage::disk('scripts')->exists($filename)
-            ]);
-
             return $result;
         } catch (\Exception $e) {
             Log::error('Error saving JS content', [
