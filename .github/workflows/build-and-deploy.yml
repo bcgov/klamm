@@ -125,7 +125,7 @@ jobs:
     needs: build
     permissions:
       contents: read
-    
+
     environment: ${{ github.ref == 'refs/heads/main' && 'prod' || (github.ref == 'refs/heads/dev' && 'dev') || github.ref == 'refs/heads/test' && 'test' }}
 
     steps:

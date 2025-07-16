@@ -89,7 +89,7 @@ spec:
       volumes:
         - name: storage-volume
           persistentVolumeClaim:
-            claimName: klamm-app-shared-pvc 
+            claimName: klamm-app-shared-pvc
         - name: public-html-volume 
           emptyDir: {}
       restartPolicy: Always
