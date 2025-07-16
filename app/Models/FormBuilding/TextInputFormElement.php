@@ -2,6 +2,7 @@
 
 namespace App\Models\FormBuilding;
 
+use App\Helpers\SchemaHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -14,10 +15,10 @@ class TextInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
+        'helperText',
         'mask',
         'maxCount',
         'defaultValue',
-        'helperText',
     ];
 
     protected $casts = [
@@ -34,31 +35,21 @@ class TextInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.placeholder')
-                ->label('Placeholder Text')
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.labelText')
-                ->label('Field Label')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.hideLabel')
-                ->label('Hide Label')
-                ->default(false)
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.mask')
-                ->label('Input Mask')
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.maxCount')
-                ->label('Maximum Character Count')
-                ->numeric()
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.defaultValue')
-                ->label('Default Value')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Textarea::make('elementable_data.helperText')
-                ->label('Helper Text')
-                ->disabled($disabled),
-        ];
+        return array_merge(
+            SchemaHelper::getCommonCarbonFields($disabled),
+            [
+                \Filament\Forms\Components\TextInput::make('elementable_data.mask')
+                    ->label('Input Mask')
+                    ->disabled($disabled),
+                \Filament\Forms\Components\TextInput::make('elementable_data.maxCount')
+                    ->label('Maximum Character Count')
+                    ->numeric()
+                    ->disabled($disabled),
+                \Filament\Forms\Components\TextInput::make('elementable_data.defaultValue')
+                    ->label('Default Value')
+                    ->disabled($disabled),
+            ]
+        );
     }
 
     /**

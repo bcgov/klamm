@@ -2,6 +2,7 @@
 
 namespace App\Models\FormBuilding;
 
+use App\Helpers\SchemaHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -14,10 +15,10 @@ class DateSelectInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
+        'helperText',
         'minDate',
         'maxDate',
         'dateFormat',
-        'helperText',
     ];
 
     protected $casts = [
@@ -35,34 +36,24 @@ class DateSelectInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.labelText')
-                ->label('Field Label')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.hideLabel')
-                ->label('Hide Label')
-                ->default(false)
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.placeholder')
-                ->label('Placeholder Text')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Select::make('elementable_data.dateFormat')
-                ->label('Date Format')
-                ->options(static::getDateFormats())
-                ->default('Y-m-d')
-                ->disabled($disabled),
-            \Filament\Forms\Components\DatePicker::make('elementable_data.minDate')
-                ->label('Minimum Date')
-                ->helperText('Earliest date users can select')
-                ->disabled($disabled),
-            \Filament\Forms\Components\DatePicker::make('elementable_data.maxDate')
-                ->label('Maximum Date')
-                ->helperText('Latest date users can select')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Textarea::make('elementable_data.helperText')
-                ->label('Helper Text')
-                ->disabled($disabled),
-        ];
+        return array_merge(
+            SchemaHelper::getCommonCarbonFields($disabled),
+            [
+                \Filament\Forms\Components\Select::make('elementable_data.dateFormat')
+                    ->label('Date Format')
+                    ->options(static::getDateFormats())
+                    ->default('Y-m-d')
+                    ->disabled($disabled),
+                \Filament\Forms\Components\DatePicker::make('elementable_data.minDate')
+                    ->label('Minimum Date')
+                    ->helperText('Earliest date users can select')
+                    ->disabled($disabled),
+                \Filament\Forms\Components\DatePicker::make('elementable_data.maxDate')
+                    ->label('Maximum Date')
+                    ->helperText('Latest date users can select')
+                    ->disabled($disabled),
+            ]
+        );
     }
 
     /**
