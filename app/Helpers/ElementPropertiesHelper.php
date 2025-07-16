@@ -11,11 +11,13 @@ class ElementPropertiesHelper
      *
      * @param string|null $elementType The element type class name
      * @param bool $disabled Whether the schema should be disabled (for view mode)
+     * @param string $mode The mode ('create' or 'edit')
      * @return array The schema array
      */
     public static function getElementPropertiesSchema(
         ?string $elementType = null,
-        bool $disabled = false
+        bool $disabled = false,
+        string $mode = 'create'
     ): array {
         // Handle case where no element type is available
         if (!$elementType) {
@@ -34,7 +36,7 @@ class ElementPropertiesHelper
 
         // Check if the element type class exists and has the getFilamentSchema method
         if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
-            return $elementType::getFilamentSchema($disabled);
+            return $elementType::getFilamentSchema($disabled, $mode);
         }
 
         // Fallback for element types that don't have schema defined yet
@@ -55,7 +57,8 @@ class ElementPropertiesHelper
     {
         return self::getElementPropertiesSchema(
             elementType: $elementType,
-            disabled: false
+            disabled: false,
+            mode: 'create'
         );
     }
 
@@ -69,7 +72,8 @@ class ElementPropertiesHelper
     {
         return self::getElementPropertiesSchema(
             elementType: $elementType,
-            disabled: false
+            disabled: false,
+            mode: 'edit'
         );
     }
 
@@ -83,7 +87,8 @@ class ElementPropertiesHelper
     {
         return self::getElementPropertiesSchema(
             elementType: $elementType,
-            disabled: true
+            disabled: true,
+            mode: 'edit'
         );
     }
 }
