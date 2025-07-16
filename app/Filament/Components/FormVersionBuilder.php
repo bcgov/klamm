@@ -77,9 +77,13 @@ class FormVersionBuilder
         $formScriptOptions = FormScript::with(['formVersion.form'])
             ->get()
             ->mapWithKeys(function ($script) {
-                $form = $script->formVersion->form;
-                $version = $script->formVersion;
-                $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$script->type})";
+                if ($script->formVersion && $script->formVersion->form) {
+                    $form = $script->formVersion->form;
+                    $version = $script->formVersion;
+                    $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$script->type})";
+                } else {
+                    $label = "Template Script ({$script->filename})";
+                }
                 return [$script->id => $label];
             })->toArray();
 

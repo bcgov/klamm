@@ -1,9 +1,0 @@
-# Dev environment specific values
-image:
-  tag: "dev"
-
-# Security context for OpenShift dev environment
-securityContext:
-  runAsUser: 1017170000
-  runAsGroup: 1017170000
-  fsGroup: 1017170000 

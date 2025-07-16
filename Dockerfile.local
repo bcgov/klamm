@@ -53,15 +53,14 @@ RUN mkdir -p /var/www/storage/logs \
     && touch /var/www/storage/logs/laravel.log \
     && mkdir -p /var/www/storage/app/form_data/stylesheets \
     && mkdir -p /var/www/storage/app/form_data/scripts \
-    && mkdir -p /var/www/storage/app/form_data/templates \
-    && mkdir -p /var/www/storage/app/livewire-tmp
+    && mkdir -p /var/www/storage/app/form_data/templates
 
 # Set permissions for directories and files
 RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
-    && chown -R sail:sail /var/www/storage/app/form_data /var/www/storage/app/public/form-exports /var/www/storage/app/livewire-tmp \
-    && chmod -R 775 /var/www/storage/app/form_data /var/www/storage/app/public/form-exports /var/www/storage/app/livewire-tmp \
-    && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/public/form-exports /var/www/storage/app/livewire-tmp
+    && chown -R sail:sail /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
+    && chmod -R 775 /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
+    && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/public/form-exports
 
 # Generate APP_KEY
 RUN php artisan key:generate
