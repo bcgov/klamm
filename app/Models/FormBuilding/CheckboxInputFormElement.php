@@ -2,6 +2,7 @@
 
 namespace App\Models\FormBuilding;
 
+use App\Helpers\SchemaHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -11,16 +12,20 @@ class CheckboxInputFormElement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'label',
-        'visible_label',
+        'labelText',
+        'hideLabel',
+        'defaultChecked',
+        'helperText',
     ];
 
     protected $casts = [
-        'visible_label' => 'boolean',
+        'hideLabel' => 'boolean',
+        'defaultChecked' => 'boolean',
     ];
 
     protected $attributes = [
-        'visible_label' => true,
+        'hideLabel' => false,
+        'defaultChecked' => false,
     ];
 
     /**
@@ -29,13 +34,15 @@ class CheckboxInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.label')
+            SchemaHelper::getLabelTextField($disabled)
                 ->label('Checkbox Label')
+                ->required(),
+            SchemaHelper::getHideLabelToggle($disabled),
+            \Filament\Forms\Components\Toggle::make('elementable_data.defaultChecked')
+                ->label('Default Checked')
+                ->default(false)
                 ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
-                ->label('Show Label')
-                ->default(true)
-                ->disabled($disabled),
+            SchemaHelper::getHelperTextField($disabled),
         ];
     }
 
@@ -53,8 +60,22 @@ class CheckboxInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'label' => $this->label,
-            'visible_label' => $this->visible_label,
+            'labelText' => $this->labelText,
+            'hideLabel' => $this->hideLabel,
+            'defaultChecked' => $this->defaultChecked,
+            'helperText' => $this->helperText,
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'hideLabel' => false,
+            'defaultChecked' => false,
+            'labelText' => '',
         ];
     }
 }

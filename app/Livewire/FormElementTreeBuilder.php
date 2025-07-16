@@ -4,24 +4,17 @@ namespace App\Livewire;
 
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
-use App\Models\FormBuilding\FormElementTag;
 use App\Models\FormBuilding\FormVersion;
-use App\Models\FormMetadata\FormDataSource;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Repeater;
-use Filament\Forms;
+use App\Helpers\DataBindingsHelper;
+use App\Helpers\ElementPropertiesHelper;
+use App\Helpers\GeneralTabHelper;
 use SolutionForest\FilamentTree\Actions\DeleteAction;
 use SolutionForest\FilamentTree\Actions\EditAction;
 use SolutionForest\FilamentTree\Actions\ViewAction;
 use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
-use Filament\Forms\Set;
-use Illuminate\Support\Str;
-use Filament\Forms\Components\Actions\Action;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\FormElementHelper;
 
 class FormElementTreeBuilder extends BaseWidget
 {
@@ -60,216 +53,25 @@ class FormElementTreeBuilder extends BaseWidget
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema([
-                            TextInput::make('name')
-                                ->required()
-                                ->maxLength(255)
-                                ->label('Element Name')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-                                }),
-                            TextInput::make('reference_id')
-                                ->label('Reference ID')
-                                ->suffix(function ($get) {
-
-                                    return $get('uuid') ? $get('uuid') : '';
-                                })
-                                ->rules(['alpha_dash'])
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
-                                })
-                                ->suffixAction(
-                                    Action::make('copy')
-                                        ->icon('heroicon-s-clipboard')
-                                        ->action(function ($livewire, $state, $get) {
-                                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                                        })
-                                )
-                                ->extraAttributes([
-                                    'x-data' => '{
-                                        copyToClipboard(text) {
-                                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                                navigator.clipboard.writeText(text).then(() => {
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                }).catch(() => {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                });
-                                            } else {
-                                                const textArea = document.createElement("textarea");
-                                                textArea.value = text;
-                                                textArea.style.position = "fixed";
-                                                textArea.style.opacity = "0";
-                                                document.body.appendChild(textArea);
-                                                textArea.select();
-                                                try {
-                                                    document.execCommand("copy");
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                } catch (err) {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                }
-                                                document.body.removeChild(textArea);
-                                            }
-                                        }
-                                    }',
-                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                                ])
-                                ->disabled(),
-                            \Filament\Forms\Components\Hidden::make('elementable_type'),
-                            TextInput::make('elementable_type_display')
-                                ->label('Element Type')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-                                })
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->formatStateUsing(function ($state, callable $get) {
-                                    $elementType = $get('elementable_type');
-                                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
-                                }),
-                            Textarea::make('description')
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-                                })
-                                ->maxLength(500),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('visible_web')
-                                        ->label('Visible on Web')
-                                        ->default(true),
-                                    Toggle::make('visible_pdf')
-                                        ->label('Visible on PDF')
-                                        ->default(true),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
-                                    Toggle::make('is_template')
-                                        ->label('Is Template')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-                                        })
-                                        ->default(false),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('is_read_only')
-                                        ->label('Read Only')
-                                        ->default(false),
-                                    Toggle::make('save_on_submit')
-                                        ->label('Save on Submit')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
-                                        })
-                                        ->default(true),
-                                ]),
-                            Select::make('tags')
-                                ->label('Tags')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-                                })
-                                ->multiple()
-                                ->relationship('tags', 'name')
-                                ->createOptionAction(
-                                    fn(Forms\Components\Actions\Action $action) => $action
-                                        ->modalHeading('Create Tag')
-                                        ->modalWidth('md')
-                                )
-                                ->createOptionForm([
-                                    TextInput::make('name')
-                                        ->required()
-                                        ->maxLength(255)
-                                        ->unique(FormElementTag::class, 'name'),
-                                    Textarea::make('description')
-                                        ->rows(3),
-                                ])
-                                ->createOptionUsing(function (array $data) {
-                                    return FormElementTag::create($data)->id;
-                                })
-                                ->searchable()
-                                ->preload(),
-                        ]),
+                        ->schema(function () {
+                            return GeneralTabHelper::getEditSchema(
+                                fn() => $this->shouldShowTooltips()
+                            );
+                        }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
-                            // For edit, get the element type from the form data
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_element_type')
-                                        ->label('')
-                                        ->content('No element type available.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType);
+                            return ElementPropertiesHelper::getEditSchema(
+                                $get('elementable_type')
+                            );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
-                            // Get the form version ID from the form element
-                            $formVersionId = $this->formVersionId;
-                            if (!$formVersionId) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
-                                        ->label('')
-                                        ->content('Form version not available.')
-                                ];
-                            }
-
-                            // Get data sources assigned to this form version
-                            $formVersion = FormVersion::find($formVersionId);
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('Please add Data Sources in the Form Version before adding Data Bindings.')
-                                        ->extraAttributes(['class' => 'text-warning'])
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->relationship()
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
-                                            })
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->required()
-                                            ->live(onBlur: true),
-                                        TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
-                                            })
-                                            ->required()
-                                            ->placeholder("$.['Contact'].['Birth Date']")
-                                            ->helperText('The path to the data field in the selected data source'),
-                                    ])
-                                    ->orderColumn('order')
-                                    ->itemLabel(
-                                        fn(array $state): ?string =>
-                                        isset($state['form_data_source_id']) && isset($state['path'])
-                                            ? (FormDataSource::find($state['form_data_source_id'])?->name ?? 'Data Source') . ': ' . $state['path']
-                                            : 'New Data Binding'
-                                    )
-                                    ->addActionLabel('Add Data Binding')
-                                    ->reorderableWithButtons()
-                                    ->collapsible()
-                                    ->collapsed()
-                                    ->columnSpanFull(),
-                            ];
+                            return DataBindingsHelper::getEditSchema(
+                                $this->formVersionId,
+                                fn() => $this->shouldShowTooltips()
+                            );
                         }),
                 ])
                 ->columnSpanFull(),
@@ -283,195 +85,32 @@ class FormElementTreeBuilder extends BaseWidget
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema([
-                            TextInput::make('name')
-                                ->disabled()
-                                ->label('Element Name')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-                                }),
-                            TextInput::make('reference_id')
-                                ->label('Reference ID')
-                                ->suffix(function ($get) {
-                                    return $get('uuid') ? $get('uuid') : '';
-                                })
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
-                                })
-                                ->suffixAction(
-                                    Action::make('copy')
-                                        ->icon('heroicon-s-clipboard')
-                                        ->action(function ($livewire, $state, $get) {
-                                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                                        })
-                                )
-                                ->extraAttributes([
-                                    'x-data' => '{
-                                        copyToClipboard(text) {
-                                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                                navigator.clipboard.writeText(text).then(() => {
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                }).catch(() => {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                });
-                                            } else {
-                                                const textArea = document.createElement("textarea");
-                                                textArea.value = text;
-                                                textArea.style.position = "fixed";
-                                                textArea.style.opacity = "0";
-                                                document.body.appendChild(textArea);
-                                                textArea.select();
-                                                try {
-                                                    document.execCommand("copy");
-                                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                                } catch (err) {
-                                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                                }
-                                                document.body.removeChild(textArea);
-                                            }
-                                        }
-                                    }',
-                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                                ])
-                                ->disabled(),
-                            TextInput::make('elementable_type')
-                                ->label('Element Type')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-                                })
-                                ->disabled(),
-                            Textarea::make('description')
-                                ->disabled()
-                                ->rows(3),
-                            TextInput::make('help_text')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-                                })
-                                ->disabled(),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('visible_web')
-                                        ->label('Visible on Web')
-                                        ->disabled(),
-                                    Toggle::make('visible_pdf')
-                                        ->label('Visible on PDF')
-                                        ->disabled(),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('is_required')
-                                        ->label('Is Required')
-                                        ->default(false),
-                                    Toggle::make('is_template')
-                                        ->label('Is Template')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-                                        })
-                                        ->disabled(),
-                                ]),
-                            \Filament\Forms\Components\Grid::make(2)
-                                ->schema([
-                                    Toggle::make('is_read_only')
-                                        ->label('Read Only')
-                                        ->disabled(),
-                                    Toggle::make('save_on_submit')
-                                        ->label('Save on Submit')
-                                        ->when($this->shouldShowTooltips(), function ($component) {
-                                            return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
-                                        })
-                                        ->disabled(),
-                                ]),
-                            Select::make('tags')
-                                ->label('Tags')
-                                ->when($this->shouldShowTooltips(), function ($component) {
-                                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-                                })
-                                ->multiple()
-                                ->relationship('tags', 'name')
-                                ->disabled()
-                                ->searchable(),
-                        ]),
+                        ->schema(function () {
+                            return GeneralTabHelper::getViewSchema(
+                                fn() => $this->shouldShowTooltips()
+                            );
+                        }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
-                            $elementType = $get('elementable_type');
-                            if (!$elementType) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('select_element_type')
-                                        ->label('')
-                                        ->content('No specific properties available.')
-                                ];
-                            }
-                            return $this->getElementSpecificSchema($elementType, true);
+                            return ElementPropertiesHelper::getViewSchema(
+                                $get('elementable_type')
+                            );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
-                            // Get the form version ID from the form element
-                            $formVersionId = $this->formVersionId;
-                            if (!$formVersionId) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_form_version')
-                                        ->label('')
-                                        ->content('Form version not available.')
-                                ];
-                            }
-
-                            // Get data sources assigned to this form version
-                            $formVersion = FormVersion::find($formVersionId);
-                            if (!$formVersion || $formVersion->formDataSources->isEmpty()) {
-                                return [
-                                    \Filament\Forms\Components\Placeholder::make('no_data_sources')
-                                        ->label('')
-                                        ->content('No Data Sources are assigned to this Form Version.')
-                                ];
-                            }
-
-                            return [
-                                Repeater::make('dataBindings')
-                                    ->label('Data Bindings')
-                                    ->relationship()
-                                    ->schema([
-                                        Select::make('form_data_source_id')
-                                            ->label('Data Source')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The ICM Entity this data binding uses');
-                                            })
-                                            ->options(function () use ($formVersion) {
-                                                return $formVersion->formDataSources->pluck('name', 'id')->toArray();
-                                            })
-                                            ->disabled(),
-                                        TextInput::make('path')
-                                            ->label('Data Path')
-                                            ->when($this->shouldShowTooltips(), function ($component) {
-                                                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
-                                            })
-                                            ->disabled(),
-                                    ])
-                                    ->disabled()
-                                    ->columnSpanFull(),
-                            ];
+                            return DataBindingsHelper::getViewSchema(
+                                $this->formVersionId,
+                                fn() => $this->shouldShowTooltips()
+                            );
                         }),
                 ])
                 ->columnSpanFull(),
         ];
     }
 
-    protected function getElementSpecificSchema(string $elementType, bool $disabled = false): array
-    {
-        // Check if the element type class exists and has the getFilamentSchema method
-        if (class_exists($elementType) && method_exists($elementType, 'getFilamentSchema')) {
-            return $elementType::getFilamentSchema($disabled);
-        }
 
-        // Fallback for element types that don't have schema defined yet
-        return [
-            \Filament\Forms\Components\Placeholder::make('no_specific_properties')
-                ->label('')
-                ->content('This element type has no specific properties defined yet.')
-        ];
-    }
 
     protected function getTreeActions(): array
     {
@@ -857,7 +496,7 @@ class FormElementTreeBuilder extends BaseWidget
 
             // Handle options for select/radio elements
             if ($elementableModel && $optionsData && is_array($optionsData)) {
-                $this->createSelectOptions($elementableModel, $optionsData);
+                FormElementHelper::createSelectOptions($elementableModel, $optionsData);
             }
 
             // Clear pending data
@@ -1055,49 +694,19 @@ class FormElementTreeBuilder extends BaseWidget
         // The actual class application happens in the getTreeRecordClasses method
     }
 
-    /**
-     * Create select options for select/radio elements
-     */
-    protected function createSelectOptions($elementableModel, array $optionsData): void
-    {
-        if (!$elementableModel || empty($optionsData)) {
-            return;
-        }
 
-        // Check if the model supports options (SelectInputFormElement or RadioInputFormElement)
-        if (!method_exists($elementableModel, 'options')) {
-            return;
-        }
-
-        foreach ($optionsData as $index => $optionData) {
-            if (empty($optionData['label'])) {
-                continue; // Skip options without labels
-            }
-
-            $optionData['order'] = $index + 1;
-
-            // Create the option using the existing helper method
-            if ($elementableModel instanceof \App\Models\FormBuilding\SelectInputFormElement) {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($elementableModel, $optionData);
-            } elseif ($elementableModel instanceof \App\Models\FormBuilding\RadioInputFormElement) {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($elementableModel, $optionData);
-            }
-        }
-    }
 
     /**
      * Update select options for select/radio elements
      */
     protected function updateSelectOptions($elementableModel, array $optionsData): void
     {
-        if (!$elementableModel || !method_exists($elementableModel, 'options')) {
-            return;
-        }
+        FormElementHelper::updateSelectOptions($elementableModel, $optionsData);
+    }
 
-        // Delete existing options
-        $elementableModel->options()->delete();
-
-        // Create new options
-        $this->createSelectOptions($elementableModel, $optionsData);
+    public function getNodeCollapsedState(?\Illuminate\Database\Eloquent\Model $record = null): bool
+    {
+        // All tree nodes will be collapsed by default.
+        return true;
     }
 }

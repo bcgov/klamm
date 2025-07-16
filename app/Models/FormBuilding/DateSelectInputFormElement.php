@@ -2,6 +2,7 @@
 
 namespace App\Models\FormBuilding;
 
+use App\Helpers\SchemaHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -11,28 +12,23 @@ class DateSelectInputFormElement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'placeholder_text',
-        'label',
-        'visible_label',
-        'repeater_item_label',
-        'min_date',
-        'max_date',
-        'default_date',
-        'date_format',
-        'include_time',
+        'placeholder',
+        'labelText',
+        'hideLabel',
+        'helperText',
+        'minDate',
+        'maxDate',
+        'dateFormat',
     ];
 
     protected $casts = [
-        'visible_label' => 'boolean',
-        'min_date' => 'date',
-        'max_date' => 'date',
-        'default_date' => 'date',
-        'include_time' => 'boolean',
+        'hideLabel' => 'boolean',
+        'minDate' => 'date',
+        'maxDate' => 'date',
     ];
 
     protected $attributes = [
-        'visible_label' => true,
-        'include_time' => false,
+        'hideLabel' => false,
     ];
 
     /**
@@ -40,44 +36,24 @@ class DateSelectInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.label')
-                ->label('Field Label')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
-                ->label('Show Label')
-                ->default(true)
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.placeholder_text')
-                ->label('Placeholder Text')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Select::make('elementable_data.date_format')
-                ->label('Date Format')
-                ->options(static::getDateFormats())
-                ->default('Y-m-d')
-                ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.include_time')
-                ->label('Include Time')
-                ->helperText('Allow users to select time in addition to date')
-                ->default(false)
-                ->disabled($disabled),
-            \Filament\Forms\Components\DatePicker::make('elementable_data.min_date')
-                ->label('Minimum Date')
-                ->helperText('Earliest date users can select')
-                ->disabled($disabled),
-            \Filament\Forms\Components\DatePicker::make('elementable_data.max_date')
-                ->label('Maximum Date')
-                ->helperText('Latest date users can select')
-                ->disabled($disabled),
-            \Filament\Forms\Components\DatePicker::make('elementable_data.default_date')
-                ->label('Default Date')
-                ->helperText('Pre-selected date')
-                ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.repeater_item_label')
-                ->label('Repeater Item Label')
-                ->helperText('Used when this element is part of a repeater')
-                ->disabled($disabled),
-        ];
+        return array_merge(
+            SchemaHelper::getCommonCarbonFields($disabled),
+            [
+                \Filament\Forms\Components\Select::make('elementable_data.dateFormat')
+                    ->label('Date Format')
+                    ->options(static::getDateFormats())
+                    ->default('Y-m-d')
+                    ->disabled($disabled),
+                \Filament\Forms\Components\DatePicker::make('elementable_data.minDate')
+                    ->label('Minimum Date')
+                    ->helperText('Earliest date users can select')
+                    ->disabled($disabled),
+                \Filament\Forms\Components\DatePicker::make('elementable_data.maxDate')
+                    ->label('Maximum Date')
+                    ->helperText('Latest date users can select')
+                    ->disabled($disabled),
+            ]
+        );
     }
 
     /**
@@ -94,15 +70,13 @@ class DateSelectInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'placeholder_text' => $this->placeholder_text,
-            'label' => $this->label,
-            'visible_label' => $this->visible_label,
-            'repeater_item_label' => $this->repeater_item_label,
-            'min_date' => $this->min_date,
-            'max_date' => $this->max_date,
-            'default_date' => $this->default_date,
-            'date_format' => $this->date_format,
-            'include_time' => $this->include_time,
+            'placeholder' => $this->placeholder,
+            'labelText' => $this->labelText,
+            'hideLabel' => $this->hideLabel,
+            'minDate' => $this->minDate,
+            'maxDate' => $this->maxDate,
+            'dateFormat' => $this->dateFormat,
+            'helperText' => $this->helperText,
         ];
     }
 
