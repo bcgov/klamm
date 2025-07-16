@@ -167,9 +167,9 @@ class BuildFormVersion extends Page implements HasForms
                         }
 
                         // Filter out null values from elementable data to let model defaults apply
-                        // Keep false values as they are valid boolean values
+                        // Keep false values and empty strings as they are valid values
                         $elementableData = array_filter($elementableData, function ($value) {
-                            return $value !== null && $value !== '';
+                            return $value !== null;
                         });
 
                         // Set source_element_id if created from template
@@ -213,6 +213,11 @@ class BuildFormVersion extends Page implements HasForms
 
                                 if (!empty($updateData)) {
                                     $formElement->update($updateData);
+                                }
+
+                                // Update elementable data if provided
+                                if (!empty($elementableData) && $formElement->elementable) {
+                                    $formElement->elementable->update($elementableData);
                                 }
 
                                 // Update tags if provided
@@ -501,8 +506,7 @@ class BuildFormVersion extends Page implements HasForms
                             return ElementPropertiesHelper::getCreateSchema(
                                 $get('elementable_type')
                             );
-                        })
-                        ->hidden(fn(callable $get) => !empty($get('template_id'))),
+                        }),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
@@ -510,8 +514,7 @@ class BuildFormVersion extends Page implements HasForms
                                 $this->record,
                                 fn() => $this->shouldShowTooltips()
                             );
-                        })
-                        ->hidden(fn(callable $get) => !empty($get('template_id'))),
+                        }),
                 ])
                 ->columnSpanFull(),
         ];
