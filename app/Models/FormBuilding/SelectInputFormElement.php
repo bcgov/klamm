@@ -107,4 +107,18 @@ class SelectInputFormElement extends Model
     {
         return $this->morphMany(SelectOptionFormElement::class, 'optionable')->orderBy('order');
     }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'hideLabel' => false,
+            'labelText' => '',
+            'options' => [
+                ['label' => 'Option 1', 'value' => 'option-1']
+            ],
+        ];
+    }
 }

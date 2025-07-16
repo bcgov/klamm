@@ -72,4 +72,15 @@ class ButtonInputFormElement extends Model
             'ghost' => 'Ghost',
         ];
     }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'text' => 'Submit',
+            'kind' => 'primary',
+        ];
+    }
 }

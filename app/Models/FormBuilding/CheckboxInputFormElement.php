@@ -66,4 +66,16 @@ class CheckboxInputFormElement extends Model
             'helperText' => $this->helperText,
         ];
     }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'hideLabel' => false,
+            'defaultChecked' => false,
+            'labelText' => '',
+        ];
+    }
 }
