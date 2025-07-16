@@ -2,9 +2,9 @@
 
 namespace App\Filament\Forms\Resources;
 
-use App\Filament\Forms\Resources\StyleSheetResource\Pages;
+use App\Filament\Forms\Resources\FormScriptResource\Pages;
 use App\Http\Middleware\CheckRole;
-use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\FormScript;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Actions\EditAction;
@@ -16,16 +16,16 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextArea;
+use Filament\Forms\Components\Section;
 
-class StyleSheetResource extends Resource
+class FormScriptResource extends Resource
 {
-    protected static ?string $model = StyleSheet::class;
-    protected static ?string $navigationLabel = 'Style Sheets';
+    protected static ?string $model = FormScript::class;
+    protected static ?string $navigationLabel = 'Scripts';
     protected static ?string $navigationIcon = 'heroicon-o-paint-brush';
-    protected static ?string $label = 'Style Sheet Template';
+    protected static ?string $label = 'Script Template';
 
     protected static ?string $navigationGroup = 'Form Building';
 
@@ -56,23 +56,23 @@ class StyleSheetResource extends Resource
                             ->label('Description')
                             ->columnSpanFull()
                             ->rows(5),
+
                         Section::make('Info')
                             ->collapsible()
                             ->collapsed()
                             ->schema(
                                 [
                                     Placeholder::make('')
-                                        ->content("Styles are used to add custom styling to forms.
-                             Target ids will be programmatically identified in your code if you use the correct naming conventions.
-                             Use #target_id for target elements.
+                                        ->content("Scripts are used to add custom JavaScript functionality to forms.
+                             Source ids and target ids will be programmatically identified in your code if you use the correct naming conventions.
+                             Use #{source_id} for source elements and #{target_id} for target elements.
                               These will be replaced with the actual IDs of the form elements at runtime in the order they are selected.
-                              Example: #target_id becomes [id='123-456-78910']"),
+                                 Example: `document.getElementById(`#{source_id}` becomes document.getElementById(`123-456-78910`)."),
                                 ]
                             ),
-
                         CustomMonacoEditor::make('content')
                             ->label('Script Content')
-                            ->language('css')
+                            ->language('javascript')
                             ->theme('vs-dark')
                             ->live()
                             ->reactive()
@@ -86,9 +86,9 @@ class StyleSheetResource extends Resource
     {
         return $table
             ->columns([
-                ColumnGroup::make('Stylesheet', [
+                ColumnGroup::make('Script', [
                     TextColumn::make('filename')
-                        ->label('Filename')
+                        ->label('Script Name')
                         ->sortable()
                         ->searchable(),
                     TextColumn::make('description')
@@ -103,15 +103,12 @@ class StyleSheetResource extends Resource
             ])
             ->actions([
                 ViewAction::make('view')
-                    ->label('View StyleSheet')
-                    ->url(fn($record) => route('filament.forms.resources.style-sheets.view', [
-                        'record' => $record->id,
-                    ])),
+                    ->label('View Script')
+                    ->url(fn($record) => route('filament.forms.resources.form-scripts.view', ['record' => $record->id])),
                 EditAction::make('edit')
-                    ->label('Edit StyleSheet')
-                    ->url(fn($record) => route('filament.forms.resources.style-sheets.edit', [
-                        'record' => $record->id,
-                    ])),
+                    ->label('Edit Script')
+                    ->url(fn($record) => route('filament.forms.resources.form-scripts.edit', ['record' => $record->id])),
+
             ])
             ->bulkActions([
                 //
@@ -129,10 +126,10 @@ class StyleSheetResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListStyleSheets::route('/'),
-            'create' => Pages\CreateStyleSheets::route('/create'),
-            'edit' => Pages\EditStyleSheets::route('/{record}/edit'),
-            'view' => Pages\ViewStyleSheets::route('/{record}'),
+            'index' => Pages\ListFormScripts::route('/'),
+            'create' => Pages\CreateFormScripts::route('/create'),
+            'edit' => Pages\EditFormScripts::route('/{record}/edit'),
+            'view' => Pages\ViewFormScripts::route('/{record}'),
         ];
     }
 }
