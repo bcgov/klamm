@@ -10,10 +10,13 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use SolutionForest\FilamentTree\Concern\ModelTree;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use App\Models\Form;
 
 class FormElement extends Model
 {
-    use HasFactory, ModelTree;
+    use HasFactory, ModelTree, LogsActivity;
 
     protected $fillable = [
         'uuid',
@@ -45,6 +48,16 @@ class FormElement extends Model
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
         'is_template' => 'boolean',
+    ];
+
+    protected static $logAttributes = [
+        'name',
+        'order',
+        'description',
+        'parent_id',
+        'form_version_id',
+        'elementable_type',
+        'help_text',
     ];
 
     public static function boot()
@@ -79,12 +92,60 @@ class FormElement extends Model
         });
     }
 
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(self::$logAttributes)
+            ->dontSubmitEmptyLogs()
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(function (string $eventName) {
+                $elementName = $this->name ?: 'Unnamed Element';
+                $formVersion = $this->formVersion ? $this->formVersion->version_number : 'Unknown Form Version';
+                $formTitle = $this->form ? $this->form->form_title : 'Unknown Form';
+
+                if ($eventName === 'created') {
+                    return "{$elementName} created on Form: {$formTitle}, Version: {$formVersion}";
+                }
+
+                $changes = array_keys($this->getDirty());
+                $changes = array_filter($changes, function ($change) {
+                    return !in_array($change, ['updated_at']);
+                });
+
+                if (!empty($changes)) {
+                    $changes = array_map(function ($change) {
+                        $change = str_replace('_', ' ', $change);
+                        $change = str_replace('form developer', 'developer', $change);
+                        return $change;
+                    }, $changes);
+
+                    $changesStr = implode(', ', array_unique($changes));
+                    return "{$elementName} had changes to: {$changesStr} on Form: {$formTitle}, Version: {$formVersion}";
+                }
+
+                return "{$elementName} was {$eventName} on Form: {$formTitle}, Version: {$formVersion} ";
+            });
+    }
+
+    public function getLogNameToUse(): string
+    {
+        return 'form_elements';
+    }
+
     /**
      * Get the form version that owns the form element.
      */
     public function formVersion(): BelongsTo
     {
         return $this->belongsTo(FormVersion::class);
+    }
+
+    /**
+     * Get the form that owns the form element
+     */
+    public function getFormAttribute()
+    {
+        return $this->formVersion ? $this->formVersion->form : null;
     }
 
     /**

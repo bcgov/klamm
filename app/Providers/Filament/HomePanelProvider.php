@@ -59,6 +59,8 @@ class HomePanelProvider extends PanelProvider
                     ->label('Log')
                     ->pluralLabel('Logs')
                     ->navigationItem(false)
+                    ->isResourceActionHidden(true)
+                    ->isRestoreModelActionHidden(true)
                     ->resource(CustomActivitylogResource::class)
             ])
             ->middleware([

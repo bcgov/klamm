@@ -22,6 +22,7 @@ class FormScript extends Model
     protected $fillable = [
         'form_version_id',
         'filename',
+        'description',
         'type',
     ];
 
@@ -173,6 +174,7 @@ class FormScript extends Model
         return [
             'web' => 'Web',
             'pdf' => 'PDF',
+            'template' => 'Template',
         ];
     }
 
