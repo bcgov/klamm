@@ -635,4 +635,82 @@ class FormElement extends Model
     {
         return -1;
     }
+
+    /**
+     * Clone this element and all its children recursively
+     *
+     * @param int $formVersionId The target form version ID
+     * @param int|null $parentId The parent ID for the cloned element
+     * @return self The cloned element
+     */
+    public function cloneWithChildren(int $formVersionId, ?int $parentId = null): self
+    {
+        // Load the element with all necessary relationships
+        $this->load(['elementable', 'tags', 'dataBindings', 'children']);
+
+        // Prepare data for the new element
+        $elementData = $this->toArray();
+
+        // Remove fields that should not be copied (UUID will be auto-generated, but keep reference_id)
+        unset($elementData['id'], $elementData['created_at'], $elementData['updated_at'], $elementData['uuid']);
+
+        // Set the new form version and parent
+        $elementData['form_version_id'] = $formVersionId;
+        $elementData['parent_id'] = $parentId;
+        $elementData['is_template'] = false; // Cloned elements should not be templates
+
+        // Keep the reference_id from the template
+        $elementData['reference_id'] = $this->reference_id;
+
+        // Clone the elementable model first
+        $elementableModel = null;
+        if ($this->elementable) {
+            $elementableData = $this->elementable->toArray();
+            // Remove timestamps and primary key
+            unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+
+            $elementableModel = $this->elementable_type::create($elementableData);
+            $elementData['elementable_id'] = $elementableModel->id;
+        }
+
+        // Create the new form element
+        $newElement = self::create($elementData);
+
+        // Clone options for select/radio elements
+        if ($elementableModel && method_exists($elementableModel, 'options')) {
+            $options = $this->elementable->options()->ordered()->get();
+            foreach ($options as $option) {
+                $optionData = $option->toArray();
+                unset($optionData['id'], $optionData['created_at'], $optionData['updated_at']);
+
+                if ($elementableModel instanceof \App\Models\FormBuilding\SelectInputFormElement) {
+                    \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($elementableModel, $optionData);
+                } elseif ($elementableModel instanceof \App\Models\FormBuilding\RadioInputFormElement) {
+                    \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($elementableModel, $optionData);
+                }
+            }
+        }
+
+        // Clone tags
+        if ($this->tags->isNotEmpty()) {
+            $newElement->tags()->attach($this->tags->pluck('id'));
+        }
+
+        // Clone data bindings
+        foreach ($this->dataBindings as $dataBinding) {
+            \App\Models\FormBuilding\FormElementDataBinding::create([
+                'form_element_id' => $newElement->id,
+                'form_data_source_id' => $dataBinding->form_data_source_id,
+                'path' => $dataBinding->path,
+                'order' => $dataBinding->order,
+            ]);
+        }
+
+        // Recursively clone children
+        foreach ($this->children()->ordered()->get() as $child) {
+            $child->cloneWithChildren($formVersionId, $newElement->id);
+        }
+
+        return $newElement;
+    }
 }

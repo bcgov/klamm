@@ -36,7 +36,7 @@ class GeneralTabHelper
 
         // Template selector (only for create mode when explicitly requested)
         if ($includeTemplateSelector && $isCreate) {
-            $schema[] = Select::make('template_id')
+            $templateField = Select::make('template_id')
                 ->label('Start from template')
                 ->placeholder('Select a template (optional)')
                 ->options(function () {
@@ -101,6 +101,15 @@ class GeneralTabHelper
                 })
                 ->searchable()
                 ->columnSpanFull();
+
+            // Add tooltip if callback is provided
+            if ($shouldShowTooltipsCallback) {
+                $templateField = $templateField->when($shouldShowTooltipsCallback, function ($component) {
+                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.');
+                });
+            }
+
+            $schema[] = $templateField;
         }
 
         // Name field
