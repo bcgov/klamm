@@ -11,7 +11,6 @@ class TextareaInputFormElement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
         'placeholder_text',
         'label',
         'visible_label',
@@ -40,9 +39,6 @@ class TextareaInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.name')
-                ->label('Field Name')
-                ->disabled($disabled),
             \Filament\Forms\Components\TextInput::make('elementable_data.placeholder_text')
                 ->label('Placeholder Text')
                 ->disabled($disabled),
@@ -62,12 +58,12 @@ class TextareaInputFormElement extends Model
                 ->label('Number of Columns')
                 ->numeric()
                 ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.maxlength')
-                ->label('Maximum Length')
-                ->numeric()
-                ->disabled($disabled),
             \Filament\Forms\Components\TextInput::make('elementable_data.minlength')
                 ->label('Minimum Length')
+                ->numeric()
+                ->disabled($disabled),
+            \Filament\Forms\Components\TextInput::make('elementable_data.maxlength')
+                ->label('Maximum Length')
                 ->numeric()
                 ->disabled($disabled),
         ];
@@ -90,7 +86,8 @@ class TextareaInputFormElement extends Model
             'placeholder_text' => $this->placeholder_text,
             'label' => $this->label,
             'visible_label' => $this->visible_label,
-            'mask' => $this->mask,
+            'rows' => $this->rows,
+            'cols' => $this->cols,
             'maxlength' => $this->maxlength,
             'minlength' => $this->minlength,
         ];

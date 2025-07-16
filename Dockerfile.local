@@ -61,7 +61,7 @@ RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/databa
     && chown -R sail:sail /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
     && chmod -R 775 /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
     && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/public/form-exports
-    
+
 # Generate APP_KEY
 RUN php artisan key:generate
 

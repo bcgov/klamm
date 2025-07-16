@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\FormBuilding\FormVersion;
+use Illuminate\Support\Facades\Log;
 
 class FormScript extends Model
 {
@@ -37,7 +38,7 @@ class FormScript extends Model
     {
         parent::boot();
 
-        // If FormScript is deleted, delete the associated JS file. 
+        // If FormScript is deleted, delete the associated JS file.
         static::deleting(function ($formScript) {
             $formScript->deleteJsFile();
         });
@@ -68,24 +69,39 @@ class FormScript extends Model
             return;
         }
 
-        // Create record
-        $filename = FormScript::createJsFilename($formVersion, $type);
-        if ($type === 'web' && $formVersion->webFormScript) {
-            $filename = $formVersion->webFormScript->filename;
-        } else if ($type === 'pdf' && $formVersion->pdfFormScript) {
-            $filename = $formVersion->pdfFormScript->filename;
-        }
-        $formScript = FormScript::updateOrCreate(
-            ['form_version_id' => $formVersion->id, 'type' => $type],
-            [
-                'form_version_id' => $formVersion->id,
-                'filename' => $filename,
-                'type' => $type,
-            ]
-        );
+        try {
+            // Create record
+            $filename = FormScript::createJsFilename($formVersion, $type);
 
-        // Create JS file
-        $formScript->saveJsContent($js_content);
+            if ($type === 'web' && $formVersion->webFormScript) {
+                $filename = $formVersion->webFormScript->filename;
+            } else if ($type === 'pdf' && $formVersion->pdfFormScript) {
+                $filename = $formVersion->pdfFormScript->filename;
+            }
+
+            $formScript = FormScript::updateOrCreate(
+                ['form_version_id' => $formVersion->id, 'type' => $type],
+                [
+                    'form_version_id' => $formVersion->id,
+                    'filename' => $filename,
+                    'type' => $type,
+                ]
+            );
+
+            // Create JS file
+            $saveResult = $formScript->saveJsContent($js_content);
+            if (!$saveResult) {
+                throw new \Exception('Failed to save JS content to file');
+            }
+
+            return $formScript;
+        } catch (\Exception $e) {
+            Log::error('Error in createFormScript', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     public static function createJsFilename($formVersion, string $type): string
@@ -117,7 +133,17 @@ class FormScript extends Model
      */
     public function saveJsContent(string $content): bool
     {
-        return Storage::disk('scripts')->put($this->filename . '.js', trim($content));
+        try {
+            $filename = $this->filename . '.js';
+            $result = Storage::disk('scripts')->put($filename, trim($content));
+            return $result;
+        } catch (\Exception $e) {
+            Log::error('Error saving JS content', [
+                'filename' => $this->filename . '.js',
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
     }
 
     /**

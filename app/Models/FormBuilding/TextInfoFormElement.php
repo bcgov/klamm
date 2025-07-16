@@ -5,7 +5,7 @@ namespace App\Models\FormBuilding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
-use WeStacks\FilamentMonacoEditor\MonacoEditor;
+use Filament\Forms\Components\Textarea;
 
 class TextInfoFormElement extends Model
 {
@@ -25,9 +25,9 @@ class TextInfoFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            MonacoEditor::make('elementable_data.content')
+            Textarea::make('elementable_data.content')
                 ->label('Content')
-                ->language('html')
+                ->rows(10)
                 ->disabled($disabled),
         ];
     }

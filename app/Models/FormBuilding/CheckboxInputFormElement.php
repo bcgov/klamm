@@ -31,6 +31,7 @@ class CheckboxInputFormElement extends Model
         return [
             \Filament\Forms\Components\TextInput::make('elementable_data.label')
                 ->label('Checkbox Label')
+                ->required(true)
                 ->disabled($disabled),
             \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
                 ->label('Show Label')

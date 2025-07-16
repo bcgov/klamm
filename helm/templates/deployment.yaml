@@ -23,9 +23,9 @@ spec:
           ports:
             - containerPort: 8080
           volumeMounts:
-            - name: storage-volume 
+            - name: storage-volume
               mountPath: /var/www/storage
-            - name: public-html-volume 
+            - name: public-html-volume
               mountPath: /var/www/html/public
           envFrom:
             - secretRef:
@@ -89,8 +89,8 @@ spec:
       volumes:
         - name: storage-volume
           persistentVolumeClaim:
-            claimName: klamm-app-shared-pvc 
-        - name: public-html-volume 
+            claimName: klamm-app-shared-pvc
+        - name: public-html-volume
           emptyDir: {}
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
