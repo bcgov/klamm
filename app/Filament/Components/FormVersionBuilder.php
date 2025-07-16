@@ -17,6 +17,9 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Alignment;
 use App\Filament\Components\AutocompleteBadgeList;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Repeater;
 
 class FormVersionBuilder
 {
@@ -65,27 +68,45 @@ class FormVersionBuilder
         };
         $autocompleteOptionsStyle = $makeAutocompleteOptions('style');
         $autocompleteOptionsScript = $makeAutocompleteOptions('script');
-        $styleSheetOptions = StyleSheet::with(['formVersion.form'])
-            ->get()
-            ->mapWithKeys(function ($sheet) {
+        $styleSheets = StyleSheet::with(['formVersion.form'])->get();
+
+        $templateStyleSheets = [];
+        $otherStyleSheets = [];
+
+        foreach ($styleSheets as $sheet) {
+            if ($sheet->type === 'template') {
+                $templateStyleSheets[$sheet->id] = "Template Stylesheet ({$sheet->filename})";
+            } else {
                 $form = $sheet->formVersion->form;
                 $version = $sheet->formVersion;
-                $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$sheet->type})";
-                return [$sheet->id => $label];
-            })->toArray();
+                $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$sheet->type})";
+            }
+        }
 
-        $formScriptOptions = FormScript::with(['formVersion.form'])
-            ->get()
-            ->mapWithKeys(function ($script) {
-                if ($script->formVersion && $script->formVersion->form) {
-                    $form = $script->formVersion->form;
-                    $version = $script->formVersion;
-                    $label = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$script->type})";
-                } else {
-                    $label = "Template Script ({$script->filename})";
-                }
-                return [$script->id => $label];
-            })->toArray();
+        $styleSheetOptions = [
+            'Template Stylesheets' => $templateStyleSheets,
+            'Form Stylesheets' => $otherStyleSheets,
+        ];
+
+        $formScripts = FormScript::with(['formVersion.form'])->get();
+
+        $templateScripts = [];
+        $otherScripts = [];
+
+        foreach ($formScripts as $script) {
+            if ($script->type === 'template') {
+                $templateScripts[$script->id] = "Template Script ({$script->filename})";
+            } else if ($script->formVersion && $script->formVersion->form) {
+                $form = $script->formVersion->form;
+                $version = $script->formVersion;
+                $otherScripts[$script->id] = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$script->type})";
+            }
+        }
+
+        $formScriptOptions = [
+            'Template Scripts' => $templateScripts,
+            'Form Scripts' => $otherScripts,
+        ];
 
         return Tabs::make()
             ->columnSpanFull()
@@ -140,14 +161,26 @@ class FormVersionBuilder
                                                                 ->live()
                                                                 ->reactive()
                                                                 ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
-                                                                    $displayName = $styleSheetOptions[$state];
+                                                                    $displayName = null;
+                                                                    foreach ($styleSheetOptions as $group) {
+                                                                        if (isset($group[$state])) {
+                                                                            $displayName = $group[$state];
+                                                                            break;
+                                                                        }
+                                                                    }
                                                                     $set('selectedStyleSheetName', $displayName);
                                                                 }),
                                                         ])
                                                         ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
                                                             $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
                                                             $existing = $get('css_content_web');
-                                                            $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
+                                                            $selectedStyleSheet = null;
+                                                            foreach ($styleSheetOptions as $group) {
+                                                                if (isset($group[$data['selectedStyleSheetId']])) {
+                                                                    $selectedStyleSheet = $group[$data['selectedStyleSheetId']];
+                                                                    break;
+                                                                }
+                                                            }
                                                             $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
                                                             $appended = rtrim($existing) . "\n\n" . $comment . $content;
                                                             $set('css_content_web', $appended);
@@ -207,14 +240,26 @@ class FormVersionBuilder
                                                                 ->live()
                                                                 ->reactive()
                                                                 ->afterStateUpdated(function ($state, callable $set) use ($styleSheetOptions) {
-                                                                    $displayName = $styleSheetOptions[$state];
+                                                                    $displayName = null;
+                                                                    foreach ($styleSheetOptions as $group) {
+                                                                        if (isset($group[$state])) {
+                                                                            $displayName = $group[$state];
+                                                                            break;
+                                                                        }
+                                                                    }
                                                                     $set('selectedStyleSheetName', $displayName);
                                                                 }),
                                                         ])
                                                         ->action(function (array $data, callable $get, callable $set, $livewire) use ($styleSheetOptions) {
                                                             $content = StyleSheet::find($data['selectedStyleSheetId'])->getCssContent();
                                                             $existing = $get('css_content_pdf');
-                                                            $selectedStyleSheet = $styleSheetOptions[$data['selectedStyleSheetId']];
+                                                            $selectedStyleSheet = null;
+                                                            foreach ($styleSheetOptions as $group) {
+                                                                if (isset($group[$data['selectedStyleSheetId']])) {
+                                                                    $selectedStyleSheet = $group[$data['selectedStyleSheetId']];
+                                                                    break;
+                                                                }
+                                                            }
                                                             $comment = "/* Imported from {$selectedStyleSheet} */" . "\n\n";
                                                             $appended = rtrim($existing) . "\n\n" . $comment . $content;
                                                             $set('css_content_pdf', $appended);
@@ -288,18 +333,183 @@ class FormVersionBuilder
                                                                 ->required()
                                                                 ->live()
                                                                 ->reactive()
-                                                                ->afterStateUpdated(function ($state, callable $set) use ($formScriptOptions) {
-                                                                    $displayName = $formScriptOptions[$state];
+                                                                ->afterStateUpdated(function ($state, callable $set, callable $get) use ($formScriptOptions, $autocompleteOptionsScript) {
+                                                                    // Set display name
+                                                                    $displayName = null;
+                                                                    foreach ($formScriptOptions as $group) {
+                                                                        if (isset($group[$state])) {
+                                                                            $displayName = $group[$state];
+                                                                            break;
+                                                                        }
+                                                                    }
                                                                     $set('selectedFormScriptName', $displayName);
+
+                                                                    // Get script content and analyze placeholders
+                                                                    $jsContent = '';
+                                                                    if ($state) {
+                                                                        $script = FormScript::find($state);
+                                                                        if ($script) {
+                                                                            $jsContent = $script->getJsContent() ?? '';
+
+                                                                            // Count source and target placeholders
+                                                                            $sourceCount = preg_match_all('/#{source_id}/', $jsContent);
+                                                                            $targetCount = preg_match_all('/#{target_id}/', $jsContent);
+
+                                                                            // Format source and target selections so they include a count of which source/target it is
+                                                                            $jsContent = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
+                                                                                static $sourceIndex = 0;
+                                                                                $sourceIndex++;
+                                                                                return "'#{source_id}' /* Source #{$sourceIndex} */";
+                                                                            }, $jsContent);
+                                                                            $jsContent = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
+                                                                                static $targetIndex = 0;
+                                                                                $targetIndex++;
+                                                                                return "'#{target_id}' /* Target #{$targetIndex} */";
+                                                                            }, $jsContent);
+
+                                                                            // Initialize source selections
+                                                                            $sourceSelections = [];
+                                                                            for ($i = 0; $i < $sourceCount; $i++) {
+                                                                                $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
+                                                                            }
+                                                                            $set('source_selections', $sourceSelections);
+
+                                                                            // Initialize target selections
+                                                                            $targetSelections = [];
+                                                                            for ($i = 0; $i < $targetCount; $i++) {
+                                                                                $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
+                                                                            }
+                                                                            $set('target_selections', $targetSelections);
+                                                                        }
+                                                                    }
+                                                                    $set('js_preview', $jsContent);
+                                                                    $set('js_original', $jsContent);
                                                                 }),
+
+                                                            // Source selections
+                                                            Repeater::make('source_selections')
+                                                                ->label('Source Element Selections')
+                                                                ->schema([
+                                                                    Select::make('element_id')
+                                                                        ->label(fn($get) => 'Source #' . ($get('order') ?? ''))
+                                                                        ->searchable()
+                                                                        ->options(function () use ($autocompleteOptionsScript) {
+                                                                            $livewire = \Livewire\Livewire::current();
+                                                                            $get = function ($key) use ($livewire) {
+                                                                                return $livewire->getState()[$key] ?? null;
+                                                                            };
+                                                                            $options = $autocompleteOptionsScript($get, $livewire);
+                                                                            $selectOptions = [];
+                                                                            foreach ($options as $option) {
+                                                                                $selectOptions[$option['insertText']] = $option['label'];
+                                                                            }
+                                                                            return $selectOptions;
+                                                                        }),
+                                                                ])
+                                                                ->addable(false)
+                                                                ->deletable(false)
+                                                                ->reorderable(false)
+                                                                ->visible(fn($get) => !empty($get('selectedFormScriptId'))),
+
+                                                            // Target selections
+                                                            Repeater::make('target_selections')
+                                                                ->label('Target Element Selections')
+                                                                ->schema([
+                                                                    Select::make('element_id')
+                                                                        ->label(fn($get) => 'Target #' . ($get('order') ?? ''))
+                                                                        ->searchable()
+                                                                        ->options(function () use ($autocompleteOptionsScript) {
+                                                                            $livewire = \Livewire\Livewire::current();
+                                                                            $get = function ($key) use ($livewire) {
+                                                                                return $livewire->getState()[$key] ?? null;
+                                                                            };
+                                                                            $options = $autocompleteOptionsScript($get, $livewire);
+                                                                            $selectOptions = [];
+                                                                            foreach ($options as $option) {
+                                                                                $selectOptions[$option['insertText']] = $option['label'];
+                                                                            }
+                                                                            return $selectOptions;
+                                                                        }),
+                                                                ])
+                                                                ->addable(false)
+                                                                ->deletable(false)
+                                                                ->reorderable(false)
+                                                                ->visible(fn($get) => !empty($get('selectedFormScriptId'))),
+
+                                                            TextArea::make('js_preview')
+                                                                ->label('JavaScript Content Preview')
+                                                                ->rows(12)
+                                                                ->readOnly()
+                                                                ->visible(fn($get) => !empty($get('js_preview'))),
+                                                            Placeholder::make('js_preview_placeholder')
+                                                                ->label('')
+                                                                ->content('Select a script to preview its content.')
+                                                                ->visible(fn($get) => empty($get('js_preview'))),
                                                         ])
                                                         ->action(function (array $data, callable $get, callable $set, $livewire) use ($formScriptOptions) {
+                                                            // Get the original script content
                                                             $content = FormScript::find($data['selectedFormScriptId'])->getJsContent();
-                                                            $existing = $get('js_content_web');
-                                                            $selectedFormScript = $formScriptOptions[$data['selectedFormScriptId']];
-                                                            $comment = "/* Imported from {$selectedFormScript} */" . "\n\n";
-                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
 
+                                                            // Replace placeholders with selected elements
+                                                            $sourceSelections = $data['source_selections'] ?? [];
+                                                            $targetSelections = $data['target_selections'] ?? [];
+
+                                                            // Track element mappings for comment
+                                                            $elementMappings = [];
+
+                                                            // Replace source placeholders
+                                                            $sourceIndex = 0;
+                                                            $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, &$elementMappings) {
+                                                                $fullSelection = $sourceSelections[$sourceIndex]['element_id'] ?? '#{source_id}';
+                                                                $sourceIndex++;
+
+                                                                if ($fullSelection && $fullSelection !== '#{source_id}') {
+                                                                    // Extract clean ID and comment
+                                                                    if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
+                                                                        $cleanId = $matches[1];
+                                                                        $comment = $matches[2];
+                                                                        $elementMappings[] = "Source #{$sourceIndex}: {$comment} (ID: {$cleanId})";
+                                                                        return $cleanId;
+                                                                    }
+                                                                }
+                                                                return $fullSelection;
+                                                            }, $content);
+
+                                                            // Replace target placeholders
+                                                            $targetIndex = 0;
+                                                            $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetSelections, &$targetIndex, &$elementMappings) {
+                                                                $fullSelection = $targetSelections[$targetIndex]['element_id'] ?? '#{target_id}';
+                                                                $targetIndex++;
+
+                                                                if ($fullSelection && $fullSelection !== '#{target_id}') {
+                                                                    // Extract clean ID and comment
+                                                                    if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
+                                                                        $cleanId = $matches[1];
+                                                                        $comment = $matches[2];
+                                                                        $elementMappings[] = "Target #{$targetIndex}: {$comment} (ID: {$cleanId})";
+                                                                        return $cleanId;
+                                                                    }
+                                                                }
+                                                                return $fullSelection;
+                                                            }, $content);
+
+                                                            $existing = $get('js_content_web');
+                                                            $selectedFormScript = null;
+                                                            foreach ($formScriptOptions as $group) {
+                                                                if (isset($group[$data['selectedFormScriptId']])) {
+                                                                    $selectedFormScript = $group[$data['selectedFormScriptId']];
+                                                                    break;
+                                                                }
+                                                            }
+
+                                                            // Build enhanced comment with element mappings
+                                                            $comment = "/* Imported from {$selectedFormScript}";
+                                                            if (!empty($elementMappings)) {
+                                                                $comment .= "\n * Element Mappings:\n * " . implode("\n * ", $elementMappings);
+                                                            }
+                                                            $comment .= " */" . "\n\n";
+
+                                                            $appended = rtrim($existing) . "\n\n" . $comment . $content;
                                                             $set('js_content_web', $appended);
                                                         }),
                                                     Action::make('save_scripts_web')
@@ -361,17 +571,28 @@ class FormVersionBuilder
                                                                 ->live()
                                                                 ->reactive()
                                                                 ->afterStateUpdated(function ($state, callable $set) use ($formScriptOptions) {
-                                                                    $displayName = $formScriptOptions[$state];
+                                                                    $displayName = null;
+                                                                    foreach ($formScriptOptions as $group) {
+                                                                        if (isset($group[$state])) {
+                                                                            $displayName = $group[$state];
+                                                                            break;
+                                                                        }
+                                                                    }
                                                                     $set('selectedFormScriptName', $displayName);
                                                                 }),
                                                         ])
                                                         ->action(function (array $data, callable $get, callable $set, $livewire) use ($formScriptOptions) {
                                                             $content = FormScript::find($data['selectedFormScriptId'])->getJsContent();
                                                             $existing = $get('js_content_pdf');
-                                                            $selectedFormScript = $formScriptOptions[$data['selectedFormScriptId']];
+                                                            $selectedFormScript = null;
+                                                            foreach ($formScriptOptions as $group) {
+                                                                if (isset($group[$data['selectedFormScriptId']])) {
+                                                                    $selectedFormScript = $group[$data['selectedFormScriptId']];
+                                                                    break;
+                                                                }
+                                                            }
                                                             $comment = "/* Imported from {$selectedFormScript} */" . "\n\n";
                                                             $appended = rtrim($existing) . "\n\n" . $comment . $content;
-
                                                             $set('js_content_pdf', $appended);
                                                         }),
                                                     Action::make('save_scripts_pdf')
