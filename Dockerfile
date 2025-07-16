@@ -1,9 +1,6 @@
 # Use PHP official image with Apache
 FROM php:8.2-apache
 
-# Build argument for OpenShift UID (can be overridden at build time)
-ARG OPENSHIFT_UID=1000
-
 # Install system dependencies for PHP extensions and other utilities
 RUN apt-get update && apt-get install -y \
     libpq-dev \
