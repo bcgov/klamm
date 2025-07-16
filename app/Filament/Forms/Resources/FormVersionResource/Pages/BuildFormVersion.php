@@ -487,7 +487,8 @@ class BuildFormVersion extends Page implements HasForms
                             return ElementPropertiesHelper::getCreateSchema(
                                 $get('elementable_type')
                             );
-                        }),
+                        })
+                        ->hidden(fn(callable $get) => !empty($get('template_id'))),
                     \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
@@ -495,7 +496,8 @@ class BuildFormVersion extends Page implements HasForms
                                 $this->record,
                                 fn() => $this->shouldShowTooltips()
                             );
-                        }),
+                        })
+                        ->hidden(fn(callable $get) => !empty($get('template_id'))),
                 ])
                 ->columnSpanFull(),
         ];
