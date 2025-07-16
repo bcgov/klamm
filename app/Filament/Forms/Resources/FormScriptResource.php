@@ -17,7 +17,7 @@ use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\TextArea;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Section;
 
 class FormScriptResource extends Resource
