@@ -83,11 +83,24 @@ class ContainerFormElement extends Model
     public static function getContainerTypes(): array
     {
         return [
-            'page' => 'Page',
-            'fieldset' => 'Fieldset',
             'section' => 'Section',
+            'fieldset' => 'Fieldset',
+            'div' => 'Div',
             'header' => 'Header',
             'footer' => 'Footer',
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'container_type' => 'section',
+            'is_repeatable' => false,
+            'legend' => '',
+            'repeater_item_label' => '',
         ];
     }
 

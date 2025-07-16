@@ -272,17 +272,8 @@ class GeneralTabHelper
                     $set('elementable_data', []);
 
                     // Populate with defaults from the new element type
-                    if ($state && class_exists($state) && method_exists($state, 'getFilamentSchema')) {
-                        $schema = $state::getFilamentSchema(false);
-                        $defaults = [];
-
-                        foreach ($schema as $field) {
-                            $fieldName = str_replace('elementable_data.', '', $field->getName());
-                            $defaultValue = $field->getDefaultState();
-                            if ($defaultValue !== null) {
-                                $defaults[$fieldName] = $defaultValue;
-                            }
-                        }
+                    if ($state && class_exists($state)) {
+                        $defaults = self::getElementTypeDefaults($state);
 
                         if (!empty($defaults)) {
                             $set('elementable_data', $defaults);
@@ -490,5 +481,31 @@ class GeneralTabHelper
             shouldShowTooltipsCallback: $shouldShowTooltipsCallback,
             includeTemplateSelector: false
         );
+    }
+
+    /**
+     * Get default values for a given element type.
+     *
+     * @param string $elementType The class name of the element type.
+     * @return array An associative array of field names and their default values.
+     */
+    private static function getElementTypeDefaults(string $elementType): array
+    {
+        $defaults = [];
+
+        // Use the model's default attributes instead of calling getDefaultState()
+        if (class_exists($elementType)) {
+            $model = new $elementType();
+
+            // Check if the model has a getDefaultData method
+            if (method_exists($elementType, 'getDefaultData')) {
+                $defaults = $elementType::getDefaultData();
+            } else {
+                // Fall back to model attributes for other element types
+                $defaults = $model->getAttributes();
+            }
+        }
+
+        return $defaults;
     }
 }
