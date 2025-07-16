@@ -48,6 +48,7 @@ class SchemaHelper
         return Toggle::make('elementable_data.hideLabel')
             ->label('Hide Label')
             ->default(false)
+            ->live()
             ->disabled($disabled);
     }
 
