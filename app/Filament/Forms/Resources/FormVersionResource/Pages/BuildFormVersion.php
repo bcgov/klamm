@@ -126,6 +126,7 @@ class BuildFormVersion extends Page implements HasForms
                 ->color('success')
                 ->outlined()
                 ->visible($this->isEditable())
+                ->extraAttributes(['data-action' => 'add_form_element'])
                 ->form($this->getFormElementSchema())
                 ->action(function (array $data) {
                     try {
