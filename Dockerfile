@@ -50,6 +50,14 @@ RUN npm run build
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader
 
+# Create the storage directory if it doesn't exist as part of the image
+RUN mkdir -p /var/www/storage
+
+# Set group ownership to nonroot and make it group-writable
+RUN chown -R www-data:www-data /var/www/storage \
+    && chmod -R 775 /var/www/storage \
+    && chmod g+s /var/www/storage
+
 # Set correct permissions for storage, database and logs
 RUN chown -R www-data:www-data /var/www/bootstrap/cache /var/www/database \
     && chmod -R 775 /var/www/bootstrap/cache /var/www/database
@@ -62,14 +70,6 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 # Generate APP_KEY
 RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
-
-# Create the storage directory if it doesn't exist as part of the image
-RUN mkdir -p /var/www/storage
-
-# Set group ownership to nonroot and make it group-writable
-RUN chown -R www-data:www-data /var/www/storage \
-    && chmod -R 775 /var/www/storage \
-    && chmod g+s /var/www/storage
 
 # Switch to non-root user
 USER www-data
