@@ -412,24 +412,29 @@ class GeneralTabHelper
         if ($isCreate || $isEdit) {
             $tagsField = $tagsField
                 ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
-                ->createOptionAction(
-                    fn(Forms\Components\Actions\Action $action) => $action
-                        ->modalHeading('Create Tag')
-                        ->modalWidth('md')
-                )
-                ->createOptionForm([
-                    TextInput::make('name')
-                        ->required()
-                        ->maxLength(255)
-                        ->unique(FormElementTag::class, 'name'),
-                    Textarea::make('description')
-                        ->rows(3),
-                ])
-                ->createOptionUsing(function (array $data) {
-                    $tag = FormElementTag::create($data);
-                    return $tag->id;
-                })
                 ->preload();
+
+            // Only add createOptionAction for create mode to avoid modal stacking issues
+            if ($isCreate) {
+                $tagsField = $tagsField
+                    ->createOptionAction(
+                        fn(Forms\Components\Actions\Action $action) => $action
+                            ->modalHeading('Create Tag')
+                            ->modalWidth('md')
+                    )
+                    ->createOptionForm([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(FormElementTag::class, 'name'),
+                        Textarea::make('description')
+                            ->rows(3),
+                    ])
+                    ->createOptionUsing(function (array $data) {
+                        $tag = FormElementTag::create($data);
+                        return $tag->id;
+                    });
+            }
         }
 
         $schema[] = $tagsField;
