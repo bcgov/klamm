@@ -146,7 +146,16 @@ class BuildFormVersion extends Page implements HasForms
                         unset($data['dataBindings']);
 
                         // Extract polymorphic data
-                        $elementType = $data['elementable_type'];
+                        $elementType = $data['elementable_type'] ?? null;
+
+                        // If using template and elementType is not set, get it from the template
+                        if ($templateId && !$elementType) {
+                            $template = FormElement::find($templateId);
+                            if ($template) {
+                                $elementType = $template->elementable_type;
+                            }
+                        }
+
                         $elementableData = $data['elementable_data'] ?? [];
                         unset($data['elementable_data']);
 
@@ -158,9 +167,9 @@ class BuildFormVersion extends Page implements HasForms
                         }
 
                         // Filter out null values from elementable data to let model defaults apply
-                        // Keep false values as they are valid boolean values
+                        // Keep false values and empty strings as they are valid values
                         $elementableData = array_filter($elementableData, function ($value) {
-                            return $value !== null && $value !== '';
+                            return $value !== null;
                         });
 
                         // Set source_element_id if created from template
@@ -168,44 +177,101 @@ class BuildFormVersion extends Page implements HasForms
                             $data['source_element_id'] = $templateId;
                         }
 
-                        // Create the polymorphic model first if there's data
-                        $elementableModel = null;
-                        if (!empty($elementableData) && class_exists($elementType)) {
-                            $elementableModel = $elementType::create($elementableData);
-                        } elseif (class_exists($elementType)) {
-                            // Create with empty array to trigger model defaults
-                            $elementableModel = $elementType::create([]);
-                        }
+                        // If creating from template, use the cloning method
+                        if ($templateId) {
+                            $template = FormElement::find($templateId);
+                            if ($template && $template->isTemplate()) {
+                                // Clone the template with all its children
+                                $formElement = $template->cloneWithChildren($this->record->id);
 
-                        // Set the polymorphic relationship data
-                        if ($elementableModel) {
-                            $data['elementable_type'] = $elementType;
-                            $data['elementable_id'] = $elementableModel->id;
-                        }
+                                // Update the cloned element with any overrides from the form data
+                                $updateData = [];
+                                if (!empty($data['name'])) {
+                                    $updateData['name'] = $data['name'];
+                                }
+                                if (!empty($data['description'])) {
+                                    $updateData['description'] = $data['description'];
+                                }
+                                if (!empty($data['help_text'])) {
+                                    $updateData['help_text'] = $data['help_text'];
+                                }
+                                if (isset($data['is_required'])) {
+                                    $updateData['is_required'] = $data['is_required'];
+                                }
+                                if (isset($data['visible_web'])) {
+                                    $updateData['visible_web'] = $data['visible_web'];
+                                }
+                                if (isset($data['visible_pdf'])) {
+                                    $updateData['visible_pdf'] = $data['visible_pdf'];
+                                }
+                                if (isset($data['is_read_only'])) {
+                                    $updateData['is_read_only'] = $data['is_read_only'];
+                                }
+                                if (isset($data['save_on_submit'])) {
+                                    $updateData['save_on_submit'] = $data['save_on_submit'];
+                                }
 
-                        // Create the main FormElement
-                        $formElement = FormElement::create($data);
+                                if (!empty($updateData)) {
+                                    $formElement->update($updateData);
+                                }
 
-                        // Handle options for select/radio elements
-                        if ($elementableModel && $optionsData && is_array($optionsData)) {
-                            FormElementHelper::createSelectOptions($elementableModel, $optionsData);
-                        }
+                                // Update elementable data if provided
+                                if (!empty($elementableData) && $formElement->elementable) {
+                                    $formElement->elementable->update($elementableData);
+                                }
 
-                        // Attach tags if any were selected
-                        if (!empty($tagIds)) {
-                            $formElement->tags()->attach($tagIds);
-                        }
+                                // Update tags if provided
+                                if (!empty($tagIds)) {
+                                    $formElement->tags()->sync($tagIds);
+                                }
+                            } else {
+                                throw new \InvalidArgumentException('Template not found or is not a valid template.');
+                            }
+                        } else {
+                            // Ensure elementable_type is set for non-template creation
+                            if (!isset($data['elementable_type'])) {
+                                throw new \InvalidArgumentException('Element type is required when not using a template.');
+                            }
+                            // Create normally without template
+                            // Create the polymorphic model first if there's data
+                            $elementableModel = null;
+                            if (!empty($elementableData) && class_exists($elementType)) {
+                                $elementableModel = $elementType::create($elementableData);
+                            } elseif (class_exists($elementType)) {
+                                // Create with empty array to trigger model defaults
+                                $elementableModel = $elementType::create([]);
+                            }
 
-                        // Create data bindings if any were provided
-                        if (!empty($dataBindingsData)) {
-                            foreach ($dataBindingsData as $index => $bindingData) {
-                                if (isset($bindingData['form_data_source_id']) && isset($bindingData['path'])) {
-                                    \App\Models\FormBuilding\FormElementDataBinding::create([
-                                        'form_element_id' => $formElement->id,
-                                        'form_data_source_id' => $bindingData['form_data_source_id'],
-                                        'path' => $bindingData['path'],
-                                        'order' => $index + 1,
-                                    ]);
+                            // Set the polymorphic relationship data
+                            if ($elementableModel) {
+                                $data['elementable_type'] = $elementType;
+                                $data['elementable_id'] = $elementableModel->id;
+                            }
+
+                            // Create the main FormElement
+                            $formElement = FormElement::create($data);
+
+                            // Handle options for select/radio elements
+                            if ($elementableModel && $optionsData && is_array($optionsData)) {
+                                FormElementHelper::createSelectOptions($elementableModel, $optionsData);
+                            }
+
+                            // Attach tags if any were selected
+                            if (!empty($tagIds)) {
+                                $formElement->tags()->attach($tagIds);
+                            }
+
+                            // Create data bindings if any were provided
+                            if (!empty($dataBindingsData)) {
+                                foreach ($dataBindingsData as $index => $bindingData) {
+                                    if (isset($bindingData['form_data_source_id']) && isset($bindingData['path'])) {
+                                        \App\Models\FormBuilding\FormElementDataBinding::create([
+                                            'form_element_id' => $formElement->id,
+                                            'form_data_source_id' => $bindingData['form_data_source_id'],
+                                            'path' => $bindingData['path'],
+                                            'order' => $index + 1,
+                                        ]);
+                                    }
                                 }
                             }
                         }
@@ -220,7 +286,18 @@ class BuildFormVersion extends Page implements HasForms
                             false
                         );
 
-                        $this->getSavedNotification('Form element created successfully!')?->send();
+                        // Show appropriate success message
+                        if ($templateId) {
+                            $template = FormElement::find($templateId);
+                            $childrenCount = $template ? $template->children()->count() : 0;
+                            $message = $childrenCount > 0
+                                ? "Form element created successfully from template with {$childrenCount} child element(s)!"
+                                : 'Form element created successfully from template!';
+                        } else {
+                            $message = 'Form element created successfully!';
+                        }
+
+                        $this->getSavedNotification($message)?->send();
 
                         // Refresh the page to update the tree
                         $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
@@ -416,10 +493,11 @@ class BuildFormVersion extends Page implements HasForms
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema(function () {
+                        ->schema(function (callable $get) {
                             return GeneralTabHelper::getCreateSchema(
                                 fn() => $this->shouldShowTooltips(),
-                                true
+                                true,
+                                fn() => !empty($get('template_id'))
                             );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
@@ -627,7 +705,7 @@ class BuildFormVersion extends Page implements HasForms
             $this->record->id,
             $schemaContent,
             $cacheKey,
-            auth()->id()
+            Auth::id()
         );
 
         session()->put('import_job_cache_key', $cacheKey);

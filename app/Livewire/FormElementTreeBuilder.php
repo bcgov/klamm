@@ -309,9 +309,21 @@ class FormElementTreeBuilder extends BaseWidget
         $elementableData = $data['elementable_data'] ?? [];
 
         // Filter out null values from elementable data to let model defaults apply
-        $elementableData = array_filter($elementableData, function ($value) {
-            return $value !== null;
-        });
+        // But convert null values to empty strings for text fields that the user might want to clear
+        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'defaultValue', 'content', 'legend', 'repeater_item_label'];
+
+        $filteredElementableData = [];
+        foreach ($elementableData as $key => $value) {
+            if ($value !== null) {
+                $filteredElementableData[$key] = $value;
+            } elseif (in_array($key, $textFields)) {
+                // For text fields, convert null to empty string (user wants to clear the field)
+                $filteredElementableData[$key] = '';
+            }
+            // For other fields, skip null values to let model defaults apply
+        }
+
+        $elementableData = $filteredElementableData;
 
         // Remove elementable_data from main form data as it will be handled separately
         unset($data['elementable_data']);
@@ -452,9 +464,21 @@ class FormElementTreeBuilder extends BaseWidget
         unset($data['elementable_data']);
 
         // Filter out null values from elementable data to let model defaults apply
-        $elementableData = array_filter($elementableData, function ($value) {
-            return $value !== null;
-        });
+        // But convert null values to empty strings for text fields that the user might want to clear
+        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'defaultValue', 'content', 'legend', 'repeater_item_label'];
+
+        $filteredElementableData = [];
+        foreach ($elementableData as $key => $value) {
+            if ($value !== null) {
+                $filteredElementableData[$key] = $value;
+            } elseif (in_array($key, $textFields)) {
+                // For text fields, convert null to empty string (user wants to clear the field)
+                $filteredElementableData[$key] = '';
+            }
+            // For other fields, skip null values to let model defaults apply
+        }
+
+        $elementableData = $filteredElementableData;
 
         // Store for use after main record creation
         $this->pendingElementableData = $elementableData;
