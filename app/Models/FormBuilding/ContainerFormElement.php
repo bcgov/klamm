@@ -12,23 +12,17 @@ class ContainerFormElement extends Model
 
     protected $fillable = [
         'container_type',
-        'collapsible',
-        'collapsed_by_default',
         'is_repeatable',
         'repeater_item_label',
         'legend',
     ];
 
     protected $casts = [
-        'collapsible' => 'boolean',
-        'collapsed_by_default' => 'boolean',
         'is_repeatable' => 'boolean',
     ];
 
     protected $attributes = [
         'container_type' => 'section',
-        'collapsible' => false,
-        'collapsed_by_default' => false,
         'is_repeatable' => false,
     ];
 
@@ -48,18 +42,6 @@ class ContainerFormElement extends Model
                 ->label('Legend/Title')
                 ->helperText('Optional title for the container')
                 ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.collapsible')
-                ->label('Collapsible')
-                ->helperText('Allow users to expand/collapse this container')
-                ->default(false)
-                ->live()
-                ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.collapsed_by_default')
-                ->label('Collapsed by Default')
-                ->helperText('Start with container collapsed')
-                ->default(false)
-                ->disabled($disabled)
-                ->visible(fn(callable $get) => $get('elementable_data.collapsible')),
             \Filament\Forms\Components\Toggle::make('elementable_data.is_repeatable')
                 ->label('Repeatable')
                 ->helperText('Allow users to add multiple instances of this container')
@@ -89,11 +71,9 @@ class ContainerFormElement extends Model
     {
         return [
             'container_type' => $this->container_type,
-            'collapsible' =>         $this->collapsible,
-            'collapsed_by_default' =>         $this->collapsed_by_default,
-            'is_repeatable' =>         $this->is_repeatable,
-            'repeater_item_label' =>         $this->repeater_item_label,
-            'legend' =>         $this->legend,
+            'is_repeatable' => $this->is_repeatable,
+            'repeater_item_label' => $this->repeater_item_label,
+            'legend' => $this->legend,
         ];
     }
 
@@ -103,9 +83,24 @@ class ContainerFormElement extends Model
     public static function getContainerTypes(): array
     {
         return [
-            'page' => 'Page',
-            'fieldset' => 'Fieldset',
             'section' => 'Section',
+            'fieldset' => 'Fieldset',
+            'div' => 'Div',
+            'header' => 'Header',
+            'footer' => 'Footer',
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'container_type' => 'section',
+            'is_repeatable' => false,
+            'legend' => '',
+            'repeater_item_label' => '',
         ];
     }
 
@@ -114,6 +109,6 @@ class ContainerFormElement extends Model
      */
     public function canHaveChildren(): bool
     {
-        return in_array($this->container_type, ['page', 'fieldset', 'section']);
+        return in_array($this->container_type, ['page', 'fieldset', 'section', 'header', 'footer']);
     }
 }

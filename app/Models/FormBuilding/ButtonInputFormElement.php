@@ -11,12 +11,12 @@ class ButtonInputFormElement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'label',
-        'button_type',
+        'text',
+        'kind',
     ];
 
     protected $casts = [
-        'button_type' => 'string',
+        'kind' => 'string',
     ];
 
     /**
@@ -25,15 +25,15 @@ class ButtonInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.label')
+            \Filament\Forms\Components\TextInput::make('elementable_data.text')
                 ->label('Button Text')
                 ->default('Submit')
                 ->required(true)
                 ->disabled($disabled),
-            \Filament\Forms\Components\Select::make('elementable_data.button_type')
-                ->label('Button Type')
+            \Filament\Forms\Components\Select::make('elementable_data.kind')
+                ->label('Button Kind')
                 ->options(static::getButtonTypes())
-                ->default('submit')
+                ->default('primary')
                 ->disabled($disabled),
         ];
     }
@@ -52,8 +52,8 @@ class ButtonInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'label' => $this->label,
-            'button_type' => $this->button_type,
+            'text' => $this->text,
+            'kind' => $this->kind,
         ];
     }
 
@@ -70,6 +70,17 @@ class ButtonInputFormElement extends Model
             'danger--tertiary' => 'Danger Tertiary',
             'danger--ghost' => 'Danger Ghost',
             'ghost' => 'Ghost',
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'text' => 'Submit',
+            'kind' => 'primary',
         ];
     }
 }

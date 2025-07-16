@@ -2,6 +2,7 @@
 
 namespace App\Models\FormBuilding;
 
+use App\Helpers\SchemaHelper;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
@@ -12,18 +13,23 @@ class RadioInputFormElement extends Model
     use HasFactory;
 
     protected $fillable = [
-        'label',
-        'visible_label',
-        'default_value',
+        'labelText',
+        'hideLabel',
+        'defaultSelected',
+        'labelPosition',
+        'helperText',
+        'orientation',
     ];
 
     protected $casts = [
-        'visible_label' => 'boolean',
+        'hideLabel' => 'boolean',
     ];
 
     protected $attributes = [
-        'visible_label' => true,
-        'label' => '',
+        'hideLabel' => false,
+        'labelText' => '',
+        'labelPosition' => 'right',
+        'orientation' => 'vertical',
     ];
 
     /**
@@ -32,16 +38,39 @@ class RadioInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.label')
-                ->label('Field Label')
-                ->required()
+            SchemaHelper::getLabelTextField($disabled)
+                ->required(),
+            SchemaHelper::getHideLabelToggle($disabled),
+            \Filament\Forms\Components\Select::make('elementable_data.labelPosition')
+                ->label('Label Position')
+                ->options([
+                    'left' => 'Left',
+                    'right' => 'Right',
+                ])
+                ->default('right')
+                ->visible(fn(callable $get): bool => !$get('elementable_data.hideLabel'))
                 ->disabled($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.visible_label')
-                ->label('Show Label')
-                ->default(true)
+            SchemaHelper::getHelperTextField($disabled),
+            \Filament\Forms\Components\Select::make('elementable_data.orientation')
+                ->label('Orientation')
+                ->options([
+                    'horizontal' => 'Horizontal',
+                    'vertical' => 'Vertical',
+                ])
+                ->default('vertical')
                 ->disabled($disabled),
-            \Filament\Forms\Components\TextInput::make('elementable_data.default_value')
+            \Filament\Forms\Components\Select::make('elementable_data.defaultSelected')
                 ->label('Default Selected Value')
+                ->options(function (callable $get) {
+                    $options = $get('elementable_data.options') ?? [];
+                    $selectOptions = [];
+                    foreach ($options as $option) {
+                        if (!empty($option['value'])) {
+                            $selectOptions[$option['value']] = $option['label'] ?? $option['value'];
+                        }
+                    }
+                    return $selectOptions;
+                })
                 ->disabled($disabled),
             \Filament\Forms\Components\Repeater::make('elementable_data.options')
                 ->label('Options')
@@ -100,9 +129,12 @@ class RadioInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'label' => $this->label,
-            'visible_label' => $this->visible_label,
-            'default_value' => $this->default_value,
+            'labelText' => $this->labelText,
+            'hideLabel' => $this->hideLabel,
+            'defaultSelected' => $this->defaultSelected,
+            'labelPosition' => $this->labelPosition,
+            'helperText' => $this->helperText,
+            'orientation' => $this->orientation,
         ];
     }
 
@@ -112,5 +144,21 @@ class RadioInputFormElement extends Model
     public function options(): MorphMany
     {
         return $this->morphMany(SelectOptionFormElement::class, 'optionable')->orderBy('order');
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'hideLabel' => false,
+            'labelText' => '',
+            'labelPosition' => 'right',
+            'orientation' => 'vertical',
+            'options' => [
+                ['label' => 'Option 1', 'value' => 'option-1']
+            ],
+        ];
     }
 }
