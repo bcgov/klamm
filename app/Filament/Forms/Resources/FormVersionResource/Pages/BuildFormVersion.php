@@ -146,7 +146,16 @@ class BuildFormVersion extends Page implements HasForms
                         unset($data['dataBindings']);
 
                         // Extract polymorphic data
-                        $elementType = $data['elementable_type'];
+                        $elementType = $data['elementable_type'] ?? null;
+
+                        // If using template and elementType is not set, get it from the template
+                        if ($templateId && !$elementType) {
+                            $template = FormElement::find($templateId);
+                            if ($template) {
+                                $elementType = $template->elementable_type;
+                            }
+                        }
+
                         $elementableData = $data['elementable_data'] ?? [];
                         unset($data['elementable_data']);
 
@@ -214,6 +223,10 @@ class BuildFormVersion extends Page implements HasForms
                                 throw new \InvalidArgumentException('Template not found or is not a valid template.');
                             }
                         } else {
+                            // Ensure elementable_type is set for non-template creation
+                            if (!isset($data['elementable_type'])) {
+                                throw new \InvalidArgumentException('Element type is required when not using a template.');
+                            }
                             // Create normally without template
                             // Create the polymorphic model first if there's data
                             $elementableModel = null;
@@ -475,10 +488,11 @@ class BuildFormVersion extends Page implements HasForms
                 ->tabs([
                     \Filament\Forms\Components\Tabs\Tab::make('General')
                         ->icon('heroicon-o-cog')
-                        ->schema(function () {
+                        ->schema(function (callable $get) {
                             return GeneralTabHelper::getCreateSchema(
                                 fn() => $this->shouldShowTooltips(),
-                                true
+                                true,
+                                fn() => !empty($get('template_id'))
                             );
                         }),
                     \Filament\Forms\Components\Tabs\Tab::make('Element Properties')

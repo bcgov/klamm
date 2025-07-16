@@ -652,7 +652,8 @@ class FormElement extends Model
         $elementData = $this->toArray();
 
         // Remove fields that should not be copied (UUID will be auto-generated, but keep reference_id)
-        unset($elementData['id'], $elementData['created_at'], $elementData['updated_at'], $elementData['uuid']);
+        // Also remove order so it gets placed at the bottom
+        unset($elementData['id'], $elementData['created_at'], $elementData['updated_at'], $elementData['uuid'], $elementData['order']);
 
         // Set the new form version and parent
         $elementData['form_version_id'] = $formVersionId;
@@ -661,6 +662,21 @@ class FormElement extends Model
 
         // Keep the reference_id from the template
         $elementData['reference_id'] = $this->reference_id;
+
+        // Set order to place at the bottom
+        if ($parentId) {
+            // Get the highest order for children of this parent
+            $maxOrder = self::where('parent_id', $parentId)->max('order') ?? 0;
+            $elementData['order'] = $maxOrder + 1;
+        } else {
+            // Get the highest order for root elements in this form version
+            $maxOrder = self::where('form_version_id', $formVersionId)
+                ->where(function ($query) {
+                    $query->whereNull('parent_id')->orWhere('parent_id', -1);
+                })
+                ->max('order') ?? 0;
+            $elementData['order'] = $maxOrder + 1;
+        }
 
         // Clone the elementable model first
         $elementableModel = null;
