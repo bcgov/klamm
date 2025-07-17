@@ -22,7 +22,6 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Filament\Forms\Set;
 use Filament\Forms\Components\FileUpload;
 use App\Filament\Forms\Helpers\SchemaParser;
@@ -269,6 +268,7 @@ class BuildFormVersion extends Page implements HasForms
                                             'form_element_id' => $formElement->id,
                                             'form_data_source_id' => $bindingData['form_data_source_id'],
                                             'path' => $bindingData['path'],
+                                            'condition' => $bindingData['condition'] ?? null,
                                             'order' => $index + 1,
                                         ]);
                                     }

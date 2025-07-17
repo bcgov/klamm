@@ -85,8 +85,18 @@ class DataBindingsHelper
                     ->disabled($disabled)
                     ->placeholder("$.['Contact'].['Birth Date']")
                     ->helperText('The path to the data field in the selected data source'),
+                \Filament\Forms\Components\Textarea::make('condition')
+                    ->label('Condition')
+                    ->when($shouldShowTooltipsCallback && $shouldShowTooltipsCallback(), function ($component) {
+                        return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom script condition for this data binding');
+                    })
+                    ->disabled($disabled)
+                    ->placeholder('Enter custom script condition...')
+                    ->helperText('Optional custom script condition for this data binding')
+                    ->rows(3),
             ])
             ->orderColumn('order')
+            ->reorderableWithButtons()
             ->itemLabel(
                 fn(array $state): ?string =>
                 isset($state['form_data_source_id']) && isset($state['path'])
@@ -94,7 +104,6 @@ class DataBindingsHelper
                     : 'New Data Binding'
             )
             ->addActionLabel('Add Data Binding')
-            ->reorderableWithButtons()
             ->collapsible()
             ->collapsed()
             ->columnSpanFull();

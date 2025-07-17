@@ -731,6 +731,6 @@ class FormElementTreeBuilder extends BaseWidget
     public function getNodeCollapsedState(?\Illuminate\Database\Eloquent\Model $record = null): bool
     {
         // All tree nodes will be collapsed by default.
-        return true;
+        return false;
     }
 }

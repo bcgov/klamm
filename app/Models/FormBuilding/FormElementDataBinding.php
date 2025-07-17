@@ -16,6 +16,7 @@ class FormElementDataBinding extends Model
         'form_data_source_id',
         'path',
         'order',
+        'condition',
     ];
 
     protected $casts = [
