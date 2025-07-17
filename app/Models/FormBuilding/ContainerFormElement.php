@@ -5,6 +5,7 @@ namespace App\Models\FormBuilding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\Actions\Action;
 
 class ContainerFormElement extends Model
 {
@@ -41,6 +42,15 @@ class ContainerFormElement extends Model
             \Filament\Forms\Components\TextInput::make('elementable_data.legend')
                 ->label('Legend/Title')
                 ->helperText('Optional title for the container')
+                ->suffixAction(Action::make('generate_label_text')
+                    ->icon('heroicon-o-arrow-path')
+                    ->tooltip('Regenerate from Element Name')
+                    ->action(function (callable $set, callable $get) {
+                        $name = $get('name');
+                        if (!empty($name)) {
+                            $set('elementable_data.legend', $name);
+                        }
+                    }))
                 ->disabled($disabled),
             \Filament\Forms\Components\Toggle::make('elementable_data.is_repeatable')
                 ->label('Repeatable')
