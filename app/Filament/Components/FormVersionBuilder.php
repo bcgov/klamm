@@ -220,12 +220,14 @@ class FormVersionBuilder
                     }
                 }
                 $set($nameField, $displayName);
+                $description = '';
                 $content = '';
                 if ($state) {
                     if ($isScript) {
                         $script = \App\Models\FormBuilding\FormScript::find($state);
                         if ($script) {
                             $content = $script->getJsContent() ?? '';
+                            $description = $script->description ?? '';
                             $sourceCount = preg_match_all('/#{source_id}/', $content);
                             $targetCount = preg_match_all('/#{target_id}/', $content);
                             $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
@@ -247,11 +249,13 @@ class FormVersionBuilder
                             for ($i = 0; $i < $targetCount; $i++) {
                                 $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
                             }
+                            $set('description', $description);
                             $set('target_selections', $targetSelections);
                         }
                     } else {
                         $sheet = \App\Models\FormBuilding\StyleSheet::find($state);
                         if ($sheet) {
+                            $description = $sheet->description ?? '';
                             $content = $sheet->getCssContent() ?? '';
                             if ($autocompleteOptions) {
                                 $sourceCount = preg_match_all('/#{source_id}/', $content);
@@ -286,6 +290,7 @@ class FormVersionBuilder
                                 for ($i = 0; $i < $targetCount; $i++) {
                                     $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
                                 }
+                                $set('description', $description);
                                 $set('target_selections', $targetSelections);
                             }
                         }
@@ -300,8 +305,14 @@ class FormVersionBuilder
                     ->options($options)
                     ->required()
                     ->live()
+                    ->searchable()
                     ->reactive()
                     ->afterStateUpdated($afterStateUpdated),
+                // Show the form description if available
+                Textarea::make('description')
+                    ->label('Form Description')
+                    ->readOnly()
+                    ->visible(fn($get) => !empty($get($selectField)) && !empty($get('description'))),
             ];
 
             // Add repeaters if autocompleteOptions is provided (for both scripts and styles)
@@ -328,7 +339,7 @@ class FormVersionBuilder
                     ->addable(false)
                     ->deletable(false)
                     ->reorderable(false)
-                    ->visible(fn($get) => !empty($get($selectField)));
+                    ->visible(fn($get) => !empty($get($selectField)) && !empty($get('source_selections')));
                 $fields[] = Repeater::make('target_selections')
                     ->label('Target Element Selections')
                     ->schema([
@@ -351,7 +362,7 @@ class FormVersionBuilder
                     ->addable(false)
                     ->deletable(false)
                     ->reorderable(false)
-                    ->visible(fn($get) => !empty($get($selectField)));
+                    ->visible(fn($get) => !empty($get($selectField)) && !empty($get('target_selections')));
             }
 
             $fields[] = TextArea::make($previewField)
