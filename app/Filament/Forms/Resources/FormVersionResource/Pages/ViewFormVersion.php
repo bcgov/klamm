@@ -46,22 +46,20 @@ class ViewFormVersion extends ViewRecord
                 ->color('primary')
                 ->outlined()
                 ->visible(fn() => Gate::allows('form-developer')),
-            Actions\Action::make('Preview Form')
-                ->label('Preview Form')
-                ->icon('heroicon-o-rocket-launch')
-                ->extraAttributes([
-                    'style' => 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;'
-                ])
+            Actions\EditAction::make()
+                ->outlined()
+                ->visible(fn() => $this->record->status === 'draft'),
+            FormApprovalActions::makeReadyForReviewAction($this->record, $this->additionalApprovers),
+            Actions\Action::make('Preview')
+                ->label('Preview')
+                ->icon('heroicon-o-tv')
+                ->color('primary')
                 ->action(function ($livewire) {
                     $formVersionId = $this->record->id;
                     $previewBaseUrl = env('FORM_PREVIEW_URL', '');
                     $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
                     $livewire->js("window.open('$previewUrl', '_blank')");
                 }),
-            Actions\EditAction::make()
-                ->outlined()
-                ->visible(fn() => $this->record->status === 'draft'),
-            FormApprovalActions::makeReadyForReviewAction($this->record, $this->additionalApprovers),
         ];
     }
 
