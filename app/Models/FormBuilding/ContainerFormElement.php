@@ -85,7 +85,7 @@ class ContainerFormElement extends Model
         return [
             'section' => 'Section',
             'fieldset' => 'Fieldset',
-            'div' => 'Div',
+            'page' => 'Page',
             'header' => 'Header',
             'footer' => 'Footer',
         ];
