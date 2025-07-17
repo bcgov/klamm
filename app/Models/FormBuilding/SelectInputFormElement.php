@@ -16,6 +16,7 @@ class SelectInputFormElement extends Model
         'labelText',
         'hideLabel',
         'helperText',
+        'defaultSelected',
     ];
 
     protected $casts = [
@@ -25,6 +26,7 @@ class SelectInputFormElement extends Model
     protected $attributes = [
         'hideLabel' => false,
         'labelText' => '',
+        'defaultSelected' => null,
     ];
 
     /**
@@ -37,6 +39,19 @@ class SelectInputFormElement extends Model
                 ->required(),
             SchemaHelper::getHideLabelToggle($disabled),
             SchemaHelper::getHelperTextField($disabled),
+            \Filament\Forms\Components\Select::make('elementable_data.defaultSelected')
+                ->label('Default Selected Value')
+                ->options(function (callable $get) {
+                    $options = $get('elementable_data.options') ?? [];
+                    $selectOptions = [];
+                    foreach ($options as $option) {
+                        if (!empty($option['value'])) {
+                            $selectOptions[$option['value']] = $option['label'] ?? $option['value'];
+                        }
+                    }
+                    return $selectOptions;
+                })
+                ->disabled($disabled),
             \Filament\Forms\Components\Repeater::make('elementable_data.options')
                 ->label('Options')
                 ->schema([
@@ -97,6 +112,7 @@ class SelectInputFormElement extends Model
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
             'helperText' => $this->helperText,
+            'defaultSelected' => $this->defaultSelected,
         ];
     }
 
@@ -116,6 +132,7 @@ class SelectInputFormElement extends Model
         return [
             'hideLabel' => false,
             'labelText' => '',
+            'defaultSelected' => null,
             'options' => [
                 ['label' => 'Option 1', 'value' => 'option-1']
             ],
