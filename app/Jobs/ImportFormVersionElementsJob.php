@@ -762,6 +762,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 'form_element_id' => $formElement->id,
                 'form_data_source_id' => $formDataSource->id,
                 'path' => $dataBindingInfo['path'],
+                'condition' => $dataBindingInfo['condition'] ?? null,
                 'order' => 1,
             ]);
         } catch (\Exception $e) {

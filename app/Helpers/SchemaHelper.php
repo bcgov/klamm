@@ -5,6 +5,7 @@ namespace App\Helpers;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Actions\Action;
 
 class SchemaHelper
 {
@@ -19,7 +20,18 @@ class SchemaHelper
         return [
             TextInput::make('elementable_data.labelText')
                 ->label('Field Label')
-                ->disabled($disabled),
+                ->disabled($disabled)
+                ->suffixAction(
+                    Action::make('generate_label_text')
+                        ->icon('heroicon-o-arrow-path')
+                        ->tooltip('Regenerate from Element Name')
+                        ->action(function (callable $set, callable $get) {
+                            $name = $get('name');
+                            if (!empty($name)) {
+                                $set('elementable_data.labelText', $name);
+                            }
+                        }),
+                ),
             Toggle::make('elementable_data.hideLabel')
                 ->label('Hide Label')
                 ->default(false)
@@ -40,6 +52,17 @@ class SchemaHelper
     {
         return TextInput::make('elementable_data.labelText')
             ->label('Field Label')
+            ->suffixAction(
+                Action::make('generate_label_text')
+                    ->icon('heroicon-o-arrow-path')
+                    ->tooltip('Regenerate from Element Name')
+                    ->action(function (callable $set, callable $get) {
+                        $name = $get('name');
+                        if (!empty($name)) {
+                            $set('elementable_data.labelText', $name);
+                        }
+                    }),
+            )
             ->disabled($disabled);
     }
 

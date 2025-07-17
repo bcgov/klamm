@@ -183,8 +183,6 @@ class FormVersionJsonService
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
-            'readOnly' => $element->is_read_only,
-            'saveOnSubmit' => $element->save_on_submit,
             'order' => $element->order,
             'options' => $element->elementable?->options ?? [],
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
@@ -298,8 +296,6 @@ class FormVersionJsonService
 
         $elementData['containerId'] = (string)($element->id ?? '');
         $elementData['clear_button'] = false;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
         ];
@@ -311,11 +307,9 @@ class FormVersionJsonService
 
         $elementData['pdfStyles'] = [
             'display' => $element->visible_pdf ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
         $elementData['webStyles'] = [
             'display' => $element->visible_web ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add validation rules
@@ -356,8 +350,6 @@ class FormVersionJsonService
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
         $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -365,11 +357,9 @@ class FormVersionJsonService
         // Add styles
         $elementData['pdfStyles'] = [
             'display' => $element->visible_pdf ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
         $elementData['webStyles'] = [
             'display' => $element->visible_web ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add validation rules
@@ -420,8 +410,6 @@ class FormVersionJsonService
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
         $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -429,11 +417,9 @@ class FormVersionJsonService
         // Add styles
         $elementData['pdfStyles'] = [
             'display' => $element->visible_pdf ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
         $elementData['webStyles'] = [
             'display' => $element->visible_web ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add validation rules
@@ -482,19 +468,15 @@ class FormVersionJsonService
         $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
         ];
 
         $elementData['pdfStyles'] = [
             'display' => $element->visible_pdf ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
         $elementData['webStyles'] = [
             'display' => $element->visible_web ? null : 'none',
-            'readOnly' => (bool)$element->is_read_only,
         ];
 
         // Add input type for specific elements
@@ -673,13 +655,12 @@ class FormVersionJsonService
         $attributes = $this->getElementAttributes($element);
 
         // Handle different validation types based on element attributes
-        if (isset($attributes['required']) && $attributes['required'] || $element->is_required) {
-            $validation[] = [
-                'type' => 'required',
-                'value' => 'true',
-                'errorMessage' => $attributes['required_message'] ?? 'This field is required!'
-            ];
-        }
+        // Always include required validation with the actual boolean value
+        $validation[] = [
+            'type' => 'required',
+            'value' => (bool)($attributes['required'] ?? $element->is_required),
+            'errorMessage' => $attributes['required_message'] ?? 'This field is required!'
+        ];
 
         // Handle min/max length for text fields
         if (isset($attributes['min_length'])) {
@@ -742,15 +723,6 @@ class FormVersionJsonService
             ];
         }
 
-        // Fallback: if element is marked as read-only, add required validation
-        if (empty($validation) && $element->is_read_only) {
-            $validation[] = [
-                'type' => 'required',
-                'value' => 'true',
-                'errorMessage' => 'This field is required!'
-            ];
-        }
-
         return $validation;
     }
 
@@ -758,19 +730,17 @@ class FormVersionJsonService
     {
         $conditions = [];
 
-        if ($element->save_on_submit) {
-            $conditions[] = [
-                'type' => 'saveOnSubmit',
-                'value' => 'true'
-            ];
-        }
+        // Always include saveOnSubmit condition with the actual boolean value
+        $conditions[] = [
+            'type' => 'saveOnSubmit',
+            'value' => $element->save_on_submit ? '{return true}' : '{return false}'
+        ];
 
-        if ($element->is_read_only) {
-            $conditions[] = [
-                'type' => 'readOnly',
-                'value' => 'true'
-            ];
-        }
+        // Always include readOnly condition with the actual boolean value
+        $conditions[] = [
+            'type' => 'readOnly',
+            'value' => $element->is_read_only ? '{return true}' : '{return false}'
+        ];
 
         if (!$element->visible_web && !$element->visible_pdf) {
             $conditions[] = [

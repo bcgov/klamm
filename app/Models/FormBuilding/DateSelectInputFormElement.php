@@ -42,7 +42,7 @@ class DateSelectInputFormElement extends Model
                 \Filament\Forms\Components\Select::make('elementable_data.dateFormat')
                     ->label('Date Format')
                     ->options(static::getDateFormats())
-                    ->default('Y-m-d')
+                    ->default('YYYY-MM-DD')
                     ->disabled($disabled),
                 \Filament\Forms\Components\DatePicker::make('elementable_data.minDate')
                     ->label('Minimum Date')
@@ -86,13 +86,25 @@ class DateSelectInputFormElement extends Model
     public static function getDateFormats(): array
     {
         return [
-            'Y-m-d' => 'YYYY-MM-DD',
-            'd/m/Y' => 'DD/MM/YYYY',
-            'm/d/Y' => 'MM/DD/YYYY',
-            'd-m-Y' => 'DD-MM-YYYY',
-            'm-d-Y' => 'MM-DD-YYYY',
-            'Y-m-d H:i' => 'YYYY-MM-DD HH:MM',
-            'd/m/Y H:i' => 'DD/MM/YYYY HH:MM',
+            'DD/MM/YY' => 'DD/MM/YY',
+            'D-MMM-YY' => 'D-MMM-YY',
+            'MMMM D, YYYY' => 'MMMM D, YYYY',
+            'EEEE, MMMM D, YYYY' => 'EEEE, MMMM D, YYYY',
+            'YYYY-MM-DD' => 'YYYY-MM-DD',
+            'DD/MM/YYYY' => 'DD/MM/YYYY',
+            'D/M/YY' => 'D/M/YY',
+            'YY-MM-DD' => 'YY-MM-DD',
+            'M/DD/YY' => 'M/DD/YY',
+            'DD-MMM-YY' => 'DD-MMM-YY',
+            'DD-MMM-YYYY' => 'DD-MMM-YYYY',
+            'M/D/YYYY' => 'M/D/YYYY',
+            'M/D/YY' => 'M/D/YY',
+            'MM/DD/YY' => 'MM/DD/YY',
+            'MM/DD/YYYY' => 'MM/DD/YYYY',
+            'EEEE, MMMM DD, YYYY' => 'EEEE, MMMM DD, YYYY',
+            'MMMM-DD-YY' => 'MMMM-DD-YY',
+            'MMMM DD, YYYY' => 'MMMM DD, YYYY',
+            'MMMM, YYYY' => 'MMMM, YYYY',
         ];
     }
 }
