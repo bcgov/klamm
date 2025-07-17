@@ -69,6 +69,7 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationSort(2)
                     ->isResourceActionHidden(true)
                     ->isRestoreModelActionHidden(true)
+                    ->isRestoreActionHidden(false)
                     ->resource(CustomActivitylogResource::class)
                     ->authorize(fn() => CheckRole::hasRole(request(), 'admin'))
             ])
