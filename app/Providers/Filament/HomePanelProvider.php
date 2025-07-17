@@ -61,6 +61,7 @@ class HomePanelProvider extends PanelProvider
                     ->navigationItem(false)
                     ->isResourceActionHidden(true)
                     ->isRestoreModelActionHidden(true)
+                    ->isRestoreActionHidden(false)
                     ->resource(CustomActivitylogResource::class)
             ])
             ->middleware([
