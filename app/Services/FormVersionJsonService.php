@@ -183,8 +183,6 @@ class FormVersionJsonService
             'visible_pdf' => $element->visible_pdf,
             'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
-            'readOnly' => $element->is_read_only,
-            'saveOnSubmit' => $element->save_on_submit,
             'order' => $element->order,
             'options' => $element->elementable?->options ?? [],
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
@@ -298,8 +296,6 @@ class FormVersionJsonService
 
         $elementData['containerId'] = (string)($element->id ?? '');
         $elementData['clear_button'] = false;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
         ];
@@ -356,8 +352,6 @@ class FormVersionJsonService
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
         $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -420,8 +414,6 @@ class FormVersionJsonService
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
         $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
-        $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
         ];
@@ -483,7 +475,6 @@ class FormVersionJsonService
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
         $elementData['readOnly'] = $element->is_read_only;
-        $elementData['saveOnSubmit'] = $element->save_on_submit;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'field')
         ];
