@@ -10,10 +10,13 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use SolutionForest\FilamentTree\Concern\ModelTree;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use App\Models\Form;
 
 class FormElement extends Model
 {
-    use HasFactory, ModelTree;
+    use HasFactory, ModelTree, LogsActivity;
 
     protected $fillable = [
         'uuid',
@@ -45,6 +48,16 @@ class FormElement extends Model
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
         'is_template' => 'boolean',
+    ];
+
+    protected static $logAttributes = [
+        'name',
+        'order',
+        'description',
+        'parent_id',
+        'form_version_id',
+        'elementable_type',
+        'help_text',
     ];
 
     public static function boot()
@@ -79,12 +92,60 @@ class FormElement extends Model
         });
     }
 
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(self::$logAttributes)
+            ->dontSubmitEmptyLogs()
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(function (string $eventName) {
+                $elementName = $this->name ?: 'Unnamed Element';
+                $formVersion = $this->formVersion ? $this->formVersion->version_number : 'Unknown Form Version';
+                $formTitle = $this->form ? $this->form->form_title : 'Unknown Form';
+
+                if ($eventName === 'created') {
+                    return "{$elementName} created on Form: {$formTitle}, Version: {$formVersion}";
+                }
+
+                $changes = array_keys($this->getDirty());
+                $changes = array_filter($changes, function ($change) {
+                    return !in_array($change, ['updated_at']);
+                });
+
+                if (!empty($changes)) {
+                    $changes = array_map(function ($change) {
+                        $change = str_replace('_', ' ', $change);
+                        $change = str_replace('form developer', 'developer', $change);
+                        return $change;
+                    }, $changes);
+
+                    $changesStr = implode(', ', array_unique($changes));
+                    return "{$elementName} had changes to: {$changesStr} on Form: {$formTitle}, Version: {$formVersion}";
+                }
+
+                return "{$elementName} was {$eventName} on Form: {$formTitle}, Version: {$formVersion} ";
+            });
+    }
+
+    public function getLogNameToUse(): string
+    {
+        return 'form_elements';
+    }
+
     /**
      * Get the form version that owns the form element.
      */
     public function formVersion(): BelongsTo
     {
         return $this->belongsTo(FormVersion::class);
+    }
+
+    /**
+     * Get the form that owns the form element
+     */
+    public function getFormAttribute()
+    {
+        return $this->formVersion ? $this->formVersion->form : null;
     }
 
     /**
@@ -634,5 +695,99 @@ class FormElement extends Model
     public static function defaultParentKey()
     {
         return -1;
+    }
+
+    /**
+     * Clone this element and all its children recursively
+     *
+     * @param int $formVersionId The target form version ID
+     * @param int|null $parentId The parent ID for the cloned element
+     * @return self The cloned element
+     */
+    public function cloneWithChildren(int $formVersionId, ?int $parentId = null): self
+    {
+        // Load the element with all necessary relationships
+        $this->load(['elementable', 'tags', 'dataBindings', 'children']);
+
+        // Prepare data for the new element
+        $elementData = $this->toArray();
+
+        // Remove fields that should not be copied (UUID will be auto-generated, but keep reference_id)
+        // Also remove order so it gets placed at the bottom
+        unset($elementData['id'], $elementData['created_at'], $elementData['updated_at'], $elementData['uuid'], $elementData['order']);
+
+        // Set the new form version and parent
+        $elementData['form_version_id'] = $formVersionId;
+        $elementData['parent_id'] = $parentId;
+        $elementData['is_template'] = false; // Cloned elements should not be templates
+
+        // Keep the reference_id from the template
+        $elementData['reference_id'] = $this->reference_id;
+
+        // Set order to place at the bottom
+        if ($parentId) {
+            // Get the highest order for children of this parent
+            $maxOrder = self::where('parent_id', $parentId)->max('order') ?? 0;
+            $elementData['order'] = $maxOrder + 1;
+        } else {
+            // Get the highest order for root elements in this form version
+            $maxOrder = self::where('form_version_id', $formVersionId)
+                ->where(function ($query) {
+                    $query->whereNull('parent_id')->orWhere('parent_id', -1);
+                })
+                ->max('order') ?? 0;
+            $elementData['order'] = $maxOrder + 1;
+        }
+
+        // Clone the elementable model first
+        $elementableModel = null;
+        if ($this->elementable) {
+            $elementableData = $this->elementable->toArray();
+            // Remove timestamps and primary key
+            unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+
+            $elementableModel = $this->elementable_type::create($elementableData);
+            $elementData['elementable_id'] = $elementableModel->id;
+        }
+
+        // Create the new form element
+        $newElement = self::create($elementData);
+
+        // Clone options for select/radio elements
+        if ($elementableModel && method_exists($elementableModel, 'options')) {
+            $options = $this->elementable->options()->ordered()->get();
+            foreach ($options as $option) {
+                $optionData = $option->toArray();
+                unset($optionData['id'], $optionData['created_at'], $optionData['updated_at']);
+
+                if ($elementableModel instanceof \App\Models\FormBuilding\SelectInputFormElement) {
+                    \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($elementableModel, $optionData);
+                } elseif ($elementableModel instanceof \App\Models\FormBuilding\RadioInputFormElement) {
+                    \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($elementableModel, $optionData);
+                }
+            }
+        }
+
+        // Clone tags
+        if ($this->tags->isNotEmpty()) {
+            $newElement->tags()->attach($this->tags->pluck('id'));
+        }
+
+        // Clone data bindings
+        foreach ($this->dataBindings as $dataBinding) {
+            \App\Models\FormBuilding\FormElementDataBinding::create([
+                'form_element_id' => $newElement->id,
+                'form_data_source_id' => $dataBinding->form_data_source_id,
+                'path' => $dataBinding->path,
+                'order' => $dataBinding->order,
+            ]);
+        }
+
+        // Recursively clone children
+        foreach ($this->children()->ordered()->get() as $child) {
+            $child->cloneWithChildren($formVersionId, $newElement->id);
+        }
+
+        return $newElement;
     }
 }

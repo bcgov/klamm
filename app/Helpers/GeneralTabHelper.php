@@ -21,12 +21,14 @@ class GeneralTabHelper
      * @param string $mode The form mode: 'create', 'edit', or 'view'
      * @param callable|null $shouldShowTooltipsCallback Callback to determine if tooltips should be shown
      * @param bool $includeTemplateSelector Whether to include the template selector (only for create mode)
+     * @param callable|null $disabledCallback Callback to determine if fields should be disabled
      * @return array The schema array
      */
     public static function getGeneralTabSchema(
         string $mode = 'create',
         ?callable $shouldShowTooltipsCallback = null,
-        bool $includeTemplateSelector = false
+        bool $includeTemplateSelector = false,
+        ?callable $disabledCallback = null
     ): array {
         $disabled = $mode === 'view';
         $isEdit = $mode === 'edit';
@@ -36,7 +38,7 @@ class GeneralTabHelper
 
         // Template selector (only for create mode when explicitly requested)
         if ($includeTemplateSelector && $isCreate) {
-            $schema[] = Select::make('template_id')
+            $templateField = Select::make('template_id')
                 ->label('Start from template')
                 ->placeholder('Select a template (optional)')
                 ->options(function () {
@@ -101,6 +103,15 @@ class GeneralTabHelper
                 })
                 ->searchable()
                 ->columnSpanFull();
+
+            // Add tooltip if callback is provided
+            if ($shouldShowTooltipsCallback) {
+                $templateField = $templateField->when($shouldShowTooltipsCallback, function ($component) {
+                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.');
+                });
+            }
+
+            $schema[] = $templateField;
         }
 
         // Name field
@@ -108,7 +119,7 @@ class GeneralTabHelper
             ->required()
             ->maxLength(255)
             ->label('Element Name')
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add auto-generation logic for create mode
         if ($isCreate) {
@@ -136,7 +147,7 @@ class GeneralTabHelper
         $referenceIdField = TextInput::make('reference_id')
             ->label('Reference ID')
             ->rules(['alpha_dash'])
-            ->disabled($disabled || $isEdit);
+            ->disabled($disabled || $isEdit || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -267,6 +278,7 @@ class GeneralTabHelper
                 ->options(FormElement::getAvailableElementTypes())
                 ->required()
                 ->live()
+                ->disabled($disabled || ($disabledCallback && $disabledCallback()))
                 ->afterStateUpdated(function ($state, callable $set) {
                     // Clear existing elementable data when type changes
                     $set('elementable_data', []);
@@ -297,12 +309,12 @@ class GeneralTabHelper
         // Description field
         $schema[] = Textarea::make('description')
             ->rows(3)
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Help text field
         $helpTextField = TextInput::make('help_text')
             ->maxLength(500)
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -319,18 +331,18 @@ class GeneralTabHelper
                 Toggle::make('visible_web')
                     ->label('Visible on Web')
                     ->default(true)
-                    ->disabled($disabled),
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
                 Toggle::make('visible_pdf')
                     ->label('Visible on PDF')
                     ->default(true)
-                    ->disabled($disabled),
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
             ]);
 
         // Required and Template toggles
         $templateToggle = Toggle::make('is_template')
             ->label('Is Template')
             ->default(false)
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -343,8 +355,8 @@ class GeneralTabHelper
             ->label('Is Required')
             ->default(false);
 
-        // For view mode, disable the is_required toggle too
-        if ($disabled) {
+        // For view mode or when disabled callback is true, disable the is_required toggle too
+        if ($disabled || ($disabledCallback && $disabledCallback())) {
             $requirementToggle = $requirementToggle->disabled(true);
         }
 
@@ -358,12 +370,12 @@ class GeneralTabHelper
         $readOnlyToggle = Toggle::make('is_read_only')
             ->label('Is Read Only')
             ->default(false)
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         $saveOnSubmitToggle = Toggle::make('save_on_submit')
             ->label('Save on Submit')
             ->default(true)
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -383,7 +395,7 @@ class GeneralTabHelper
             ->label('Tags')
             ->multiple()
             ->searchable()
-            ->disabled($disabled);
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -438,16 +450,19 @@ class GeneralTabHelper
      *
      * @param callable|null $shouldShowTooltipsCallback Callback to determine if tooltips should be shown
      * @param bool $includeTemplateSelector Whether to include template selector
+     * @param callable|null $disabledCallback Callback to determine if fields should be disabled
      * @return array The schema array
      */
     public static function getCreateSchema(
         ?callable $shouldShowTooltipsCallback = null,
-        bool $includeTemplateSelector = true
+        bool $includeTemplateSelector = true,
+        ?callable $disabledCallback = null
     ): array {
         return self::getGeneralTabSchema(
             mode: 'create',
             shouldShowTooltipsCallback: $shouldShowTooltipsCallback,
-            includeTemplateSelector: $includeTemplateSelector
+            includeTemplateSelector: $includeTemplateSelector,
+            disabledCallback: $disabledCallback
         );
     }
 

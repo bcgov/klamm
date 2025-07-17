@@ -14,16 +14,19 @@ spec:
       labels:
         app.kubernetes.io/name: klamm-app
     spec:
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
       containers:
         - name: klamm-app
           image: "{{ .Values.image.tag }}"
           ports:
             - containerPort: 8080
           volumeMounts:
-            - name: storage-volume
+            - name: storage-volume 
               mountPath: /var/www/storage
-            - name: form-data-volume
-              mountPath: /var/www/storage/app/form_data
+            - name: public-html-volume 
+              mountPath: /var/www/html/public
           envFrom:
             - secretRef:
                 name: app-secrets
@@ -87,15 +90,11 @@ spec:
         - name: storage-volume
           persistentVolumeClaim:
             claimName: klamm-app-shared-pvc
-        - name: form-data-volume
-          persistentVolumeClaim:
-            claimName: klamm-form-data-pvc
+        - name: public-html-volume 
+          emptyDir: {}
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-      securityContext:
-        runAsNonRoot: true
-        allowPrivilegeEscalation: false
       schedulerName: default-scheduler
   strategy:
     type: Recreate
