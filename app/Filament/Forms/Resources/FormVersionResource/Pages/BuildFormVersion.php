@@ -269,6 +269,7 @@ class BuildFormVersion extends Page implements HasForms
                                             'form_element_id' => $formElement->id,
                                             'form_data_source_id' => $bindingData['form_data_source_id'],
                                             'path' => $bindingData['path'],
+                                            'condition' => $bindingData['condition'] ?? null,
                                             'order' => $index + 1,
                                         ]);
                                     }

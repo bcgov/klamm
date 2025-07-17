@@ -779,6 +779,7 @@ class FormElement extends Model
                 'form_element_id' => $newElement->id,
                 'form_data_source_id' => $dataBinding->form_data_source_id,
                 'path' => $dataBinding->path,
+                'condition' => $dataBinding->condition,
                 'order' => $dataBinding->order,
             ]);
         }
