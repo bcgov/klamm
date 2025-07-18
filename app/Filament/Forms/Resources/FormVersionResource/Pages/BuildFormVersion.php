@@ -323,6 +323,7 @@ class BuildFormVersion extends Page implements HasForms
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('primary')
                 ->outlined()
+                ->visible($this->isEditable())
                 ->modalHeading('Import Form Template')
                 ->modalDescription('Upload a JSON template to import form elements and structure.')
                 ->steps([
