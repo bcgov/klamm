@@ -34,7 +34,7 @@ class NumberInputFormElement extends Model
     protected $attributes = [
         'hideLabel' => false,
         'step' => 1,
-        'formatStyle' => 'decimal',
+        'formatStyle' => 'integer',
     ];
 
     /**
