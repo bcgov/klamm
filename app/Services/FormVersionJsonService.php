@@ -655,12 +655,14 @@ class FormVersionJsonService
         $attributes = $this->getElementAttributes($element);
 
         // Handle different validation types based on element attributes
-        // Always include required validation with the actual boolean value
-        $validation[] = [
-            'type' => 'required',
-            'value' => (bool)($attributes['required'] ?? $element->is_required),
-            'errorMessage' => $attributes['required_message'] ?? 'This field is required!'
-        ];
+        // Only include the required validation if the element is required
+        if (isset($attributes['required']) && $attributes['required'] || $element->is_required) {
+            $validation[] = [
+                'type' => 'required',
+                'value' => (bool)($attributes['required'] ?? $element->is_required),
+                'errorMessage' => $attributes['required_message'] ?? 'This field is required!'
+            ];
+        }
 
         // Handle min/max length for text fields
         if (isset($attributes['min_length'])) {
