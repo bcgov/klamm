@@ -208,7 +208,13 @@ class FormVersionResource extends Resource
                             // Duplicate polymorphic elementable and link to new element
                             if ($element->elementable) {
                                 $elementableData = $element->elementable->getData();
-                                $newElementable = $element->elementable_type::create($elementableData);
+
+                                // Filter out null and empty string values to let model defaults apply
+                                $filteredData = array_filter($elementableData, function ($value) {
+                                    return $value !== null && $value !== '';
+                                });
+
+                                $newElementable = $element->elementable_type::create($filteredData);
                                 $newElement->update(['elementable_id' => $newElementable->id]);
                             }
                         }
