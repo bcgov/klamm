@@ -310,15 +310,19 @@ class FormElementTreeBuilder extends BaseWidget
 
         // Filter out null values from elementable data to let model defaults apply
         // But convert null values to empty strings for text fields that the user might want to clear
-        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'defaultValue', 'content', 'legend', 'repeater_item_label'];
+        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'content', 'legend', 'repeater_item_label'];
+        $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
 
         $filteredElementableData = [];
         foreach ($elementableData as $key => $value) {
-            if ($value !== null) {
+            if ($value !== null && $value !== '') {
                 $filteredElementableData[$key] = $value;
             } elseif (in_array($key, $textFields)) {
                 // For text fields, convert null to empty string (user wants to clear the field)
                 $filteredElementableData[$key] = '';
+            } elseif (in_array($key, $numericFields) && ($value === null || $value === '')) {
+                // For numeric fields, convert null or empty string to null to allow nullable fields
+                $filteredElementableData[$key] = null;
             }
             // For other fields, skip null values to let model defaults apply
         }
@@ -465,15 +469,19 @@ class FormElementTreeBuilder extends BaseWidget
 
         // Filter out null values from elementable data to let model defaults apply
         // But convert null values to empty strings for text fields that the user might want to clear
-        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'defaultValue', 'content', 'legend', 'repeater_item_label'];
+        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'content', 'legend', 'repeater_item_label'];
+        $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
 
         $filteredElementableData = [];
         foreach ($elementableData as $key => $value) {
-            if ($value !== null) {
+            if ($value !== null && $value !== '') {
                 $filteredElementableData[$key] = $value;
             } elseif (in_array($key, $textFields)) {
                 // For text fields, convert null to empty string (user wants to clear the field)
                 $filteredElementableData[$key] = '';
+            } elseif (in_array($key, $numericFields) && ($value === null || $value === '')) {
+                // For numeric fields, convert null or empty string to null to allow nullable fields
+                $filteredElementableData[$key] = null;
             }
             // For other fields, skip null values to let model defaults apply
         }
