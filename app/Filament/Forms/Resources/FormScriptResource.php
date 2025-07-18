@@ -56,7 +56,6 @@ class FormScriptResource extends Resource
                             ->label('Description')
                             ->columnSpanFull()
                             ->rows(5),
-
                         Section::make('Info')
                             ->collapsible()
                             ->collapsed()
@@ -95,6 +94,16 @@ class FormScriptResource extends Resource
                         ->label('Description')
                         ->toggleable()
                         ->sortable()
+                        ->wrap()
+                        ->lineClamp(2)
+                        ->limit(400)
+                        ->tooltip(function (TextColumn $column): ?string {
+                            $state = $column->getState();
+                            if (strlen($state) <= $column->getCharacterLimit()) {
+                                return null;
+                            }
+                            return $state;
+                        })
                         ->searchable(),
                 ]),
             ])
