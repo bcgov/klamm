@@ -27,7 +27,7 @@ use App\Models\Ministry;
 use App\Models\FormMetadata\FormReach;
 use App\Models\FormMetadata\FormFrequency;
 use App\Models\FormMetadata\FormRepository;
-use App\Models\UserType;
+use App\Models\FormMetadata\UserType;
 use App\Filament\Components\FormDeploymentsManager;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
