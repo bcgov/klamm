@@ -39,9 +39,6 @@ class SchemaHelper
             TextInput::make('elementable_data.placeholder')
                 ->label('Placeholder Text')
                 ->disabled($disabled),
-            Textarea::make('elementable_data.helperText')
-                ->label('Helper Text')
-                ->disabled($disabled),
         ];
     }
 
@@ -79,13 +76,6 @@ class SchemaHelper
     {
         return TextInput::make('elementable_data.placeholder')
             ->label('Placeholder Text')
-            ->disabled($disabled);
-    }
-
-    public static function getHelperTextField(bool $disabled = false)
-    {
-        return Textarea::make('elementable_data.helperText')
-            ->label('Helper Text')
             ->disabled($disabled);
     }
 }
