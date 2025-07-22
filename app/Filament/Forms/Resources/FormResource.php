@@ -340,9 +340,11 @@ class FormResource extends Resource
                         Forms\Components\Radio::make('form_frequency_id')
                             ->label('Usage Frequency')
                             ->options($formFrequencyOptions),
-                        Forms\Components\Radio::make('user_types')
-                            ->label('Audience')
-                            ->options($userTypeOptions),
+                        Forms\Components\Select::make('user_types')
+                            ->multiple()
+                            ->preload()
+                            ->relationship('userTypes', 'name')
+                            ->label('Audience'),
                         Forms\Components\Radio::make('form_reach_id')
                             ->label('Audience Size')
                             ->options($formReachOptions),
