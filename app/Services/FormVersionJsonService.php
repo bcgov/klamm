@@ -396,6 +396,7 @@ class FormVersionJsonService
         $attributes = $this->getElementAttributes($element);
         if (!empty($attributes)) {
             $elementData['attributes'] = $this->remapAttributes($attributes);
+            $elementData['attributes']['id'] = $elementData['id'];
         }
 
         $this->addElementStyles($elementData, $element);
