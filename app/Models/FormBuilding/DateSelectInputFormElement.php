@@ -28,7 +28,6 @@ class DateSelectInputFormElement extends Model
 
     protected $attributes = [
         'hideLabel' => false,
-        'dateFormat' => 'YYYY-MM-DD',
     ];
 
     /**

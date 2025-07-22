@@ -17,6 +17,7 @@ use App\Models\FormMetadata\FormTag;
 use App\Models\FormMetadata\FormLocation;
 use App\Models\FormMetadata\FormRepository;
 use App\Models\FormMetadata\FormSoftwareSource;
+use App\Models\FormMetadata\UserType;
 
 class Form extends Model
 {
