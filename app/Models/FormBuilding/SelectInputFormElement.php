@@ -15,7 +15,6 @@ class SelectInputFormElement extends Model
     protected $fillable = [
         'labelText',
         'hideLabel',
-        'helperText',
         'defaultSelected',
     ];
 
@@ -38,7 +37,6 @@ class SelectInputFormElement extends Model
             SchemaHelper::getLabelTextField($disabled)
                 ->required(),
             SchemaHelper::getHideLabelToggle($disabled),
-            SchemaHelper::getHelperTextField($disabled),
             \Filament\Forms\Components\Select::make('elementable_data.defaultSelected')
                 ->label('Default Selected Value')
                 ->options(function (callable $get) {
@@ -111,7 +109,6 @@ class SelectInputFormElement extends Model
         return [
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
-            'helperText' => $this->helperText,
             'defaultSelected' => $this->defaultSelected,
         ];
     }

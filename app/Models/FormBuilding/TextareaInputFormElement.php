@@ -15,7 +15,6 @@ class TextareaInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
-        'helperText',
         'rows',
         'cols',
         'maxCount',
@@ -83,7 +82,6 @@ class TextareaInputFormElement extends Model
             'cols' => $this->cols,
             'maxCount' => $this->maxCount,
             'defaultValue' => $this->defaultValue,
-            'helperText' => $this->helperText,
         ];
     }
 }

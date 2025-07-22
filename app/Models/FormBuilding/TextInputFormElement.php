@@ -15,7 +15,6 @@ class TextInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
-        'helperText',
         'mask',
         'maxCount',
         'defaultValue',
@@ -72,7 +71,6 @@ class TextInputFormElement extends Model
             'mask' => $this->mask,
             'maxCount' => $this->maxCount,
             'defaultValue' => $this->defaultValue,
-            'helperText' => $this->helperText,
         ];
     }
 }

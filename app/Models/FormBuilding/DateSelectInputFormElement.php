@@ -15,7 +15,6 @@ class DateSelectInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
-        'helperText',
         'minDate',
         'maxDate',
         'dateFormat',
@@ -77,7 +76,6 @@ class DateSelectInputFormElement extends Model
             'minDate' => $this->minDate,
             'maxDate' => $this->maxDate,
             'dateFormat' => $this->dateFormat,
-            'helperText' => $this->helperText,
         ];
     }
 
