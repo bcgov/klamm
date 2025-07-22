@@ -19,7 +19,6 @@ class NumberInputFormElement extends Model
         'max',
         'step',
         'defaultValue',
-        'helperText',
         'formatStyle',
     ];
 
@@ -102,7 +101,6 @@ class NumberInputFormElement extends Model
             'max' => $this->max,
             'step' => $this->step,
             'defaultValue' => $this->defaultValue,
-            'helperText' => $this->helperText,
             'formatStyle' => $this->formatStyle,
         ];
     }

@@ -46,26 +46,37 @@ class ViewForm extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\EditAction::make(),
-            Actions\Action::make('view_latest_version')
-                ->label('View latest version')
-                ->icon('heroicon-o-document-text')
-                ->url(function () {
-                    $form = $this->getRecord();
-                    $latestVersion = $form->versions()->latest('version_number')->first();
+        $form = $this->getRecord();
+        $latestVersion = $form->versions()->latest('version_number')->first();
+        $hasVersions = $form->versions()->exists();
 
-                    if ($latestVersion) {
-                        return FormVersionResource::getUrl('view', ['record' => $latestVersion]);
-                    }
+        $actions = [];
 
-                    return null;
-                })
-                ->visible(function () {
-                    $form = $this->getRecord();
-                    return $form->versions()->exists();
-                })
-                ->outlined(),
-        ];
+        if (Gate::allows('admin') || Gate::allows('form-developer')) {
+            $actions[] = Actions\EditAction::make();
+
+            if ($hasVersions) {
+                $actions[] = Actions\Action::make('view_latest_version')
+                    ->label('View latest version')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn() => FormVersionResource::getUrl('view', ['record' => $latestVersion]))
+                    ->outlined();
+            }
+        } else {
+            // For regular users, show preview button if versions exist
+            if ($hasVersions) {
+                $actions[] = Actions\Action::make('preview_latest_version')
+                    ->label('Preview latest version')
+                    ->icon('heroicon-o-tv')
+                    ->action(function () use ($latestVersion) {
+                        $previewBaseUrl = env('FORM_PREVIEW_URL', '');
+                        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $latestVersion->id;
+                        $this->js("window.open('$previewUrl', '_blank')");
+                    })
+                    ->color('primary');
+            }
+        }
+
+        return $actions;
     }
 }

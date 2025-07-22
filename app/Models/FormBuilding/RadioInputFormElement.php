@@ -17,7 +17,6 @@ class RadioInputFormElement extends Model
         'hideLabel',
         'defaultSelected',
         'labelPosition',
-        'helperText',
         'orientation',
     ];
 
@@ -50,7 +49,6 @@ class RadioInputFormElement extends Model
                 ->default('right')
                 ->visible(fn(callable $get): bool => !$get('elementable_data.hideLabel'))
                 ->disabled($disabled),
-            SchemaHelper::getHelperTextField($disabled),
             \Filament\Forms\Components\Select::make('elementable_data.orientation')
                 ->label('Orientation')
                 ->options([
@@ -133,7 +131,6 @@ class RadioInputFormElement extends Model
             'hideLabel' => $this->hideLabel,
             'defaultSelected' => $this->defaultSelected,
             'labelPosition' => $this->labelPosition,
-            'helperText' => $this->helperText,
             'orientation' => $this->orientation,
         ];
     }

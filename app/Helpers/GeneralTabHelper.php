@@ -143,11 +143,12 @@ class GeneralTabHelper
 
         $schema[] = $nameField;
 
-        // Reference ID field - only editable on create
+        // Reference ID field - editable on create and edit
         $referenceIdField = TextInput::make('reference_id')
             ->label('Reference ID')
             ->rules(['alpha_dash'])
-            ->disabled($disabled || $isEdit || ($disabledCallback && $disabledCallback()));
+            ->live()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -158,7 +159,18 @@ class GeneralTabHelper
 
         // Add suffix and actions for edit mode
         if ($isEdit) {
+            $schema[] = Hidden::make('reference_id_locked');
             $referenceIdField = $referenceIdField
+                ->prefixAction(
+                    Action::make('toggleLock')
+                        ->icon(fn($get) => $get('reference_id_locked') ? 'heroicon-s-lock-open' : 'heroicon-s-lock-closed')
+                        ->tooltip(fn($get) => $get('reference_id_locked')
+                            ? ''
+                            : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings.')->action(function ($set, $get) {
+                            $set('reference_id_locked', true);
+                        })
+                )
+                ->disabled(fn($get) => !$get('reference_id_locked'))
                 ->suffix(function ($get) {
                     return $get('uuid') ? $get('uuid') : '';
                 })

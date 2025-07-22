@@ -15,7 +15,6 @@ class CheckboxInputFormElement extends Model
         'labelText',
         'hideLabel',
         'defaultChecked',
-        'helperText',
     ];
 
     protected $casts = [
@@ -42,7 +41,6 @@ class CheckboxInputFormElement extends Model
                 ->label('Default Checked')
                 ->default(false)
                 ->disabled($disabled),
-            SchemaHelper::getHelperTextField($disabled),
         ];
     }
 
@@ -63,7 +61,6 @@ class CheckboxInputFormElement extends Model
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
             'defaultChecked' => $this->defaultChecked,
-            'helperText' => $this->helperText,
         ];
     }
 
