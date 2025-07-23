@@ -225,6 +225,7 @@ class FormElementTreeBuilder extends BaseWidget
             'ContainerFormElement' => 'heroicon-o-rectangle-group',
             'HTMLFormElement' => 'heroicon-o-code-bracket',
             'TextInfoFormElement' => 'heroicon-o-information-circle',
+            'DateSelectInputFormElement' => 'heroicon-o-calendar-days',
             default => 'heroicon-o-cube',
         };
     }
