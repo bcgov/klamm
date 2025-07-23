@@ -265,7 +265,11 @@ class FormElementTreeBuilder extends BaseWidget
         }
 
         $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
-        return "[{$elementTypeName}] {$record->name}";
+        return sprintf(
+            '<span class="text-gray-400">[%s]</span> %s',
+            e($elementTypeName),
+            e($record->name)
+        );
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
