@@ -57,6 +57,7 @@ class SelectInputFormElement extends Model
                         ->label('Option Label')
                         ->required()
                         ->columnSpan(2)
+                        ->autocomplete(false)
                         ->live(onBlur: true)
                         ->afterStateUpdated(function (callable $set, callable $get, $state) {
                             $value = $get('value');

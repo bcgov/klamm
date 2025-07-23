@@ -83,6 +83,7 @@ class DataBindingsHelper
                     })
                     ->required(!$disabled)
                     ->disabled($disabled)
+                    ->autocomplete(false)
                     ->placeholder("$.['Contact'].['Birth Date']")
                     ->helperText('The path to the data field in the selected data source'),
                 \Filament\Forms\Components\Textarea::make('condition')
