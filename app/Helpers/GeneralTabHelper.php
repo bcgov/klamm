@@ -119,6 +119,7 @@ class GeneralTabHelper
             ->required()
             ->maxLength(255)
             ->label('Element Name')
+            ->autocomplete(false)
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add auto-generation logic for create mode
@@ -148,6 +149,7 @@ class GeneralTabHelper
             ->label('Reference ID')
             ->rules(['alpha_dash'])
             ->live()
+            ->autocomplete(false)
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
@@ -174,6 +176,7 @@ class GeneralTabHelper
                 ->suffix(function ($get) {
                     return $get('uuid') ? $get('uuid') : '';
                 })
+                ->autocomplete(false)
                 ->suffixAction(
                     Action::make('copy')
                         ->icon('heroicon-s-clipboard')
@@ -326,6 +329,7 @@ class GeneralTabHelper
         // Help text field
         $helpTextField = TextInput::make('help_text')
             ->maxLength(500)
+            ->autocomplete(false)
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided

@@ -29,6 +29,7 @@ class ButtonInputFormElement extends Model
                 ->label('Button Text')
                 ->default('Submit')
                 ->required(true)
+                ->autocomplete(false)
                 ->disabled($disabled),
             \Filament\Forms\Components\Select::make('elementable_data.kind')
                 ->label('Button Kind')

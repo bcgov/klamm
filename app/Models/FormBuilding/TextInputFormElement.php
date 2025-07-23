@@ -39,6 +39,7 @@ class TextInputFormElement extends Model
             [
                 \Filament\Forms\Components\TextInput::make('elementable_data.mask')
                     ->label('Input Mask')
+                    ->autocomplete(false)
                     ->disabled($disabled),
                 \Filament\Forms\Components\TextInput::make('elementable_data.maxCount')
                     ->label('Maximum Character Count')

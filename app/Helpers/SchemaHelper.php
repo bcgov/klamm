@@ -21,6 +21,7 @@ class SchemaHelper
             TextInput::make('elementable_data.labelText')
                 ->label('Field Label')
                 ->disabled($disabled)
+                ->autocomplete(false)
                 ->suffixAction(
                     Action::make('generate_label_text')
                         ->icon('heroicon-o-arrow-path')
@@ -38,6 +39,7 @@ class SchemaHelper
                 ->disabled($disabled),
             TextInput::make('elementable_data.placeholder')
                 ->label('Placeholder Text')
+                ->autocomplete(false)
                 ->disabled($disabled),
         ];
     }
