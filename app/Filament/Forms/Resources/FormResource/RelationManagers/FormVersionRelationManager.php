@@ -93,7 +93,7 @@ class FormVersionRelationManager extends RelationManager
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer'))
                     ->action(function ($record) {
                         // Create a new version with incremented version number
-                        $newVersion = $record->replicate(['version_number', 'status', 'created_at', 'updated_at']);
+                        $newVersion = $record->replicate(['version_number', 'status', 'uuid', 'created_at', 'updated_at']);
                         $newVersion->version_number = FormVersion::where('form_id', $record->form_id)->max('version_number') + 1;
                         $newVersion->status = 'draft';
                         $newVersion->form_developer_id = Auth::id();
