@@ -69,7 +69,7 @@ class FormVersionJsonService
 
         $preMigrationData = [
             'version' => $formVersion->version_number,
-            'id' => $formVersion->uuid,
+            'id' => Str::uuid(),
             'lastModified' => $formVersion->updated_at?->format('c') ?? now()->format('c'),
             'title' => $formVersion->form->form_title ?? 'Unknown Form',
             'form_id' => $formVersion->form->form_id ?? '',
