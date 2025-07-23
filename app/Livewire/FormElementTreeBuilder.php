@@ -291,28 +291,6 @@ class FormElementTreeBuilder extends BaseWidget
         );
     }
 
-    // /**
-    //  * Get a plain text version of the record title for modals
-    //  */
-    // public function getRecordTitle(?\Illuminate\Database\Eloquent\Model $record = null): string
-    // {
-    //     return "hey";
-    //     if (!$record) {
-    //         return '';
-    //     }
-
-    //     // Load data bindings if not already loaded
-    //     if (!$record->relationLoaded('dataBindings')) {
-    //         $record->load('dataBindings');
-    //     }
-
-    //     $hasDataBindings = $record->dataBindings->isNotEmpty();
-    //     $bindingIndicator = $hasDataBindings ? '🟢 ' : '';
-
-    //     $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
-    //     return $bindingIndicator . '[' . $elementTypeName . '] ' . $record->name;
-    // }
-
     protected function mutateFormDataBeforeFill(array $data): array
     {
         // Load polymorphic data into elementable_data field for editing
