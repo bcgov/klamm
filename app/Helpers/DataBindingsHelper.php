@@ -82,6 +82,7 @@ class DataBindingsHelper
                         return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'The full string referencing the ICM data');
                     })
                     ->required(!$disabled)
+                    ->regex('/^(\$\.)?(\[\'[A-Za-z0-9_-]+\'\])(\.(\[\'[A-Za-z0-9_-]+\'\]))*$/')
                     ->disabled($disabled)
                     ->autocomplete(false)
                     ->placeholder("$.['Contact'].['Birth Date']")
