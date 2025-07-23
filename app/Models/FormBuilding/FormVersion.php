@@ -21,7 +21,6 @@ use App\Models\FormApprovalRequest;
 use App\Models\FormMetadata\FormDataSource;
 use App\Models\FormBuilding\FormVersionFormDataSource;
 use Spatie\Activitylog\Models\Activity;
-use Illuminate\Support\Str;
 
 class FormVersion extends Model
 {
@@ -38,7 +37,6 @@ class FormVersion extends Model
         'pdf_template_version',
         'pdf_template_parameters',
         'uses_pets_template',
-        'uuid',
     ];
 
     protected $casts = [
@@ -64,11 +62,6 @@ class FormVersion extends Model
                 ->first();
 
             $formVersion->version_number = $latestVersion ? $latestVersion->version_number + 1 : 1;
-
-            // Auto-generate UUID if not provided
-            if (empty($formVersion->uuid)) {
-                $formVersion->uuid = (string) Str::uuid();
-            }
         });
 
         // After saving a form version, invalidate related caches and dispatch event

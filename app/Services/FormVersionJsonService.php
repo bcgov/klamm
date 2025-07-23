@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
+use Illuminate\Support\Str;
 
 class FormVersionJsonService
 {
@@ -24,9 +25,8 @@ class FormVersionJsonService
         ]);
 
         $formVersionData = [
-            'uuid' => $formVersion->uuid,
             'name' => $formVersion->form->form_title ?? 'Unknown Form',
-            'id' => $formVersion->form->form_id ?? '',
+            'id' => Str::uuid(),
             'version' => $formVersion->version_number,
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion),
