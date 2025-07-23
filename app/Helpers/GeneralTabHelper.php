@@ -353,6 +353,13 @@ class GeneralTabHelper
                     ->default(true)
                     ->disabled($disabled || ($disabledCallback && $disabledCallback())),
             ]);
+        $schema[] = Grid::make(1)
+            ->schema([
+                TextArea::make('custom_visibility')
+                    ->label('Custom Visibility Script')
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                    ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom visibility script to control when this element is shown. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.'),
+            ]);
 
         // Required and Template toggles
         $templateToggle = Toggle::make('is_template')
@@ -386,6 +393,7 @@ class GeneralTabHelper
         $readOnlyToggle = Toggle::make('is_read_only')
             ->label('Is Read Only')
             ->default(false)
+            ->live()
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         $saveOnSubmitToggle = Toggle::make('save_on_submit')
@@ -405,6 +413,17 @@ class GeneralTabHelper
                 $readOnlyToggle,
                 $saveOnSubmitToggle,
             ]);
+
+        $schema[] = Grid::make(1)
+            ->schema([
+                TextArea::make('custom_read_only')
+                    ->label('Custom Read Only Script')
+                    ->visible(fn($get) => $get('is_read_only'))
+                    ->reactive()
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                    ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom read only script to control when this element is read only. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.'),
+            ]);
+
 
         // Tags field
         $tagsField = Select::make('tags')

@@ -30,10 +30,12 @@ class FormElement extends Model
         'help_text',
         'calculated_value',
         'is_read_only',
+        'custom_read_only',
         'is_required',
         'save_on_submit',
         'visible_web',
         'visible_pdf',
+        'custom_visibility',
         'is_template',
         'source_element_id',
     ];
