@@ -73,7 +73,7 @@ class FormVersionJsonService
             'lastModified' => $formVersion->updated_at?->format('c') ?? now()->format('c'),
             'title' => $formVersion->form->form_title ?? 'Unknown Form',
             'form_id' => $formVersion->form->form_id ?? '',
-            'deployed_to' => null,
+            'deployed_to' => '',
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'data' => [
@@ -852,9 +852,9 @@ class FormVersionJsonService
                 'type' => $formDataSource->type,
                 'endpoint' => $formDataSource->endpoint,
                 'description' => $formDataSource->description,
-                'params' => $formDataSource->params,
+                'params' => $this->decodeJsonField($formDataSource->params),
                 'body' => $formDataSource->body,
-                'headers' => $formDataSource->headers,
+                'headers' => $this->decodeJsonField($formDataSource->headers),
                 'host' => $formDataSource->host,
                 'order' => $formDataSource->pivot->order ?? 0,
             ];
@@ -871,6 +871,24 @@ class FormVersionJsonService
         return preg_replace_callback('/_([a-z])/', function ($matches) {
             return strtoupper($matches[1]);
         }, $str);
+    }
+
+    /**
+     * Decode JSON field to object/array, return empty object if invalid or empty.
+     */
+    protected function decodeJsonField(?string $jsonString): array|object
+    {
+        if (empty($jsonString)) {
+            return (object)[];
+        }
+
+        $decoded = json_decode($jsonString, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return (object)[];
+        }
+
+        return is_array($decoded) ? (object)$decoded : (object)[];
     }
 
     /**
