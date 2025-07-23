@@ -116,6 +116,11 @@ class FormElementTreeBuilder extends BaseWidget
     {
         $actions = [
             ViewAction::make()
+                ->modalHeading(fn($record) => sprintf(
+                    '[%s] %s',
+                    FormElement::getElementTypeName($record->elementable_type),
+                    $record->name
+                ))
                 ->form($this->getViewFormSchema())
                 ->fillForm(function ($record) {
                     $data = $record->toArray();
@@ -156,6 +161,11 @@ class FormElementTreeBuilder extends BaseWidget
         // Only add Edit and Delete actions if editable
         if ($this->editable) {
             $actions[] = EditAction::make()
+                ->modalHeading(fn($record) => sprintf(
+                    '[%s] %s',
+                    FormElement::getElementTypeName($record->elementable_type),
+                    $record->name
+                ))
                 ->form($this->getEditFormSchema())
                 ->fillForm(function ($record) {
                     $data = $record->toArray();
@@ -280,6 +290,28 @@ class FormElementTreeBuilder extends BaseWidget
             e($record->name)
         );
     }
+
+    // /**
+    //  * Get a plain text version of the record title for modals
+    //  */
+    // public function getRecordTitle(?\Illuminate\Database\Eloquent\Model $record = null): string
+    // {
+    //     return "hey";
+    //     if (!$record) {
+    //         return '';
+    //     }
+
+    //     // Load data bindings if not already loaded
+    //     if (!$record->relationLoaded('dataBindings')) {
+    //         $record->load('dataBindings');
+    //     }
+
+    //     $hasDataBindings = $record->dataBindings->isNotEmpty();
+    //     $bindingIndicator = $hasDataBindings ? '🟢 ' : '';
+
+    //     $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
+    //     return $bindingIndicator . '[' . $elementTypeName . '] ' . $record->name;
+    // }
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
