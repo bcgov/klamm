@@ -264,9 +264,18 @@ class FormElementTreeBuilder extends BaseWidget
             return '';
         }
 
+        // Load data bindings if not already loaded
+        if (!$record->relationLoaded('dataBindings')) {
+            $record->load('dataBindings');
+        }
+
+        $hasDataBindings = $record->dataBindings->isNotEmpty();
+        $bindingIndicator = $hasDataBindings ? '<span class="mr-1">🟢</span>' : '';
+
         $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
         return sprintf(
-            '<span class="text-gray-400">[%s]</span> %s',
+            '%s<span class="text-gray-400">[%s]</span> %s',
+            $bindingIndicator,
             e($elementTypeName),
             e($record->name)
         );
