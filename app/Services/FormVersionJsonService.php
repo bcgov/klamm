@@ -497,12 +497,10 @@ class FormVersionJsonService
             $elementData['conditions'] = $conditions;
         }
 
-        // Add data bindings if element saves on submit
-        if ($element->save_on_submit) {
-            $databindings = $this->getDataBindingsForPreMigration($element);
-            if (!empty($databindings)) {
-                $elementData['databindings'] = $databindings;
-            }
+        // Add data bindings if they exist
+        $dataBindings = $this->getDataBindings($element);
+        if (!empty($dataBindings)) {
+            $elementData['dataBindings'] = $dataBindings;
         }
 
         // Add special properties for specific element types
@@ -832,22 +830,6 @@ class FormVersionJsonService
         }
 
         return $dataBindings;
-    }
-
-    protected function getDataBindingsForPreMigration(FormElement $element): array
-    {
-        // For the pre-migration format, we just return 1 binding
-        // If there are multiple bindings, lets just grab the first one by order
-        $firstBinding = $element->dataBindings->sortBy('order')->first();
-
-        if (!$firstBinding) {
-            return [];
-        }
-
-        return [
-            'source' => $firstBinding->formDataSource->name ?? 'Unknown',
-            'path' => $firstBinding->path
-        ];
     }
 
     protected function getDataSources(FormVersion $formVersion): array
