@@ -35,6 +35,7 @@ class CheckboxInputFormElement extends Model
         return [
             SchemaHelper::getLabelTextField($disabled)
                 ->label('Checkbox Label')
+                ->autocomplete(false)
                 ->required(),
             SchemaHelper::getHideLabelToggle($disabled),
             \Filament\Forms\Components\Toggle::make('elementable_data.defaultChecked')
