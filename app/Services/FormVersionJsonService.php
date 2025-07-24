@@ -739,16 +739,24 @@ class FormVersionJsonService
             'value' => $element->save_on_submit ? '{return true}' : '{return false}'
         ];
 
-        // Always include readOnly condition with the actual boolean value
-        $conditions[] = [
-            'type' => 'readOnly',
-            'value' => $element->is_read_only ? '{return true}' : '{return false}'
-        ];
+        if (!empty($element->custom_read_only) && $element->is_read_only) {
+            $conditions[] = [
+                'type' => 'readOnly',
+                'value' => $element->custom_read_only
+            ];
+        } else {
+            // If no custom read-only condition, use the default read-only state
+            $conditions[] = [
+                'type' => 'readOnly',
+                'value' => $element->is_read_only ? '{return true}' : '{return false}'
+            ];
+        }
 
-        if (!$element->visible_web && !$element->visible_pdf) {
+        // Only include visibility condition if custom_visibility is set and not empty
+        if (!empty($element->custom_visibility)) {
             $conditions[] = [
                 'type' => 'visibility',
-                'value' => 'NOT visible'
+                'value' => $element->custom_visibility
             ];
         }
 
