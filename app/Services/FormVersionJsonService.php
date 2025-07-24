@@ -824,22 +824,6 @@ class FormVersionJsonService
         return $dataBindings;
     }
 
-    protected function getDataBindingsForPreMigration(FormElement $element): array
-    {
-        // For the pre-migration format, we just return 1 binding
-        // If there are multiple bindings, lets just grab the first one by order
-        $firstBinding = $element->dataBindings->sortBy('order')->first();
-
-        if (!$firstBinding) {
-            return [];
-        }
-
-        return [
-            'source' => $firstBinding->formDataSource->name ?? 'Unknown',
-            'path' => $firstBinding->path
-        ];
-    }
-
     protected function getDataSources(FormVersion $formVersion): array
     {
         $dataSources = [];
