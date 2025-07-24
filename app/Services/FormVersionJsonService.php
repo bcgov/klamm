@@ -497,12 +497,10 @@ class FormVersionJsonService
             $elementData['conditions'] = $conditions;
         }
 
-        // Add data bindings if element saves on submit
-        if ($element->save_on_submit) {
-            $databindings = $this->getDataBindingsForPreMigration($element);
-            if (!empty($databindings)) {
-                $elementData['databindings'] = $databindings;
-            }
+        // Add data bindings if they exist
+        $dataBindings = $this->getDataBindings($element);
+        if (!empty($dataBindings)) {
+            $elementData['dataBindings'] = $dataBindings;
         }
 
         // Add special properties for specific element types
