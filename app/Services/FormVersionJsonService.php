@@ -466,7 +466,12 @@ class FormVersionJsonService
     {
         $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         // Basic properties for all standard elements
-        $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
+        $attributes = $this->getElementAttributes($element);
+        if (isset($attributes['hideLabel']) && $attributes['hideLabel']) {
+            $elementData['label'] = '';
+        } else {
+            $elementData['label'] = $attributes['labelText'] ?? '';
+        }
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
         $elementData['codeContext'] = [
@@ -920,9 +925,6 @@ class FormVersionJsonService
             } else {
                 $result[$this->toCamelCase($k)] = $v;
             }
-        }
-        if (isset($result['hideLabel'])) {
-            unset($result['labelText']);
         }
         return $result;
     }
