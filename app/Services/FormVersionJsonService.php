@@ -921,6 +921,9 @@ class FormVersionJsonService
                 $result[$this->toCamelCase($k)] = $v;
             }
         }
+        if (isset($result['hideLabel'])) {
+            unset($result['labelText']);
+        }
         return $result;
     }
 
