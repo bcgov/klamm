@@ -894,16 +894,8 @@ class FormVersionJsonService
     protected function customAttributeMapping(string $key, $value): ?array
     {
         switch ($key) {
-            case 'default_value':
+            case 'defaultValue':
                 return ['value', $value];
-            case 'button_type':
-                return ['kind', $value];
-            case 'default_date':
-                return ['value', $value];
-            case 'placeholder_text':
-                return ['placeholder', $value];
-            case 'visible_label':
-                return ['hideLabel', !$value];
             default:
                 return null;
         }
@@ -928,6 +920,9 @@ class FormVersionJsonService
             } else {
                 $result[$this->toCamelCase($k)] = $v;
             }
+        }
+        if (isset($result['hideLabel'])) {
+            unset($result['labelText']);
         }
         return $result;
     }

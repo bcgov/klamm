@@ -28,6 +28,7 @@ class DateSelectInputFormElement extends Model
 
     protected $attributes = [
         'hideLabel' => false,
+        'dateFormat' => 'YYYY-MMM-DD',
     ];
 
     /**
@@ -41,7 +42,8 @@ class DateSelectInputFormElement extends Model
                 \Filament\Forms\Components\Select::make('elementable_data.dateFormat')
                     ->label('Date Format')
                     ->options(static::getDateFormats())
-                    ->default('YYYY-MM-DD')
+                    ->default('YYYY-MMM-DD')
+                    ->required()
                     ->disabled($disabled),
                 \Filament\Forms\Components\DatePicker::make('elementable_data.minDate')
                     ->label('Minimum Date')
