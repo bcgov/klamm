@@ -354,12 +354,20 @@ class GeneralTabHelper
                     ->default(true)
                     ->disabled($disabled || ($disabledCallback && $disabledCallback())),
             ]);
+        $customVisibilityField = TextArea::make('custom_visibility')
+            ->label('Custom Visibility Script')
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Add tooltip if callback is provided
+        if ($shouldShowTooltipsCallback) {
+            $customVisibilityField = $customVisibilityField->when($shouldShowTooltipsCallback, function ($component) {
+                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom visibility script to control when this element is shown. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.');
+            });
+        }
+
         $schema[] = Grid::make(1)
             ->schema([
-                TextArea::make('custom_visibility')
-                    ->label('Custom Visibility Script')
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                    ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom visibility script to control when this element is shown. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.'),
+                $customVisibilityField,
             ]);
 
         // Required and Template toggles
