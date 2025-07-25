@@ -52,12 +52,13 @@ class GeneralTabHelper
                     foreach ($templates as $template) {
                         $elementType = $template->elementable_type;
                         $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
+                        $typeName = $availableTypes[$elementType] ?? class_basename($elementType);
 
                         if (!isset($groupedOptions[$groupName])) {
                             $groupedOptions[$groupName] = [];
                         }
 
-                        $groupedOptions[$groupName][$template->id] = $template->name;
+                        $groupedOptions[$groupName][$template->id] = $template->name . ' (' . $typeName . ')';
                     }
 
                     // Sort groups alphabetically

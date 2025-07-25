@@ -645,33 +645,6 @@ class FormElement extends Model
     }
 
     /**
-     * Get computed value (calculated_value or default based on element type)
-     */
-    public function getComputedValue(): ?string
-    {
-        if ($this->calculated_value) {
-            return $this->calculated_value;
-        }
-
-        // Default values based on element type
-        if ($this->elementable) {
-            if ($this->elementable instanceof NumberInputFormElement && $this->elementable->default_value !== null) {
-                return (string) $this->elementable->default_value;
-            }
-
-            if ($this->elementable instanceof DateSelectInputFormElement && $this->elementable->default_date) {
-                return $this->elementable->default_date->format($this->elementable->date_format ?? 'Y-m-d');
-            }
-
-            if ($this->elementable instanceof RadioInputFormElement && $this->elementable->default_value) {
-                return $this->elementable->default_value;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Set visibility for specific platforms
      */
     public function setVisibilityFor(array $platforms): self
