@@ -9,6 +9,7 @@ use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormMetadata\FormDataSource;
+use App\Models\FormMetadata\FormInterface;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
@@ -25,6 +26,7 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\Hidden;
 
 class FormVersionResource extends Resource
 {
@@ -122,6 +124,117 @@ class FormVersionResource extends Resource
                                             ->columnSpanFull()
                                             ->visible(fn(callable $get) => $get('uses_pets_template')),
                                     ]),
+                                Repeater::make('formVersionFormInterfaces')
+                                    ->label('Form Interfaces')
+                                    ->relationship()
+                                    ->schema([
+                                        Select::make('form_interface_id')
+                                            ->label('Interface')
+                                            ->options(function () {
+                                                return \App\Models\FormMetadata\FormInterface::all()
+                                                    ->mapWithKeys(fn($i) => [
+                                                        $i->id => $i->label . ($i->description ? ' — ' . $i->description : '')
+                                                    ]);
+                                            })
+                                            ->searchable()
+                                            ->preload()
+                                            ->required()
+                                            ->columnSpanFull()
+                                            ->live()
+                                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                                            ->afterStateUpdated(function ($state, callable $set) {
+                                                if ($state) {
+                                                    $interface = \App\Models\FormMetadata\FormInterface::with('actions')->find($state);
+                                                    if ($interface) {
+                                                        $set('interface_label', $interface->label);
+                                                        $set('interface_description', $interface->description);
+                                                        $set('interface_actions', $interface->actions->toArray());
+                                                    }
+                                                }
+                                            }),
+                                        // Collapsible details
+                                        Section::make('Interface Details')
+                                            ->collapsed()
+                                            ->schema([
+                                                TextInput::make('interface_label')
+                                                    ->label('Label')
+                                                    ->disabled()
+                                                    ->dehydrated(false)
+                                                    ->formatStateUsing(function ($state, $get, $record) {
+                                                        // For existing records, get from the related interface
+                                                        if ($record && isset($record->form_interface_id)) {
+                                                            $interface = \App\Models\FormMetadata\FormInterface::find($record->form_interface_id);
+                                                            return $interface?->label ?? '';
+                                                        }
+                                                        return $state ?? '';
+                                                    }),
+                                                Textarea::make('interface_description')
+                                                    ->label('Description')
+                                                    ->disabled()
+                                                    ->dehydrated(false)
+                                                    ->formatStateUsing(function ($state, $get, $record) {
+                                                        if ($record && isset($record->form_interface_id)) {
+                                                            $interface = \App\Models\FormMetadata\FormInterface::find($record->form_interface_id);
+                                                            return $interface?->description ?? '';
+                                                        }
+                                                        return $state ?? '';
+                                                    }),
+                                                Repeater::make('interface_actions')
+                                                    ->label('Actions')
+                                                    ->schema([
+                                                        TextInput::make('label')->disabled(),
+                                                        TextInput::make('action_type')->disabled(),
+                                                        TextInput::make('type')->disabled(),
+                                                        TextInput::make('host')->disabled(),
+                                                        TextInput::make('path')->disabled(),
+                                                        TextInput::make('authentication')->disabled(),
+                                                        Repeater::make('headers')
+                                                            ->label('Headers')
+                                                            ->schema([
+                                                                TextInput::make('key')->disabled(),
+                                                                TextInput::make('value')->disabled(),
+                                                            ])
+                                                            ->disabled(),
+                                                        Repeater::make('body')
+                                                            ->label('Body')
+                                                            ->schema([
+                                                                TextInput::make('key')->disabled(),
+                                                                TextInput::make('value')->disabled(),
+                                                            ])
+                                                            ->disabled(),
+                                                        Repeater::make('parameters')
+                                                            ->label('Parameters')
+                                                            ->schema([
+                                                                TextInput::make('key')->disabled(),
+                                                                TextInput::make('value')->disabled(),
+                                                            ])
+                                                            ->disabled(),
+                                                    ])
+                                                    ->disabled()
+                                                    ->dehydrated(false)
+                                                    ->formatStateUsing(function ($state, $get, $record) {
+                                                        if ($record && isset($record->form_interface_id)) {
+                                                            $interface = \App\Models\FormMetadata\FormInterface::with('actions')->find($record->form_interface_id);
+                                                            return $interface ? $interface->actions->toArray() : [];
+                                                        }
+                                                        return $state ?? [];
+                                                    })
+                                                    ->columnSpanFull(),
+                                            ]),
+                                    ])
+                                    ->orderColumn('order')
+                                    ->itemLabel(function (array $state, $record): ?string {
+                                        $interfaceId = $state['form_interface_id'] ?? $record?->form_interface_id ?? null;
+                                        if ($interfaceId) {
+                                            $interface = FormInterface::find($interfaceId);
+                                            return $interface?->label ?? 'Unknown Interface';
+                                        }
+                                        return 'New Interface';
+                                    })
+                                    ->addActionLabel('Add Interface')
+                                    ->collapsed()
+                                    ->columnSpanFull()
+                                    ->defaultItems(0),
                                 Textarea::make('comments')
                                     ->columnSpanFull()
                                     ->maxLength(500),

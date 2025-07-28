@@ -838,6 +838,7 @@ class FormVersionJsonService
                 'source' => $dataBinding->formDataSource->name ?? 'Unknown',
                 'path' => $dataBinding->path,
                 'order' => $dataBinding->order,
+                'condition' => $dataBinding->condition,
             ];
         }
 
@@ -909,7 +910,9 @@ class FormVersionJsonService
             case 'defaultValue':
                 return ['value', $value];
             case 'dateFormat':
-                return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
+                if ($value) {
+                    return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
+                }
             default:
                 return null;
         }
