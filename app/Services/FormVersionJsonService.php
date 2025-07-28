@@ -575,6 +575,12 @@ class FormVersionJsonService
     protected function addElementSpecificProperties(array &$elementData, FormElement $element, string $elementType): void
     {
         switch ($elementType) {
+            case 'button-input':
+                $attributes = $this->getElementAttributes($element);
+                if (isset($attributes['text'])) {
+                    $elementData['label'] = $attributes['text'];
+                }
+                break;
             case 'checkbox':
             case 'toggle':
                 // Add default value for boolean elements
