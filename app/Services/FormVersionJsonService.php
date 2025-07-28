@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
 use Illuminate\Support\Str;
+use App\Models\FormBuilding\DateSelectInputFormElement;
 
 class FormVersionJsonService
 {
@@ -901,6 +902,8 @@ class FormVersionJsonService
         switch ($key) {
             case 'defaultValue':
                 return ['value', $value];
+            case 'dateFormat':
+                return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
             default:
                 return null;
         }
