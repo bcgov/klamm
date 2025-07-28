@@ -466,7 +466,12 @@ class FormVersionJsonService
     {
         $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         // Basic properties for all standard elements
-        $elementData['label'] = $elementData['attributes']['label'] ?? $element->name;
+        $attributes = $this->getElementAttributes($element);
+        if (isset($attributes['hideLabel']) && $attributes['hideLabel']) {
+            $elementData['label'] = '';
+        } else {
+            $elementData['label'] = $attributes['labelText'] ?? '';
+        }
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
         $elementData['codeContext'] = [
@@ -894,16 +899,8 @@ class FormVersionJsonService
     protected function customAttributeMapping(string $key, $value): ?array
     {
         switch ($key) {
-            case 'default_value':
+            case 'defaultValue':
                 return ['value', $value];
-            case 'button_type':
-                return ['kind', $value];
-            case 'default_date':
-                return ['value', $value];
-            case 'placeholder_text':
-                return ['placeholder', $value];
-            case 'visible_label':
-                return ['hideLabel', !$value];
             default:
                 return null;
         }
