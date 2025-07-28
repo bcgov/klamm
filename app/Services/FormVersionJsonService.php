@@ -193,7 +193,7 @@ class FormVersionJsonService
         // Add data bindings if they exist
         $dataBindings = $this->getDataBindings($element);
         if (!empty($dataBindings)) {
-            $elementData['dataBindings'] = $dataBindings;
+            $elementData['databindings'] = $dataBindings;
         }
 
         // Load and add children if this element has any
@@ -506,7 +506,7 @@ class FormVersionJsonService
         // Add data bindings if they exist
         $dataBindings = $this->getDataBindings($element);
         if (!empty($dataBindings)) {
-            $elementData['dataBindings'] = $dataBindings;
+            $elementData['databindings'] = $dataBindings;
         }
 
         // Add special properties for specific element types
@@ -835,7 +835,7 @@ class FormVersionJsonService
 
         foreach ($element->dataBindings as $dataBinding) {
             $dataBindings[] = [
-                'data_source_name' => $dataBinding->formDataSource->name ?? 'Unknown',
+                'source' => $dataBinding->formDataSource->name ?? 'Unknown',
                 'path' => $dataBinding->path,
                 'order' => $dataBinding->order,
             ];
