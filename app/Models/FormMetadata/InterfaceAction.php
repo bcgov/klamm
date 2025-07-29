@@ -21,6 +21,7 @@ class InterfaceAction extends Model
         'headers',
         'body',
         'parameters',
+        'order',
     ];
 
     protected $casts = [
@@ -32,5 +33,33 @@ class InterfaceAction extends Model
     public function formInterface(): BelongsTo
     {
         return $this->belongsTo(FormInterface::class, 'form_interface_id');
+    }
+
+    public static function actionTypes(): array
+    {
+        return self::query()
+            ->distinct()
+            ->whereNotNull('action_type')
+            ->where('action_type', '!=', '')
+            ->pluck('action_type')
+            ->filter()
+            ->sort()
+            ->values()
+            ->mapWithKeys(fn($type) => [$type => $type])
+            ->toArray();
+    }
+
+    public static function types(): array
+    {
+        return self::query()
+            ->distinct()
+            ->whereNotNull('type')
+            ->where('type', '!=', '')
+            ->pluck('type')
+            ->filter()
+            ->sort()
+            ->values()
+            ->mapWithKeys(fn($type) => [$type => $type])
+            ->toArray();
     }
 }

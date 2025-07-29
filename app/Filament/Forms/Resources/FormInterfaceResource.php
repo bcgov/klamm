@@ -7,9 +7,8 @@ use App\Models\FormMetadata\FormInterface;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
 use App\Http\Middleware\CheckRole;
+use App\Models\FormMetadata\InterfaceAction;
 use Filament\Forms\Components\Grid;
 
 class FormInterfaceResource extends Resource
@@ -39,6 +38,8 @@ class FormInterfaceResource extends Resource
                             ->maxLength(1000),
                         Forms\Components\TextInput::make('type')
                             ->required()
+                            ->autocomplete(false)
+                            ->datalist(FormInterface::types())
                             ->maxLength(255),
                         Forms\Components\TextInput::make('style')
                             ->maxLength(255),
@@ -54,78 +55,89 @@ class FormInterfaceResource extends Resource
                         Forms\Components\TextInput::make('label')
                             ->required()
                             ->maxLength(255),
-                        Forms\Components\TextInput::make('action_type')->maxLength(255),
-                        Forms\Components\TextInput::make('type')->maxLength(255),
+                        Forms\Components\TextInput::make('action_type')->maxLength(255)
+                            ->autocomplete(false)
+                            ->datalist(InterfaceAction::actionTypes()),
+                        Forms\Components\TextInput::make('type')->maxLength(255)
+                            ->autocomplete(false)
+                            ->datalist(InterfaceAction::types()),
                         Forms\Components\TextInput::make('host')->maxLength(255),
                         Forms\Components\TextInput::make('path')->maxLength(255),
                         Forms\Components\TextInput::make('authentication')->maxLength(255),
                         Forms\Components\Repeater::make('headers')
                             ->label('Headers')
-                            ->orderColumn('order')
-                            ->reorderable()
                             ->schema([
                                 Forms\Components\TextInput::make('key')->required(),
-                                Forms\Components\TextInput::make('value')->required(),
-                                Forms\Components\Hidden::make('order'),
+                                Forms\Components\Textarea::make('value')->required(),
                             ])
-                            ->default([]),
+                            ->reorderable(false)
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->default([])
+                            ->columnSpanFull()
+                            ->itemLabel(fn(array $state) => self::getKeyValueItemLabel($state, 'Header')),
                         Forms\Components\Repeater::make('body')
                             ->label('Body')
-                            ->orderColumn('order')
-                            ->reorderable()
                             ->schema([
                                 Forms\Components\TextInput::make('key')->required(),
-                                Forms\Components\TextInput::make('value')->required(),
-                                Forms\Components\Hidden::make('order'),
+                                Forms\Components\Textarea::make('value')->required(),
                             ])
-                            ->default([]),
+                            ->reorderable(false)
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->default([])
+                            ->columnSpanFull()
+                            ->itemLabel(fn(array $state) => self::getKeyValueItemLabel($state, 'Body Item')),
                         Forms\Components\Repeater::make('parameters')
                             ->label('Parameters')
-                            ->orderColumn('order')
-                            ->reorderable()
                             ->schema([
                                 Forms\Components\TextInput::make('key')->required(),
-                                Forms\Components\TextInput::make('value')->required(),
-                                Forms\Components\Hidden::make('order'),
+                                Forms\Components\Textarea::make('value')->required(),
                             ])
-                            ->default([]),
+                            ->reorderable(false)
+                            ->collapsible()
+                            ->collapsed(true)
+                            ->default([])
+                            ->columnSpanFull()
+                            ->itemLabel(fn(array $state) => self::getKeyValueItemLabel($state, 'Parameter')),
                         Forms\Components\Hidden::make('order'),
                     ])
                     ->label('Actions')
                     ->itemLabel(
-                        fn(array $state, ?int $index = null) =>
-                        // Prefer $index (provided by Filament), fallback to 'order', fallback to 0
-                        (isset($state['label']) && $state['label'] ? $state['label'] : '')
+                        fn(array $state) => (isset($state['label']) && $state['label'] ? $state['order'] . '. ' . $state['label'] : 'New Action')
                     )
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->mutateRelationshipDataBeforeCreateUsing(function (array $data, $get) {
+                        $data['order'] = count($get('actions') ?? []);
+                        return $data;
+                    })
+                    ->mutateRelationshipDataBeforeSaveUsing(function (array $data, $get) {
+                        if (!isset($data['order'])) {
+                            $data['order'] = count($get('actions') ?? []);
+                        }
+                        return $data;
+                    }),
             ]);
     }
 
-    public static function table(Table $table): Table
+    private static function getKeyValueItemLabel(array $state, string $itemType): string
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('label')->searchable(),
-                Tables\Columns\TextColumn::make('description')->searchable(),
-                Tables\Columns\TextColumn::make('formVersion.form.name')->label('Form Name')->searchable(),
-                Tables\Columns\TextColumn::make('type')->searchable(),
-                Tables\Columns\TextColumn::make('style')->searchable(),
+        if (!isset($state['key']) || empty($state['key'])) {
+            return "New {$itemType}";
+        }
 
-                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                //
-            ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+        $key = $state['key'];
+
+        if (!isset($state['value']) || empty($state['value'])) {
+            return "{$key}: [valueNotSet]";
+        }
+
+        $value = $state['value'];
+        if (strlen($value) > 30) {
+            $value = substr($value, 0, 30) . '...';
+        }
+
+        return "{$key}: {$value}";
     }
 
     public static function getRelations(): array

@@ -354,6 +354,15 @@ class FormVersionResource extends Resource
                             ]);
                         }
 
+                        // Duplicate form interfaces
+                        foreach ($record->formVersionFormInterfaces as $formInterface) {
+                            \App\Models\FormBuilding\FormVersionFormInterface::create([
+                                'form_version_id' => $newVersion->id,
+                                'form_interface_id' => $formInterface->form_interface_id,
+                                'order' => $formInterface->order,
+                            ]);
+                        }
+
                         // Redirect to build the new version
                         if (Gate::allows('form-developer')) {
                             return redirect()->to('/forms/form-versions/' . $newVersion->id . '/build');

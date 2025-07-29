@@ -27,6 +27,20 @@ class FormInterface extends Model
         return $this->hasMany(InterfaceAction::class, 'form_interface_id');
     }
 
+    public static function types(): array
+    {
+        return self::query()
+            ->distinct()
+            ->whereNotNull('type')
+            ->where('type', '!=', '')
+            ->pluck('type')
+            ->filter()
+            ->sort()
+            ->values()
+            ->mapWithKeys(fn($type) => [$type => $type])
+            ->toArray();
+    }
+
     public function formVersions(): BelongsToMany
     {
         return $this->belongsToMany(FormVersion::class, 'form_version_form_interfaces')
