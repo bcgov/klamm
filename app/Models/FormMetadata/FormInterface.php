@@ -7,15 +7,25 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\FormBuilding\FormVersion;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class FormInterface extends Model
 {
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'type',
         'description',
         'form_version_id',
+        'label',
+        'style',
+        'condition',
+    ];
+
+    protected static $logAttributes = [
+        'type',
+        'description',
         'label',
         'style',
         'condition',
@@ -46,5 +56,42 @@ class FormInterface extends Model
         return $this->belongsToMany(FormVersion::class, 'form_version_form_interfaces')
             ->withPivot('order')
             ->withTimestamps();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(self::$logAttributes)
+            ->dontSubmitEmptyLogs()
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(function (string $eventName) {
+                $interfaceName = $this->label ?: 'Unnamed Interface';
+                $interfaceType = $this->type ?: 'Unknown Type';
+
+                if ($eventName === 'created') {
+                    return "Interface '{$interfaceName}' ({$interfaceType}) was created";
+                }
+
+                $changes = array_keys($this->getDirty());
+                $changes = array_filter($changes, function ($change) {
+                    return !in_array($change, ['updated_at']);
+                });
+
+                if (!empty($changes)) {
+                    $changes = array_map(function ($change) {
+                        return str_replace('_', ' ', $change);
+                    }, $changes);
+
+                    $changesStr = implode(', ', array_unique($changes));
+                    return "Interface '{$interfaceName}' ({$interfaceType}) had changes to: {$changesStr}";
+                }
+
+                return "Interface '{$interfaceName}' ({$interfaceType}) was {$eventName}";
+            });
+    }
+
+    public function getLogNameToUse(): string
+    {
+        return 'form_interfaces';
     }
 }
