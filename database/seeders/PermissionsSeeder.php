@@ -392,6 +392,16 @@ class PermissionsSeeder extends Seeder
             'create FormVersion',
             'update FormVersion',
             'delete FormVersion',
+            'view-any FormInterface',
+            'view FormInterface',
+            'create FormInterface',
+            'update FormInterface',
+            'delete FormInterface',
+            'view-any FormDataSource',
+            'view FormDataSource',
+            'create FormDataSource',
+            'update FormDataSource',
+            'delete FormDataSource',
         ])->where('guard_name', 'web')->get());
     }
 }
