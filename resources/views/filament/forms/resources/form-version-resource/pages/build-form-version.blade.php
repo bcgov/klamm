@@ -2,12 +2,20 @@
     <!-- Sticky Add Form Element Button -->
     @if($this->isEditable())
     <div id="sticky-add-element-btn" class="sticky-add-element-button" style="display: none;">
-        <button type="button"
-            class="fi-btn fi-btn-color-success fi-btn-outlined fi-btn-size-sm"
-            onclick="openAddElementModal()">
-            @svg('heroicon-o-plus-circle', 'fi-btn-icon')
-            <span class="fi-btn-label">Add Element</span>
-        </button>
+        <div class="sticky-buttons-container">
+            <button type="button"
+                class="fi-btn fi-btn-color-primary fi-btn-outlined fi-btn-size-sm"
+                onclick="openPreviewForm()">
+                @svg('heroicon-o-tv', 'fi-btn-icon')
+                <span class="fi-btn-label">Preview</span>
+            </button>
+            <button type="button"
+                class="fi-btn fi-btn-color-success fi-btn-outlined fi-btn-size-sm"
+                onclick="openAddElementModal()">
+                @svg('heroicon-o-plus-circle', 'fi-btn-icon')
+                <span class="fi-btn-label">Add Element</span>
+            </button>
+        </div>
     </div>
     @endif
 
@@ -32,6 +40,12 @@
             transform: translateY(0);
         }
 
+        .sticky-buttons-container {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
         .sticky-add-element-button button {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             border-radius: 0.5rem;
@@ -40,11 +54,19 @@
             align-items: center;
             gap: 0.375rem;
             background: white;
-            border: 1px solid #10b981;
-            color: #10b981;
             font-weight: 500;
             font-size: 0.875rem;
             transition: all 0.2s ease;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-primary {
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-success {
+            border: 1px solid #10b981;
+            color: #10b981;
         }
 
         .sticky-add-element-button button svg {
@@ -53,10 +75,18 @@
         }
 
         .sticky-add-element-button button:hover {
-            background: #10b981;
-            color: white;
             transform: translateY(-1px);
             box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .sticky-add-element-button button.fi-btn-color-primary:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-success:hover {
+            background: #10b981;
+            color: white;
         }
 
         .sticky-add-element-button button:active {
@@ -193,6 +223,14 @@
                     }
                 }
             }
+        }
+
+        // Function to open the preview form (triggered by sticky button)
+        function openPreviewForm() {
+            const formVersionId = '{{ $this->record->id }}';
+            const previewBaseUrl = '{{ env("FORM_PREVIEW_URL", "") }}';
+            const previewUrl = previewBaseUrl.replace(/\/$/, '') + '/preview/' + formVersionId;
+            window.open(previewUrl, '_blank');
         }
     </script>
     @endpush
