@@ -132,7 +132,7 @@
     @push('scripts')
     <script>
         // Set editable state from PHP
-        const isFormEditable = @json($this - > isEditable());
+        const isFormEditable = @json($this->isEditable());
 
         // Real-time form version update handling
         document.addEventListener('DOMContentLoaded', function() {
