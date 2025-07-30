@@ -16,6 +16,7 @@ class ContainerFormElement extends Model
         'is_repeatable',
         'repeater_item_label',
         'legend',
+        'level'
     ];
 
     protected $casts = [
@@ -38,6 +39,19 @@ class ContainerFormElement extends Model
                 ->options(static::getContainerTypes())
                 ->default('section')
                 ->required(true)
+                ->disabled($disabled),
+            \Filament\Forms\Components\Select::make('elementable_data.level')
+                ->label('Label Level')
+                ->options([
+                    '2' => 'H2',
+                    '3' => 'H3',
+                    '4' => 'H4',
+                    '5' => 'H5',
+                    '6' => 'H6',
+                ])
+                ->placeholder('No override (default styling)')
+                ->nullable()
+                ->helperText('Optional level override for the label (e.g., h2, h3, etc.)')
                 ->disabled($disabled),
             \Filament\Forms\Components\TextInput::make('elementable_data.legend')
                 ->label('Legend/Title')
@@ -84,6 +98,7 @@ class ContainerFormElement extends Model
             'is_repeatable' => $this->is_repeatable,
             'repeater_item_label' => $this->repeater_item_label,
             'legend' => $this->legend,
+            'level' => $this->level,
         ];
     }
 
@@ -111,6 +126,7 @@ class ContainerFormElement extends Model
             'is_repeatable' => false,
             'legend' => '',
             'repeater_item_label' => '',
+            'level' => null,
         ];
     }
 

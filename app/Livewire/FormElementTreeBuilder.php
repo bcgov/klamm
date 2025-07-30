@@ -341,6 +341,7 @@ class FormElementTreeBuilder extends BaseWidget
         // But convert null values to empty strings for text fields that the user might want to clear
         $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'content', 'legend', 'repeater_item_label'];
         $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
+        $nullableFields = ['level'];
 
         $filteredElementableData = [];
         foreach ($elementableData as $key => $value) {
@@ -352,6 +353,9 @@ class FormElementTreeBuilder extends BaseWidget
             } elseif (in_array($key, $numericFields) && ($value === null || $value === '')) {
                 // For numeric fields, convert null or empty string to null to allow nullable fields
                 $filteredElementableData[$key] = null;
+            } elseif (in_array($key, $nullableFields)) {
+                // For nullable fields, explicitly preserve null values
+                $filteredElementableData[$key] = $value; // This will be null when user selects "No override"
             }
             // For other fields, skip null values to let model defaults apply
         }
@@ -507,6 +511,7 @@ class FormElementTreeBuilder extends BaseWidget
         // But convert null values to empty strings for text fields that the user might want to clear
         $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'content', 'legend', 'repeater_item_label'];
         $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
+        $nullableFields = ['level'];
 
         $filteredElementableData = [];
         foreach ($elementableData as $key => $value) {
@@ -518,6 +523,9 @@ class FormElementTreeBuilder extends BaseWidget
             } elseif (in_array($key, $numericFields) && ($value === null || $value === '')) {
                 // For numeric fields, convert null or empty string to null to allow nullable fields
                 $filteredElementableData[$key] = null;
+            } elseif (in_array($key, $nullableFields)) {
+                // For nullable fields, explicitly preserve null values
+                $filteredElementableData[$key] = $value; // This will be null when user selects "No override"
             }
             // For other fields, skip null values to let model defaults apply
         }
