@@ -132,7 +132,7 @@
     @push('scripts')
     <script>
         // Set editable state from PHP
-        const isFormEditable = @json($this->isEditable());
+        const isFormEditable = @json($this - > isEditable());
 
         // Real-time form version update handling
         document.addEventListener('DOMContentLoaded', function() {
@@ -188,6 +188,22 @@
                     // Only allow saving if the form is editable
                     if (isFormEditable) {
                         saveFormVersion();
+                    }
+                }
+
+                // Check if Ctrl+P (Windows/Linux) or Cmd+P (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
+                    event.preventDefault(); // Prevent browser's default print dialog
+                    openPreviewForm();
+                }
+
+                // Check if Ctrl+N (Windows/Linux) or Cmd+N (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+                    event.preventDefault(); // Prevent browser's default new window dialog
+
+                    // Only allow adding elements if the form is editable
+                    if (isFormEditable) {
+                        openAddElementModal();
                     }
                 }
             });
