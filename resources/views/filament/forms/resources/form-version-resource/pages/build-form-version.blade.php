@@ -15,6 +15,12 @@
                 @svg('heroicon-o-plus-circle', 'fi-btn-icon')
                 <span class="fi-btn-label">Add Element</span>
             </button>
+            <button type="button"
+                class="fi-btn fi-btn-color-warning fi-btn-outlined fi-btn-size-sm"
+                onclick="saveFormVersion()">
+                @svg('heroicon-o-check', 'fi-btn-icon')
+                <span class="fi-btn-label">Save</span>
+            </button>
         </div>
     </div>
     @endif
@@ -69,6 +75,11 @@
             color: #10b981;
         }
 
+        .sticky-add-element-button button.fi-btn-color-warning {
+            border: 1px solid #f59e0b;
+            color: #f59e0b;
+        }
+
         .sticky-add-element-button button svg {
             width: 1rem;
             height: 1rem;
@@ -86,6 +97,11 @@
 
         .sticky-add-element-button button.fi-btn-color-success:hover {
             background: #10b981;
+            color: white;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-warning:hover {
+            background: #f59e0b;
             color: white;
         }
 
@@ -231,6 +247,24 @@
             const previewBaseUrl = '{{ env("FORM_PREVIEW_URL", "") }}';
             const previewUrl = previewBaseUrl.replace(/\/$/, '') + '/preview/' + formVersionId;
             window.open(previewUrl, '_blank');
+        }
+
+        // Function to save the form version (triggered by sticky button)
+        function saveFormVersion() {
+            // Find the tree widget's save button and click it
+            const treeSaveButton = document.querySelector('button[data-action="save"]');
+            if (treeSaveButton) {
+                treeSaveButton.click();
+            } else {
+                // Fallback: try to find any save button
+                const saveButtons = document.querySelectorAll('button');
+                for (let button of saveButtons) {
+                    if (button.textContent.includes('Save') && button.hasAttribute('wire:loading')) {
+                        button.click();
+                        break;
+                    }
+                }
+            }
         }
     </script>
     @endpush
