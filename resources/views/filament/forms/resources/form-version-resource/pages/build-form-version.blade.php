@@ -131,6 +131,9 @@
 
     @push('scripts')
     <script>
+        // Set editable state from PHP
+        const isFormEditable = @json($this->isEditable());
+
         // Real-time form version update handling
         document.addEventListener('DOMContentLoaded', function() {
             let updateTimeout;
@@ -175,6 +178,19 @@
             setTimeout(() => {
                 clearInterval(monacoCheckInterval);
             }, 10000);
+
+            // Add keyboard shortcut for saving (Ctrl/Cmd + S)
+            document.addEventListener('keydown', function(event) {
+                // Check if Ctrl+S (Windows/Linux) or Cmd+S (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                    event.preventDefault(); // Prevent browser's default save dialog
+
+                    // Only allow saving if the form is editable
+                    if (isFormEditable) {
+                        saveFormVersion();
+                    }
+                }
+            });
 
             // Sticky button functionality
             const stickyButton = document.getElementById('sticky-add-element-btn');
