@@ -210,7 +210,12 @@ class FormElementTreeBuilder extends BaseWidget
                     $this->handleRecordUpdate($record, $data);
                 });
 
-            $actions[] = DeleteAction::make();
+            $actions[] = DeleteAction::make()
+                ->modalHeading(fn($record) => sprintf(
+                    'Delete [%s] %s',
+                    FormElement::getElementTypeName($record->elementable_type),
+                    $record->name
+                ));
         }
 
         return $actions;
