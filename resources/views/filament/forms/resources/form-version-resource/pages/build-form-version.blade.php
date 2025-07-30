@@ -197,8 +197,8 @@
                     openPreviewForm();
                 }
 
-                // Check if Ctrl+N (Windows/Linux) or Cmd+N (Mac) is pressed
-                if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
+                // Check if Ctrl+E (Windows/Linux) or Cmd+E (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
                     event.preventDefault(); // Prevent browser's default new window dialog
 
                     // Only allow adding elements if the form is editable
