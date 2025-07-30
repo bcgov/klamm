@@ -210,7 +210,12 @@ class FormElementTreeBuilder extends BaseWidget
                     $this->handleRecordUpdate($record, $data);
                 });
 
-            $actions[] = DeleteAction::make();
+            $actions[] = DeleteAction::make()
+                ->modalHeading(fn($record) => sprintf(
+                    'Delete [%s] %s',
+                    FormElement::getElementTypeName($record->elementable_type),
+                    $record->name
+                ));
         }
 
         return $actions;
@@ -437,6 +442,13 @@ class FormElementTreeBuilder extends BaseWidget
                     );
                 }
             }
+
+            // Show success notification
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('Element Updated')
+                ->body("The form element '{$record->name}' has been updated successfully.")
+                ->send();
         } catch (\InvalidArgumentException $e) {
             // Handle our custom validation exceptions
             \Filament\Notifications\Notification::make()
@@ -573,6 +585,13 @@ class FormElementTreeBuilder extends BaseWidget
                     );
                 }
             }
+
+            // Show success notification
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('Element Created')
+                ->body("The form element '{$formElement->name}' has been created successfully.")
+                ->send();
 
             return $formElement;
         } catch (\Exception $e) {

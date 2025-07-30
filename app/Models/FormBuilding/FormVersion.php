@@ -20,7 +20,9 @@ use App\Models\User;
 use App\Models\FormApprovalRequest;
 use App\Models\FormMetadata\FormDataSource;
 use App\Models\FormBuilding\FormVersionFormDataSource;
+use App\Models\FormBuilding\FormVersionFormInterface;
 use Spatie\Activitylog\Models\Activity;
+use App\Models\FormMetadata\FormInterface;
 
 class FormVersion extends Model
 {
@@ -265,5 +267,18 @@ class FormVersion extends Model
     public function formElements(): HasMany
     {
         return $this->hasMany(FormElement::class)->orderBy('order');
+    }
+
+    public function formVersionFormInterfaces(): HasMany
+    {
+        return $this->hasMany(FormVersionFormInterface::class)->orderBy('order');
+    }
+
+    public function formInterfaces(): BelongsToMany
+    {
+        return $this->belongsToMany(FormInterface::class, 'form_version_form_interfaces')
+            ->withPivot('order')
+            ->withTimestamps()
+            ->orderBy('form_version_form_interfaces.order');
     }
 }

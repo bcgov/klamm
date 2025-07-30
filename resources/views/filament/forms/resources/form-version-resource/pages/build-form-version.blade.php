@@ -2,14 +2,26 @@
     <!-- Sticky Add Form Element Button -->
     @if($this->isEditable())
     <div id="sticky-add-element-btn" class="sticky-add-element-button" style="display: none;">
-        <button type="button"
-            class="fi-btn fi-btn-color-success fi-btn-outlined fi-btn-size-sm"
-            onclick="openAddElementModal()">
-            <svg class="fi-btn-icon" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-            <span class="fi-btn-label">Add Element</span>
-        </button>
+        <div class="sticky-buttons-container">
+            <button type="button"
+                class="fi-btn fi-btn-color-primary fi-btn-outlined fi-btn-size-sm"
+                onclick="openPreviewForm()">
+                @svg('heroicon-o-tv', 'fi-btn-icon')
+                <span class="fi-btn-label">Preview</span>
+            </button>
+            <button type="button"
+                class="fi-btn fi-btn-color-success fi-btn-outlined fi-btn-size-sm"
+                onclick="openAddElementModal()">
+                @svg('heroicon-o-plus-circle', 'fi-btn-icon')
+                <span class="fi-btn-label">Add Element</span>
+            </button>
+            <button type="button"
+                class="fi-btn fi-btn-color-warning fi-btn-outlined fi-btn-size-sm"
+                onclick="saveFormVersion()">
+                @svg('heroicon-o-check', 'fi-btn-icon')
+                <span class="fi-btn-label">Save</span>
+            </button>
+        </div>
     </div>
     @endif
 
@@ -34,6 +46,12 @@
             transform: translateY(0);
         }
 
+        .sticky-buttons-container {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
         .sticky-add-element-button button {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             border-radius: 0.5rem;
@@ -42,11 +60,24 @@
             align-items: center;
             gap: 0.375rem;
             background: white;
-            border: 1px solid #10b981;
-            color: #10b981;
             font-weight: 500;
             font-size: 0.875rem;
             transition: all 0.2s ease;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-primary {
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-success {
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-warning {
+            border: 1px solid #f59e0b;
+            color: #f59e0b;
         }
 
         .sticky-add-element-button button svg {
@@ -55,10 +86,23 @@
         }
 
         .sticky-add-element-button button:hover {
-            background: #10b981;
-            color: white;
             transform: translateY(-1px);
             box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .sticky-add-element-button button.fi-btn-color-primary:hover {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-success:hover {
+            background: #10b981;
+            color: white;
+        }
+
+        .sticky-add-element-button button.fi-btn-color-warning:hover {
+            background: #f59e0b;
+            color: white;
         }
 
         .sticky-add-element-button button:active {
@@ -87,6 +131,9 @@
 
     @push('scripts')
     <script>
+        // Set editable state from PHP
+        const isFormEditable = @json($this->isEditable());
+
         // Real-time form version update handling
         document.addEventListener('DOMContentLoaded', function() {
             let updateTimeout;
@@ -131,6 +178,35 @@
             setTimeout(() => {
                 clearInterval(monacoCheckInterval);
             }, 10000);
+
+            // Add keyboard shortcut for saving (Ctrl/Cmd + S)
+            document.addEventListener('keydown', function(event) {
+                // Check if Ctrl+S (Windows/Linux) or Cmd+S (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+                    event.preventDefault(); // Prevent browser's default save dialog
+
+                    // Only allow saving if the form is editable
+                    if (isFormEditable) {
+                        saveFormVersion();
+                    }
+                }
+
+                // Check if Ctrl+P (Windows/Linux) or Cmd+P (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 'p') {
+                    event.preventDefault(); // Prevent browser's default print dialog
+                    openPreviewForm();
+                }
+
+                // Check if Ctrl+E (Windows/Linux) or Cmd+E (Mac) is pressed
+                if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
+                    event.preventDefault(); // Prevent browser's default new window dialog
+
+                    // Only allow adding elements if the form is editable
+                    if (isFormEditable) {
+                        openAddElementModal();
+                    }
+                }
+            });
 
             // Sticky button functionality
             const stickyButton = document.getElementById('sticky-add-element-btn');
@@ -190,6 +266,32 @@
                 const buttons = document.querySelectorAll('button');
                 for (let button of buttons) {
                     if (button.textContent.includes('Add Form Element')) {
+                        button.click();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Function to open the preview form (triggered by sticky button)
+        function openPreviewForm() {
+            const formVersionId = '{{ $this->record->id }}';
+            const previewBaseUrl = '{{ env("FORM_PREVIEW_URL", "") }}';
+            const previewUrl = previewBaseUrl.replace(/\/$/, '') + '/preview/' + formVersionId;
+            window.open(previewUrl, '_blank');
+        }
+
+        // Function to save the form version (triggered by sticky button)
+        function saveFormVersion() {
+            // Find the tree widget's save button and click it
+            const treeSaveButton = document.querySelector('button[data-action="save"]');
+            if (treeSaveButton) {
+                treeSaveButton.click();
+            } else {
+                // Fallback: try to find any save button
+                const saveButtons = document.querySelectorAll('button');
+                for (let button of saveButtons) {
+                    if (button.textContent.includes('Save') && button.hasAttribute('wire:loading')) {
                         button.click();
                         break;
                     }

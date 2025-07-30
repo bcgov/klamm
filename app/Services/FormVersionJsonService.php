@@ -6,6 +6,7 @@ use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\FormElement;
 use Illuminate\Support\Str;
 use App\Models\FormBuilding\DateSelectInputFormElement;
+use App\Models\FormMetadata\FormInterface;
 
 class FormVersionJsonService
 {
@@ -18,6 +19,9 @@ class FormVersionJsonService
             'formElements.dataBindings.formDataSource',
             'formDataSources' => function ($query) {
                 $query->orderBy('form_versions_form_data_sources.order');
+            },
+            'formInterfaces' => function ($query) {
+                $query->orderBy('form_version_form_interfaces.order');
             },
             'webStyleSheet',
             'pdfStyleSheet',
@@ -32,6 +36,7 @@ class FormVersionJsonService
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion),
             'dataSources' => $this->getDataSources($formVersion),
+            'interface' => $this->getFormInterfaces($formVersion),
             'styles' => $this->getStyles($formVersion),
             'scripts' => $this->getScripts($formVersion),
             'elements' => $this->getElements($formVersion)
@@ -62,6 +67,9 @@ class FormVersionJsonService
             'formDataSources' => function ($query) {
                 $query->orderBy('form_versions_form_data_sources.order');
             },
+            'formInterfaces' => function ($query) {
+                $query->orderBy('form_version_form_interfaces.order');
+            },
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
@@ -77,6 +85,7 @@ class FormVersionJsonService
             'deployed_to' => '',
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
+            'interface' => $this->getFormInterfaces($formVersion),
             'data' => [
                 'styles' => $this->getStyles($formVersion),
                 'scripts' => $this->getScripts($formVersion),
@@ -373,6 +382,12 @@ class FormVersionJsonService
         $conditions = $this->transformConditions($element);
         if (!empty($conditions)) {
             $elementData['conditions'] = $conditions;
+        }
+
+        // Add data bindings if they exist
+        $dataBindings = $this->getDataBindings($element);
+        if (!empty($dataBindings)) {
+            $elementData['databindings'] = $dataBindings;
         }
 
         // Get children and transform them as group fields
@@ -838,6 +853,7 @@ class FormVersionJsonService
                 'source' => $dataBinding->formDataSource->name ?? 'Unknown',
                 'path' => $dataBinding->path,
                 'order' => $dataBinding->order,
+                'condition' => $dataBinding->condition,
             ];
         }
 
@@ -865,6 +881,66 @@ class FormVersionJsonService
         return $dataSources;
     }
 
+    protected function getFormInterfaces(FormVersion $formVersion): array
+    {
+        $interfaces = [];
+
+        foreach ($formVersion->formInterfaces as $interface) {
+            $interfaces[] = [
+                'label' => $interface->label,
+                'type' => $interface->type,
+                'description' => $interface->description,
+                'style' => $interface->style,
+                'condition' => $interface->condition,
+                'actions' => $this->getFormInterfaceActions($interface),
+                'order' => $interface->pivot->order ?? 0,
+            ];
+        }
+
+        return $interfaces;
+    }
+
+    protected function getFormInterfaceActions(FormInterface $formInterface): array
+    {
+        $actions = [];
+        $sortedActions = $formInterface->actions()->orderBy('order')->get();
+
+        foreach ($sortedActions as $action) {
+            $actions[] = [
+                'label' => $action->label,
+                'action_type' => $action->action_type,
+                'type' => $action->type,
+                'host' => $action->host,
+                'path' => $action->path,
+                'authentication' => $action->authentication,
+                'headers' => $this->convertKeyValueArrayToObject($action->headers),
+                'body' => $this->convertKeyValueArrayToObject($action->body),
+                'params' => $this->convertKeyValueArrayToObject($action->parameters),
+                'order' => $action->order ?? 0,
+            ];
+        }
+        return $actions;
+    }
+
+    /**
+     * Convert key-value array format to object
+     */
+    protected function convertKeyValueArrayToObject($keyValueArray): object
+    {
+        if (!is_array($keyValueArray)) {
+            return (object)[];
+        }
+
+        $result = [];
+        foreach ($keyValueArray as $item) {
+            if (is_array($item) && isset($item['key']) && isset($item['value'])) {
+                $result[$item['key']] = $item['value'];
+            }
+        }
+
+        return (object)$result;
+    }
+
     /**
      * Utility to convert snake_case to camelCase.
      */
@@ -878,9 +954,14 @@ class FormVersionJsonService
     /**
      * Decode JSON field to object/array, return empty object if invalid or empty.
      */
-    protected function decodeJsonField(?string $jsonString): array|object
+    protected function decodeJsonField($jsonString): array|object
     {
-        if (empty($jsonString)) {
+        // If already an array or object, return as-is
+        if (is_array($jsonString) || is_object($jsonString)) {
+            return $jsonString;
+        }
+
+        if (empty($jsonString) || !is_string($jsonString)) {
             return (object)[];
         }
 
@@ -909,7 +990,9 @@ class FormVersionJsonService
             case 'defaultValue':
                 return ['value', $value];
             case 'dateFormat':
-                return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
+                if ($value) {
+                    return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
+                }
             default:
                 return null;
         }
