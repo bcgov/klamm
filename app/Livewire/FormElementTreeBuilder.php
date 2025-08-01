@@ -15,9 +15,13 @@ use SolutionForest\FilamentTree\Widgets\Tree as BaseWidget;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\FormElementHelper;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 
-class FormElementTreeBuilder extends BaseWidget
+class FormElementTreeBuilder extends BaseWidget implements HasForms
 {
+    use InteractsWithForms;
+
     protected static string $model = FormElement::class;
 
     protected static int $maxDepth = 5;
