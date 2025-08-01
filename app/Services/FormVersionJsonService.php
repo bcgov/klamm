@@ -1018,6 +1018,7 @@ class FormVersionJsonService
                 $result[$this->toCamelCase($k)] = $v;
             }
         }
+        unset($result['labelText']);
         return $result;
     }
 
