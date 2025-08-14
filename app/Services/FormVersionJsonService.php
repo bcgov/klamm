@@ -31,10 +31,12 @@ class FormVersionJsonService
 
         $formVersionData = [
             'name' => $formVersion->form->form_title ?? 'Unknown Form',
+            'form_id' => $formVersion->form->form_id ?? '',
             'id' => Str::uuid(),
             'version' => $formVersion->version_number,
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion),
+            'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'interface' => $this->getFormInterfaces($formVersion),
             'styles' => $this->getStyles($formVersion),
@@ -104,6 +106,8 @@ class FormVersionJsonService
     protected function getFormVersionData(FormVersion $formVersion): array
     {
         return [
+            'form_id' => $formVersion->form_id,
+            'form_developer' => $formVersion->formDeveloper() ?? null,
             'comments' => $formVersion->comments,
             'created_at' => $formVersion->created_at?->toISOString(),
             'updated_at' => $formVersion->updated_at?->toISOString(),
@@ -191,12 +195,13 @@ class FormVersionJsonService
             'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
-            'is_read_only' => $element->is_read_only,
+            'custom_visibility' => $element->custom_visibility,
+            'is_read_only' => $element->is_read_only && $element->custom_read_only ? $element->custom_read_only : $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
             'options' => $element->elementable?->options ?? [],
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
-            'attributes' => $this->getElementAttributes($element)
+            'attributes' => $this->remapAttributes($this->getElementAttributes($element))
         ];
 
         // Add data bindings if they exist
