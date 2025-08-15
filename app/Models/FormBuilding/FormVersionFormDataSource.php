@@ -3,11 +3,14 @@
 namespace App\Models\FormBuilding;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\FormMetadata\FormDataSource;
 
 class FormVersionFormDataSource extends Pivot
 {
+    use SoftDeletes;
+
     protected $table = 'form_versions_form_data_sources';
 
     public $incrementing = true;

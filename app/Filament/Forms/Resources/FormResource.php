@@ -32,6 +32,7 @@ use App\Filament\Components\FormDeploymentsManager;
 use Illuminate\Support\Str;
 use Illuminate\Support\HtmlString;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 
 class FormResource extends Resource
@@ -39,6 +40,14 @@ class FormResource extends Resource
     protected static ?string $model = Form::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
 
     protected static function formatLabel(string $text): string
     {
@@ -535,6 +544,8 @@ class FormResource extends Resource
             ->persistSearchInSession()
             ->searchDebounce(500)
             ->filters([
+                Tables\Filters\TrashedFilter::make()
+                    ->visible(fn() => Gate::allows('admin')),
                 Tables\Filters\SelectFilter::make('migration2025_status')
                     ->label('Migration 2025 Status')
                     ->options([
@@ -641,6 +652,8 @@ class FormResource extends Resource
                         ->icon('heroicon-o-inbox-stack')
                         ->url(fn(Form $record) => route('filament.forms.resources.form-versions.index', ['form_id' => $record->id])),
                     DeleteAction::make(),
+                    Tables\Actions\RestoreAction::make()
+                        ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
                 ])->icon('heroicon-m-ellipsis-vertical')
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([

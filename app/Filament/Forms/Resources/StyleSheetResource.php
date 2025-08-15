@@ -13,6 +13,11 @@ use Filament\Tables\Columns\ColumnGroup;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Gate;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Filters\TrashedFilter;
 use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
@@ -39,6 +44,9 @@ class StyleSheetResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
             ->with(['formVersion.form', 'formVersions.form'])
             ->where('type', 'template');
     }
@@ -151,7 +159,8 @@ class StyleSheetResource extends Resource
                 ]),
             ])
             ->filters([
-                //
+                TrashedFilter::make()
+                    ->visible(fn() => Gate::allows('admin')),
             ])
             ->actions([
                 ViewAction::make('view')
@@ -164,6 +173,9 @@ class StyleSheetResource extends Resource
                     ->url(fn($record) => route('filament.forms.resources.style-sheets.edit', [
                         'record' => $record->id,
                     ])),
+                DeleteAction::make(),
+                RestoreAction::make()
+                    ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
             ])
             ->bulkActions([
                 //
