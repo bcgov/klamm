@@ -31,7 +31,19 @@ class EditFormVersion extends EditRecord
     {
         return [
             Actions\ViewAction::make(),
-            Actions\DeleteAction::make(),
+            Actions\Action::make('archive')
+                ->label('Archive')
+                ->icon('heroicon-o-archive-box-arrow-down')
+                ->color('danger')
+                ->visible(fn() => $this->record->status !== 'archived' && (Gate::allows('admin') || Gate::allows('form-developer')))
+                ->action(function () {
+                    $this->record->update(['status' => 'archived']);
+                    $this->redirect($this->getRedirectUrl());
+                })
+                ->requiresConfirmation()
+                ->modalHeading('Archive Form Version')
+                ->modalDescription('Are you sure you want to archive this form version? This will change its status to archived.')
+                ->modalSubmitActionLabel('Archive'),
             Actions\Action::make('build')
                 ->label('Build')
                 ->icon('heroicon-o-wrench-screwdriver')
