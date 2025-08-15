@@ -5,6 +5,7 @@ namespace App\Models\FormBuilding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\FormBuilding\FormVersion;
@@ -186,5 +187,14 @@ class FormScript extends Model
     public function formVersion(): BelongsTo
     {
         return $this->belongsTo(FormVersion::class);
+    }
+
+    /**
+     * Many-to-many relationship with FormVersion
+     */
+    public function formVersions(): BelongsToMany
+    {
+        return $this->belongsToMany(FormVersion::class, 'form_script_form_version')
+            ->withTimestamps();
     }
 }

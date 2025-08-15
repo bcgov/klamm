@@ -145,7 +145,8 @@ class FormVersionController extends Controller
             $cacheTag = $isDraft ? 'draft' : 'form-template';
 
             // Try to get the requested template from cache
-            $cachedTemplate = Cache::tags([$cacheTag])->get($cacheKey);
+            // $cachedTemplate = Cache::tags([$cacheTag])->get($cacheKey);
+            $cachedTemplate = null;
 
             if ($cachedTemplate !== null) {
                 $jsonTemplate = $cachedTemplate;
