@@ -22,13 +22,38 @@
             const tag = target.tagName;
 
             let value;
-            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-                value = target.value;
-                target.dispatchEvent(new CustomEvent('external-update', { detail: { value } }));
-                target.dispatchEvent(new Event('input', { bubbles: true }));
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+                // Special-case checkboxes/radios: use boolean checked
+                if (
+                    tag === "INPUT" &&
+                    (target.type === "checkbox" || target.type === "radio")
+                ) {
+                    target.dispatchEvent(
+                        new CustomEvent("external-update", {
+                            detail: {
+                                checked: target.checked,
+                                value: target.value,
+                            },
+                        })
+                    );
+                    // Prefer change for toggles
+                    target.dispatchEvent(
+                        new Event("change", { bubbles: true })
+                    );
+                } else {
+                    value = target.value;
+                    target.dispatchEvent(
+                        new CustomEvent("external-update", {
+                            detail: { value },
+                        })
+                    );
+                    target.dispatchEvent(new Event("input", { bubbles: true }));
+                }
             } else {
                 value = target.textContent;
-                target.dispatchEvent(new CustomEvent('external-update', { detail: { value } }));
+                target.dispatchEvent(
+                    new CustomEvent("external-update", { detail: { value } })
+                );
             }
         } finally {
             dispatchingElements.delete(target);
@@ -36,36 +61,44 @@
     }
 
     // --- Listen globally for user input and change events ---
-    document.addEventListener('input', (e) => {
-        dispatchSvelteUpdate(e.target);
-    }, true);
+    document.addEventListener(
+        "input",
+        (e) => {
+            dispatchSvelteUpdate(e.target);
+        },
+        true
+    );
 
-    document.addEventListener('change', (e) => {
-        dispatchSvelteUpdate(e.target);
-    }, true);
+    document.addEventListener(
+        "change",
+        (e) => {
+            dispatchSvelteUpdate(e.target);
+        },
+        true
+    );
 
     // --- MutationObserver for attribute changes ---
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
-            if (mutation.type !== 'attributes') continue;
+            if (mutation.type !== "attributes") continue;
 
             const { attributeName, target } = mutation;
 
             // For inputs/selects/textareas, watch 'value' and 'checked'
             if (
-                (attributeName === 'value' || attributeName === 'checked') &&
+                (attributeName === "value" || attributeName === "checked") &&
                 target instanceof HTMLElement &&
-                ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+                ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
             ) {
                 dispatchSvelteUpdate(target);
             }
             // For options, watch 'selected' attribute and dispatch on parent select
             else if (
-                attributeName === 'selected' &&
+                attributeName === "selected" &&
                 target instanceof HTMLOptionElement
             ) {
                 const select = target.parentElement;
-                if (select && select.tagName === 'SELECT') {
+                if (select && select.tagName === "SELECT") {
                     dispatchSvelteUpdate(select);
                 }
             }
@@ -78,7 +111,8 @@
      */
     function observeElement(el) {
         try {
-            const attrs = (el.tagName === 'OPTION') ? ['selected'] : ['value', 'checked'];
+            const attrs =
+                el.tagName === "OPTION" ? ["selected"] : ["value", "checked"];
             observer.observe(el, { attributes: true, attributeFilter: attrs });
         } catch (_) {
             // Fail silently for detached or restricted elements
@@ -86,7 +120,9 @@
     }
 
     // Observe all existing relevant elements initially
-    document.querySelectorAll('input, textarea, select, option').forEach(observeElement);
+    document
+        .querySelectorAll("input, textarea, select, option")
+        .forEach(observeElement);
 
     // --- Watch for dynamically added elements ---
     const bodyObserver = new MutationObserver((mutations) => {
@@ -94,12 +130,17 @@
             for (const node of mutation.addedNodes) {
                 if (node.nodeType !== 1) continue; // element only
 
-                if (node.matches && node.matches('input, textarea, select, option')) {
+                if (
+                    node.matches &&
+                    node.matches("input, textarea, select, option")
+                ) {
                     observeElement(node);
                 }
 
                 if (node.querySelectorAll) {
-                    node.querySelectorAll('input, textarea, select, option').forEach(observeElement);
+                    node.querySelectorAll(
+                        "input, textarea, select, option"
+                    ).forEach(observeElement);
                 }
             }
         }
@@ -119,9 +160,12 @@
                 descriptor.set.call(this, value);
 
                 // For option.selected, dispatch on parent select instead
-                if (this instanceof HTMLOptionElement && propName === 'selected') {
+                if (
+                    this instanceof HTMLOptionElement &&
+                    propName === "selected"
+                ) {
                     const select = this.parentElement;
-                    if (select && select.tagName === 'SELECT') {
+                    if (select && select.tagName === "SELECT") {
                         dispatchSvelteUpdate(select);
                         return;
                     }
@@ -134,10 +178,9 @@
         });
     }
 
-    overrideProperty(HTMLInputElement.prototype, 'value');
-    overrideProperty(HTMLInputElement.prototype, 'checked');
-    overrideProperty(HTMLTextAreaElement.prototype, 'value');
-    overrideProperty(HTMLSelectElement.prototype, 'value');
-    overrideProperty(HTMLOptionElement.prototype, 'selected');
+    overrideProperty(HTMLInputElement.prototype, "value");
+    overrideProperty(HTMLInputElement.prototype, "checked");
+    overrideProperty(HTMLTextAreaElement.prototype, "value");
+    overrideProperty(HTMLSelectElement.prototype, "value");
+    overrideProperty(HTMLOptionElement.prototype, "selected");
 })();
-
