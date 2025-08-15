@@ -103,8 +103,7 @@ class FormVersionRelationManager extends RelationManager
                         // Duplicate all FormElements and map new to old
                         $oldToNewElementMap = [];
                         foreach ($record->formElements()->orderBy('order')->get() as $element) {
-                            $newElement = $element->replicate(['id', 'uuid', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
-                            $newElement->uuid = (string) Str::uuid();
+                            $newElement = $element->replicate(['id', 'form_version_id', 'parent_id', 'created_at', 'updated_at']);
                             $newElement->form_version_id = $newVersion->id;
                             $newElement->parent_id = null;
                             $newElement->save();

@@ -50,7 +50,8 @@ class FormVersionResource extends Resource
                             ->preload()
                             ->searchable()
                             ->columnSpan(2)
-                            ->default(request()->query('form_id_title')),
+                            ->default(request()->query('form_id_title'))
+                            ->disabled(fn($record) => $record !== null),
                         Select::make('status')
                             ->options(function () {
                                 return FormVersion::getStatusOptions();
@@ -375,12 +376,15 @@ class FormVersionResource extends Resource
                 Action::make('archive')
                     ->label('Archive')
                     ->icon('heroicon-o-archive-box-arrow-down')
-                    ->visible(fn($record) => $record->status === 'published')
+                    ->visible(fn($record) => $record->status !== 'archived' && (Gate::allows('admin') || Gate::allows('form-developer')))
                     ->action(function ($record) {
                         $record->update(['status' => 'archived']);
                     })
                     ->requiresConfirmation()
                     ->color('danger')
+                    ->modalHeading('Archive Form Version')
+                    ->modalDescription('Are you sure you want to archive this form version? This will change its status to archived.')
+                    ->modalSubmitActionLabel('Archive')
                     ->tooltip('Archive this form version'),
             ])
             ->bulkActions([
