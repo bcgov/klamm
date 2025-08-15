@@ -281,4 +281,23 @@ class FormVersion extends Model
             ->withTimestamps()
             ->orderBy('form_version_form_interfaces.order');
     }
+
+    // Added: many-to-many attachments
+    public function styleSheets(): BelongsToMany
+    {
+        return $this->belongsToMany(StyleSheet::class, 'style_sheet_form_version')
+            ->withTimestamps();
+    }
+
+    public function formScripts(): BelongsToMany
+    {
+        return $this->belongsToMany(FormScript::class, 'form_script_form_version')
+            ->withTimestamps();
+    }
+
+    // Convenience: return all attached style sheets
+    public function allStyleSheets()
+    {
+        return $this->styleSheets()->get();
+    }
 }

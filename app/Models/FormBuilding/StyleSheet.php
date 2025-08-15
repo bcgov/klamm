@@ -163,4 +163,13 @@ class StyleSheet extends Model
     {
         return $this->belongsTo(FormVersion::class);
     }
+
+    /**
+     * Added: many-to-many attachments to form versions
+     */
+    public function formVersions(): BelongsToMany
+    {
+        return $this->belongsToMany(FormVersion::class, 'style_sheet_form_version')
+            ->withTimestamps();
+    }
 }
