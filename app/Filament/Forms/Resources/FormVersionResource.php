@@ -50,7 +50,8 @@ class FormVersionResource extends Resource
                             ->preload()
                             ->searchable()
                             ->columnSpan(2)
-                            ->default(request()->query('form_id_title')),
+                            ->default(request()->query('form_id_title'))
+                            ->disabled(fn($record) => $record !== null),
                         Select::make('status')
                             ->options(function () {
                                 return FormVersion::getStatusOptions();
