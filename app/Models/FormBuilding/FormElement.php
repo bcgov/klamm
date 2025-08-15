@@ -4,6 +4,7 @@ namespace App\Models\FormBuilding;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -15,7 +16,7 @@ use Spatie\Activitylog\LogOptions;
 
 class FormElement extends Model
 {
-    use HasFactory, ModelTree, LogsActivity;
+    use HasFactory, ModelTree, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'uuid',
