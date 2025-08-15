@@ -131,10 +131,9 @@ class StyleSheetResource extends Resource
                     ->url(fn($record) => route('filament.forms.resources.style-sheets.edit', [
                         'record' => $record->id,
                     ])),
-                DeleteAction::make()
-                    ->visible(fn() => Gate::allows('admin')),
+                DeleteAction::make(),
                 RestoreAction::make()
-                    ->visible(fn() => Gate::allows('admin')),
+                    ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
             ])
             ->bulkActions([
                 //

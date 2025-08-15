@@ -399,10 +399,9 @@ class FormVersionResource extends Resource
                     ->modalDescription('Are you sure you want to archive this form version? This will change its status to archived.')
                     ->modalSubmitActionLabel('Archive')
                     ->tooltip('Archive this form version'),
-                DeleteAction::make()
-                    ->visible(fn() => Gate::allows('admin')),
+                DeleteAction::make(),
                 RestoreAction::make()
-                    ->visible(fn() => Gate::allows('admin')),
+                    ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
             ])
             ->bulkActions([
                 //

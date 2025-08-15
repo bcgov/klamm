@@ -653,7 +653,7 @@ class FormResource extends Resource
                         ->url(fn(Form $record) => route('filament.forms.resources.form-versions.index', ['form_id' => $record->id])),
                     DeleteAction::make(),
                     Tables\Actions\RestoreAction::make()
-                        ->visible(fn() => Gate::allows('admin')),
+                        ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
                 ])->icon('heroicon-m-ellipsis-vertical')
             ], position: ActionsPosition::BeforeColumns)
             ->bulkActions([
