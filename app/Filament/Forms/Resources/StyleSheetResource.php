@@ -13,12 +13,19 @@ use Filament\Tables\Columns\ColumnGroup;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Gate;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Filters\TrashedFilter;
 use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Select;
+use Filament\Tables;
 
 class StyleSheetResource extends Resource
 {
@@ -37,7 +44,10 @@ class StyleSheetResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('formVersion.form')
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
+            ->with(['formVersion.form', 'formVersions.form'])
             ->where('type', 'template');
     }
 
@@ -56,6 +66,15 @@ class StyleSheetResource extends Resource
                             ->label('Description')
                             ->columnSpanFull()
                             ->rows(5),
+                        Select::make('formVersions')
+                            ->label('Attach to Form Versions')
+                            ->multiple()
+                            ->preload()
+                            ->searchable()
+                            ->relationship('formVersions', 'version_number')
+                            ->getOptionLabelFromRecordUsing(function (\App\Models\FormBuilding\FormVersion $ver) {
+                                return "[{$ver->form->form_id}] {$ver->form->form_title} - v{$ver->version_number}";
+                            }),
                         Section::make('Info')
                             ->collapsible()
                             ->collapsed()
@@ -106,10 +125,42 @@ class StyleSheetResource extends Resource
                             return $state;
                         })
                         ->searchable(),
+                    TextColumn::make('formVersions_count')
+                        ->label('Attached Versions')
+                        ->counts('formVersions')
+                        ->sortable()
+                        ->toggleable(),
+                    TextColumn::make('forms_list')
+                        ->label('Attached Forms')
+                        ->state(function ($record) {
+                            return $record->formVersions
+                                ->pluck('form')
+                                ->filter()
+                                ->unique('id')
+                                ->map(function ($f) {
+                                    return "[{$f->form_id}] {$f->form_title}";
+                                })
+                                ->implode(', ');
+                        })
+                        ->wrap()
+                        ->limit(200)
+                        ->toggleable(),
+                    TextColumn::make('formVersions_list')
+                        ->label('Versions')
+                        ->state(function ($record) {
+                            return $record->formVersions->map(function ($v) {
+                                return "[{$v->form->form_id}] {$v->form->form_title} v{$v->version_number}";
+                            })->implode(', ');
+                        })
+                        ->wrap()
+                        ->limit(200)
+                        ->toggleable()
+                        ->toggledHiddenByDefault(true),
                 ]),
             ])
             ->filters([
-                //
+                TrashedFilter::make()
+                    ->visible(fn() => Gate::allows('admin')),
             ])
             ->actions([
                 ViewAction::make('view')
@@ -122,6 +173,9 @@ class StyleSheetResource extends Resource
                     ->url(fn($record) => route('filament.forms.resources.style-sheets.edit', [
                         'record' => $record->id,
                     ])),
+                DeleteAction::make(),
+                RestoreAction::make()
+                    ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
             ])
             ->bulkActions([
                 //

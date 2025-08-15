@@ -10,12 +10,23 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use App\Filament\Admin\Resources\UserResource\RelationManagers\UserLogRelationManager;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Gate;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
     protected static ?string $navigationIcon = 'heroicon-o-user';
     protected static ?string $navigationGroup = 'User Management';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
 
     public static function form(Form $form): Form
     {
@@ -57,9 +68,19 @@ class UserResource extends Resource
                     ->label('Admin')
                     ->getStateUsing(fn(User $record) => $record->hasRole('admin'))
             ])
-            ->filters([])
-            ->actions([])
-            ->bulkActions([])
+            ->filters([
+                Tables\Filters\TrashedFilter::make()
+                    ->visible(fn() => Gate::allows('admin')),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\RestoreAction::make()
+                    ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
+            ])
+            ->bulkActions([
+                //
+            ])
             ->paginated([10, 25, 50, 100]);
     }
 

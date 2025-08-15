@@ -24,9 +24,13 @@ use Filament\Forms\Components\Repeater;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\RestoreAction;
+use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Hidden;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class FormVersionResource extends Resource
 {
@@ -35,6 +39,14 @@ class FormVersionResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-inbox-stack';
 
     protected static bool $shouldRegisterNavigation = false;
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
 
     public static function form(Form $form): Form
     {
@@ -50,7 +62,8 @@ class FormVersionResource extends Resource
                             ->preload()
                             ->searchable()
                             ->columnSpan(2)
-                            ->default(request()->query('form_id_title')),
+                            ->default(request()->query('form_id_title'))
+                            ->disabled(fn($record) => $record !== null),
                         Select::make('status')
                             ->options(function () {
                                 return FormVersion::getStatusOptions();
@@ -270,7 +283,8 @@ class FormVersionResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                TrashedFilter::make()
+                    ->visible(fn() => Gate::allows('admin')),
             ])
             ->actions([
                 ViewAction::make(),
@@ -375,13 +389,18 @@ class FormVersionResource extends Resource
                 Action::make('archive')
                     ->label('Archive')
                     ->icon('heroicon-o-archive-box-arrow-down')
-                    ->visible(fn($record) => $record->status === 'published')
+                    ->visible(fn($record) => $record->status !== 'archived' && (Gate::allows('admin') || Gate::allows('form-developer')))
                     ->action(function ($record) {
                         $record->update(['status' => 'archived']);
                     })
                     ->requiresConfirmation()
                     ->color('danger')
+                    ->modalHeading('Archive Form Version')
+                    ->modalDescription('Are you sure you want to archive this form version? This will change its status to archived.')
+                    ->modalSubmitActionLabel('Archive')
                     ->tooltip('Archive this form version'),
+                RestoreAction::make()
+                    ->visible(fn($record) => Gate::allows('admin') && $record->trashed()),
             ])
             ->bulkActions([
                 //

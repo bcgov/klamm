@@ -4,6 +4,7 @@ namespace App\Models\FormBuilding;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
@@ -12,7 +13,7 @@ use App\Models\FormBuilding\FormVersion;
 
 class StyleSheet extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -162,5 +163,14 @@ class StyleSheet extends Model
     public function formVersion(): BelongsTo
     {
         return $this->belongsTo(FormVersion::class);
+    }
+
+    /**
+     * Added: many-to-many attachments to form versions
+     */
+    public function formVersions(): BelongsToMany
+    {
+        return $this->belongsToMany(FormVersion::class, 'style_sheet_form_version')
+            ->withTimestamps();
     }
 }

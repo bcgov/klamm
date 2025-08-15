@@ -4,6 +4,7 @@ namespace App\Models\FormBuilding;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +27,7 @@ use App\Models\FormMetadata\FormInterface;
 
 class FormVersion extends Model
 {
-    use HasFactory, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'form_id',
@@ -280,5 +281,24 @@ class FormVersion extends Model
             ->withPivot('order')
             ->withTimestamps()
             ->orderBy('form_version_form_interfaces.order');
+    }
+
+    // Added: many-to-many attachments
+    public function styleSheets(): BelongsToMany
+    {
+        return $this->belongsToMany(StyleSheet::class, 'style_sheet_form_version')
+            ->withTimestamps();
+    }
+
+    public function formScripts(): BelongsToMany
+    {
+        return $this->belongsToMany(FormScript::class, 'form_script_form_version')
+            ->withTimestamps();
+    }
+
+    // Convenience: return all attached style sheets
+    public function allStyleSheets()
+    {
+        return $this->styleSheets()->get();
     }
 }
