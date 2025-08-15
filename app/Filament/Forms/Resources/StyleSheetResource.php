@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Gate;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Actions\ForceDeleteAction;
 use Filament\Tables\Actions\RestoreAction;
 use Filament\Tables\Filters\TrashedFilter;
 use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
@@ -132,8 +131,7 @@ class StyleSheetResource extends Resource
                     ->url(fn($record) => route('filament.forms.resources.style-sheets.edit', [
                         'record' => $record->id,
                     ])),
-                DeleteAction::make(),
-                ForceDeleteAction::make()
+                DeleteAction::make()
                     ->visible(fn() => Gate::allows('admin')),
                 RestoreAction::make()
                     ->visible(fn() => Gate::allows('admin')),

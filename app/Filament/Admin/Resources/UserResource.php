@@ -75,8 +75,6 @@ class UserResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
-                Tables\Actions\ForceDeleteAction::make()
-                    ->visible(fn() => Gate::allows('admin')),
                 Tables\Actions\RestoreAction::make()
                     ->visible(fn() => Gate::allows('admin')),
             ])

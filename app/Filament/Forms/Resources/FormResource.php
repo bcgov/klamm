@@ -652,8 +652,6 @@ class FormResource extends Resource
                         ->icon('heroicon-o-inbox-stack')
                         ->url(fn(Form $record) => route('filament.forms.resources.form-versions.index', ['form_id' => $record->id])),
                     DeleteAction::make(),
-                    Tables\Actions\ForceDeleteAction::make()
-                        ->visible(fn() => Gate::allows('admin')),
                     Tables\Actions\RestoreAction::make()
                         ->visible(fn() => Gate::allows('admin')),
                 ])->icon('heroicon-m-ellipsis-vertical')

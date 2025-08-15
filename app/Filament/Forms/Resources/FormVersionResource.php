@@ -25,16 +25,10 @@ use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Actions\ForceDeleteAction;
 use Filament\Tables\Actions\RestoreAction;
-use Filament\Tables\Actions\BulkActionGroup;
-use Filament\Tables\Actions\DeleteBulkAction;
-use Filament\Tables\Actions\ForceDeleteBulkAction;
-use Filament\Tables\Actions\RestoreBulkAction;
 use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -405,8 +399,7 @@ class FormVersionResource extends Resource
                     ->modalDescription('Are you sure you want to archive this form version? This will change its status to archived.')
                     ->modalSubmitActionLabel('Archive')
                     ->tooltip('Archive this form version'),
-                DeleteAction::make(),
-                ForceDeleteAction::make()
+                DeleteAction::make()
                     ->visible(fn() => Gate::allows('admin')),
                 RestoreAction::make()
                     ->visible(fn() => Gate::allows('admin')),
