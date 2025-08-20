@@ -48,6 +48,7 @@ class ListFormInterfaces extends ListRecords
                         });
                     }),
                 Tables\Columns\TextColumn::make('type')->searchable()->sortable()->toggleable(isToggledHiddenByDefault: false),
+                Tables\Columns\TextColumn::make('mode')->searchable()->sortable()->toggleable(isToggledHiddenByDefault: false),
                 Tables\Columns\TextColumn::make('style')->searchable()->sortable()->toggleable(isToggledHiddenByDefault: true)->wrap(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
@@ -68,6 +69,22 @@ class ListFormInterfaces extends ListRecords
                             $values = [$values];
                         }
                         return $query->whereIn('type', $values);
+                    }),
+                SelectFilter::make('mode')
+                    ->options(FormInterface::modes())
+                    ->label('Mode')
+                    ->multiple()
+                    ->searchable()
+                    ->placeholder('All Modes')
+                    ->query(function ($query, array $data) {
+                        $values = $data['values'] ?? $data['value'] ?? [];
+                        if (empty($values)) {
+                            return $query;
+                        }
+                        if (!is_array($values)) {
+                            $values = [$values];
+                        }
+                        return $query->whereIn('mode', $values);
                     }),
                 SelectFilter::make('form_name')
                     ->label('Active Forms')
