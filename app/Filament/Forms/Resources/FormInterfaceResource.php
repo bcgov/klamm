@@ -41,6 +41,14 @@ class FormInterfaceResource extends Resource
                             ->autocomplete(false)
                             ->datalist(FormInterface::types())
                             ->maxLength(255),
+                        Forms\Components\Select::make('mode')
+                            ->options(FormInterface::modes())
+                            ->nullable()
+                            ->multiple()
+                            ->searchable()
+                            ->label('Mode')
+                            ->placeholder('Select Mode')
+                            ->columnSpanFull(),
                         Forms\Components\TextInput::make('style')
                             ->maxLength(255),
                         Forms\Components\Textarea::make('condition')
@@ -60,7 +68,13 @@ class FormInterfaceResource extends Resource
                             ->datalist(InterfaceAction::actionTypes()),
                         Forms\Components\TextInput::make('type')->maxLength(255)
                             ->autocomplete(false)
+                            ->badge()
                             ->datalist(InterfaceAction::types()),
+                        Forms\Components\TextInput::make('mode')
+                            ->autocomplete(false)
+                            ->badge()
+                            ->datalist(InterfaceAction::modes())
+                            ->label('Mode'),
                         Forms\Components\TextInput::make('host')->maxLength(255),
                         Forms\Components\TextInput::make('path')->maxLength(255),
                         Forms\Components\TextInput::make('authentication')->maxLength(255),
