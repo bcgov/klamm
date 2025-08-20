@@ -1147,7 +1147,26 @@ class FormVersionJsonService
     }
 
     /**
+     * Determine if an attribute value should be omitted.
+     * Omits: null, blank strings (after trim), and "undefined".
+     */
+    protected function shouldOmitAttribute($value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '' || strtolower($trimmed) === 'undefined') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Normalize and camelCase attributes, with custom mapping.
+     * Strips attributes with null, undefined, or "" (blank) values.
      * @param array $attributes
      * @return array
      */
@@ -1158,9 +1177,20 @@ class FormVersionJsonService
         }
         $result = [];
         foreach ($attributes as $k => $v) {
+            // Skip original nullish values
+            if ($this->shouldOmitAttribute($v)) {
+                continue;
+            }
+
             $custom = $this->customAttributeMapping($k, $v);
             if ($custom) {
                 [$newKey, $newValue] = $custom;
+
+                // Skip if the mapped value becomes nullish
+                if ($this->shouldOmitAttribute($newValue)) {
+                    continue;
+                }
+
                 $result[$newKey] = $newValue;
             } else {
                 $result[$this->toCamelCase($k)] = $v;

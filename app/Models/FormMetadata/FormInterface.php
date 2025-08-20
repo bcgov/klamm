@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Builder;
 use App\Models\FormBuilding\FormVersion;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
@@ -21,6 +22,8 @@ class FormInterface extends Model
         'label',
         'style',
         'condition',
+        'mode',
+        'mode_config',
     ];
 
     protected static $logAttributes = [
@@ -29,8 +32,13 @@ class FormInterface extends Model
         'label',
         'style',
         'condition',
+        'mode',
+        'mode_config',
     ];
 
+    protected $casts = [
+        'mode_config' => 'array',
+    ];
 
     public function actions(): HasMany
     {
@@ -49,6 +57,25 @@ class FormInterface extends Model
             ->values()
             ->mapWithKeys(fn($type) => [$type => $type])
             ->toArray();
+    }
+
+    public static function modes(): array
+    {
+        return self::query()
+            ->distinct()
+            ->whereNotNull('mode')
+            ->where('mode', '!=', '')
+            ->pluck('mode')
+            ->filter()
+            ->sort()
+            ->values()
+            ->mapWithKeys(fn($mode) => [$mode => $mode])
+            ->toArray();
+    }
+
+    public function scopeMode(Builder $query, ?string $mode): Builder
+    {
+        return $mode === null ? $query->whereNull('mode') : $query->where('mode', $mode);
     }
 
     public function formVersions(): BelongsToMany

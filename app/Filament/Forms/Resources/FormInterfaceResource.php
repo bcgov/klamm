@@ -41,6 +41,11 @@ class FormInterfaceResource extends Resource
                             ->autocomplete(false)
                             ->datalist(FormInterface::types())
                             ->maxLength(255),
+                        Forms\Components\TextInput::make('mode')
+                            ->required()
+                            ->autocomplete(false)
+                            ->datalist(FormInterface::modes())
+                            ->maxLength(255),
                         Forms\Components\TextInput::make('style')
                             ->maxLength(255),
                         Forms\Components\Textarea::make('condition')
