@@ -25,9 +25,9 @@ class NumberInputFormElement extends Model
 
     protected $casts = [
         'hideLabel' => 'boolean',
-        'min' => 'decimal:2',
-        'max' => 'decimal:2',
-        'step' => 'decimal:2',
+        'min' => 'integer',
+        'max' => 'integer',
+        'step' => 'integer',
         'defaultValue' => 'decimal:2',
     ];
 
@@ -48,16 +48,19 @@ class NumberInputFormElement extends Model
                 \Filament\Forms\Components\TextInput::make('elementable_data.min')
                     ->label('Minimum Value')
                     ->numeric()
+                    ->integer()
                     ->step(1)
                     ->disabled($disabled),
                 \Filament\Forms\Components\TextInput::make('elementable_data.max')
                     ->label('Maximum Value')
                     ->numeric()
+                    ->integer()
                     ->step(1)
                     ->disabled($disabled),
                 \Filament\Forms\Components\TextInput::make('elementable_data.step')
                     ->label('Step Size')
                     ->numeric()
+                    ->integer()
                     ->step(1)
                     ->default(1)
                     ->minValue(0)

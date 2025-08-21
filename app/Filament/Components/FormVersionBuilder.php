@@ -78,9 +78,15 @@ class FormVersionBuilder
             if ($sheet->type === 'template') {
                 $templateStyleSheets[$sheet->id] = "Template Stylesheet ({$sheet->filename})";
             } else {
-                $form = $sheet->formVersion->form;
-                $version = $sheet->formVersion;
-                $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$sheet->type})";
+                $formVersion = $sheet->formVersion;
+                $form = $formVersion?->form;
+
+                if ($formVersion && $form) {
+                    $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$sheet->type})";
+                } else {
+                    $name = $sheet->filename ?? "Stylesheet #{$sheet->id}";
+                    $otherStyleSheets[$sheet->id] = "[Orphan] {$name} ({$sheet->type})";
+                }
             }
         }
 
@@ -97,10 +103,16 @@ class FormVersionBuilder
         foreach ($formScripts as $script) {
             if ($script->type === 'template') {
                 $templateScripts[$script->id] = "Template Script ({$script->filename})";
-            } else if ($script->formVersion && $script->formVersion->form) {
-                $form = $script->formVersion->form;
-                $version = $script->formVersion;
-                $otherScripts[$script->id] = "[{$form->form_id}] {$form->form_title} - v{$version->version_number} ({$script->type})";
+            } else {
+                $formVersion = $script->formVersion;
+                $form = $formVersion?->form;
+
+                if ($formVersion && $form) {
+                    $otherScripts[$script->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$script->type})";
+                } else {
+                    $name = $script->filename ?? "Script #{$script->id}";
+                    $otherScripts[$script->id] = "[Orphan] {$name} ({$script->type})";
+                }
             }
         }
 

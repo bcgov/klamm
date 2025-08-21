@@ -265,19 +265,7 @@ class FormVersionJsonService
             }
         }
 
-        // 2) Inject public SvelteScript.js
-        $sveltePath = public_path('js/SvelteScript.js');
-        if (is_string($sveltePath) && is_file($sveltePath) && is_readable($sveltePath)) {
-            $svelteContent = @file_get_contents($sveltePath);
-            if ($svelteContent !== false) {
-                $scripts[] = [
-                    'type' => 'web',
-                    'content' => $svelteContent
-                ];
-            }
-        }
-
-        // 3) Include PDF form script (if present)
+        // 2) Include PDF form script (if present)
         if ($formVersion->pdfFormScript) {
             $scripts[] = [
                 'type' => $formVersion->pdfFormScript->type ?? 'pdf',
@@ -288,7 +276,7 @@ class FormVersionJsonService
             }
         }
 
-        // 4) Append all attached form scripts (deduping)
+        // 3) Append all attached form scripts (deduping)
         foreach ($formVersion->formScripts as $script) {
             if (!$script) continue;
             $key = $script->id ? ('script:' . $script->id) : null;
@@ -1142,6 +1130,13 @@ class FormVersionJsonService
         switch ($key) {
             case 'defaultValue':
                 return ['value', $value];
+            case 'max':
+            case 'min':
+            case 'step':
+                if (is_numeric($value)) {
+                    return [$key, (int)round($value)];
+                }
+                return [$key, $value];
             case 'dateFormat':
                 if ($value) {
                     return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
@@ -1152,7 +1147,26 @@ class FormVersionJsonService
     }
 
     /**
+     * Determine if an attribute value should be omitted.
+     * Omits: null, blank strings (after trim), and "undefined".
+     */
+    protected function shouldOmitAttribute($value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '' || strtolower($trimmed) === 'undefined') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Normalize and camelCase attributes, with custom mapping.
+     * Strips attributes with null, undefined, or "" (blank) values.
      * @param array $attributes
      * @return array
      */
@@ -1163,15 +1177,25 @@ class FormVersionJsonService
         }
         $result = [];
         foreach ($attributes as $k => $v) {
+            // Skip original nullish values
+            if ($this->shouldOmitAttribute($v)) {
+                continue;
+            }
+
             $custom = $this->customAttributeMapping($k, $v);
             if ($custom) {
                 [$newKey, $newValue] = $custom;
+
+                // Skip if the mapped value becomes nullish
+                if ($this->shouldOmitAttribute($newValue)) {
+                    continue;
+                }
+
                 $result[$newKey] = $newValue;
             } else {
                 $result[$this->toCamelCase($k)] = $v;
             }
         }
-        unset($result['labelText']);
         return $result;
     }
 
