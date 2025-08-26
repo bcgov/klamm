@@ -29,7 +29,7 @@ class ViewElementTemplateManagement extends ViewRecord
         $record = $this->getRecord();
 
         $isParented =
-            ! is_null($record->form_version_id) ||
+            !is_null($record->form_version_id) ||
             (property_exists($record, 'parent_id') && $record->parent_id !== null && $record->parent_id !== -1);
 
         return [
@@ -43,14 +43,14 @@ class ViewElementTemplateManagement extends ViewRecord
                 ->label('Edit')
                 ->icon('heroicon-o-pencil-square')
                 ->url(ElementTemplateManagementResource::getUrl('edit', ['record' => $record]))
-                ->visible(! $isParented),
+                ->visible(!$isParented),
         ];
     }
 
     public function form(Form $form): Form
     {
         $schema = GeneralTabHelper::getCreateSchema(
-            shouldShowTooltipsCallback: fn () => (bool) (auth()->user()?->tooltips_enabled ?? false),
+            shouldShowTooltipsCallback: fn() => (bool) (auth()->user()?->tooltips_enabled ?? false),
             includeTemplateSelector: false,
             disabledCallback: null
         );
@@ -65,7 +65,8 @@ class ViewElementTemplateManagement extends ViewRecord
                 ->disabled()
                 ->dehydrated(false)
                 ->formatStateUsing(function ($state, ?FormElement $record) {
-                    if (! $record) return '';
+                    if (!$record)
+                        return '';
                     return $record->reference_uuid
                         ?? $record->uuid
                         ?? $record->public_id
@@ -85,7 +86,8 @@ class ViewElementTemplateManagement extends ViewRecord
                 ->disabled()
                 ->dehydrated(false)
                 ->formatStateUsing(function ($state, ?FormElement $record) {
-                    if (! $record) return '';
+                    if (!$record)
+                        return '';
                     return optional($record->dataBindings)
                         ? $record->dataBindings->pluck('path')->filter()->unique()->join(', ')
                         : '';
@@ -100,7 +102,7 @@ class ViewElementTemplateManagement extends ViewRecord
                             'x-on:click' => 'navigator.clipboard.writeText($refs.dataPath.value)',
                         ])
                 )
-                ->columnSpan(12),           
+                ->columnSpan(12),
         ]);
 
         // keep read-only
@@ -122,18 +124,21 @@ class ViewElementTemplateManagement extends ViewRecord
                 foreach ($c->getChildComponents() as $child) {
                     $children[] = $map($child)->disabled();
                 }
-                if (method_exists($c, 'childComponents'))   $c = $c->childComponents($children)->disabled();
-                elseif (method_exists($c, 'schema'))        $c = $c->schema($children)->disabled();
-                else                                        $c = $c->disabled();
+                if (method_exists($c, 'childComponents'))
+                    $c = $c->childComponents($children)->disabled();
+                elseif (method_exists($c, 'schema'))
+                    $c = $c->schema($children)->disabled();
+                else
+                    $c = $c->disabled();
             } else {
                 $c = $c->disabled();
             }
             return $c;
         };
 
-        return array_map(fn ($comp) => $map($comp), $components);
+        return array_map(fn($comp) => $map($comp), $components);
     }
-    
+
     // Lock and/or hide the is_template toggle in the reused schema
     private function tweakIsTemplateField(array $components, bool $hide): array
     {
@@ -142,19 +147,23 @@ class ViewElementTemplateManagement extends ViewRecord
                 $children = [];
                 foreach ($c->getChildComponents() as $child) {
                     if ($child instanceof Toggle && $child->getName() === 'is_template') {
-                        if ($hide) continue;
+                        if ($hide)
+                            continue;
                         $child = $child->default(true)->disabled()->dehydrated(true);
                     } else {
                         $child = $map($child);
                     }
-                    if ($child) $children[] = $child;
+                    if ($child)
+                        $children[] = $child;
                 }
-                if (method_exists($c, 'childComponents'))   $c = $c->childComponents($children);
-                elseif (method_exists($c, 'schema'))        $c = $c->schema($children);
+                if (method_exists($c, 'childComponents'))
+                    $c = $c->childComponents($children);
+                elseif (method_exists($c, 'schema'))
+                    $c = $c->schema($children);
             } else {
                 if ($c instanceof Toggle && $c->getName() === 'is_template') {
                     return $hide ? Toggle::make('is_template')->hidden()->default(true)->dehydrated(true)
-                                 : $c->default(true)->disabled()->dehydrated(true);
+                        : $c->default(true)->disabled()->dehydrated(true);
                 }
             }
             return $c;
@@ -173,7 +182,8 @@ class ViewElementTemplateManagement extends ViewRecord
         /** @var FormElement|null $record */
         $record = $this->getRecord();
 
-        if (! $record) return null;
+        if (!$record)
+            return null;
 
         return $record->reference_uuid
             ?? $record->uuid

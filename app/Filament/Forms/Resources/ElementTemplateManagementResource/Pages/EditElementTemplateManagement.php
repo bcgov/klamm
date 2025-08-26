@@ -11,9 +11,10 @@ use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Placeholder;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Filament\Forms\Components\Actions\Action;
 
 class EditElementTemplateManagement extends EditRecord
 {
@@ -24,13 +25,32 @@ class EditElementTemplateManagement extends EditRecord
     public function form(Form $form): Form
     {
         $schema = GeneralTabHelper::getCreateSchema(
-            shouldShowTooltipsCallback: fn () => (bool) (auth()->user()?->tooltips_enabled ?? false),
+            shouldShowTooltipsCallback: fn() => (bool) (auth()->user()?->tooltips_enabled ?? false),
             includeTemplateSelector: false,
             disabledCallback: null
         );
 
         // Keep is_template ON, locked and hidden
         $schema = $this->tweakIsTemplateField($schema, hide: true);
+
+        // Disable the Element Type Select on edit
+        $schema[] = Placeholder::make('__disable_element_type')
+            ->label('')
+            ->content('')
+            ->dehydrated(false)
+            ->extraAttributes([
+                'class' => 'h-0 p-0 m-0 overflow-hidden',
+                'x-data' => '{}',
+                'x-init' => <<<'JS'
+            $nextTick(() => {
+                const sel = document.getElementById('data.elementable_type');
+                if (sel) {
+                    sel.setAttribute('disabled', 'disabled');
+                    sel.classList.add('pointer-events-none', 'opacity-60', 'cursor-not-allowed');
+                }
+            })
+        JS,
+            ]);
 
         // UUID
         $schema[] = Grid::make(12)->schema([
@@ -39,7 +59,8 @@ class EditElementTemplateManagement extends EditRecord
                 ->disabled()
                 ->dehydrated(false)
                 ->formatStateUsing(function ($state, ?FormElement $record) {
-                    if (! $record) return '';
+                    if (!$record)
+                        return '';
                     return $record->reference_uuid
                         ?? $record->uuid
                         ?? $record->public_id
@@ -59,7 +80,8 @@ class EditElementTemplateManagement extends EditRecord
                 ->disabled()
                 ->dehydrated(false)
                 ->formatStateUsing(function ($state, ?FormElement $record) {
-                    if (! $record) return '';
+                    if (!$record)
+                        return '';
                     return optional($record->dataBindings)
                         ? $record->dataBindings->pluck('path')->filter()->unique()->join(', ')
                         : '';
@@ -84,13 +106,14 @@ class EditElementTemplateManagement extends EditRecord
     // Admin only
     protected function authorizeAccess(): void
     {
+        // still require admin role
         abort_unless(auth()->check() && auth()->user()->hasRole('admin'), 403);
 
+        /** @var FormElement $record */
         $record = $this->getRecord();
 
-        $isParented =
-            ! is_null($record->form_version_id) ||
-            (property_exists($record, 'parent_id') && $record->parent_id !== null && $record->parent_id !== -1);
+        // Parented = form_version_id is NULL (per latest clarification)
+        $isParented = !is_null($record->form_version_id);
 
         abort_if($isParented, 403, 'This template is parented on a form and cannot be edited.');
     }
@@ -98,8 +121,8 @@ class EditElementTemplateManagement extends EditRecord
     // Keep invariants intact
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $data['is_template']       = true;
-        $data['form_version_id']   = null;
+        $data['is_template'] = true;
+        $data['form_version_id'] = null;
         $data['source_element_id'] = $data['source_element_id'] ?? null;
 
         return $data;
@@ -113,13 +136,13 @@ class EditElementTemplateManagement extends EditRecord
         /** @var FormElement $record */
 
         // Extract relation/aux data from payload
-        $tagIds          = $data['tags']           ?? [];
+        $tagIds = $data['tags'] ?? [];
         unset($data['tags']);
 
-        $dataBindings    = $data['dataBindings']   ?? [];
+        $dataBindings = $data['dataBindings'] ?? [];
         unset($data['dataBindings']);
 
-        $newType         = $data['elementable_type'] ?? null;
+        $newType = $data['elementable_type'] ?? null;
         $elementableData = $data['elementable_data'] ?? [];
         unset($data['elementable_data']);
 
@@ -132,14 +155,14 @@ class EditElementTemplateManagement extends EditRecord
 
         // If type changed, create a new elementable and repoint
         if ($newType && class_exists($newType) && $record->elementable_type !== $newType) {
-            $clean = array_filter($elementableData, fn ($v) => $v !== null);
-            $newElementable  = $newType::create($clean);
+            $clean = array_filter($elementableData, fn($v) => $v !== null);
+            $newElementable = $newType::create($clean);
 
             $data['elementable_type'] = $newType;
-            $data['elementable_id']   = $newElementable->getKey();
-        } elseif ($record->elementable && ! empty($elementableData)) {
+            $data['elementable_id'] = $newElementable->getKey();
+        } elseif ($record->elementable && !empty($elementableData)) {
             // Type unchanged → update existing elementable
-            $record->elementable->fill(array_filter($elementableData, fn ($v) => $v !== null));
+            $record->elementable->fill(array_filter($elementableData, fn($v) => $v !== null));
             $record->elementable->save();
         }
 
@@ -156,7 +179,7 @@ class EditElementTemplateManagement extends EditRecord
         if ($optionsData !== null && method_exists($record, 'syncOptions')) {
             $record->syncOptions($optionsData);
         }
-        if (! empty($dataBindings) && method_exists($record, 'syncDataBindings')) {
+        if (!empty($dataBindings) && method_exists($record, 'syncDataBindings')) {
             $record->syncDataBindings($dataBindings);
         }
 
@@ -190,19 +213,23 @@ class EditElementTemplateManagement extends EditRecord
                 $new = [];
                 foreach ($children as $child) {
                     if ($child instanceof Toggle && $child->getName() === 'is_template') {
-                        if ($hide) continue;
+                        if ($hide)
+                            continue;
                         $child = $child->default(true)->disabled()->dehydrated(true);
                     } else {
                         $child = $map($child);
                     }
-                    if ($child) $new[] = $child;
+                    if ($child)
+                        $new[] = $child;
                 }
-                if (method_exists($c, 'childComponents'))   $c = $c->childComponents($new);
-                elseif (method_exists($c, 'schema'))        $c = $c->schema($new);
+                if (method_exists($c, 'childComponents'))
+                    $c = $c->childComponents($new);
+                elseif (method_exists($c, 'schema'))
+                    $c = $c->schema($new);
             } else {
                 if ($c instanceof Toggle && $c->getName() === 'is_template') {
                     return $hide ? Toggle::make('is_template')->hidden()->default(true)->dehydrated(true)
-                                 : $c->default(true)->disabled()->dehydrated(true);
+                        : $c->default(true)->disabled()->dehydrated(true);
                 }
             }
             return $c;
@@ -214,7 +241,7 @@ class EditElementTemplateManagement extends EditRecord
         }
 
         // Ensure value persists even if helper omitted it.
-        if (! $this->schemaHasField($out, 'is_template')) {
+        if (!$this->schemaHasField($out, 'is_template')) {
             $out[] = Toggle::make('is_template')->hidden()->default(true)->dehydrated(true);
         }
 
@@ -224,13 +251,18 @@ class EditElementTemplateManagement extends EditRecord
     private function schemaHasField(array $components, string $name): bool
     {
         $check = function (Component $c) use (&$check, $name): bool {
-            if (method_exists($c, 'getName') && $c->getName() === $name) return true;
+            if (method_exists($c, 'getName') && $c->getName() === $name)
+                return true;
             if (method_exists($c, 'getChildComponents')) {
-                foreach ($c->getChildComponents() as $ch) if ($check($ch)) return true;
+                foreach ($c->getChildComponents() as $ch)
+                    if ($check($ch))
+                        return true;
             }
             return false;
         };
-        foreach ($components as $c) if ($check($c)) return true;
+        foreach ($components as $c)
+            if ($check($c))
+                return true;
         return false;
     }
 
@@ -240,7 +272,8 @@ class EditElementTemplateManagement extends EditRecord
         /** @var FormElement|null $record */
         $record = $this->getRecord();
 
-        if (! $record) return null;
+        if (!$record)
+            return null;
 
         return $record->reference_uuid
             ?? $record->uuid
