@@ -12,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms;
+use App\Livewire\FormElementTreeBuilder as Builder;
 
 class GeneralTabHelper
 {
@@ -155,47 +156,47 @@ class GeneralTabHelper
             ->disabled($disabled || ($disabledCallback && $disabledCallback()))
             ->suffixIcon(function (Forms\Get $get, TextInput $component) {
                 $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
-                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
-                    ? 'heroicon-o-exclamation-triangle' : null;
+                if ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) {
+                    return 'heroicon-o-exclamation-triangle';
+                }
+                return null;
             })
             ->hint(function (Forms\Get $get, TextInput $component) {
                 $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
-                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
-                    ? 'Invalid: ' . $lw->invalidReason((int) $get('id'), 'reference_id') : null;
+                if ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) {
+                    return 'Invalid: ' . ($lw->invalidReason((int) $get('id'), 'reference_id') ?? '');
+                }
+                return null;
             })
-            // make the “?” icon returns to normal when clean
+            // make the "?" mark color back to normal when clean
             ->hintColor(function (Forms\Get $get, TextInput $component) {
                 $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
-                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
-                    ? 'danger' : 'gray';
+                return ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) ? 'danger' : 'gray';
             })
             ->extraAttributes(function (Forms\Get $get, TextInput $component) {
                 $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
-                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
-                    ? ['class' => 'ring-1 ring-danger-500 bg-danger-50/50'] : [];
+                if ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) {
+                    return ['class' => 'ring-1 ring-danger-500 bg-danger-50/50'];
+                }
+                return [];
             })
-            ->live(onBlur: true)
             ->afterStateUpdated(function ($state, $set, $get, TextInput $component) {
                 $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
-                if (!$lw)
+                if (!($lw instanceof Builder))
                     return;
 
                 $id = (int) $get('id');
                 $value = is_string($state) ? trim($state) : '';
 
                 if ($value !== '' && !preg_match('/^\d/', $value)) {
-                    if (method_exists($lw, 'clearInvalidMarker'))
-                        $lw->clearInvalidMarker($id, 'reference_id');
+                    $lw->clearInvalidMarker($id, 'reference_id');
                 } else {
-                    if (method_exists($lw, 'markInvalid'))
-                        $lw->markInvalid($id, 'reference_id', $value === '' ? 'empty' : 'starts with a number', $value);
+                    $lw->markInvalid($id, 'reference_id', $value === '' ? 'empty' : 'starts with a number', $value);
                 }
 
-                // refresh builder highlights
-                if (method_exists($lw, 'dispatch')) {
-                    $lw->dispatch('ff-markers-updated', markers: $lw->invalidByElement ?? [])
-                        ->to('form-element-tree-builder');
-                }
+                // update row highlights in the child builder
+                $lw->dispatch('ff-markers-updated', markers: $lw->invalidByElement ?? [])
+                    ->to('form-element-tree-builder');
             });
 
         // Add tooltip if callback is provided
