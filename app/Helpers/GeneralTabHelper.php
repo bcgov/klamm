@@ -88,7 +88,7 @@ class GeneralTabHelper
                     $set('visible_web', $template->visible_web);
                     $set('visible_pdf', $template->visible_pdf);
                     $set('is_template', false); // New element should not be a template by default
-
+    
                     // Prefill tags
                     if ($template->tags->isNotEmpty()) {
                         $set('tags', $template->tags->pluck('id')->toArray());
@@ -144,6 +144,7 @@ class GeneralTabHelper
         }
 
         $schema[] = $nameField;
+        $schema[] = Hidden::make('id')->dehydrated(false);
 
         // Reference ID field - editable on create and edit
         $referenceIdField = TextInput::make('reference_id')
@@ -151,7 +152,51 @@ class GeneralTabHelper
             ->rules(['alpha_dash'])
             ->live()
             ->autocomplete(false)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->suffixIcon(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
+                    ? 'heroicon-o-exclamation-triangle' : null;
+            })
+            ->hint(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
+                    ? 'Invalid: ' . $lw->invalidReason((int) $get('id'), 'reference_id') : null;
+            })
+            // make the “?” icon returns to normal when clean
+            ->hintColor(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
+                    ? 'danger' : 'gray';
+            })
+            ->extraAttributes(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                return ($lw && method_exists($lw, 'isFieldInvalid') && $lw->isFieldInvalid((int) $get('id'), 'reference_id'))
+                    ? ['class' => 'ring-1 ring-danger-500 bg-danger-50/50'] : [];
+            })
+            ->live(onBlur: true)
+            ->afterStateUpdated(function ($state, $set, $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if (!$lw)
+                    return;
+
+                $id = (int) $get('id');
+                $value = is_string($state) ? trim($state) : '';
+
+                if ($value !== '' && !preg_match('/^\d/', $value)) {
+                    if (method_exists($lw, 'clearInvalidMarker'))
+                        $lw->clearInvalidMarker($id, 'reference_id');
+                } else {
+                    if (method_exists($lw, 'markInvalid'))
+                        $lw->markInvalid($id, 'reference_id', $value === '' ? 'empty' : 'starts with a number', $value);
+                }
+
+                // refresh builder highlights
+                if (method_exists($lw, 'dispatch')) {
+                    $lw->dispatch('ff-markers-updated', markers: $lw->invalidByElement ?? [])
+                        ->to('form-element-tree-builder');
+                }
+            });
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -170,8 +215,8 @@ class GeneralTabHelper
                         ->tooltip(fn($get) => $get('reference_id_locked')
                             ? ''
                             : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings.')->action(function ($set, $get) {
-                            $set('reference_id_locked', true);
-                        })
+                                $set('reference_id_locked', true);
+                            })
                 )
                 ->disabled(fn($get) => !$get('reference_id_locked'))
                 ->suffix(function ($get) {
@@ -290,27 +335,27 @@ class GeneralTabHelper
             // For create and view modes
             $elementTypeField = $isCreate
                 ? Select::make('elementable_type')
-                ->label('Element Type')
-                ->options(FormElement::getAvailableElementTypes())
-                ->required()
-                ->live()
-                ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                ->afterStateUpdated(function ($state, callable $set) {
-                    // Clear existing elementable data when type changes
-                    $set('elementable_data', []);
+                    ->label('Element Type')
+                    ->options(FormElement::getAvailableElementTypes())
+                    ->required()
+                    ->live()
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // Clear existing elementable data when type changes
+                        $set('elementable_data', []);
 
-                    // Populate with defaults from the new element type
-                    if ($state && class_exists($state)) {
-                        $defaults = self::getElementTypeDefaults($state);
+                        // Populate with defaults from the new element type
+                        if ($state && class_exists($state)) {
+                            $defaults = self::getElementTypeDefaults($state);
 
-                        if (!empty($defaults)) {
-                            $set('elementable_data', $defaults);
+                            if (!empty($defaults)) {
+                                $set('elementable_data', $defaults);
+                            }
                         }
-                    }
-                })
+                    })
                 : TextInput::make('elementable_type')
-                ->label('Element Type')
-                ->disabled(true);
+                    ->label('Element Type')
+                    ->disabled(true);
         }
 
         // Add tooltip if callback is provided
