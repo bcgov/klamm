@@ -33,7 +33,7 @@ class MinistrySeeder extends Seeder
         $ecc->save();
 
         $ecc = new Ministry();
-        $ecc->short_name = 'GCPBC';
+        $ecc->short_name = 'FEDGOVBC';
         $ecc->name = 'Government of Canada and Province of British Columbia';
         $ecc->save();
     }
