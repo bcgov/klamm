@@ -31,5 +31,10 @@ class MinistrySeeder extends Seeder
         $ecc->short_name = 'ECC';
         $ecc->name = 'Ministry of Education and Child Care';
         $ecc->save();
+
+        $ecc = new Ministry();
+        $ecc->short_name = 'GCPBC';
+        $ecc->name = 'Government of Canada and Province of British Columbia';
+        $ecc->save();
     }
 }
