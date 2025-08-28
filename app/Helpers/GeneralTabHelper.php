@@ -224,14 +224,45 @@ class GeneralTabHelper
                     return $get('uuid') ? $get('uuid') : '';
                 })
                 ->autocomplete(false)
-                ->suffixAction(
-                    Action::make('copy')
+                ->suffixActions([
+                    // Copy script format:  '<ref-uuid>' /* Name (Type) */
+                    Action::make('copyScript')
                         ->icon('heroicon-s-clipboard')
+                        ->tooltip('Copy script snippet')
                         ->action(function ($livewire, $state, $get) {
-                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                        })
-                )
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label);
+                            $snippet = "'{$base}' /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+
+                    // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
+                    Action::make('copyCss')
+                        ->icon('heroicon-s-code-bracket-square')
+                        ->tooltip('Copy CSS selector')
+                        ->action(function ($livewire, $state, $get) {
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label);
+                            $snippet = "[id='{$base}'] /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+                ])
                 ->extraAttributes([
                     'x-data' => '{
                         copyToClipboard(text) {
@@ -280,14 +311,46 @@ class GeneralTabHelper
                 ->suffix(function ($get) {
                     return $get('uuid') ? $get('uuid') : '';
                 })
-                ->suffixAction(
-                    Action::make('copy')
+                ->suffixActions([
+                    // Copy script format:  '<ref-uuid>' /* Name (Type) */
+                    Action::make('copyScript')
                         ->icon('heroicon-s-clipboard')
+                        ->tooltip('Copy script snippet')
                         ->action(function ($livewire, $state, $get) {
-                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                        })
-                )
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label); 
+                            $snippet = "'{$base}' /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+
+                    // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
+                    Action::make('copyCss')
+                        ->icon('heroicon-s-code-bracket-square')
+                        ->tooltip('Copy CSS selector')
+                        ->action(function ($livewire, $state, $get) {
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label);
+                            $snippet = "[id='{$base}'] /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+                ])
+
                 ->extraAttributes([
                     'x-data' => '{
                         copyToClipboard(text) {
