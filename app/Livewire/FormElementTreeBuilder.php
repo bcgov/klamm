@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Helpers\FormElementHelper;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Illuminate\Support\HtmlString;
 
 class FormElementTreeBuilder extends BaseWidget implements HasForms
 {
@@ -38,11 +39,49 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
     protected $pendingElementableData = [];
     protected $pendingElementType = null;
 
-    public function mount($formVersionId = null, $editable = true)
+    // markers sent from the page; key = element id
+    public array $invalidByElement = []; // [id => ['reference_id' => ['reason' => '...', 'value' => '...']]]
+
+    protected $listeners = ['ff-markers-updated' => 'setMarkers'];
+
+    public function mount($formVersionId = null, $editable = true, array $invalidByElement = []): void
     {
         $this->formVersionId = $formVersionId;
         $this->editable = $editable;
+        $this->invalidByElement = $invalidByElement ?? [];
     }
+
+    public function setMarkers(array $markers): void
+    {
+        $this->invalidByElement = $markers;
+    }
+
+    public function isFieldInvalid(?int $elementId, string $field): bool
+    {
+        return $elementId && isset($this->invalidByElement[$elementId][$field]);
+    }
+
+    public function invalidReason(?int $elementId, string $field): ?string
+    {
+        return $elementId && isset($this->invalidByElement[$elementId][$field]['reason'])
+            ? (string) $this->invalidByElement[$elementId][$field]['reason']
+            : null;
+    }
+
+    public function markInvalid(int $elementId, string $field, string $reason, string $value = ''): void
+    {
+        $this->invalidByElement[$elementId][$field] = ['reason' => $reason, 'value' => $value];
+    }
+
+    public function clearInvalidMarker(?int $elementId, string $field): void
+    {
+        if (!$elementId)
+            return;
+        unset($this->invalidByElement[$elementId][$field]);
+        if (empty($this->invalidByElement[$elementId]))
+            unset($this->invalidByElement[$elementId]);
+    }
+
 
     protected function shouldShowTooltips(): bool
     {
@@ -291,13 +330,17 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
         $hasDataBindings = $record->dataBindings->isNotEmpty();
         $bindingIndicator = $hasDataBindings ? '<span class="mr-1">🟢</span>' : '';
 
-        $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
-        return sprintf(
-            '%s<span class="text-gray-400">[%s]</span> %s',
-            $bindingIndicator,
-            e($elementTypeName),
-            e($record->name)
-        );
+        $needsFix = isset($this->invalidByElement[$record->id])
+            ? '<span class="mr-1">🔴</span>'
+            : '';
+
+        $elementTypeName = \App\Models\FormBuilding\FormElement::getElementTypeName($record->elementable_type);
+        $html = $bindingIndicator
+            . $needsFix
+            . '<span class="text-gray-400">[' . e($elementTypeName) . ']</span> '
+            . e($record->name);
+
+        return new HtmlString($html);
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
@@ -637,6 +680,11 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
         $elementType = class_basename($record->elementable_type ?? '');
         $classes[] = 'element-type-' . strtolower($elementType);
 
+        // Highlight invalid rows
+        if (isset($this->invalidByElement[$record->id])) {
+            $classes[] = 'rounded-lg ring-1 ring-danger-500/70 bg-danger-500/5';
+        }
+
         return implode(' ', $classes);
     }
 
@@ -715,9 +763,11 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
     {
         // Get fresh data from the database in the same format the tree expects
         return $this->getTreeQuery()
-            ->with(['children' => function ($query) {
-                $query->orderBy('order');
-            }])
+            ->with([
+                'children' => function ($query) {
+                    $query->orderBy('order');
+                }
+            ])
             ->whereNull('parent_id')
             ->orderBy('order')
             ->get()
