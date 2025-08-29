@@ -13,6 +13,7 @@ use App\Filament\Forms\Resources\FormResource;
 use App\Helpers\DataBindingsHelper;
 use App\Helpers\ElementPropertiesHelper;
 use App\Helpers\GeneralTabHelper;
+use App\Services\FormVersionJsonService;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -34,6 +35,8 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Get;
 use Filament\Support\Exceptions\Halt;
 use App\Helpers\FormElementHelper;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Str;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -57,6 +60,7 @@ class BuildFormVersion extends Page implements HasForms
         'done' => false,
         'cacheKey' => null,
     ];
+    public array $invalidByElement = [];
 
     protected function isEditable(): bool
     {
@@ -386,8 +390,10 @@ class BuildFormVersion extends Page implements HasForms
                 }),
 
             ActionGroup::make([
-                $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
-                $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
+                $this->makeDownloadJsonAction('download_old_json', 'Download v1', 1),
+                $this->makeDownloadJsonAction('download_json', 'Download v2', 2),
+                $this->makeCopyJsonAction('copy_json_v1', 'Copy v1 to Clipboard', 1),
+                $this->makeCopyJsonAction('copy_json_v2', 'Copy v2 to Clipboard', 2),
             ])
                 ->label('Download JSON')
                 ->icon('heroicon-m-ellipsis-vertical')
@@ -426,19 +432,149 @@ class BuildFormVersion extends Page implements HasForms
                     return;
                 }
 
-                // Dispatch job to generate JSON for the given version
+                // Use shared validation method
+                $issues = $this->validateFormFields();
+
+                if (!empty($issues)) {
+                    $this->handleValidationFailures($issues);
+                    return;
+                }
+
+                // All clear - dispatch export
                 GenerateFormVersionJsonJob::dispatch($this->record, $userId, $version);
 
                 // Show immediate notification
                 \Filament\Notifications\Notification::make()
                     ->info()
-                    ->title('JSON Export Started')
-                    ->body('Your JSON file is being generated. You will receive a notification when it\'s ready for download.')
+                    ->title('Generating JSON')
+                    ->body('Your JSON file is being generated. You will be notified when it is ready.')
                     ->send();
             });
     }
 
+    protected function makeCopyJsonAction(string $name, string $label, int $version): Actions\Action
+    {
+        return Actions\Action::make($name)
+            ->label($label)
+            ->icon('heroicon-o-clipboard-document')
+            ->color('info')
+            ->outlined()
+            ->action(function () use ($version) {
+                try {
+                    // Use shared validation method
+                    $issues = $this->validateFormFields();
 
+                    if (!empty($issues)) {
+                        $this->handleValidationFailures($issues);
+                        return;
+                    }
+
+                    // Generate JSON content using shared method
+                    $jsonContent = $this->generateJsonForClipboard($version);
+
+                    // Copy to clipboard using JavaScript
+                    $this->dispatch('copy-to-clipboard', content: $jsonContent);
+
+                    Notification::make()
+                        ->success()
+                        ->title('Copied to Clipboard')
+                        ->body("JSON v{$version} has been copied to your clipboard.")
+                        ->send();
+                } catch (\Exception $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Copy Failed')
+                        ->body('Failed to copy JSON to clipboard: ' . $e->getMessage())
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /**
+     * Validate form fields and return validation issues
+     * Returns empty array if validation passes, or array of issues if validation fails
+     */
+    protected function validateFormFields(): array
+    {
+        return $this->collectFormFieldIssues($this->formStandardFieldRules());
+    }
+
+    /**
+     * Handle validation failures by showing notifications and markers
+     */
+    protected function handleValidationFailures(array $issues): void
+    {
+        $this->invalidByElement = $this->collectFormFieldMarkers($this->formStandardFieldRules());
+        $this->dispatch('ff-markers-updated', markers: $this->invalidByElement)
+            ->to('form-element-tree-builder');
+
+        $lines = array_map(
+            fn($i) => sprintf('%s: %s — %s', $i['field'], $i['value'], $i['reason']),
+            $issues
+        );
+
+        $payload = "Found invalid fields. Please fix the following:\n\n" .
+            implode("\n", $lines) .
+            "\n\nRule(s): Reference ID must be set and must not start with a number.";
+
+        $bodyHtml = new HtmlString(
+            '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
+                . nl2br(e($payload)) .
+                '</div>'
+        );
+
+        Notification::make()
+            ->danger()
+            ->title('Form Standard Check')
+            ->body($bodyHtml)
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * Generate JSON data for a specific version
+     */
+    protected function generateJsonData(int $version): array
+    {
+        $jsonService = new FormVersionJsonService();
+
+        $formVersion = \App\Models\FormBuilding\FormVersion::with([
+            'form',
+            'formElements.elementable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
+                    \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                ]);
+            },
+            'formElements.dataBindings.formDataSource',
+            'formDataSources' => function ($query) {
+                $query->orderBy('form_versions_form_data_sources.order');
+            },
+            'webStyleSheet',
+            'pdfStyleSheet',
+            'webFormScript',
+            'pdfFormScript'
+        ])->find($this->record->id);
+
+        switch ($version) {
+            case 1:
+                return $jsonService->generatePreMigrationJson($formVersion);
+            case 2:
+                return $jsonService->generateJson($formVersion);
+            default:
+                throw new \Exception("Unsupported format version: {$version}");
+        }
+    }
+
+    /**
+     * Generate JSON string for clipboard copying
+     */
+    protected function generateJsonForClipboard(int $version): string
+    {
+        $jsonData = $this->generateJsonData($version);
+        return json_encode($jsonData, JSON_PRETTY_PRINT);
+    }
 
     public function save(): void
     {
@@ -683,6 +819,197 @@ class BuildFormVersion extends Page implements HasForms
             return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
         return (string) $value;
+    }
+
+    /**
+     * Define which fields to validate and how to read/format them.
+     * Add more entries here later (e.g., tags, visibility script).
+     *
+     * Each field config:
+     *  - label: human label shown in the message
+     *  - getter($el): returns raw value to validate
+     *  - format?(mixed $value): optional, string for the message
+     *  - rules: array of closures (fn($value, $el) => true|null on pass, or string reason on fail)
+     */
+    private function formStandardFieldRules(): array
+    {
+        return [
+            'reference_id' => [
+                'label' => 'Reference ID',
+                'getter' => fn($el) => is_string($el->reference_id) ? trim($el->reference_id) : '',
+                'rules' => [
+                    fn($v) => ($v !== '') ?: 'empty',
+                    fn($v) => ($v === '' || !preg_match('/^\d/', $v)) ?: 'starts with a number',
+                ],
+            ],
+
+            // ——— for later if we want to validate other fields ———
+
+            // 'custom_visibility' => [
+            //     'label'  => 'Custom Visibility Script',
+            //     'getter' => function ($el) {
+            //         $props  = $el->element_properties;
+            //         $arr    = is_array($props) ? $props : (json_decode($props ?? '[]', true) ?: []);
+            //         $script = Arr::get($arr, 'visibilityCondition.value')
+            //                 ?? Arr::get($arr, 'visibilityCondition')
+            //                 ?? Arr::get($arr, 'visibility.condition')
+            //                 ?? '';
+            //         return is_string($script) ? trim($script) : '';
+            //     },
+            //     'rules' => [
+            //         // Example heuristics (since PHP can’t parse JS): must contain "return" if non-empty
+            //         fn ($v) => ($v === '' || stripos($v, 'return') !== false) ?: 'must contain a return statement',
+            //         fn ($v) => (strlen((string)$v) <= 2000) ?: 'too long',
+            //     ],
+            // ],
+        ];
+    }
+
+    /**
+     * Run configured sanity checks on non-container elements.
+     * Returns a flat list of issues with only: field, value, reason.
+     */
+    private function collectFormFieldIssues(array $fieldConfigs): array
+    {
+        $elements = FormElement::query()
+            ->where('form_version_id', $this->record->id)
+            ->get();
+
+        $issues = [];
+
+        foreach ($elements as $el) {
+            // Skip containers/sections/groups/pages
+            $isContainer = method_exists($el, 'isContainer')
+                ? (bool) $el->isContainer()
+                : Str::contains((string) ($el->elementable_type ?? ''), ['Container', 'Section', 'Group', 'Page']);
+
+            if ($isContainer) {
+                continue;
+            }
+
+            foreach ($fieldConfigs as $key => $cfg) {
+                $label = $cfg['label'] ?? Str::headline(str_replace('_', ' ', $key));
+                $getter = $cfg['getter'] ?? fn($e) => $e->{$key} ?? null;
+                $format = $cfg['format'] ?? fn($v) => $this->formatIssueValue($v);
+                $rules = $cfg['rules'] ?? [];
+
+                $value = $getter($el);
+
+                foreach ($rules as $rule) {
+                    try {
+                        $result = $rule($value, $el);
+                    } catch (\Throwable $e) {
+                        $result = 'validator error';
+                    }
+
+                    // Pass cases: true or null
+                    if ($result === true || $result === null) {
+                        continue;
+                    }
+
+                    // Fail: $result is a reason string (or falsy -> use generic)
+                    $reason = is_string($result) && $result !== '' ? $result : 'invalid';
+
+                    $issues[] = [
+                        'field' => $label,
+                        'value' => $format($value),
+                        'reason' => $reason,
+                    ];
+                }
+            }
+        }
+
+        // Collapse duplicates: same field+value with multiple reasons → merge reasons
+        $bucket = [];
+        foreach ($issues as $it) {
+            $k = $it['field'] . '|' . $it['value'];
+            $bucket[$k]['field'] = $it['field'];
+            $bucket[$k]['value'] = $it['value'];
+            $bucket[$k]['reasons'] = isset($bucket[$k]['reasons'])
+                ? array_values(array_unique(array_merge($bucket[$k]['reasons'], [$it['reason']])))
+                : [$it['reason']];
+        }
+
+        // Flatten back to minimal triplets
+        $flat = [];
+        foreach ($bucket as $b) {
+            $flat[] = [
+                'field' => $b['field'],
+                'value' => $b['value'],
+                'reason' => implode(', ', $b['reasons']),
+            ];
+        }
+
+        return $flat;
+    }
+
+    // Format any value into string for the message
+    private function formatIssueValue($value): string
+    {
+        if ($value === null || $value === '') {
+            return '(empty)';
+        }
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_array($value)) {
+            $flat = array_map(function ($v) {
+                if (is_scalar($v) || $v === null)
+                    return (string) $v;
+                return json_encode($v, JSON_UNESCAPED_UNICODE);
+            }, $value);
+            $flat = array_filter($flat, fn($s) => trim((string) $s) !== '');
+            $out = implode(', ', array_slice($flat, 0, 10));
+            return count($flat) > 10 ? $out . ' …' : $out;
+        }
+        if (is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE);
+        }
+        return (string) $value;
+    }
+
+    private function collectFormFieldMarkers(array $fieldConfigs): array
+    {
+        $elements = FormElement::query()
+            ->where('form_version_id', $this->record->id)
+            ->get(['id', 'elementable_type', 'reference_id', 'custom_visibility']);
+
+        // [id => [field_key => ['reason' => ..., 'value' => ...]]]
+        $markers = [];
+
+        foreach ($elements as $el) {
+            $isContainer = method_exists($el, 'isContainer')
+                ? (bool) $el->isContainer()
+                : Str::contains((string) ($el->elementable_type ?? ''), ['Container', 'Section', 'Group', 'Page']);
+
+            if ($isContainer)
+                continue;
+
+            foreach ($fieldConfigs as $key => $cfg) {
+                $getter = $cfg['getter'] ?? fn($e) => $e->{$key} ?? null;
+                $rules = $cfg['rules'] ?? [];
+                $value = $getter($el);
+
+                foreach ($rules as $rule) {
+                    try {
+                        $result = $rule($value, $el);
+                    } catch (\Throwable $e) {
+                        $result = 'validator error';
+                    }
+
+                    if ($result === true || $result === null)
+                        continue;
+
+                    $reason = is_string($result) && $result !== '' ? $result : 'invalid';
+                    $markers[$el->id][$key] = [
+                        'reason' => $reason,
+                        'value' => is_scalar($value) || $value === null ? (string) ($value ?? '') : json_encode($value),
+                    ];
+                }
+            }
+        }
+
+        return $markers;
     }
 
     /**
