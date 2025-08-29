@@ -38,6 +38,10 @@ use App\Helpers\FormElementHelper;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
+use Filament\Notifications\Notification;
+
 class BuildFormVersion extends Page implements HasForms
 {
     use InteractsWithForms;
@@ -72,7 +76,7 @@ class BuildFormVersion extends Page implements HasForms
         return $this->record->getFormattedStatusName();
     }
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
         if (!Gate::allows('form-developer')) {
             abort(403, 'Unauthorized. Only form developers can access the form builder.');
@@ -424,7 +428,7 @@ class BuildFormVersion extends Page implements HasForms
                 $userId = Auth::id();
 
                 if (!$userId) {
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->danger()
                         ->title('Authentication Error')
                         ->body('You must be logged in to download JSON files.')
@@ -443,8 +447,7 @@ class BuildFormVersion extends Page implements HasForms
                 // All clear - dispatch export
                 GenerateFormVersionJsonJob::dispatch($this->record, $userId, $version);
 
-                // Show immediate notification
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->info()
                     ->title('Generating JSON')
                     ->body('Your JSON file is being generated. You will be notified when it is ready.')
