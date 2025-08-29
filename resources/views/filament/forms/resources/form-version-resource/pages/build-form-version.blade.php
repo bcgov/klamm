@@ -298,6 +298,41 @@
                 }
             }
         }
+
+        // Function to copy text to clipboard
+        async function copyToClipboard(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for older browsers or non-secure contexts
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    textArea.remove();
+                }
+                return true;
+            } catch (err) {
+                console.error('Failed to copy to clipboard:', err);
+                return false;
+            }
+        }
+
+        // Listen for Livewire events
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('copy-to-clipboard', (event) => {
+                const content = event.content || event[0]?.content;
+                if (content) {
+                    copyToClipboard(content);
+                }
+            });
+        });
     </script>
     @endpush
 </x-filament-panels::page>

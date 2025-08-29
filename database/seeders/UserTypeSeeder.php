@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\UserType;
+use App\Models\FormMetadata\UserType;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 

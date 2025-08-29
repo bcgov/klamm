@@ -13,6 +13,7 @@ use App\Filament\Forms\Resources\FormResource;
 use App\Helpers\DataBindingsHelper;
 use App\Helpers\ElementPropertiesHelper;
 use App\Helpers\GeneralTabHelper;
+use App\Services\FormVersionJsonService;
 use Filament\Resources\Pages\Page;
 use Filament\Forms\Form;
 use Filament\Actions;
@@ -61,6 +62,7 @@ class BuildFormVersion extends Page implements HasForms
         'done' => false,
         'cacheKey' => null,
     ];
+    public array $invalidByElement = [];
 
     protected function isEditable(): bool
     {
@@ -390,8 +392,10 @@ class BuildFormVersion extends Page implements HasForms
                 }),
 
             ActionGroup::make([
-                $this->makeDownloadJsonAction('download_json', 'Version 2.0 (Latest)', 2),
-                $this->makeDownloadJsonAction('download_old_json', 'Version 1.0', 1),
+                $this->makeDownloadJsonAction('download_old_json', 'Download v1', 1),
+                $this->makeDownloadJsonAction('download_json', 'Download v2', 2),
+                $this->makeCopyJsonAction('copy_json_v1', 'Copy v1 to Clipboard', 1),
+                $this->makeCopyJsonAction('copy_json_v2', 'Copy v2 to Clipboard', 2),
             ])
                 ->label('Download JSON')
                 ->icon('heroicon-m-ellipsis-vertical')
@@ -430,51 +434,148 @@ class BuildFormVersion extends Page implements HasForms
                     return;
                 }
 
-                $issues = $this->collectFormFieldIssues($this->formStandardFieldRules());
+                // Use shared validation method
+                $issues = $this->validateFormFields();
 
                 if (!empty($issues)) {
-                    $this->invalidByElement = $this->collectFormFieldMarkers($this->formStandardFieldRules());
-                    $this->dispatch('ff-markers-updated', markers: $this->invalidByElement)
-                        ->to('form-element-tree-builder');
-
-                    $lines = array_map(
-                        fn($i) => sprintf('%s: %s — %s', $i['field'], $i['value'], $i['reason']),
-                        $issues
-                    );
-
-                    $payload = "Found invalid fields. Please fix the following:\n\n" .
-                        implode("\n", $lines) .
-                        "\n\nRule(s): Reference ID must be set and must not start with a number.";
-
-                    $bodyHtml = new HtmlString(
-                        '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-                        . nl2br(e($payload)) .
-                        '</div>'
-                    );
-
-                    Notification::make()
-                        ->danger()
-                        ->title('Form Standard Check')
-                        ->body($bodyHtml)
-                        ->persistent()
-                        ->send();
-
+                    $this->handleValidationFailures($issues);
                     return;
                 }
 
-
-                // All clear — dispatch export
+                // All clear - dispatch export
                 GenerateFormVersionJsonJob::dispatch($this->record, $userId, $version);
 
                 Notification::make()
                     ->info()
                     ->title('Generating JSON')
-                    ->body('Your JSON file is being generated. You’ll be notified when it’s ready.')
+                    ->body('Your JSON file is being generated. You will be notified when it is ready.')
                     ->send();
             });
     }
 
+    protected function makeCopyJsonAction(string $name, string $label, int $version): Actions\Action
+    {
+        return Actions\Action::make($name)
+            ->label($label)
+            ->icon('heroicon-o-clipboard-document')
+            ->color('info')
+            ->outlined()
+            ->action(function () use ($version) {
+                try {
+                    // Use shared validation method
+                    $issues = $this->validateFormFields();
 
+                    if (!empty($issues)) {
+                        $this->handleValidationFailures($issues);
+                        return;
+                    }
+
+                    // Generate JSON content using shared method
+                    $jsonContent = $this->generateJsonForClipboard($version);
+
+                    // Copy to clipboard using JavaScript
+                    $this->dispatch('copy-to-clipboard', content: $jsonContent);
+
+                    Notification::make()
+                        ->success()
+                        ->title('Copied to Clipboard')
+                        ->body("JSON v{$version} has been copied to your clipboard.")
+                        ->send();
+                } catch (\Exception $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Copy Failed')
+                        ->body('Failed to copy JSON to clipboard: ' . $e->getMessage())
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /**
+     * Validate form fields and return validation issues
+     * Returns empty array if validation passes, or array of issues if validation fails
+     */
+    protected function validateFormFields(): array
+    {
+        return $this->collectFormFieldIssues($this->formStandardFieldRules());
+    }
+
+    /**
+     * Handle validation failures by showing notifications and markers
+     */
+    protected function handleValidationFailures(array $issues): void
+    {
+        $this->invalidByElement = $this->collectFormFieldMarkers($this->formStandardFieldRules());
+        $this->dispatch('ff-markers-updated', markers: $this->invalidByElement)
+            ->to('form-element-tree-builder');
+
+        $lines = array_map(
+            fn($i) => sprintf('%s: %s — %s', $i['field'], $i['value'], $i['reason']),
+            $issues
+        );
+
+        $payload = "Found invalid fields. Please fix the following:\n\n" .
+            implode("\n", $lines) .
+            "\n\nRule(s): Reference ID must be set and must not start with a number.";
+
+        $bodyHtml = new HtmlString(
+            '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
+                . nl2br(e($payload)) .
+                '</div>'
+        );
+
+        Notification::make()
+            ->danger()
+            ->title('Form Standard Check')
+            ->body($bodyHtml)
+            ->persistent()
+            ->send();
+    }
+
+    /**
+     * Generate JSON data for a specific version
+     */
+    protected function generateJsonData(int $version): array
+    {
+        $jsonService = new FormVersionJsonService();
+
+        $formVersion = \App\Models\FormBuilding\FormVersion::with([
+            'form',
+            'formElements.elementable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
+                    \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                ]);
+            },
+            'formElements.dataBindings.formDataSource',
+            'formDataSources' => function ($query) {
+                $query->orderBy('form_versions_form_data_sources.order');
+            },
+            'webStyleSheet',
+            'pdfStyleSheet',
+            'webFormScript',
+            'pdfFormScript'
+        ])->find($this->record->id);
+
+        switch ($version) {
+            case 1:
+                return $jsonService->generatePreMigrationJson($formVersion);
+            case 2:
+                return $jsonService->generateJson($formVersion);
+            default:
+                throw new \Exception("Unsupported format version: {$version}");
+        }
+    }
+
+    /**
+     * Generate JSON string for clipboard copying
+     */
+    protected function generateJsonForClipboard(int $version): string
+    {
+        $jsonData = $this->generateJsonData($version);
+        return json_encode($jsonData, JSON_PRETTY_PRINT);
+    }
 
     public function save(): void
     {
@@ -875,7 +976,7 @@ class BuildFormVersion extends Page implements HasForms
             ->get(['id', 'elementable_type', 'reference_id', 'custom_visibility']);
 
         // [id => [field_key => ['reason' => ..., 'value' => ...]]]
-        $markers = []; 
+        $markers = [];
 
         foreach ($elements as $el) {
             $isContainer = method_exists($el, 'isContainer')
