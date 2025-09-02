@@ -63,6 +63,7 @@ class BuildFormVersion extends Page implements HasForms
         'cacheKey' => null,
     ];
     public array $invalidByElement = [];
+    protected bool $validationPopupShown = false;
 
     protected function isEditable(): bool
     {
@@ -498,7 +499,9 @@ class BuildFormVersion extends Page implements HasForms
      */
     protected function validateFormFields(): array
     {
-        return $this->collectFormFieldIssues($this->formStandardFieldRules());
+        $rules = $this->formStandardFieldRules();
+
+        return $this->collectFormFieldIssues($rules, [$this, 'isFieldElement']);
     }
 
     /**
@@ -506,7 +509,14 @@ class BuildFormVersion extends Page implements HasForms
      */
     protected function handleValidationFailures(array $issues): void
     {
-        $this->invalidByElement = $this->collectFormFieldMarkers($this->formStandardFieldRules());
+        if ($this->validationPopupShown) {
+            return;
+        }
+        $this->validationPopupShown = true;
+        $this->invalidByElement = $this->collectFormFieldMarkers(
+            $this->formStandardFieldRules(),
+            [$this, 'isFieldElement']
+        );
         $this->dispatch('ff-markers-updated', markers: $this->invalidByElement)
             ->to('form-element-tree-builder');
 
@@ -521,8 +531,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-                . nl2br(e($payload)) .
-                '</div>'
+            . nl2br(e($payload)) .
+            '</div>'
         );
 
         Notification::make()
@@ -870,21 +880,17 @@ class BuildFormVersion extends Page implements HasForms
      * Run configured sanity checks on non-container elements.
      * Returns a flat list of issues with only: field, value, reason.
      */
-    private function collectFormFieldIssues(array $fieldConfigs): array
+    private function collectFormFieldIssues(array $fieldConfigs, ?callable $elementFilter = null): array
     {
         $elements = FormElement::query()
             ->where('form_version_id', $this->record->id)
-            ->get();
+            ->get(['id', 'name', 'elementable_type', 'reference_id', 'save_on_submit']);
 
         $issues = [];
 
         foreach ($elements as $el) {
-            // Skip containers/sections/groups/pages
-            $isContainer = method_exists($el, 'isContainer')
-                ? (bool) $el->isContainer()
-                : Str::contains((string) ($el->elementable_type ?? ''), ['Container', 'Section', 'Group', 'Page']);
-
-            if ($isContainer) {
+            // optional higher-level filter (e.g., only real fields)
+            if ($elementFilter && !$elementFilter($el)) {
                 continue;
             }
 
@@ -903,12 +909,10 @@ class BuildFormVersion extends Page implements HasForms
                         $result = 'validator error';
                     }
 
-                    // Pass cases: true or null
                     if ($result === true || $result === null) {
-                        continue;
+                        continue; // pass
                     }
 
-                    // Fail: $result is a reason string (or falsy -> use generic)
                     $reason = is_string($result) && $result !== '' ? $result : 'invalid';
 
                     $issues[] = [
@@ -920,7 +924,7 @@ class BuildFormVersion extends Page implements HasForms
             }
         }
 
-        // Collapse duplicates: same field+value with multiple reasons → merge reasons
+        // merge duplicate field+value reasons
         $bucket = [];
         foreach ($issues as $it) {
             $k = $it['field'] . '|' . $it['value'];
@@ -931,7 +935,6 @@ class BuildFormVersion extends Page implements HasForms
                 : [$it['reason']];
         }
 
-        // Flatten back to minimal triplets
         $flat = [];
         foreach ($bucket as $b) {
             $flat[] = [
@@ -969,22 +972,18 @@ class BuildFormVersion extends Page implements HasForms
         return (string) $value;
     }
 
-    private function collectFormFieldMarkers(array $fieldConfigs): array
+    private function collectFormFieldMarkers(array $fieldConfigs, ?callable $elementFilter = null): array
     {
         $elements = FormElement::query()
             ->where('form_version_id', $this->record->id)
-            ->get(['id', 'elementable_type', 'reference_id', 'custom_visibility']);
+            ->get(['id', 'elementable_type', 'reference_id', 'save_on_submit']);
 
-        // [id => [field_key => ['reason' => ..., 'value' => ...]]]
         $markers = [];
 
         foreach ($elements as $el) {
-            $isContainer = method_exists($el, 'isContainer')
-                ? (bool) $el->isContainer()
-                : Str::contains((string) ($el->elementable_type ?? ''), ['Container', 'Section', 'Group', 'Page']);
-
-            if ($isContainer)
+            if ($elementFilter && !$elementFilter($el)) {
                 continue;
+            }
 
             foreach ($fieldConfigs as $key => $cfg) {
                 $getter = $cfg['getter'] ?? fn($e) => $e->{$key} ?? null;
@@ -1002,15 +1001,80 @@ class BuildFormVersion extends Page implements HasForms
                         continue;
 
                     $reason = is_string($result) && $result !== '' ? $result : 'invalid';
+
                     $markers[$el->id][$key] = [
                         'reason' => $reason,
                         'value' => is_scalar($value) || $value === null ? (string) ($value ?? '') : json_encode($value),
                     ];
+
+                    // for Reference ID only we can break early
+                    break;
                 }
             }
         }
 
         return $markers;
+    }
+    private function isFieldElement($el): bool
+    {
+        $type = (string) ($el->elementable_type ?? '');
+        $basename = class_basename($type);
+
+        // Skip containers / structure / non-data widgets
+        if (
+            Str::contains($basename, [
+                'Container',
+                'Section',
+                'Group',
+                'Page',
+                'Button',
+                'Display',
+                'TextDisplay',
+                'Heading',
+                'Title',
+                'Divider',
+                'Separator',
+                'Label',
+                'Note',
+            ])
+        ) {
+            return false;
+        }
+
+        // Respect DB flag when present
+        if (isset($el->save_on_submit)) {
+            if ($el->save_on_submit === false || $el->save_on_submit === 0 || $el->save_on_submit === '0') {
+                return false;
+            }
+        }
+
+        // Allow common inputs; fallback true for custom field classes
+        return true;
+    }
+
+    private function showFieldIssuesNotification(array $issues): void
+    {
+        $lines = array_map(
+            fn($i) => sprintf('%s: %s — %s', $i['field'], $i['value'], $i['reason']),
+            $issues
+        );
+
+        $payload = "Found invalid fields. Please fix the following:\n\n"
+            . implode("\n", $lines)
+            . "\n\nRule(s): Reference ID must be set and must not start with a number.";
+
+        $bodyHtml = new HtmlString(
+            '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
+            . nl2br(e($payload))
+            . '</div>'
+        );
+
+        Notification::make()
+            ->danger()
+            ->title('Form Standard Check')
+            ->body($bodyHtml)
+            ->persistent()
+            ->send();
     }
 
     /**
