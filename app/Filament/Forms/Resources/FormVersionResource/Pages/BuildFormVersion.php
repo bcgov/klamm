@@ -531,8 +531,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-            . nl2br(e($payload)) .
-            '</div>'
+                . nl2br(e($payload)) .
+                '</div>'
         );
 
         Notification::make()
@@ -1065,8 +1065,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-            . nl2br(e($payload))
-            . '</div>'
+                . nl2br(e($payload))
+                . '</div>'
         );
 
         Notification::make()
