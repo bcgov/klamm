@@ -12,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms;
+use App\Livewire\FormElementTreeBuilder as Builder;
 
 class GeneralTabHelper
 {
@@ -88,7 +89,7 @@ class GeneralTabHelper
                     $set('visible_web', $template->visible_web);
                     $set('visible_pdf', $template->visible_pdf);
                     $set('is_template', false); // New element should not be a template by default
-
+    
                     // Prefill tags
                     if ($template->tags->isNotEmpty()) {
                         $set('tags', $template->tags->pluck('id')->toArray());
@@ -144,6 +145,7 @@ class GeneralTabHelper
         }
 
         $schema[] = $nameField;
+        $schema[] = Hidden::make('id')->dehydrated(false);
 
         // Reference ID field - editable on create and edit
         $referenceIdField = TextInput::make('reference_id')
@@ -151,7 +153,51 @@ class GeneralTabHelper
             ->rules(['alpha_dash'])
             ->live()
             ->autocomplete(false)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->suffixIcon(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) {
+                    return 'heroicon-o-exclamation-triangle';
+                }
+                return null;
+            })
+            ->hint(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) {
+                    return 'Invalid: ' . ($lw->invalidReason((int) $get('id'), 'reference_id') ?? '');
+                }
+                return null;
+            })
+            // make the "?" mark color back to normal when clean
+            ->hintColor(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                return ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) ? 'danger' : 'gray';
+            })
+            ->extraAttributes(function (Forms\Get $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if ($lw instanceof Builder && $lw->isFieldInvalid((int) $get('id'), 'reference_id')) {
+                    return ['class' => 'ring-1 ring-danger-500 bg-danger-50/50'];
+                }
+                return [];
+            })
+            ->afterStateUpdated(function ($state, $set, $get, TextInput $component) {
+                $lw = method_exists($component, 'getLivewire') ? $component->getLivewire() : null;
+                if (!($lw instanceof Builder))
+                    return;
+
+                $id = (int) $get('id');
+                $value = is_string($state) ? trim($state) : '';
+
+                if ($value !== '' && !preg_match('/^\d/', $value)) {
+                    $lw->clearInvalidMarker($id, 'reference_id');
+                } else {
+                    $lw->markInvalid($id, 'reference_id', $value === '' ? 'empty' : 'starts with a number', $value);
+                }
+
+                // update row highlights in the child builder
+                $lw->dispatch('ff-markers-updated', markers: $lw->invalidByElement ?? [])
+                    ->to('form-element-tree-builder');
+            });
 
         // Add tooltip if callback is provided
         if ($shouldShowTooltipsCallback) {
@@ -170,22 +216,53 @@ class GeneralTabHelper
                         ->tooltip(fn($get) => $get('reference_id_locked')
                             ? ''
                             : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings.')->action(function ($set, $get) {
-                            $set('reference_id_locked', true);
-                        })
+                                $set('reference_id_locked', true);
+                            })
                 )
                 ->disabled(fn($get) => !$get('reference_id_locked'))
                 ->suffix(function ($get) {
                     return $get('uuid') ? $get('uuid') : '';
                 })
                 ->autocomplete(false)
-                ->suffixAction(
-                    Action::make('copy')
+                ->suffixActions([
+                    // Copy script format:  '<ref-uuid>' /* Name (Type) */
+                    Action::make('copyScript')
                         ->icon('heroicon-s-clipboard')
+                        ->tooltip('Copy script snippet')
                         ->action(function ($livewire, $state, $get) {
-                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                        })
-                )
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label);
+                            $snippet = "'{$base}' /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+
+                    // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
+                    Action::make('copyCss')
+                        ->icon('heroicon-s-code-bracket-square')
+                        ->tooltip('Copy CSS selector')
+                        ->action(function ($livewire, $state, $get) {
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label);
+                            $snippet = "[id='{$base}'] /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+                ])
                 ->extraAttributes([
                     'x-data' => '{
                         copyToClipboard(text) {
@@ -234,14 +311,46 @@ class GeneralTabHelper
                 ->suffix(function ($get) {
                     return $get('uuid') ? $get('uuid') : '';
                 })
-                ->suffixAction(
-                    Action::make('copy')
+                ->suffixActions([
+                    // Copy script format:  '<ref-uuid>' /* Name (Type) */
+                    Action::make('copyScript')
                         ->icon('heroicon-s-clipboard')
+                        ->tooltip('Copy script snippet')
                         ->action(function ($livewire, $state, $get) {
-                            $fullReference = FormElement::buildFullReferenceId($state, $get('uuid'));
-                            $livewire->dispatch('copy-to-clipboard', text: $fullReference);
-                        })
-                )
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label); 
+                            $snippet = "'{$base}' /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+
+                    // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
+                    Action::make('copyCss')
+                        ->icon('heroicon-s-code-bracket-square')
+                        ->tooltip('Copy CSS selector')
+                        ->action(function ($livewire, $state, $get) {
+                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                            $elementType = (string) ($get('elementable_type') ?? '');
+                            $availableTypes = FormElement::getAvailableElementTypes();
+                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                            $label = addslashes($label);
+                            $snippet = "[id='{$base}'] /* {$label} */";
+
+                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
+                        }),
+                ])
+
                 ->extraAttributes([
                     'x-data' => '{
                         copyToClipboard(text) {
@@ -290,27 +399,27 @@ class GeneralTabHelper
             // For create and view modes
             $elementTypeField = $isCreate
                 ? Select::make('elementable_type')
-                ->label('Element Type')
-                ->options(FormElement::getAvailableElementTypes())
-                ->required()
-                ->live()
-                ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                ->afterStateUpdated(function ($state, callable $set) {
-                    // Clear existing elementable data when type changes
-                    $set('elementable_data', []);
+                    ->label('Element Type')
+                    ->options(FormElement::getAvailableElementTypes())
+                    ->required()
+                    ->live()
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // Clear existing elementable data when type changes
+                        $set('elementable_data', []);
 
-                    // Populate with defaults from the new element type
-                    if ($state && class_exists($state)) {
-                        $defaults = self::getElementTypeDefaults($state);
+                        // Populate with defaults from the new element type
+                        if ($state && class_exists($state)) {
+                            $defaults = self::getElementTypeDefaults($state);
 
-                        if (!empty($defaults)) {
-                            $set('elementable_data', $defaults);
+                            if (!empty($defaults)) {
+                                $set('elementable_data', $defaults);
+                            }
                         }
-                    }
-                })
+                    })
                 : TextInput::make('elementable_type')
-                ->label('Element Type')
-                ->disabled(true);
+                    ->label('Element Type')
+                    ->disabled(true);
         }
 
         // Add tooltip if callback is provided
