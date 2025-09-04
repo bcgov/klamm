@@ -25,7 +25,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
 
     protected static string $model = FormElement::class;
 
-    protected static int $maxDepth = 5;
+    protected static int $maxDepth = 10;
 
     protected ?string $treeTitle = 'Form Elements';
 
