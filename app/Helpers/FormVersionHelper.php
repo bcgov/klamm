@@ -4,8 +4,11 @@ namespace App\Helpers;
 
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\FormElement;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class FormVersionHelper
 {
@@ -29,6 +32,52 @@ class FormVersionHelper
 
             $newModel->save();
         }
+    }
+
+    /**
+     * Visible, data-saving field elements for a given form version.
+     */
+    public static function visibleFieldElementsQuery(int $formVersionId): Builder
+    {
+        $q = FormElement::query()
+            ->where('form_version_id', $formVersionId)
+            ->whereNull('deleted_at');
+
+        if (Schema::hasColumn('form_elements', 'save_on_submit')) {
+            $q->where(function (Builder $b) {
+                $b->where('save_on_submit', true)
+                    ->orWhereNull('save_on_submit');
+            });
+        }
+
+        $q->where(function (Builder $b) {
+            $b->where(
+                fn(Builder $x) =>
+                $x->where('elementable_type', 'not like', '%Container%')
+                    ->where('elementable_type', 'not like', '%Section%')
+                    ->where('elementable_type', 'not like', '%Group%')
+                    ->where('elementable_type', 'not like', '%Page%')
+                    ->where('elementable_type', 'not like', '%Button%')
+                    ->where('elementable_type', 'not like', '%Display%')
+                    ->where('elementable_type', 'not like', '%Heading%')
+                    ->where('elementable_type', 'not like', '%Divider%')
+                    ->where('elementable_type', 'not like', '%Label%')
+                    ->where('elementable_type', 'not like', '%Note%')
+            );
+        });
+
+        // Avoid orphans: allow root (-1) or parent exists & not soft-deleted.
+        $q->where(function (Builder $b) use ($formVersionId) {
+            $b->where('parent_id', -1)
+                ->orWhereIn('parent_id', function ($sub) use ($formVersionId) {
+                    $sub->from('form_elements')
+                        ->select('id')
+                        ->where('form_version_id', $formVersionId)
+                        ->whereNull('deleted_at');
+                });
+        });
+
+        return $q;
     }
 
     /**
