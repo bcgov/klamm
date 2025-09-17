@@ -35,6 +35,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Get;
 use Filament\Support\Exceptions\Halt;
 use App\Helpers\FormElementHelper;
+use App\Helpers\FormVersionHelper;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -531,8 +532,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-                . nl2br(e($payload)) .
-                '</div>'
+            . nl2br(e($payload)) .
+            '</div>'
         );
 
         Notification::make()
@@ -882,9 +883,7 @@ class BuildFormVersion extends Page implements HasForms
      */
     private function collectFormFieldIssues(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormElement::query()
-            ->where('form_version_id', $this->record->id)
-            ->get(['id', 'name', 'elementable_type', 'reference_id', 'save_on_submit']);
+        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
 
         $issues = [];
 
@@ -974,9 +973,7 @@ class BuildFormVersion extends Page implements HasForms
 
     private function collectFormFieldMarkers(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormElement::query()
-            ->where('form_version_id', $this->record->id)
-            ->get(['id', 'elementable_type', 'reference_id', 'save_on_submit']);
+        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
 
         $markers = [];
 
@@ -1065,8 +1062,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-                . nl2br(e($payload))
-                . '</div>'
+            . nl2br(e($payload))
+            . '</div>'
         );
 
         Notification::make()
