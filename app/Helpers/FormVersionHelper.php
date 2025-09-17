@@ -8,7 +8,8 @@ use App\Models\FormBuilding\FormElement;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class FormVersionHelper
 {
@@ -35,49 +36,65 @@ class FormVersionHelper
     }
 
     /**
-     * Visible, data-saving field elements for a given form version.
+     * Base query for visible *elements* (soft-deletes excluded).
+     * Does NOT filter by save_on_submit so validation sees all fields.
      */
-    public static function visibleFieldElementsQuery(int $formVersionId): Builder
+    public static function visibleElementsQuery(int $formVersionId): Builder
     {
-        $q = FormElement::query()
+        return FormElement::query()
             ->where('form_version_id', $formVersionId)
             ->whereNull('deleted_at');
+    }
 
-        if (Schema::hasColumn('form_elements', 'save_on_submit')) {
-            $q->where(function (Builder $b) {
-                $b->where('save_on_submit', true)
-                    ->orWhereNull('save_on_submit');
-            });
-        }
 
-        $q->where(function (Builder $b) {
-            $b->where(
-                fn(Builder $x) =>
-                $x->where('elementable_type', 'not like', '%Container%')
-                    ->where('elementable_type', 'not like', '%Section%')
-                    ->where('elementable_type', 'not like', '%Group%')
-                    ->where('elementable_type', 'not like', '%Page%')
-                    ->where('elementable_type', 'not like', '%Button%')
-                    ->where('elementable_type', 'not like', '%Display%')
-                    ->where('elementable_type', 'not like', '%Heading%')
-                    ->where('elementable_type', 'not like', '%Divider%')
-                    ->where('elementable_type', 'not like', '%Label%')
-                    ->where('elementable_type', 'not like', '%Note%')
-            );
-        });
+    /**
+     * Visible, reachable *fields*:
+     *  - soft-deleted excluded
+     *  - non-field types excluded (containers/buttons/displays/etc.)
+     *  - full ancestor chain must exist (no deep orphans)
+     *  - does NOT filter by save_on_submit (prevents false negatives)
+     */
+    public static function visibleFieldElements(int $formVersionId): Collection
+    {
+        $all = self::visibleElementsQuery($formVersionId)
+            ->get(['id', 'parent_id', 'elementable_type', 'reference_id', 'name', 'uuid']);
 
-        // Avoid orphans: allow root (-1) or parent exists & not soft-deleted.
-        $q->where(function (Builder $b) use ($formVersionId) {
-            $b->where('parent_id', -1)
-                ->orWhereIn('parent_id', function ($sub) use ($formVersionId) {
-                    $sub->from('form_elements')
-                        ->select('id')
-                        ->where('form_version_id', $formVersionId)
-                        ->whereNull('deleted_at');
-                });
-        });
+        $byId = $all->keyBy('id');
 
-        return $q;
+        $isField = static function ($type): bool {
+            $base = class_basename((string) $type);
+            return !Str::contains($base, [
+                'Container',
+                'Section',
+                'Group',
+                'Page',
+                'Button',
+                'Display',
+                'TextDisplay',
+                'Heading',
+                'Title',
+                'Divider',
+                'Separator',
+                'Label',
+                'Note',
+            ]);
+        };
+
+        $chainOk = static function ($el) use ($byId): bool {
+            $p = (int) ($el->parent_id ?? -1);
+            $guard = 0;
+            while ($p !== -1) {
+                if (++$guard > 1000)
+                    return false;
+                $parent = $byId->get($p);
+                if (!$parent)
+                    return false;
+                $p = (int) ($parent->parent_id ?? -1);
+            }
+            return true;
+        };
+
+        return $all->filter(fn($el) => $isField($el->elementable_type) && $chainOk($el))->values();
     }
 
     /**

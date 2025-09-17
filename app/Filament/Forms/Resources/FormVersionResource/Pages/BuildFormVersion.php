@@ -883,8 +883,7 @@ class BuildFormVersion extends Page implements HasForms
      */
     private function collectFormFieldIssues(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormVersionHelper::visibleFieldElementsQuery($this->record->id)
-            ->get(['id', 'name', 'elementable_type', 'reference_id', 'save_on_submit', 'parent_id']);
+        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
 
         $issues = [];
 
@@ -974,8 +973,7 @@ class BuildFormVersion extends Page implements HasForms
 
     private function collectFormFieldMarkers(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormVersionHelper::visibleFieldElementsQuery($this->record->id)
-            ->get(['id', 'name', 'elementable_type', 'reference_id', 'save_on_submit', 'parent_id']);
+        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
 
         $markers = [];
 
