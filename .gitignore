@@ -17,6 +17,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+.DS_Store
 
 /database/migrations/2024_04_23_172132_create_business_form_groups_table.php
 /database/migrations/2024_04_23_172133_create_p_d_f_templates_table.php
