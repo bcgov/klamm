@@ -73,35 +73,46 @@ class FormScript extends Model
         }
 
         try {
-            // Create record
-            $filename = FormScript::createJsFilename($formVersion, $type);
+            // Prefer an existing filename (active or trashed) to keep the path stable
+            $existing = FormScript::withTrashed()
+                ->where('form_version_id', $formVersion->id)
+                ->where('type', $type)
+                ->first();
 
-            if ($type === 'web' && $formVersion->webFormScript) {
-                $filename = $formVersion->webFormScript->filename;
-            } else if ($type === 'pdf' && $formVersion->pdfFormScript) {
-                $filename = $formVersion->pdfFormScript->filename;
-            }
+            $filename = $existing?->filename ?? FormScript::createJsFilename($formVersion, $type);
 
-            $formScript = FormScript::updateOrCreate(
-                ['form_version_id' => $formVersion->id, 'type' => $type],
+            // Atomic UPSERT on (form_version_id, type)
+            // If a trashed row exists, this also "restores" it by setting deleted_at = null
+            FormScript::upsert(
                 [
-                    'form_version_id' => $formVersion->id,
-                    'filename' => $filename,
-                    'type' => $type,
-                ]
+                    [
+                        'form_version_id' => $formVersion->id,
+                        'type' => $type,
+                        'filename' => $filename,
+                        'deleted_at' => null,   
+                        'created_at' => now(),  
+                        'updated_at' => now(),
+                    ]
+                ],
+                ['form_version_id', 'type'],      
+                ['filename', 'deleted_at', 'updated_at']
             );
 
-            // Create JS file
-            $saveResult = $formScript->saveJsContent($js_content);
-            if (!$saveResult) {
+            // Fetch the (now guaranteed) active row
+            $formScript = FormScript::where('form_version_id', $formVersion->id)
+                ->where('type', $type)
+                ->firstOrFail();
+
+            // Write JS file
+            if (!$formScript->saveJsContent($js_content)) {
                 throw new \Exception('Failed to save JS content to file');
             }
 
             return $formScript;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Error in createFormScript', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
