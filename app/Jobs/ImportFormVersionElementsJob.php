@@ -95,44 +95,65 @@ class ImportFormVersionElementsJob implements ShouldQueue
             return [
                 'elements' => $parsed['formversion']['elements'] ?? [],
                 'dataSources' => $parsed['formversion']['dataSources'] ?? [],
-                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion'])
+                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion']),
             ];
         }
 
         // Format 2: data structure
         if (isset($parsed['data'])) {
+            $data = $parsed['data'];
+
+            // Accept both "elements" and "items"
+            $elements = $data['elements'] ?? $data['items'] ?? [];
+
+            // Prefer "javascript" but gracefully convert "scripts" -> sections
+            $javascript = $data['javascript'] ?? [];
+            if ((!$javascript || !is_array($javascript)) && !empty($data['scripts']) && is_array($data['scripts'])) {
+                $javascript = [];
+                foreach ($data['scripts'] as $script) {
+                    $type = $script['type'] ?? 'web';
+                    $content = $script['content'] ?? '';
+                    if ($content !== '') {
+                        $javascript[$type] = ($javascript[$type] ?? '');
+                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
+                    }
+                }
+            }
+
             return [
-                'elements' => $parsed['data']['elements'] ?? [],
-                'dataSources' => $parsed['data']['dataSources'] ?? [],
-                'javascript' => $parsed['data']['javascript'] ?? []
+                'elements' => is_array($elements) ? $elements : [],
+                'dataSources' => $data['dataSources'] ?? ($parsed['dataSources'] ?? []),
+                'javascript' => is_array($javascript) ? $javascript : [],
             ];
         }
 
         // Format 3: direct structure (legacy)
-        if (isset($parsed['elements'])) {
-            return [
-                'elements' => $parsed['elements'],
-                'dataSources' => $parsed['dataSources'] ?? [],
-                'javascript' => $parsed['javascript'] ?? []
-            ];
-        }
+        if (isset($parsed['elements']) || isset($parsed['items'])) {
+            $elements = $parsed['elements'] ?? $parsed['items'] ?? [];
+            $javascript = $parsed['javascript'] ?? [];
+            if ((!$javascript || !is_array($javascript)) && !empty($parsed['scripts']) && is_array($parsed['scripts'])) {
+                $javascript = [];
+                foreach ($parsed['scripts'] as $script) {
+                    $type = $script['type'] ?? 'web';
+                    $content = $script['content'] ?? '';
+                    if ($content !== '') {
+                        $javascript[$type] = ($javascript[$type] ?? '');
+                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
+                    }
+                }
+            }
 
-        // Format 4: fields structure
-        if (isset($parsed['fields'])) {
             return [
-                'elements' => $parsed['fields'],
+                'elements' => is_array($elements) ? $elements : [],
                 'dataSources' => $parsed['dataSources'] ?? [],
-                'javascript' => $parsed['javascript'] ?? []
+                'javascript' => is_array($javascript) ? $javascript : [],
             ];
         }
 
         Log::warning('Unknown schema format, returning empty structure');
-        return [
-            'elements' => [],
-            'dataSources' => [],
-            'javascript' => []
-        ];
+        return ['elements' => [], 'dataSources' => [], 'javascript' => []];
     }
+
 
     /**
      * Extract JavaScript from formversion format
@@ -142,13 +163,14 @@ class ImportFormVersionElementsJob implements ShouldQueue
         $javascript = [];
 
         // Check for scripts array in formversion format
-        if (isset($formversion['scripts']) && is_array($formversion['scripts'])) {
+        if (!empty($formversion['scripts']) && is_array($formversion['scripts'])) {
             foreach ($formversion['scripts'] as $script) {
-                if (isset($script['type']) && isset($script['content'])) {
-                    // Parse the content to extract individual function sections
-                    $content = $script['content'];
-                    $sections = $this->parseJavaScriptSections($content);
-                    $javascript = array_merge($javascript, $sections);
+                $type = $script['type'] ?? 'web';
+                $content = $script['content'] ?? '';
+                if ($content !== '') {
+                    // concatenate if multiple blocks of the same type exist
+                    $javascript[$type] = ($javascript[$type] ?? '');
+                    $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
                 }
             }
         }
@@ -252,40 +274,56 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function processJavaScript(array $normalizedSchema, $formVersion): void
     {
         $javascript = $normalizedSchema['javascript'] ?? [];
-
         if (!$javascript || !is_array($javascript)) {
             return;
         }
 
-        // Combine all JavaScript sections into one script
-        $combinedScript = "// Imported JavaScript from template\n\n";
+        // If keys look like types, emit one FormScript per type.
+        $knownTypes = ['web', 'pdf', 'portal'];
+        $typeKeys = array_intersect(array_keys($javascript), $knownTypes);
 
-        foreach ($javascript as $sectionName => $jsContent) {
-            if (!empty($jsContent)) {
-                $combinedScript .= "// Section: {$sectionName}\n";
-                $combinedScript .= $jsContent . "\n\n";
+        try {
+            if (!class_exists(\App\Models\FormBuilding\FormScript::class)) {
+                throw new \Exception('FormScript class not found');
             }
-        }
 
-        // Only create script if there's content
-        if (trim($combinedScript) !== "// Imported JavaScript from template") {
-            try {
-                if (!class_exists(\App\Models\FormBuilding\FormScript::class)) {
-                    throw new \Exception('FormScript class not found');
+            if (!empty($typeKeys)) {
+                foreach ($typeKeys as $t) {
+                    $content = trim((string) ($javascript[$t] ?? ''));
+                    \App\Models\FormBuilding\FormScript::createFormScript($formVersion, $content, $t);
                 }
-
-                // Create script (web by default)
-                \App\Models\FormBuilding\FormScript::createFormScript($formVersion, $combinedScript, 'web');
-            } catch (\Exception $e) {
-                Log::error('Failed to create JavaScript form script', [
-                    'form_version_id' => $formVersion->id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
+            } else {
+                // Fallback: treat as “sections” and combine into a single web script
+                $combined = "// Imported JavaScript from template\n\n";
+                foreach ($javascript as $sectionName => $jsContent) {
+                    if (!empty($jsContent)) {
+                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
+                    }
+                }
+                \App\Models\FormBuilding\FormScript::createFormScript($formVersion, trim($combined), 'web');
             }
-        } else {
-            Log::info('No JavaScript content to create script for');
+        } catch (\Exception $e) {
+            Log::error('Failed to create JavaScript form script(s)', [
+                'form_version_id' => $formVersion->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
         }
+    }
+
+
+    /**
+     * Return child elements for any container/group regardless of key naming.
+     */
+    private function getChildElements(array $element): array
+    {
+        $kids = $element['elements']
+            ?? $element['children']
+            ?? $element['containerItems']
+            ?? $element['fields']
+            ?? [];
+
+        return is_array($kids) ? $kids : [];
     }
 
     // Add method to count total elements for progress tracking
@@ -295,11 +333,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         foreach ($elements as $element) {
             $count++;
 
-            // Count children/nested elements
-            if (!empty($element['elements']) && is_array($element['elements'])) {
-                $count += $this->countElementsRecursive($element['elements']);
-            } elseif (!empty($element['children']) && is_array($element['children'])) {
-                $count += $this->countElementsRecursive($element['children']);
+            $kids = $this->getChildElements($element);
+            if (!empty($kids)) {
+                $count += $this->countElementsRecursive($kids);
             }
         }
         return $count;
@@ -513,11 +549,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     if ($elementType === 'ContainerFormElements' || $elementType === 'container') {
                         if ($inPlusContainer) {
                             // Process children directly under current parent
-                            if (!empty($element['elements']) || !empty($element['children'])) {
-                                $childElements = $element['elements'] ?? $element['children'];
-                                if (is_array($childElements)) {
-                                    $processedElements = $this->importElementsRecursive($childElements, $parentId, $formVersion, $processedElements, $totalElements, $inRepeatableContainer, $inPlusContainer);
-                                }
+                            $childElements = $this->getChildElements($element);
+                            if (!empty($childElements)) {
+                                $processedElements = $this->importElementsRecursive(
+                                    $childElements,
+                                    $parentId,
+                                    $formVersion,
+                                    $processedElements,
+                                    $totalElements,
+                                    $inRepeatableContainer /* or $childInRepeatable when present */ ,
+                                    $inPlusContainer      /* or $childInPlusContainer when present */
+                                );
                             }
                             continue;
                         }
@@ -529,6 +571,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 if (!$type) {
                     $typeMap = [
                         'container' => \App\Models\FormBuilding\ContainerFormElement::class,
+                        'group' => \App\Models\FormBuilding\ContainerFormElement::class,
                         'text-input' => \App\Models\FormBuilding\TextInputFormElement::class,
                         'textarea' => \App\Models\FormBuilding\TextareaInputFormElement::class,
                         'textarea-input' => \App\Models\FormBuilding\TextareaInputFormElement::class,
@@ -562,11 +605,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 }
 
                 if ($inRepeatableContainer && $this->isTextField($type)) {
-                    if (!empty($element['elements']) || !empty($element['children'])) {
-                        $childElements = $element['elements'] ?? $element['children'];
-                        if (is_array($childElements)) {
-                            $processedElements = $this->importElementsRecursive($childElements, $parentId, $formVersion, $processedElements, $totalElements, $inRepeatableContainer, $inPlusContainer);
-                        }
+                    $childElements = $this->getChildElements($element);
+                    if (!empty($childElements)) {
+                        $processedElements = $this->importElementsRecursive(
+                            $childElements,
+                            $parentId,
+                            $formVersion,
+                            $processedElements,
+                            $totalElements,
+                            $inRepeatableContainer /* or $childInRepeatable when present */ ,
+                            $inPlusContainer      /* or $childInPlusContainer when present */
+                        );
                     }
                     continue;
                 }
@@ -626,6 +675,14 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'import_source' => 'template',
                 ];
 
+                $elementData['visible_pdf'] = !(
+                    isset($element['pdfStyles']['display']) && $element['pdfStyles']['display'] === 'none'
+                );
+
+                $elementData['visible_web'] = !(
+                    isset($element['webStyles']['display']) && $element['webStyles']['display'] === 'none'
+                );
+
                 $formElement = null;
 
                 if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
@@ -667,15 +724,24 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $this->createDataBinding($formElement, $dataBindingInfo, $formVersion);
                 }
 
-                if ($formElement && (
-                    ($type === \App\Models\FormBuilding\ContainerFormElement::class && !empty($element['elements']) && is_array($element['elements'])) ||
-                    (!empty($element['children']) && is_array($element['children']))
-                )) {
-                    $childElements = $element['elements'] ?? $element['children'];
-                    $childInRepeatable = $inRepeatableContainer || $isRepeatableContainer;
-                    $childInPlusContainer = $inPlusContainer || $isPlusMinusElement;
-                    $processedElements = $this->importElementsRecursive($childElements, $formElement->id, $formVersion, $processedElements, $totalElements, $childInRepeatable, $childInPlusContainer);
+                if ($formElement) {
+                    $childElements = $this->getChildElements($element);
+                    if (!empty($childElements)) {
+                        $childInRepeatable = $inRepeatableContainer || $isRepeatableContainer;
+                        $childInPlusContainer = $inPlusContainer || $isPlusMinusElement;
+
+                        $processedElements = $this->importElementsRecursive(
+                            $childElements,
+                            $formElement->id,
+                            $formVersion,
+                            $processedElements,
+                            $totalElements,
+                            $childInRepeatable,
+                            $childInPlusContainer
+                        );
+                    }
                 }
+
             } catch (\Exception $e) {
                 Log::error('Failed to import individual element', [
                     'element' => $element,
@@ -730,6 +796,16 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 'path' => $element['binding_ref'],
                 'type' => 'jsonpath'
             ];
+        }
+        // Format 5: exporter uses 'databindings' (array, lowercase 'b')
+        elseif (isset($element['databindings']) && is_array($element['databindings']) && !empty($element['databindings'])) {
+            $first = reset($element['databindings']);
+            if (is_array($first) && isset($first['path'])) {
+                $dataBindingInfo = [
+                    'path' => $first['path'],
+                    'type' => $first['type'] ?? 'jsonpath',
+                ];
+            }
         }
 
         return $dataBindingInfo;
@@ -805,7 +881,25 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
     private function extractElementAttributes(array $element): array
     {
-        $exclude = ['elements', 'children', 'token', 'parentId', 'elementType', 'type', 'dataBinding', 'dataBindings'];
+        $exclude = [
+            'elements',
+            'children',
+            'containerItems',
+            'fields',
+            'token',
+            'parentId',
+            'elementType',
+            'type',
+            'dataBinding',
+            'dataBindings',
+            'databindings',
+            'scripts',
+            'javascript',
+            'pdfStyles',
+            'webStyles',
+            'options',
+            'listItems'
+        ];
         $attributes = [];
 
         foreach ($element as $key => $value) {
@@ -855,11 +949,11 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         // Handle options/list items (both formats)
-        if (isset($element['listItems'])) {
-            $attributes['listItems'] = $element['listItems'];
-        } elseif (isset($element['options'])) {
-            $attributes['options'] = $element['options'];
-        }
+        // if (isset($element['listItems'])) {
+        //     $attributes['listItems'] = $element['listItems'];
+        // } elseif (isset($element['options'])) {
+        //     $attributes['options'] = $element['options'];
+        // }
 
         if (isset($element['dataFormat'])) {
             $attributes['dataFormat'] = $element['dataFormat'];
