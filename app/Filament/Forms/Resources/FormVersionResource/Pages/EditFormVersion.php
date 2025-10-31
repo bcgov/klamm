@@ -22,6 +22,11 @@ class EditFormVersion extends EditRecord
         return "{$this->record->form->form_id} Version {$this->record->version_number} - Edit Form Version";
     }
 
+    public function getHeading(): string
+    {
+        return "Edit Form Version";
+    }
+
     public function getBreadcrumbs(): array
     {
         return [

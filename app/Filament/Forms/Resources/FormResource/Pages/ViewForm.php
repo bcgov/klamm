@@ -31,6 +31,11 @@ class ViewForm extends ViewRecord
         return "{$this->record->form_id} - View Form";
     }
 
+    public function getHeading(): string
+    {
+        return "View Form";
+    }
+
     public function getRelationManagers(): array
     {
         if (Gate::allows('admin') || Gate::allows('form-developer')) {

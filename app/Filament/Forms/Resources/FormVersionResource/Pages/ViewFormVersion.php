@@ -25,6 +25,11 @@ class ViewFormVersion extends ViewRecord
         return "{$this->record->form->form_id} Version {$this->record->version_number} - View Form Version";
     }
 
+    public function getHeading(): string
+    {
+        return "View Form Version";
+    }
+
     public function getBreadcrumbs(): array
     {
         return [
