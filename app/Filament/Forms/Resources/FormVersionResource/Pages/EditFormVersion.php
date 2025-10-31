@@ -17,6 +17,11 @@ class EditFormVersion extends EditRecord
         return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
     }
 
+    public function getTitle(): string
+    {
+        return "{$this->record->form->form_id} Version {$this->record->version_number} - Edit Form Version";
+    }
+
     public function getBreadcrumbs(): array
     {
         return [

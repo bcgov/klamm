@@ -26,6 +26,11 @@ class ViewForm extends ViewRecord
 
     // protected static string $view = 'filament.forms.resources.form-resource.pages.view-form';
 
+    public function getTitle(): string
+    {
+        return "{$this->record->form_id} - View Form";
+    }
+
     public function getRelationManagers(): array
     {
         if (Gate::allows('admin') || Gate::allows('form-developer')) {
