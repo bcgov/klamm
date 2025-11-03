@@ -764,7 +764,11 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $technicalName = $element['name'] ?? $humanReadableLabel;
 
+                // Extract reference ID from UUID
                 $referenceId = implode('-', array_slice(explode('-', $element['uuid']), 0, -5));
+                if (empty($referenceId)) {
+                    $referenceId = $humanReadableLabel;
+                }
 
                 $elementData = [
                     'form_version_id' => $formVersion->id,
