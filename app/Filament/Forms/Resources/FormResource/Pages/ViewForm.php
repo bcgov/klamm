@@ -70,7 +70,7 @@ class ViewForm extends ViewRecord
                     ->icon('heroicon-o-tv')
                     ->action(function () use ($latestVersion) {
                         $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $latestVersion->id;
+                        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview-v2-dev/' . $latestVersion->id;
                         $this->js("window.open('$previewUrl', '_blank')");
                     })
                     ->color('primary');

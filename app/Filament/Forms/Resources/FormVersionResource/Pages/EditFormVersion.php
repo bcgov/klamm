@@ -60,7 +60,7 @@ class EditFormVersion extends EditRecord
                 ->action(function ($livewire) {
                     $formVersionId = $this->record->id;
                     $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId . '?draft=true';
+                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview-v2-dev/' . $formVersionId . '?draft=true';
                     $livewire->js("window.open('$previewUrl', '_blank')");
                 }),
         ];

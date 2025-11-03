@@ -50,7 +50,7 @@ class ApprovalDecisionNotification extends Notification
         $approverName = $approval->approver_id ? $notifiable->name : ($approval->approver_name ?? 'Reviewer');
 
         $previewUrl = $formVersion->id
-            ? rtrim(env('FORM_PREVIEW_URL', ''), '/') . '/preview/' . $formVersion->id
+            ? rtrim(env('FORM_PREVIEW_URL', ''), '/') . '/preview-v2-dev/' . $formVersion->id
             : null;
 
         $approverNote = $approval->approver_note ?? '';
