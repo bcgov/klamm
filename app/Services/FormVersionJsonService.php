@@ -215,6 +215,7 @@ class FormVersionJsonService
         if ($formVersion->webStyleSheet) {
             $styles[] = [
                 'type' => $formVersion->webStyleSheet->type ?? 'web',
+                'filename' => $formVersion->webStyleSheet->filename,
                 'content' => $formVersion->webStyleSheet->getCssContent() ?? ''
             ];
             if ($formVersion->webStyleSheet->id) {
@@ -226,6 +227,7 @@ class FormVersionJsonService
         if ($formVersion->pdfStyleSheet) {
             $styles[] = [
                 'type' => $formVersion->pdfStyleSheet->type ?? 'pdf',
+                'filename' => $formVersion->pdfStyleSheet->filename,
                 'content' => $formVersion->pdfStyleSheet->getCssContent() ?? ''
             ];
             if ($formVersion->pdfStyleSheet->id) {
@@ -241,6 +243,7 @@ class FormVersionJsonService
 
             $styles[] = [
                 'type' => $sheet->type ?? 'web',
+                'filename' => $sheet->filename,
                 'content' => $sheet->getCssContent() ?? ''
             ];
             if ($key) $added[$key] = true;
@@ -258,6 +261,7 @@ class FormVersionJsonService
         if ($formVersion->webFormScript) {
             $scripts[] = [
                 'type' => $formVersion->webFormScript->type ?? 'web',
+                'filename' => $formVersion->webFormScript->filename,
                 'content' => $formVersion->webFormScript->getJsContent() ?? ''
             ];
             if ($formVersion->webFormScript->id) {
@@ -269,6 +273,7 @@ class FormVersionJsonService
         if ($formVersion->pdfFormScript) {
             $scripts[] = [
                 'type' => $formVersion->pdfFormScript->type ?? 'pdf',
+                'filename' => $formVersion->pdfFormScript->filename,
                 'content' => $formVersion->pdfFormScript->getJsContent() ?? ''
             ];
             if ($formVersion->pdfFormScript->id) {
@@ -284,6 +289,7 @@ class FormVersionJsonService
 
             $scripts[] = [
                 'type' => $script->type ?? 'web',
+                'filename' => $script->filename,
                 'content' => $script->getJsContent() ?? ''
             ];
             if ($key) $added[$key] = true;
@@ -317,6 +323,12 @@ class FormVersionJsonService
         })->toArray();
     }
 
+    protected function getTags(FormElement $element): array
+    {
+        $tags = $element->tags->pluck('filename', 'id')->toArray();
+        return $tags;
+    }
+
     protected function transformElement(FormElement $element): array
     {
         // Create the full reference ID (reference_id + uuid)
@@ -335,6 +347,7 @@ class FormVersionJsonService
             'is_read_only' => $element->is_read_only && $element->custom_read_only ? $element->custom_read_only : $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
+            'tags' => $this->getTags($element),
             'options' => $element->elementable?->options ?? [],
             'parent_id' => $element->parent_id == -1 ? null : $element->parent_id,
             'attributes' => $this->remapAttributes($this->getElementAttributes($element))

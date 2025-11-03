@@ -532,8 +532,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-            . nl2br(e($payload)) .
-            '</div>'
+                . nl2br(e($payload)) .
+                '</div>'
         );
 
         Notification::make()
@@ -706,7 +706,7 @@ class BuildFormVersion extends Page implements HasForms
 
     public function getTitle(): string
     {
-        return "Form Builder - Version {$this->record->version_number}";
+        return "{$this->record->form->form_id} Version {$this->record->version_number} - Form Builder";
     }
 
     public function getHeading(): string
@@ -1062,8 +1062,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-            . nl2br(e($payload))
-            . '</div>'
+                . nl2br(e($payload))
+                . '</div>'
         );
 
         Notification::make()

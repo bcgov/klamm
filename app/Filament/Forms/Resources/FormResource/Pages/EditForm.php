@@ -10,6 +10,16 @@ class EditForm extends EditRecord
 {
     protected static string $resource = FormResource::class;
 
+    public function getTitle(): string
+    {
+        return "{$this->record->form_id} - Edit Form";
+    }
+
+    public function getHeading(): string
+    {
+        return "Edit Form";
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('view', ['record' => $this->record->id]);

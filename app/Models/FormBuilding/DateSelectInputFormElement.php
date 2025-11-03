@@ -143,4 +143,38 @@ class DateSelectInputFormElement extends Model
 
         return $formatMapping[$format] ?? $format;
     }
+
+    /**
+     * Convert date format from Flatpickr format to the formats used in Klamm.
+     * 
+     * @return string The Flatpickr-compatible date format
+     * @param string $format The Klamm date format
+     */
+    public static function convertFromFlatpickrFormat(string $format): string
+    {
+        $formatMapping = [
+            'd/m/y' => 'DD/MM/YY',
+            'j-M-y' => 'D-MMM-YY',
+            'F j, Y' => 'MMMM D, YYYY',
+            'l, F j, Y' => 'EEEE, MMMM D, YYYY',
+            'Y-m-d' => 'YYYY-MM-DD',
+            'Y-M-d' => 'YYYY-MMM-DD',
+            'y-m-d' => 'YY-MM-DD',
+            'd/m/Y' => 'DD/MM/YYYY',
+            'j/n/y' => 'D/M/YY',
+            'n/d/y' => 'M/DD/YY',
+            'd-M-y' => 'DD-MMM-YY',
+            'd-M-Y' => 'DD-MMM-YYYY',
+            'n/j/Y' => 'M/D/YYYY',
+            'n/j/y' => 'M/D/YY',
+            'm/d/y' => 'MM/DD/YY',
+            'm/d/Y' => 'MM/DD/YYYY',
+            'l, F d, Y' => 'EEEE, MMMM DD, YYYY',
+            'F-d-y' => 'MMMM-DD-YY',
+            'F d, Y' => 'MMMM DD, YYYY',
+            'F, Y' => 'MMMM, YYYY',
+        ];
+
+        return $formatMapping[$format] ?? $format;
+    }
 }

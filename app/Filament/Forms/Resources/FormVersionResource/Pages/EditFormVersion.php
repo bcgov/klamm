@@ -17,6 +17,16 @@ class EditFormVersion extends EditRecord
         return $this->getResource()::getUrl('view', ['record' => $this->record->id]);
     }
 
+    public function getTitle(): string
+    {
+        return "{$this->record->form->form_id} Version {$this->record->version_number} - Edit Form Version";
+    }
+
+    public function getHeading(): string
+    {
+        return "Edit Form Version";
+    }
+
     public function getBreadcrumbs(): array
     {
         return [
@@ -53,10 +63,7 @@ class EditFormVersion extends EditRecord
                 ->visible(fn() => Gate::allows('form-developer')),
             Actions\Action::make('Preview Draft Template')
                 ->label('Preview Draft')
-                ->icon('heroicon-o-rocket-launch')
-                ->extraAttributes([
-                    'style' => 'background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none;'
-                ])
+                ->icon('heroicon-o-tv')
                 ->action(function ($livewire) {
                     $formVersionId = $this->record->id;
                     $previewBaseUrl = env('FORM_PREVIEW_URL', '');
