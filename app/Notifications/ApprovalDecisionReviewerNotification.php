@@ -51,7 +51,7 @@ class ApprovalDecisionReviewerNotification extends Notification
             : $approverName;
 
         $formVersionId = $approval->formVersion->id ?? null;
-        $previewUrl = $formVersionId ? rtrim(env('FORM_PREVIEW_URL', ''), '/') . '/preview/' . $formVersionId : null;
+        $previewUrl = $formVersionId ? rtrim(env('FORM_PREVIEW_URL', ''), '/') . '/preview-v2-dev/' . $formVersionId : null;
 
         $parseStatus = function ($text, $type) {
             preg_match_all('/(Webform|PDF):\s*(Rejected|Approved)\s*-?\s*([^P]*)?/i', $text, $matches, PREG_SET_ORDER);
