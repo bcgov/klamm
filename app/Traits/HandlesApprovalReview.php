@@ -30,7 +30,7 @@ trait HandlesApprovalReview
     protected function getFormPreviewUrl($formVersionId, $isPdf = false): string
     {
         $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
+        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview-v2-dev/' . $formVersionId;
 
         if ($isPdf) {
             $previewUrl .= '?format=pdf';

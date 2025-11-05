@@ -57,7 +57,7 @@ class ViewFormVersion extends ViewRecord
                 ->action(function ($livewire) {
                     $formVersionId = $this->record->id;
                     $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
+                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview-v2-dev/' . $formVersionId;
                     $livewire->js("window.open('$previewUrl', '_blank')");
                 }),
         ];
