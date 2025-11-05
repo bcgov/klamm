@@ -35,6 +35,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Get;
 use Filament\Support\Exceptions\Halt;
 use App\Helpers\FormElementHelper;
+use App\Helpers\FormVersionHelper;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -409,7 +410,7 @@ class BuildFormVersion extends Page implements HasForms
                 ->action(function ($livewire) {
                     $formVersionId = $this->record->id;
                     $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $formVersionId;
+                    $previewUrl = rtrim($previewBaseUrl, '/') . '/preview-v2-dev/' . $formVersionId;
                     $livewire->js("window.open('$previewUrl', '_blank')");
                 })
                 ->color('primary'),
@@ -705,7 +706,7 @@ class BuildFormVersion extends Page implements HasForms
 
     public function getTitle(): string
     {
-        return "Form Builder - Version {$this->record->version_number}";
+        return "{$this->record->form->form_id} Version {$this->record->version_number} - Form Builder";
     }
 
     public function getHeading(): string
@@ -882,9 +883,7 @@ class BuildFormVersion extends Page implements HasForms
      */
     private function collectFormFieldIssues(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormElement::query()
-            ->where('form_version_id', $this->record->id)
-            ->get(['id', 'name', 'elementable_type', 'reference_id', 'save_on_submit']);
+        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
 
         $issues = [];
 
@@ -974,9 +973,7 @@ class BuildFormVersion extends Page implements HasForms
 
     private function collectFormFieldMarkers(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormElement::query()
-            ->where('form_version_id', $this->record->id)
-            ->get(['id', 'elementable_type', 'reference_id', 'save_on_submit']);
+        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
 
         $markers = [];
 

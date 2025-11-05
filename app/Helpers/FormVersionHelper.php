@@ -4,8 +4,12 @@ namespace App\Helpers;
 
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\FormElement;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class FormVersionHelper
 {
@@ -29,6 +33,68 @@ class FormVersionHelper
 
             $newModel->save();
         }
+    }
+
+    /**
+     * Base query for visible *elements* (soft-deletes excluded).
+     * Does NOT filter by save_on_submit so validation sees all fields.
+     */
+    public static function visibleElementsQuery(int $formVersionId): Builder
+    {
+        return FormElement::query()
+            ->where('form_version_id', $formVersionId)
+            ->whereNull('deleted_at');
+    }
+
+
+    /**
+     * Visible, reachable *fields*:
+     *  - soft-deleted excluded
+     *  - non-field types excluded (containers/buttons/displays/etc.)
+     *  - full ancestor chain must exist (no deep orphans)
+     *  - does NOT filter by save_on_submit (prevents false negatives)
+     */
+    public static function visibleFieldElements(int $formVersionId): Collection
+    {
+        $all = self::visibleElementsQuery($formVersionId)
+            ->get(['id', 'parent_id', 'elementable_type', 'reference_id', 'name', 'uuid']);
+
+        $byId = $all->keyBy('id');
+
+        $isField = static function ($type): bool {
+            $base = class_basename((string) $type);
+            return !Str::contains($base, [
+                'Container',
+                'Section',
+                'Group',
+                'Page',
+                'Button',
+                'Display',
+                'TextDisplay',
+                'Heading',
+                'Title',
+                'Divider',
+                'Separator',
+                'Label',
+                'Note',
+            ]);
+        };
+
+        $chainOk = static function ($el) use ($byId): bool {
+            $p = (int) ($el->parent_id ?? -1);
+            $guard = 0;
+            while ($p !== -1) {
+                if (++$guard > 1000)
+                    return false;
+                $parent = $byId->get($p);
+                if (!$parent)
+                    return false;
+                $p = (int) ($parent->parent_id ?? -1);
+            }
+            return true;
+        };
+
+        return $all->filter(fn($el) => $isField($el->elementable_type) && $chainOk($el))->values();
     }
 
     /**

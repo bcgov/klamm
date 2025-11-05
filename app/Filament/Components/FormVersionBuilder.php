@@ -34,7 +34,7 @@ class FormVersionBuilder
     public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
     {
         if (!$formVersionId) return [];
-        $elements = \App\Models\FormBuilding\FormElement::where('form_version_id', $formVersionId)->get();
+        $elements = \App\Helpers\FormVersionHelper::visibleFieldElements($formVersionId);
         return $elements->map(function ($element) use ($context) {
             // Format the type using the same logic as the TextInput::formatStateUsing
             $elementType = $element->elementable_type;
@@ -633,38 +633,6 @@ class FormVersionBuilder
                                             ->label(fn($livewire) => \App\Models\FormBuilding\FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
                                             ->icon('heroicon-o-globe-alt')
                                             ->schema([
-                                                Actions::make([
-                                                    Action::make('import_js_content_web')
-                                                        ->label('Insert JavaScript')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
-                                                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
-                                                    Action::make('save_scripts_web')
-                                                        ->label('Save Scripts')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $jsContentWeb = $get('js_content_web') ?? '';
-                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                                                            // Fire update event for scripts
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_scripts' => $jsContentWeb],
-                                                                'scripts',
-                                                                false
-                                                            );
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Saved')
-                                                                ->body('JavaScript form scripts have been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                ])->alignment(Alignment::Center),
                                                 Select::make('attached_form_script_ids')
                                                     ->label('Attach Scripts')
                                                     ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
@@ -703,6 +671,38 @@ class FormVersionBuilder
                                                             $record->formScripts()->sync($state ?? []);
                                                         }
                                                     }),
+                                                Actions::make([
+                                                    Action::make('import_js_content_web')
+                                                        ->label('Insert JavaScript')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                                                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
+                                                    Action::make('save_scripts_web')
+                                                        ->label('Save Scripts')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $jsContentWeb = $get('js_content_web') ?? '';
+                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                            // Fire update event for scripts
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_scripts' => $jsContentWeb],
+                                                                'scripts',
+                                                                false
+                                                            );
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Scripts Saved')
+                                                                ->body('JavaScript form scripts have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                ])->alignment(Alignment::Center),
                                                 CustomMonacoEditor::make('js_content_web')
                                                     ->label(false)
                                                     ->language('javascript')

@@ -11,8 +11,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Bus\Dispatchable;
 use App\Models\FormBuilding\FormElement;
-use Illuminate\Support\Str;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\StyleSheet;
 
 class ImportFormVersionElementsJob implements ShouldQueue
 {
@@ -50,9 +51,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
             // Normalize format
             $normalizedSchema = $this->normalizeSchema($parsed);
 
-            // Process data sources and javascript
+            // Process data sources,  javascript, and stylesheets
             $this->processDataSources($normalizedSchema, $formVersion);
             $this->processJavaScript($normalizedSchema, $formVersion);
+            $this->processStyleSheets($normalizedSchema, $formVersion);
             $elements = $normalizedSchema['elements'] ?? [];
 
             if (empty($elements) || !is_array($elements)) {
@@ -95,44 +97,68 @@ class ImportFormVersionElementsJob implements ShouldQueue
             return [
                 'elements' => $parsed['formversion']['elements'] ?? [],
                 'dataSources' => $parsed['formversion']['dataSources'] ?? [],
-                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion'])
+                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion']),
+                'stylesheets' => $this->extractStyleSheetsFromFormversion($parsed['formversion']),
             ];
         }
 
         // Format 2: data structure
         if (isset($parsed['data'])) {
+            $data = $parsed['data'];
+
+            // Accept both "elements" and "items"
+            $elements = $data['elements'] ?? $data['items'] ?? [];
+
+            // Prefer "javascript" but gracefully convert "scripts" -> sections
+            $javascript = $data['javascript'] ?? [];
+            if ((!$javascript || !is_array($javascript)) && !empty($data['scripts']) && is_array($data['scripts'])) {
+                $javascript = [];
+                foreach ($data['scripts'] as $script) {
+                    $type = $script['type'] ?? 'web';
+                    $content = $script['content'] ?? '';
+                    if ($content !== '') {
+                        $javascript[$type] = ($javascript[$type] ?? '');
+                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
+                    }
+                }
+            }
+
             return [
-                'elements' => $parsed['data']['elements'] ?? [],
-                'dataSources' => $parsed['data']['dataSources'] ?? [],
-                'javascript' => $parsed['data']['javascript'] ?? []
+                'elements' => is_array($elements) ? $elements : [],
+                'dataSources' => $data['dataSources'] ?? ($parsed['dataSources'] ?? []),
+                'javascript' => is_array($javascript) ? $javascript : [],
+                'stylesheets' => is_array($data['styles']) ? $data['styles'] : [],
             ];
         }
 
         // Format 3: direct structure (legacy)
-        if (isset($parsed['elements'])) {
-            return [
-                'elements' => $parsed['elements'],
-                'dataSources' => $parsed['dataSources'] ?? [],
-                'javascript' => $parsed['javascript'] ?? []
-            ];
-        }
+        if (isset($parsed['elements']) || isset($parsed['items'])) {
+            $elements = $parsed['elements'] ?? $parsed['items'] ?? [];
+            $javascript = $parsed['javascript'] ?? [];
+            if ((!$javascript || !is_array($javascript)) && !empty($parsed['scripts']) && is_array($parsed['scripts'])) {
+                $javascript = [];
+                foreach ($parsed['scripts'] as $script) {
+                    $type = $script['type'] ?? 'web';
+                    $content = $script['content'] ?? '';
+                    if ($content !== '') {
+                        $javascript[$type] = ($javascript[$type] ?? '');
+                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
+                    }
+                }
+            }
 
-        // Format 4: fields structure
-        if (isset($parsed['fields'])) {
             return [
-                'elements' => $parsed['fields'],
+                'elements' => is_array($elements) ? $elements : [],
                 'dataSources' => $parsed['dataSources'] ?? [],
-                'javascript' => $parsed['javascript'] ?? []
+                'javascript' => is_array($javascript) ? $javascript : [],
+                'stylesheets' => $parsed['styles'] ?? [],
             ];
         }
 
         Log::warning('Unknown schema format, returning empty structure');
-        return [
-            'elements' => [],
-            'dataSources' => [],
-            'javascript' => []
-        ];
+        return ['elements' => [], 'dataSources' => [], 'javascript' => [], 'stylesheets' => []];
     }
+
 
     /**
      * Extract JavaScript from formversion format
@@ -142,18 +168,63 @@ class ImportFormVersionElementsJob implements ShouldQueue
         $javascript = [];
 
         // Check for scripts array in formversion format
-        if (isset($formversion['scripts']) && is_array($formversion['scripts'])) {
+        if (!empty($formversion['scripts']) && is_array($formversion['scripts'])) {
             foreach ($formversion['scripts'] as $script) {
-                if (isset($script['type']) && isset($script['content'])) {
-                    // Parse the content to extract individual function sections
-                    $content = $script['content'];
-                    $sections = $this->parseJavaScriptSections($content);
-                    $javascript = array_merge($javascript, $sections);
+                $type = $script['type'] ?? 'web';
+                $content = $script['content'] ?? '';
+                if ($type === 'template') {
+                    // Pass the template's filename as content so it can be attached
+                    $content = $script['filename'];
+                }
+                if ($content !== '') {
+                    if ($type === 'template') {
+                        if (!array_key_exists($type, $javascript)) {
+                            $javascript[$type] = [];
+                        }
+                        array_push($javascript[$type], $content);
+                    } else {
+                        // concatenate if multiple blocks of the same type exist
+                        $javascript[$type] = ($javascript[$type] ?? '');
+                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
+                    }
                 }
             }
         }
 
         return $javascript;
+    }
+
+    /**
+     * Extract stylesheets from formversion format
+     */
+    private function extractStyleSheetsFromFormversion(array $formversion): array
+    {
+        $stylesheets = [];
+
+        // Check for styles array in formversion format
+        if (!empty($formversion['styles']) && is_array($formversion['styles'])) {
+            foreach ($formversion['styles'] as $stylesheet) {
+                $type = $stylesheet['type'] ?? 'web';
+                $content = $stylesheet['content'] ?? '';
+                if ($type === 'template') {
+                    // Pass the template's filename as content so it can be attached
+                    $content = $stylesheet['filename'];
+                }
+                if ($content !== '') {
+                    if ($type === 'template') {
+                        if (!array_key_exists($type, $stylesheets)) {
+                            $stylesheets[$type] = [];
+                        }
+                        array_push($stylesheets[$type], $content);
+                    } else {
+                        // concatenate if multiple blocks of the same type exist
+                        $stylesheets[$type] = ($stylesheets[$type] ?? '');
+                        $stylesheets[$type] .= ($stylesheets[$type] ? "\n" : "") . $content;
+                    }
+                }
+            }
+        }
+        return $stylesheets;
     }
 
     /**
@@ -252,40 +323,119 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function processJavaScript(array $normalizedSchema, $formVersion): void
     {
         $javascript = $normalizedSchema['javascript'] ?? [];
-
         if (!$javascript || !is_array($javascript)) {
             return;
         }
 
-        // Combine all JavaScript sections into one script
-        $combinedScript = "// Imported JavaScript from template\n\n";
+        // If keys look like types, emit one FormScript per type.
+        $knownTypes = ['web', 'pdf', 'portal', 'template'];
+        $typeKeys = array_intersect(array_keys($javascript), $knownTypes);
 
-        foreach ($javascript as $sectionName => $jsContent) {
-            if (!empty($jsContent)) {
-                $combinedScript .= "// Section: {$sectionName}\n";
-                $combinedScript .= $jsContent . "\n\n";
+        try {
+            if (!class_exists(FormScript::class)) {
+                throw new \Exception('FormScript class not found');
             }
-        }
 
-        // Only create script if there's content
-        if (trim($combinedScript) !== "// Imported JavaScript from template") {
-            try {
-                if (!class_exists(\App\Models\FormBuilding\FormScript::class)) {
-                    throw new \Exception('FormScript class not found');
+            if (!empty($typeKeys)) {
+                foreach ($typeKeys as $t) {
+                    if ($t === 'template') {
+                        // Filenames are saved as content
+                        $filenames = $javascript[$t];
+                        // Find template by filename and attach to formVersion
+                        foreach ($filenames as $filename) {
+                            $id = FormScript::where('filename', $filename)->value('id');
+                            $formVersion->formScripts()->syncWithoutDetaching($id);
+                        }
+                    } else {
+                        $content = trim((string) ($javascript[$t] ?? ''));
+                        FormScript::createFormScript($formVersion, $content, $t);
+                    }
                 }
-
-                // Create script (web by default)
-                \App\Models\FormBuilding\FormScript::createFormScript($formVersion, $combinedScript, 'web');
-            } catch (\Exception $e) {
-                Log::error('Failed to create JavaScript form script', [
-                    'form_version_id' => $formVersion->id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
+            } else {
+                // Fallback: treat as “sections” and combine into a single web script
+                $combined = "// Imported JavaScript from template\n\n";
+                foreach ($javascript as $sectionName => $jsContent) {
+                    if (!empty($jsContent)) {
+                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
+                    }
+                }
+                FormScript::createFormScript($formVersion, trim($combined), 'web');
             }
-        } else {
-            Log::info('No JavaScript content to create script for');
+        } catch (\Exception $e) {
+            Log::error('Failed to create JavaScript form script(s)', [
+                'form_version_id' => $formVersion->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
         }
+    }
+
+    /**
+     * Process stylesheets from the normalized schema
+     */
+    private function processStyleSheets(array $normalizedSchema, $formVersion): void
+    {
+        $stylesheets = $normalizedSchema['stylesheets'] ?? [];
+        if (!$stylesheets || !is_array($stylesheets)) {
+            return;
+        }
+
+        // If keys look like types, emit one StyleSheet per type.
+        $knownTypes = ['web', 'pdf', 'portal', 'template'];
+        $typeKeys = array_intersect(array_keys($stylesheets), $knownTypes);
+
+        try {
+            if (!class_exists(StyleSheet::class)) {
+                throw new \Exception('StyleSheet class not found');
+            }
+
+            if (!empty($typeKeys)) {
+                foreach ($typeKeys as $t) {
+                    if ($t === 'template') {
+                        // Filenames are saved as content
+                        $filenames = $stylesheets[$t];
+                        // Find template by filename and attach to formVersion
+                        foreach ($filenames as $filename) {
+                            $id = StyleSheet::where('filename', $filename)->value('id');
+                            $formVersion->styleSheets()->syncWithoutDetaching($id);
+                        }
+                    } else {
+                        $content = trim((string) ($stylesheets[$t] ?? ''));
+                        StyleSheet::createStyleSheet($formVersion, $content, $t);
+                    }
+                }
+            } else {
+                // Fallback: treat as “sections” and combine into a single web stylesheet
+                $combined = "// Imported StyleSheet from template\n\n";
+                foreach ($stylesheets as $sectionName => $jsContent) {
+                    if (!empty($jsContent)) {
+                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
+                    }
+                }
+                StyleSheet::createStyleSheet($formVersion, trim($combined), 'web');
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to create StyleSheet form stylesheet(s)', [
+                'form_version_id' => $formVersion->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+
+    /**
+     * Return child elements for any container/group regardless of key naming.
+     */
+    private function getChildElements(array $element): array
+    {
+        $kids = $element['elements']
+            ?? $element['children']
+            ?? $element['containerItems']
+            ?? $element['fields']
+            ?? [];
+
+        return is_array($kids) ? $kids : [];
     }
 
     // Add method to count total elements for progress tracking
@@ -295,11 +445,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         foreach ($elements as $element) {
             $count++;
 
-            // Count children/nested elements
-            if (!empty($element['elements']) && is_array($element['elements'])) {
-                $count += $this->countElementsRecursive($element['elements']);
-            } elseif (!empty($element['children']) && is_array($element['children'])) {
-                $count += $this->countElementsRecursive($element['children']);
+            $kids = $this->getChildElements($element);
+            if (!empty($kids)) {
+                $count += $this->countElementsRecursive($kids);
             }
         }
         return $count;
@@ -513,11 +661,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     if ($elementType === 'ContainerFormElements' || $elementType === 'container') {
                         if ($inPlusContainer) {
                             // Process children directly under current parent
-                            if (!empty($element['elements']) || !empty($element['children'])) {
-                                $childElements = $element['elements'] ?? $element['children'];
-                                if (is_array($childElements)) {
-                                    $processedElements = $this->importElementsRecursive($childElements, $parentId, $formVersion, $processedElements, $totalElements, $inRepeatableContainer, $inPlusContainer);
-                                }
+                            $childElements = $this->getChildElements($element);
+                            if (!empty($childElements)) {
+                                $processedElements = $this->importElementsRecursive(
+                                    $childElements,
+                                    $parentId,
+                                    $formVersion,
+                                    $processedElements,
+                                    $totalElements,
+                                    $inRepeatableContainer /* or $childInRepeatable when present */,
+                                    $inPlusContainer      /* or $childInPlusContainer when present */
+                                );
                             }
                             continue;
                         }
@@ -529,6 +683,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 if (!$type) {
                     $typeMap = [
                         'container' => \App\Models\FormBuilding\ContainerFormElement::class,
+                        'group' => \App\Models\FormBuilding\ContainerFormElement::class,
                         'text-input' => \App\Models\FormBuilding\TextInputFormElement::class,
                         'textarea' => \App\Models\FormBuilding\TextareaInputFormElement::class,
                         'textarea-input' => \App\Models\FormBuilding\TextareaInputFormElement::class,
@@ -562,11 +717,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 }
 
                 if ($inRepeatableContainer && $this->isTextField($type)) {
-                    if (!empty($element['elements']) || !empty($element['children'])) {
-                        $childElements = $element['elements'] ?? $element['children'];
-                        if (is_array($childElements)) {
-                            $processedElements = $this->importElementsRecursive($childElements, $parentId, $formVersion, $processedElements, $totalElements, $inRepeatableContainer, $inPlusContainer);
-                        }
+                    $childElements = $this->getChildElements($element);
+                    if (!empty($childElements)) {
+                        $processedElements = $this->importElementsRecursive(
+                            $childElements,
+                            $parentId,
+                            $formVersion,
+                            $processedElements,
+                            $totalElements,
+                            $inRepeatableContainer /* or $childInRepeatable when present */,
+                            $inPlusContainer      /* or $childInPlusContainer when present */
+                        );
                     }
                     continue;
                 }
@@ -603,11 +764,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $technicalName = $element['name'] ?? $humanReadableLabel;
 
-                $referenceId = null;
-                if (!empty($humanReadableLabel)) {
-                    $referenceId = Str::slug($humanReadableLabel, '-');
-                } else {
-                    $referenceId = 'imported-element-' . uniqid();
+                // Extract reference ID from UUID
+                $referenceId = implode('-', array_slice(explode('-', $element['uuid']), 0, -5));
+                if (empty($referenceId)) {
+                    $referenceId = $humanReadableLabel;
                 }
 
                 $elementData = [
@@ -618,6 +778,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'order' => $processedElements,
                     'elementable_type' => $type,
                     'reference_id' => $referenceId,
+                    'description' => $attributes['description'],
+                    'help_text' => $attributes['help_text'],
+                    'is_read_only' => $attributes['is_read_only'] ? true : false,
+                    'custom_read_only' => $attributes['is_read_only'],
+                    'is_required' => $attributes['is_required'],
+                    'save_on_submit' => $attributes['save_on_submit'],
+                    'custom_visibility' => $attributes['custom_visibility'],
                 ];
 
                 $elementData['properties'] = [
@@ -626,59 +793,106 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'import_source' => 'template',
                 ];
 
+                $elementData['visible_pdf'] = !(
+                    isset($element['pdfStyles']['display']) && $element['pdfStyles']['display'] === 'none'
+                );
+
+                $elementData['visible_web'] = !(
+                    isset($element['webStyles']['display']) && $element['webStyles']['display'] === 'none'
+                );
+
                 $formElement = null;
 
-                if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
-                    $selectModel = \App\Models\FormBuilding\SelectInputFormElement::create($attributes);
+                if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
+                    $containerModel = \App\Models\FormBuilding\ContainerFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $containerModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\TextInputFormElement::class) {
+                    $textInputModel = \App\Models\FormBuilding\TextInputFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $textInputModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\TextareaInputFormElement::class) {
+                    $textareModel = \App\Models\FormBuilding\TextareaInputFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $textareModel->id;
+                    $formElement = FormElement::create($elementData);
+                } elseif ($type === \App\Models\FormBuilding\TextInfoFormElement::class) {
+                    $textInfoModel = \App\Models\FormBuilding\TextInfoFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $textInfoModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\DateSelectInputFormElement::class) {
+                    $dateSelectModel = \App\Models\FormBuilding\DateSelectInputFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $dateSelectModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\CheckboxInputFormElement::class) {
+                    $checkboxInputModel = \App\Models\FormBuilding\CheckboxInputFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $checkboxInputModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
+                    $selectModel = \App\Models\FormBuilding\SelectInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $selectModel->id;
                     $formElement = FormElement::create($elementData);
                     $this->createSelectOptions($selectModel, $options);
                 } elseif ($type === \App\Models\FormBuilding\RadioInputFormElement::class) {
-                    $radioModel = \App\Models\FormBuilding\RadioInputFormElement::create($attributes);
+                    $radioModel = \App\Models\FormBuilding\RadioInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $radioModel->id;
                     $formElement = FormElement::create($elementData);
                     $this->createRadioOptions($radioModel, $options);
-                } elseif ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
-                    $containerModel = \App\Models\FormBuilding\ContainerFormElement::create($attributes);
-                    $elementData['elementable_id'] = $containerModel->id;
+                } else if ($type === \App\Models\FormBuilding\NumberInputFormElement::class) {
+                    $numberInputModel = \App\Models\FormBuilding\NumberInputFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $numberInputModel->id;
                     $formElement = FormElement::create($elementData);
-                } elseif ($type === \App\Models\FormBuilding\TextInfoFormElement::class) {
-                    $textInfoAttributes = [];
-                    foreach ($attributes as $key => $value) {
-                        if ($key === 'content') {
-                            $textInfoAttributes[$key] = $value;
-                        }
-                    }
-                    if (!isset($textInfoAttributes['content'])) {
-                        $textInfoAttributes['content'] = '';
-                    }
-                    $textInfoModel = \App\Models\FormBuilding\TextInfoFormElement::create($textInfoAttributes);
-                    $elementData['elementable_id'] = $textInfoModel->id;
+                } else if ($type === \App\Models\FormBuilding\ButtonInputFormElement::class) {
+                    $buttonModel = \App\Models\FormBuilding\ButtonInputFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $buttonModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\HTMLFormElement::class) {
+                    $htmlModel = \App\Models\FormBuilding\HTMLFormElement::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $htmlModel->id;
                     $formElement = FormElement::create($elementData);
                 } else {
                     if (method_exists($type, 'create')) {
-                        $elementableModel = $type::create($attributes);
+                        $elementableModel = $type::create($attributes['attributes']);
                         $elementData['elementable_id'] = $elementableModel->id;
                     }
                     $formElement = FormElement::create($elementData);
                 }
 
-                if ($formElement && $dataBindingInfo) {
-                    $this->createDataBinding($formElement, $dataBindingInfo, $formVersion);
-                }
 
-                if ($formElement && (
-                    ($type === \App\Models\FormBuilding\ContainerFormElement::class && !empty($element['elements']) && is_array($element['elements'])) ||
-                    (!empty($element['children']) && is_array($element['children']))
-                )) {
-                    $childElements = $element['elements'] ?? $element['children'];
-                    $childInRepeatable = $inRepeatableContainer || $isRepeatableContainer;
-                    $childInPlusContainer = $inPlusContainer || $isPlusMinusElement;
-                    $processedElements = $this->importElementsRecursive($childElements, $formElement->id, $formVersion, $processedElements, $totalElements, $childInRepeatable, $childInPlusContainer);
+                if ($formElement) {
+                    // Create data binding
+                    if ($dataBindingInfo) {
+                        $this->createDataBinding($formElement, $dataBindingInfo, $formVersion);
+                    }
+
+                    // Attach tags
+                    if ($attributes['tags']) {
+                        if (!empty($attributes['tags'])) {
+                            foreach ($attributes['tags'] as $id => $filename) {
+                                $formElement->tags()->attach($id);
+                            }
+                        }
+                    }
+
+                    // Import child elements
+                    $childElements = $this->getChildElements($element);
+                    if (!empty($childElements)) {
+                        $childInRepeatable = $inRepeatableContainer || $isRepeatableContainer;
+                        $childInPlusContainer = $inPlusContainer || $isPlusMinusElement;
+
+                        $processedElements = $this->importElementsRecursive(
+                            $childElements,
+                            $formElement->id,
+                            $formVersion,
+                            $processedElements,
+                            $totalElements,
+                            $childInRepeatable,
+                            $childInPlusContainer
+                        );
+                    }
                 }
             } catch (\Exception $e) {
                 Log::error('Failed to import individual element', [
-                    'element' => $element,
+                    'element' => $element['name'],
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
@@ -730,6 +944,16 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 'path' => $element['binding_ref'],
                 'type' => 'jsonpath'
             ];
+        }
+        // Format 5: exporter uses 'databindings' (array, lowercase 'b')
+        elseif (isset($element['databindings']) && is_array($element['databindings']) && !empty($element['databindings'])) {
+            $first = reset($element['databindings']);
+            if (is_array($first) && isset($first['path'])) {
+                $dataBindingInfo = [
+                    'path' => $first['path'],
+                    'type' => $first['type'] ?? 'jsonpath',
+                ];
+            }
         }
 
         return $dataBindingInfo;
@@ -805,7 +1029,25 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
     private function extractElementAttributes(array $element): array
     {
-        $exclude = ['elements', 'children', 'token', 'parentId', 'elementType', 'type', 'dataBinding', 'dataBindings'];
+        $exclude = [
+            'elements',
+            'children',
+            'containerItems',
+            'fields',
+            'token',
+            'parentId',
+            'elementType',
+            'type',
+            'dataBinding',
+            'dataBindings',
+            'databindings',
+            'scripts',
+            'javascript',
+            'pdfStyles',
+            'webStyles',
+            'options',
+            'listItems'
+        ];
         $attributes = [];
 
         foreach ($element as $key => $value) {
@@ -817,10 +1059,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
         // Handle both formats for repeatable containers
         if (isset($element['repeats'])) {
             $attributes['is_repeatable'] = (bool)$element['repeats'];
-        } elseif (isset($element['is_repeatable'])) {
-            $attributes['is_repeatable'] = (bool)$element['is_repeatable'];
+            $attributes['attributes']['is_repeatable'] = (bool)$element['repeats'];
+            if (isset($element['attributes']['repeaterItemLabel'])) {
+                $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
+            }
+        } elseif (isset($element['attributes']['isRepeatable'])) {
+            $attributes['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
+            $attributes['attributes']['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
+            if (isset($element['attributes']['repeaterItemLabel'])) {
+                $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
+            }
         }
-
         // Handle min/max repeats
         if (isset($element['minRepeats'])) {
             $attributes['min_repeats'] = (int)$element['minRepeats'];
@@ -837,6 +1086,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
         // Handle container type mapping
         if (isset($element['containerType'])) {
             $attributes['container_type'] = $element['containerType'];
+        } elseif (isset($element['attributes']['containerType'])) {
+            $attributes['attributes']['container_type'] = $element['attributes']['containerType'];
         }
 
         // Handle collapsible properties
@@ -855,14 +1106,29 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         // Handle options/list items (both formats)
-        if (isset($element['listItems'])) {
-            $attributes['listItems'] = $element['listItems'];
-        } elseif (isset($element['options'])) {
-            $attributes['options'] = $element['options'];
+        // if (isset($element['listItems'])) {
+        //     $attributes['listItems'] = $element['listItems'];
+        // } elseif (isset($element['options'])) {
+        //     $attributes['options'] = $element['options'];
+        // }
+
+        // Handle default values
+        if (isset($element['attributes']['value'])) {
+            $attributes['attributes']['defaultValue'] = $element['attributes']['value'];
         }
 
-        if (isset($element['dataFormat'])) {
-            $attributes['dataFormat'] = $element['dataFormat'];
+        // Handle date format
+        if (isset($element['dateFormat'])) {
+            $attributes['dateFormat'] = \App\Models\FormBuilding\DateSelectInputFormElement::convertFromFlatpickrFormat($element['dateFormat']);
+        } else if (isset($element['attributes']['dateFormat'])) {
+            $attributes['attributes']['dateFormat'] = \App\Models\FormBuilding\DateSelectInputFormElement::convertFromFlatpickrFormat($element['attributes']['dateFormat']);
+        }
+
+        // Handle HTML content
+        if (isset($element['htmlContent'])) {
+            $attributes['html_content'] = $element['htmlContent'];
+        } else if (isset($element['attributes']['htmlContent'])) {
+            $attributes['attributes']['html_content'] = $element['attributes']['htmlContent'];
         }
 
         return $attributes;
@@ -875,7 +1141,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
     {
         if (
             (isset($element['repeats']) && $element['repeats']) ||
-            (isset($element['is_repeatable']) && $element['is_repeatable'])
+            (isset($element['attributes']['isRepeatable']) && $element['attributes']['isRepeatable'])
         ) {
             return true;
         }

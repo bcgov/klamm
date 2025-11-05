@@ -20,13 +20,12 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Tables;
 
 class FormScriptResource extends Resource
 {
     protected static ?string $model = FormScript::class;
     protected static ?string $navigationLabel = 'Scripts';
-    protected static ?string $navigationIcon = 'heroicon-o-paint-brush';
+    protected static ?string $navigationIcon = 'heroicon-o-code-bracket-square';
     protected static ?string $label = 'Script Template';
 
     protected static ?string $navigationGroup = 'Form Building';

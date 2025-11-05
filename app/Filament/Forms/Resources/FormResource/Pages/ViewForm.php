@@ -26,6 +26,16 @@ class ViewForm extends ViewRecord
 
     // protected static string $view = 'filament.forms.resources.form-resource.pages.view-form';
 
+    public function getTitle(): string
+    {
+        return "{$this->record->form_id} - View Form";
+    }
+
+    public function getHeading(): string
+    {
+        return "View Form";
+    }
+
     public function getRelationManagers(): array
     {
         if (Gate::allows('admin') || Gate::allows('form-developer')) {
@@ -70,7 +80,7 @@ class ViewForm extends ViewRecord
                     ->icon('heroicon-o-tv')
                     ->action(function () use ($latestVersion) {
                         $previewBaseUrl = env('FORM_PREVIEW_URL', '');
-                        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview/' . $latestVersion->id;
+                        $previewUrl = rtrim($previewBaseUrl, '/') . '/preview-v2-dev/' . $latestVersion->id;
                         $this->js("window.open('$previewUrl', '_blank')");
                     })
                     ->color('primary');
