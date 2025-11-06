@@ -122,6 +122,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     }
                 }
             }
+            // Ensure styles array exists
+            $data['styles'] ?? $data['styles'] = [];
 
             return [
                 'elements' => is_array($elements) ? $elements : [],
@@ -765,10 +767,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $technicalName = $element['name'] ?? $humanReadableLabel;
 
                 // Extract reference ID from UUID
-                $referenceId = implode('-', array_slice(explode('-', $element['uuid']), 0, -5));
+                if ($element['uuid'] ?? false) {
+                    $referenceId = implode('-', array_slice(explode('-', $element['uuid']), 0, -5));
+                } else if ($element['name'] ?? false) {
+                    $referenceId = $element['name'];
+                }
+                    
                 if (empty($referenceId)) {
                     $referenceId = $humanReadableLabel;
                 }
+
+                $attributes += ['is_read_only' => false];
 
                 $elementData = [
                     'form_version_id' => $formVersion->id,
@@ -778,13 +787,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'order' => $processedElements,
                     'elementable_type' => $type,
                     'reference_id' => $referenceId,
-                    'description' => $attributes['description'],
-                    'help_text' => $attributes['help_text'],
+                    'description' => $attributes['description'] ?? '',
+                    'help_text' => $attributes['help_text'] ?? '',
                     'is_read_only' => $attributes['is_read_only'] ? true : false,
-                    'custom_read_only' => $attributes['is_read_only'],
-                    'is_required' => $attributes['is_required'],
-                    'save_on_submit' => $attributes['save_on_submit'],
-                    'custom_visibility' => $attributes['custom_visibility'],
+                    'custom_read_only' => $attributes['is_read_only'] ? true : false,
+                    'is_required' => $attributes['is_required'] ?? false,
+                    'save_on_submit' => $attributes['save_on_submit'] ?? true,
+                    'custom_visibility' => $attributes['custom_visibility'] ?? '',
                 ];
 
                 $elementData['properties'] = [
@@ -865,7 +874,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     }
 
                     // Attach tags
-                    if ($attributes['tags']) {
+                    if (isset($attributes['tags'])) {
                         if (!empty($attributes['tags'])) {
                             foreach ($attributes['tags'] as $id => $filename) {
                                 $formElement->tags()->attach($id);
@@ -1105,6 +1114,11 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $attributes['content'] = $element['content'];
         }
 
+        // For Button elements, ensure label is properly mapped
+        if ($elementType === 'ButtonInputFormElements' && isset($element['label'])) {
+            $attributes['attributes']['text'] = $element['label'];
+        }
+
         // Handle options/list items (both formats)
         // if (isset($element['listItems'])) {
         //     $attributes['listItems'] = $element['listItems'];
@@ -1129,6 +1143,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $attributes['html_content'] = $element['htmlContent'];
         } else if (isset($element['attributes']['htmlContent'])) {
             $attributes['attributes']['html_content'] = $element['attributes']['htmlContent'];
+        }
+
+
+        // Ensure $attributes['attributes] exists
+        if (!isset($attributes['attributes'])) {
+            $attributes['attributes'] = [];
         }
 
         return $attributes;
