@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\AnonymousUpload;
+use App\Models\Anonymizer\AnonymousUpload;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -15,11 +15,14 @@ use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
-class SyncAnonymousSiebelColumns implements ShouldQueue
+/**
+ * Job that synchronizes anonymized Siebel metadata from uploaded CSV files.
+ */
+class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    private const STAGING_TABLE = 'anonymous_siebel_staging';
+    private const STAGING_TABLE = 'anonymous_siebel_stagings';
     private const COLUMNS_TABLE = 'anonymous_siebel_columns';
     private const TABLES_TABLE = 'anonymous_siebel_tables';
     private const SCHEMAS_TABLE = 'anonymous_siebel_schemas';
@@ -29,6 +32,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
 
     public function __construct(public int $uploadId) {}
 
+    /**
+     * Orchestrates ingest and synchronization for the targeted upload.
+     */
     public function handle(): void
     {
         $upload = AnonymousUpload::findOrFail($this->uploadId);
@@ -39,6 +45,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         ]);
 
         try {
+            // Load fresh data from the CSV into the staging table.
             $this->ingestToStaging($upload);
 
             $totals = DB::transaction(fn() => $this->syncFromStaging($upload));
@@ -50,6 +57,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
                 'deleted' => $totals['deleted'],
             ]);
         } catch (Throwable $e) {
+            // Record the failure reason on the upload before bubbling the exception.
             $upload->update([
                 'status' => 'failed',
                 'error' => $e->getMessage(),
@@ -59,6 +67,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         }
     }
 
+    /**
+     * Clears previous staging records and streams CSV rows into staging storage.
+     */
     private function ingestToStaging(AnonymousUpload $upload): void
     {
         DB::table(self::STAGING_TABLE)
@@ -82,6 +93,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         $count = 0;
 
         while (($row = fgetcsv($stream)) !== false) {
+            // Skip blank lines to avoid inserting empty records.
             if ($row === null || $row === [null] || $row === ['']) {
                 continue;
             }
@@ -108,6 +120,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
                 'table_comment' => $this->toNullOrString($assoc['TABLE_COMMENT'] ?? null),
             ];
 
+            // Capture raw relationship descriptors and normalized JSON structures.
             $rawRelationships = html_entity_decode((string) ($assoc['RELATED_COLUMNS'] ?? '')) ?: null;
             $parsedRelationships = $this->parseRelated($rawRelationships ?? '');
 
@@ -124,6 +137,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
             ++$count;
 
             if (count($batch) >= 1000) {
+                // Bulk insert for performance when the batch threshold is reached.
                 DB::table(self::STAGING_TABLE)->insert($batch);
                 $batch = [];
             }
@@ -136,10 +150,14 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         }
 
         if ($count === 0) {
+            // Reject uploads that contain headers only.
             throw new RuntimeException('The uploaded CSV did not contain any data rows.');
         }
     }
 
+    /**
+     * Promotes staged rows into the normalized metadata tables and tracks totals.
+     */
     private function syncFromStaging(AnonymousUpload $upload): array
     {
         $now = now();
@@ -177,6 +195,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
                 &$updated
             ) {
                 foreach ($chunk as $row) {
+                    // Skip partially defined rows that cannot be normalized.
                     if (! $row->database_name || ! $row->schema_name || ! $row->table_name || ! $row->column_name) {
                         continue;
                     }
@@ -227,9 +246,11 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
                 }
             });
 
+        // Soft-delete legacy columns that were not present in the current upload.
         $deleted += $this->softDeleteMissingColumns($touchedTableIds, $stagingColumnKeys, $now);
 
         if ($touchedColumnIds !== []) {
+            // Refresh dependency edges for any columns touched in this run.
             $this->syncRelationships(
                 $columnMeta,
                 $relationshipsByColumn,
@@ -246,6 +267,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         ];
     }
 
+    /**
+     * Resolves or creates a database record for the provided name.
+     */
     private function resolveDatabaseId(string $databaseName, $now, array &$cache): int
     {
         $key = $this->norm($databaseName);
@@ -301,6 +325,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $cache[$key] = $id;
     }
 
+    /**
+     * Resolves or creates a schema record under a database.
+     */
     private function resolveSchemaId(int $databaseId, string $schemaName, $now, array &$cache): int
     {
         $key = $this->norm($schemaName);
@@ -360,6 +387,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $cache[$key] = $id;
     }
 
+    /**
+     * Resolves or creates a table record, updating metadata and comments as needed.
+     */
     private function resolveTableId(
         int $schemaId,
         string $tableName,
@@ -426,6 +456,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $cache[$key] = $id;
     }
 
+    /**
+     * Resolves or creates a data type reference for the column.
+     */
     private function resolveDataTypeId(?string $dataType, $now, array &$cache): ?int
     {
         if ($dataType === null || $dataType === '') {
@@ -463,6 +496,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $cache[$key] = $id;
     }
 
+    /**
+     * Inserts or updates a canonical column record from the staging payload.
+     */
     private function upsertColumn(int $tableId, ?int $dataTypeId, object $row, $now): array
     {
         $columnName = trim($row->column_name);
@@ -494,6 +530,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         ];
 
         if ($existing) {
+            // Capture differences to drive change tracking fields.
             $diff = $this->diffValues($existing, $payload, array_keys(Arr::except($payload, ['table_id', 'column_name'])));
 
             $updates = $payload;
@@ -533,6 +570,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         ];
     }
 
+    /**
+     * Chooses the best relationship representation available for a row.
+     */
     private function extractRelationshipsFromRow(object $row): array
     {
         if ($row->related_columns) {
@@ -549,6 +589,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $this->parseRelated($row->related_columns_raw) ?: [];
     }
 
+    /**
+     * Soft deletes any existing columns that were not present in the latest upload.
+     */
     private function softDeleteMissingColumns(array $touchedTableIds, array $stagingColumnKeys, $now): int
     {
         if ($touchedTableIds === []) {
@@ -590,6 +633,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $deleted;
     }
 
+    /**
+     * Rebuilds dependency edges for every column touched during the sync.
+     */
     private function syncRelationships(
         array $columnMeta,
         array $relationshipsByColumn,
@@ -634,6 +680,7 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
                     continue;
                 }
 
+                // Choose parent/child assignment based on declared directionality.
                 $direction = strtoupper($relation['direction'] ?? 'OUTBOUND');
 
                 if ($direction === 'OUTBOUND') {
@@ -668,6 +715,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         }
     }
 
+    /**
+     * Builds lookup maps to resolve column IDs from either local metadata or referenced triples.
+     */
     private function buildColumnIndex(array $columnMeta, array $referencedColumns): array
     {
         $byKey = [];
@@ -719,6 +769,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         ];
     }
 
+    /**
+     * Reads the header row from the provided CSV stream.
+     */
     private function readHeader($stream): ?array
     {
         $header = fgetcsv($stream);
@@ -733,6 +786,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return array_map(static fn($value) => strtoupper(trim((string) $value)), $header);
     }
 
+    /**
+     * Parses relationship descriptors into structured arrays.
+     */
     private function parseRelated(string $raw): array
     {
         $raw = trim(html_entity_decode($raw));
@@ -769,6 +825,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $relationships;
     }
 
+    /**
+     * Produces a diff array describing changes between stored and new values.
+     */
     private function diffValues(object $existing, array $payload, array $fields): array
     {
         $diff = [];
@@ -792,6 +851,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return $diff;
     }
 
+    /**
+     * Determines whether two values differ while accounting for type juggling.
+     */
     private function valuesDiffer($old, $new): bool
     {
         if ($old === null && $new === null) {
@@ -809,6 +871,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return (string) $old !== (string) $new;
     }
 
+    /**
+     * Typed helper utilities to normalize CSV scalar values.
+     */
     private function toInt($value): ?int
     {
         $value = is_string($value) ? trim($value) : $value;
@@ -849,6 +914,9 @@ class SyncAnonymousSiebelColumns implements ShouldQueue
         return null;
     }
 
+    /**
+     * Hashing and key helpers shared across the sync pipeline.
+     */
     private function hashFor(array $data): string
     {
         return hash('sha256', json_encode($data, JSON_UNESCAPED_UNICODE));

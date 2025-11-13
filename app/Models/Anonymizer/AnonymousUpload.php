@@ -1,11 +1,15 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Anonymizer;
 
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
 class AnonymousUpload extends Model
 {
+    use HasFactory;
+
     protected $table = 'anonymization_uploads';
 
     /**
@@ -22,4 +26,15 @@ class AnonymousUpload extends Model
         'deleted',
         'error',
     ];
+
+    protected $casts = [
+        'inserted' => 'integer',
+        'updated' => 'integer',
+        'deleted' => 'integer',
+    ];
+
+    public function stagings()
+    {
+        return $this->hasMany(AnonymousSiebelStaging::class, 'upload_id');
+    }
 }

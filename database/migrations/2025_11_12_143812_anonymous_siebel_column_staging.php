@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('anonymous_siebel_staging', function (Blueprint $table) {
+        Schema::create('anonymous_siebel_stagings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('upload_id')->constrained('anonymization_uploads')->cascadeOnDelete();
             $table->string('database_name', 128);
@@ -43,6 +43,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('anonymous_siebel_staging');
+        Schema::dropIfExists('anonymous_siebel_stagings');
     }
 };
