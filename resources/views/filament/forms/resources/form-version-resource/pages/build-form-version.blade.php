@@ -277,7 +277,7 @@
         function openPreviewForm() {
             const formVersionId = '{{ $this->record->id }}';
             const previewBaseUrl = '{{ env("FORM_PREVIEW_URL", "") }}';
-            const previewUrl = previewBaseUrl.replace(/\/$/, '') + '/preview/' + formVersionId;
+            const previewUrl = previewBaseUrl.replace(/\/$/, '') + '/preview-v2-dev/' + formVersionId;
             window.open(previewUrl, '_blank');
         }
 
