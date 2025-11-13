@@ -1,5 +1,5 @@
 # Use PHP official image with Apache
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 # Install system dependencies for PHP extensions and other utilities
 RUN apt-get update && apt-get install -y \
@@ -46,7 +46,7 @@ COPY .env.example .env
 COPY . .
 
 # Create sail user
-RUN useradd -m sail
+RUN useradd -u 1000 -m sail
 
 # Create necessary directories and files
 RUN mkdir -p /var/www/storage/logs \
@@ -55,12 +55,8 @@ RUN mkdir -p /var/www/storage/logs \
     && mkdir -p /var/www/storage/app/form_data/scripts \
     && mkdir -p /var/www/storage/app/form_data/templates
 
-# Set permissions for directories and files
-RUN chown -R sail:sail /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
-    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache /var/www/database /var/www/.env \
-    && chown -R sail:sail /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
-    && chmod -R 775 /var/www/storage/app/form_data /var/www/storage/app/public/form-exports \
-    && chmod g+s /var/www/storage/app/form_data /var/www/storage/app/public/form-exports
+# Set ownership to sail user
+RUN chown -R sail:sail /var/www
 
 # Generate APP_KEY
 RUN php artisan key:generate

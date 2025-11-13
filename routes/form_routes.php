@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FormVersionController;
 
 // Form Version Preview
-Route::get('/form-versions/{id}/preview', [FormVersionController::class, 'getFormTemplate'])
+Route::get('/form-versions/{id}/preview-v2-dev', [FormVersionController::class, 'getFormTemplate'])
     ->middleware(['auth:sanctum', 'ability:admin, form-developer']);
 
 // Form Version Logs
