@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\Toggle;
 
 class CheckboxInputFormElement extends Model
 {
@@ -16,6 +18,7 @@ class CheckboxInputFormElement extends Model
         'labelText',
         'hideLabel',
         'defaultChecked',
+        'enableVarSub',
     ];
 
     protected $casts = [
@@ -34,15 +37,20 @@ class CheckboxInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            SchemaHelper::getLabelTextField($disabled)
-                ->label('Checkbox Label')
-                ->autocomplete(false)
-                ->required(),
-            SchemaHelper::getHideLabelToggle($disabled),
-            \Filament\Forms\Components\Toggle::make('elementable_data.defaultChecked')
-                ->label('Default Checked')
-                ->default(false)
-                ->disabled($disabled),
+            Fieldset::make('Field Label')
+                ->schema([
+                    SchemaHelper::getLabelTextField($disabled)
+                        ->label('Checkbox Label')
+                        ->autocomplete(false)
+                        ->required(),
+                    SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
+                    SchemaHelper::getHideLabelToggle($disabled),
+                ])
+                ->columns(1),
+                Toggle::make('elementable_data.defaultChecked')
+                    ->label('Default Checked')
+                    ->default(false)
+                    ->disabled($disabled),
         ];
     }
 
@@ -63,6 +71,7 @@ class CheckboxInputFormElement extends Model
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
             'defaultChecked' => $this->defaultChecked,
+            'enableVarSub' => $this->enableVarSub,
         ];
     }
 
@@ -75,6 +84,7 @@ class CheckboxInputFormElement extends Model
             'hideLabel' => false,
             'defaultChecked' => false,
             'labelText' => '',
+            'enableVarSub' => false,
         ];
     }
 }
