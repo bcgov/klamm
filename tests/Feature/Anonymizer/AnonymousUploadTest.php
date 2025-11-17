@@ -4,6 +4,7 @@ use App\Jobs\SyncAnonymousSiebelColumnsJob;
 use App\Models\Anonymizer\AnonymousUpload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Activitylog\Models\Activity;
 
 describe('Anonymous Siebel Columns Sync Job', function () {
 
@@ -78,5 +79,18 @@ describe('Anonymous Siebel Columns Sync Job', function () {
             ->exists();
 
         expect($dependencyExists)->toBeTrue();
+
+        // Assert: activity log captures newly created columns for traceability.
+        expect(Activity::query()->where('log_name', 'anonymous_siebel_columns')->count())->toBeGreaterThan(0);
+
+        $creationActivity = Activity::query()
+            ->where('log_name', 'anonymous_siebel_columns')
+            ->where('subject_id', $acctColumn->id)
+            ->where('event', 'created')
+            ->first();
+
+        expect($creationActivity)->not->toBeNull();
+        expect(data_get($creationActivity->properties, 'attributes.column_name'))->toBe('ID');
+        expect(data_get($creationActivity->properties, 'source'))->toBe('anonymous_upload');
     });
 });

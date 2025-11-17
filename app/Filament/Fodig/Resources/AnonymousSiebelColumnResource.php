@@ -3,7 +3,7 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
-use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
+use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers\ActivityLogRelationManager;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -139,6 +139,7 @@ class AnonymousSiebelColumnResource extends Resource
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -152,7 +153,7 @@ class AnonymousSiebelColumnResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ActivityLogRelationManager::class,
         ];
     }
 
@@ -161,6 +162,7 @@ class AnonymousSiebelColumnResource extends Resource
         return [
             'index' => Pages\ListAnonymousSiebelColumns::route('/'),
             'create' => Pages\CreateAnonymousSiebelColumn::route('/create'),
+            'view' => Pages\ViewAnonymousSiebelColumn::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelColumn::route('/{record}/edit'),
         ];
     }

@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('anonymous_siebel_columns', function (Blueprint $table) {
+            //imported properties
             $table->id();
             $table->string('column_name', 256);
             $table->unsignedInteger('column_id')->nullable();
@@ -31,6 +32,9 @@ return new class extends Migration
             $table->softDeletes();
             $table->timestamps();
 
+            //custom properties
+            $table->text('metadata_comment')->nullable(); // custom comment in Klamm
+            $table->boolean('anonymization_required')->default(false);
 
             //relationships
             $table->foreignId('table_id')->nullable()->constrained('anonymous_siebel_tables');

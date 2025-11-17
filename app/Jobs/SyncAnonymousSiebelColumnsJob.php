@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Anonymizer\AnonymousUpload;
+use App\Services\Anonymizer\AnonymizerActivityLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -37,6 +38,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     public function handle(): void
     {
+        // Surface the targeted upload immediately so callers can observe progress transitions.
         $upload = AnonymousUpload::findOrFail($this->uploadId);
 
         $upload->update([
@@ -45,9 +47,10 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         ]);
 
         try {
-            // Load fresh data from the CSV into the staging table.
+            // Rebuild staging from scratch on every run to guarantee idempotent comparisons.
             $this->ingestToStaging($upload);
 
+            // Fence the promotion phase so metadata updates are all-or-nothing.
             $totals = DB::transaction(fn() => $this->syncFromStaging($upload));
 
             $upload->update([
@@ -57,7 +60,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 'deleted' => $totals['deleted'],
             ]);
         } catch (Throwable $e) {
-            // Record the failure reason on the upload before bubbling the exception.
+            // Persist the failure reason for diagnostics before letting the exception bubble.
             $upload->update([
                 'status' => 'failed',
                 'error' => $e->getMessage(),
@@ -72,10 +75,12 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function ingestToStaging(AnonymousUpload $upload): void
     {
+        // Clear any leftover rows so retries never mingle historical staging data.
         DB::table(self::STAGING_TABLE)
             ->where('upload_id', $upload->id)
             ->delete();
 
+        // Stream the file to avoid loading large uploads fully into memory.
         $stream = Storage::disk($upload->file_disk)->readStream($upload->path);
         if (! $stream) {
             throw new RuntimeException('Unable to open upload stream');
@@ -93,11 +98,12 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         $count = 0;
 
         while (($row = fgetcsv($stream)) !== false) {
-            // Skip blank lines to avoid inserting empty records.
+            // Skip empty lines to prevent inserting meaningless blank records.
             if ($row === null || $row === [null] || $row === ['']) {
                 continue;
             }
 
+            // Normalize the CSV row into an associative array keyed by the canonical header.
             $assoc = [];
             foreach ($header as $index => $key) {
                 $assoc[$key] = $row[$index] ?? null;
@@ -127,6 +133,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             $payload['related_columns_raw'] = $rawRelationships;
             $payload['related_columns'] = $parsedRelationships ? json_encode($parsedRelationships, JSON_UNESCAPED_UNICODE) : null;
 
+            // Hash only the normalized payload so row ordering within the CSV does not affect identity.
             $hashSource = Arr::except($payload, ['related_columns_raw', 'related_columns']);
             $payload['content_hash'] = hash('sha256', json_encode($hashSource, JSON_UNESCAPED_UNICODE));
             $payload['upload_id'] = $upload->id;
@@ -137,7 +144,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ++$count;
 
             if (count($batch) >= 1000) {
-                // Bulk insert for performance when the batch threshold is reached.
+                // Flush batches periodically to keep memory usage predictable on large uploads.
                 DB::table(self::STAGING_TABLE)->insert($batch);
                 $batch = [];
             }
@@ -146,11 +153,12 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         fclose($stream);
 
         if ($batch !== []) {
+            // Persist any trailing batch after the streaming loop exits.
             DB::table(self::STAGING_TABLE)->insert($batch);
         }
 
         if ($count === 0) {
-            // Reject uploads that contain headers only.
+            // Guard against header-only files which would otherwise look like successful imports.
             throw new RuntimeException('The uploaded CSV did not contain any data rows.');
         }
     }
@@ -165,6 +173,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         $updated = 0;
         $deleted = 0;
 
+        // Maintain lightweight caches to prevent redundant lookups while iterating staging rows.
         $databaseCache = [];
         $schemaCache = [];
         $tableCache = [];
@@ -195,11 +204,12 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 &$updated
             ) {
                 foreach ($chunk as $row) {
-                    // Skip partially defined rows that cannot be normalized.
+                    // Skip rows missing key identifiers because they cannot be linked to canonical tables.
                     if (! $row->database_name || ! $row->schema_name || ! $row->table_name || ! $row->column_name) {
                         continue;
                     }
 
+                    // Resolve reference records once per logical key to minimize writes.
                     $databaseId = $this->resolveDatabaseId($row->database_name, $now, $databaseCache);
                     $schemaId = $this->resolveSchemaId($databaseId, $row->schema_name, $now, $schemaCache);
                     $tableId = $this->resolveTableId(
@@ -222,6 +232,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                     $touchedColumnIds[$columnResult['id']] = true;
 
                     $meta = [
+                        // Track normalized names so relationship resolution has enough context later.
                         'id' => $columnResult['id'],
                         'schema_name' => $row->schema_name,
                         'table_name' => $row->table_name,
@@ -230,6 +241,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                     ];
                     $columnMeta[$columnKey] = $meta;
 
+                    // Capture dependency hints so they can be rebuilt after batch processing completes.
                     $relations = $this->extractRelationshipsFromRow($row);
                     if ($relations !== []) {
                         $relationshipsByColumn[$columnKey] = $relations;
@@ -246,11 +258,11 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 }
             });
 
-        // Soft-delete legacy columns that were not present in the current upload.
+        // Remove columns not present in this upload while leaving an audit trail via soft deletes.
         $deleted += $this->softDeleteMissingColumns($touchedTableIds, $stagingColumnKeys, $now);
 
         if ($touchedColumnIds !== []) {
-            // Refresh dependency edges for any columns touched in this run.
+            // Recompute dependency edges so consumers see an up-to-date relationship graph.
             $this->syncRelationships(
                 $columnMeta,
                 $relationshipsByColumn,
@@ -272,6 +284,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function resolveDatabaseId(string $databaseName, $now, array &$cache): int
     {
+        // Favor cached IDs to avoid repeated round-trips for identical names.
         $key = $this->norm($databaseName);
         if (isset($cache[$key])) {
             return $cache[$key];
@@ -286,6 +299,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ->first();
 
         if ($record) {
+            // Refresh sync metadata even when the dimensional attributes remain unchanged.
             $updates = [
                 'last_synced_at' => $now,
                 'updated_at' => $now,
@@ -330,6 +344,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function resolveSchemaId(int $databaseId, string $schemaName, $now, array &$cache): int
     {
+        // Cache by normalized schema name since the same schema may appear multiple times per file.
         $key = $this->norm($schemaName);
         if (isset($cache[$key])) {
             return $cache[$key];
@@ -345,6 +360,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ->first();
 
         if ($record) {
+            // Move schemas between databases when hashes differ, capturing that drift in change logs.
             $updates = [
                 'database_id' => $databaseId,
                 'last_synced_at' => $now,
@@ -398,6 +414,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         $now,
         array &$cache
     ): int {
+        // Include schema ID in the cache key because table names are not globally unique.
         $key = $schemaId . '|' . $this->norm($tableName);
         if (isset($cache[$key])) {
             return $cache[$key];
@@ -417,6 +434,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ->first();
 
         if ($record) {
+            // Update table metadata while recording human-friendly diffs for auditing.
             $updates = [
                 'object_type' => $object,
                 'table_comment' => $tableComment,
@@ -461,6 +479,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function resolveDataTypeId(?string $dataType, $now, array &$cache): ?int
     {
+        // Avoid creating placeholder records when the incoming type is blank.
         if ($dataType === null || $dataType === '') {
             return null;
         }
@@ -475,6 +494,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ->first();
 
         if ($record) {
+            // Touch the timestamp so dormant data types remain discoverable even if unchanged.
             DB::table(self::DATA_TYPES_TABLE)
                 ->where('id', $record->id)
                 ->update([
@@ -501,6 +521,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function upsertColumn(int $tableId, ?int $dataTypeId, object $row, $now): array
     {
+        // Treat column names case-insensitively while preserving original casing for display.
         $columnName = trim($row->column_name);
 
         $existing = DB::table(self::COLUMNS_TABLE)
@@ -512,6 +533,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         $relationshipsJson = $relationships ? json_encode($relationships, JSON_UNESCAPED_UNICODE) : null;
 
         $payload = [
+            // Persist both structural attributes and descriptive fields for catalog consumers.
             'table_id' => $tableId,
             'column_name' => $columnName,
             'column_id' => $row->column_id,
@@ -530,7 +552,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         ];
 
         if ($existing) {
-            // Capture differences to drive change tracking fields.
+            // Capture only the fields that actually changed so UI diffing stays concise.
             $diff = $this->diffValues($existing, $payload, array_keys(Arr::except($payload, ['table_id', 'column_name'])));
 
             $updates = $payload;
@@ -548,13 +570,42 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
             $wasResurrected = $existing->deleted_at !== null;
 
+            if ($wasResurrected) {
+                AnonymizerActivityLogger::logColumnEvent(
+                    (int) $existing->id,
+                    'restored',
+                    [
+                        'deleted_at' => [
+                            'old' => $existing->deleted_at,
+                            'new' => null,
+                        ],
+                    ],
+                    [
+                        'upload_id' => $this->uploadId,
+                    ]
+                );
+            }
+
+            if ($diff !== []) {
+                AnonymizerActivityLogger::logColumnEvent(
+                    (int) $existing->id,
+                    'updated',
+                    $diff,
+                    [
+                        'upload_id' => $this->uploadId,
+                    ]
+                );
+            }
+
             return [
+                // Flag updates when a column is restored from a soft-delete or the payload changed.
                 'id' => (int) $existing->id,
                 'inserted' => 0,
                 'updated' => ($diff !== [] || $wasResurrected) ? 1 : 0,
             ];
         }
 
+        // Write new columns with fresh timestamps but defer change tracking until the next update cycle.
         $id = DB::table(self::COLUMNS_TABLE)->insertGetId(array_merge($payload, [
             'changed_at' => null,
             'changed_fields' => null,
@@ -562,6 +613,15 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             'created_at' => $now,
             'updated_at' => $now,
         ]));
+
+        AnonymizerActivityLogger::logColumnEvent(
+            $id,
+            'created',
+            [],
+            [
+                'upload_id' => $this->uploadId,
+            ]
+        );
 
         return [
             'id' => $id,
@@ -594,6 +654,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function softDeleteMissingColumns(array $touchedTableIds, array $stagingColumnKeys, $now): int
     {
+        // Skip work entirely when no tables were touched during this sync cycle.
         if ($touchedTableIds === []) {
             return 0;
         }
@@ -611,6 +672,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 continue;
             }
 
+            // Record the soft delete in the change log so downstream consumers can surface removals.
             $diff = [
                 'deleted_at' => [
                     'old' => null,
@@ -626,6 +688,15 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                     'changed_fields' => json_encode($diff, JSON_UNESCAPED_UNICODE),
                     'updated_at' => $now,
                 ]);
+
+            AnonymizerActivityLogger::logColumnEvent(
+                (int) $column->id,
+                'deleted',
+                $diff,
+                [
+                    'upload_id' => $this->uploadId,
+                ]
+            );
 
             ++$deleted;
         }
@@ -643,10 +714,12 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         array $touchedColumnIds,
         $now
     ): void {
+        // Bail out quickly when neither dependencies nor touched columns require attention.
         if ($relationshipsByColumn === [] && $touchedColumnIds === []) {
             return;
         }
 
+        // Build lookup tables so free-form relationship descriptors can resolve to actual column IDs.
         $columnIndex = $this->buildColumnIndex($columnMeta, $referencedColumns);
 
         $touchedIds = array_keys($touchedColumnIds);
@@ -670,6 +743,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             }
 
             foreach ($relations as $relation) {
+                // Require a fully qualified triple before attempting to create dependency edges.
                 if (! isset($relation['schema'], $relation['table'], $relation['column'])) {
                     continue;
                 }
@@ -711,6 +785,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         }
 
         if ($rows !== []) {
+            // Insert edges in bulk to reduce chatter on the dependency table.
             DB::table(self::DEPENDENCIES_TABLE)->insert($rows);
         }
     }
@@ -720,6 +795,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function buildColumnIndex(array $columnMeta, array $referencedColumns): array
     {
+        // Seed the lookup with columns touched in this run for fast in-memory lookups.
         $byKey = [];
         $byTriplet = [];
 
@@ -741,6 +817,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ];
         }
 
+        // Resolve any referenced columns that were not part of this upload by querying canonical tables.
         DB::table(self::COLUMNS_TABLE . ' as c')
             ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
             ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
@@ -791,6 +868,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
      */
     private function parseRelated(string $raw): array
     {
+        // Normalize HTML entities before attempting to split descriptors.
         $raw = trim(html_entity_decode($raw));
         if ($raw === '') {
             return [];
@@ -806,6 +884,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
             $pattern = '/^(INBOUND|OUTBOUND)\s*(<-|->)\s*([^.]+)\.([^.]+)\.([^\s]+)(?:\s+via\s+(\S+))?/i';
             if (preg_match($pattern, $part, $matches)) {
+                // Standardize directional descriptors so dependency syncing can rely on them.
                 $relationships[] = [
                     'direction' => strtoupper($matches[1]),
                     'arrow' => $matches[2],
@@ -818,6 +897,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             }
 
             $relationships[] = [
+                // Preserve unparseable descriptors verbatim for manual follow-up.
                 'descriptor' => $part,
             ];
         }

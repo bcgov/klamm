@@ -65,7 +65,7 @@ class ImportSiebelMetadata extends Page implements HasForms
                             FileUpload::make('csv_file')
                                 ->label('Siebel Metadata CSV')
                                 ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv'])
-                                ->maxSize(20 * 1024)
+                                ->maxSize(500 * 1024)
                                 ->storeFiles(false)
                                 ->required()
                                 ->reactive()

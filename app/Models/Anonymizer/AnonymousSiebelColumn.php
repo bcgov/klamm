@@ -2,13 +2,17 @@
 
 namespace App\Models\Anonymizer;
 
+use App\Models\AnonymizationJobs;
+use App\Models\AnonymizationMethods;
+use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AnonymousSiebelColumn extends Model
 {
-    use SoftDeletes, HasFactory;
+    use SoftDeletes, HasFactory, LogsAnonymizerActivity;
 
     protected $table = 'anonymous_siebel_columns';
 
@@ -45,14 +49,66 @@ class AnonymousSiebelColumn extends Model
         'changed_fields' => 'array',
     ];
 
+    protected static function activityLogNameOverride(): ?string
+    {
+        return 'anonymous_siebel_columns';
+    }
+
+    protected static function activityLogAttributesOverride(): ?array
+    {
+        return [
+            'table_id',
+            'data_type_id',
+            'column_name',
+            'column_id',
+            'data_length',
+            'data_precision',
+            'data_scale',
+            'nullable',
+            'char_length',
+            'column_comment',
+            'table_comment',
+            'related_columns_raw',
+            'related_columns',
+            'content_hash',
+            'last_synced_at',
+            'changed_at',
+        ];
+    }
+
+    protected function activityLogSubjectIdentifier(): ?string
+    {
+        return $this->column_name;
+    }
+
+    protected function describeActivityEvent(string $eventName, array $context = []): string
+    {
+        $qualifiedTable = $this->resolveQualifiedTableName() ?? 'unknown table';
+        $column = $this->column_name ?? ('#' . $this->getKey());
+
+        $fields = isset($context['diff']) && $context['diff'] !== []
+            ? implode(', ', array_keys($context['diff']))
+            : null;
+
+        return match ($eventName) {
+            'created' => "Column {$column} added to {$qualifiedTable}",
+            'deleted' => "Column {$column} removed from {$qualifiedTable}",
+            'restored' => "Column {$column} restored on {$qualifiedTable}",
+            'updated' => $fields
+                ? "Column {$column} updated on {$qualifiedTable} ({$fields})"
+                : "Column {$column} updated on {$qualifiedTable}",
+            default => $this->defaultActivityDescription($eventName, $context),
+        };
+    }
+
     public function table()
     {
-        return $this->belongsTo(AnonymousSiebelTable::class, 'table_id');
+        return $this->belongsTo(AnonymousSiebelTable::class, 'table_id')->withTrashed();
     }
 
     public function dataType()
     {
-        return $this->belongsTo(AnonymousSiebelDataType::class, 'data_type_id');
+        return $this->belongsTo(AnonymousSiebelDataType::class, 'data_type_id')->withTrashed();
     }
 
     public function childColumns()
@@ -63,5 +119,51 @@ class AnonymousSiebelColumn extends Model
     public function parentColumns()
     {
         return $this->belongsToMany(self::class, 'anonymous_siebel_column_dependencies', 'child_field_id', 'parent_field_id');
+    }
+
+    public function anonymizationMethods(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationMethods::class,
+            'anonymization_method_column',
+            'column_id',
+            'method_id'
+        )->withTimestamps();
+    }
+
+    public function anonymizationJobs(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationJobs::class,
+            'anonymization_job_columns',
+            'column_id',
+            'job_id'
+        )->withPivot('anonymization_method_id')
+            ->withTimestamps();
+    }
+
+    private function resolveQualifiedTableName(): ?string
+    {
+        $table = $this->getRelationValue('table');
+
+        if (! $table) {
+            $table = $this->table()->withTrashed()->first();
+        }
+
+        if (! $table) {
+            return null;
+        }
+
+        $schema = $table->getRelationValue('schema');
+
+        if (! $schema) {
+            $schema = $table->schema()->withTrashed()->first();
+        }
+
+        $schemaName = $schema?->schema_name;
+
+        return $schemaName
+            ? $schemaName . '.' . $table->table_name
+            : $table->table_name;
     }
 }
