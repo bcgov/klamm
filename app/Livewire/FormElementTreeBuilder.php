@@ -419,7 +419,6 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
         return $data;
     }
 
-
     protected function handleRecordUpdate($record, array $data): void
     {
         try {

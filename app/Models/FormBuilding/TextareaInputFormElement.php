@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\TextInput;
 
 class TextareaInputFormElement extends Model
 {
@@ -16,6 +18,7 @@ class TextareaInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
+        'enableVarSub',
         'rows',
         'cols',
         'maxCount',
@@ -42,22 +45,27 @@ class TextareaInputFormElement extends Model
         return array_merge(
             SchemaHelper::getCommonCarbonFields($disabled),
             [
-                \Filament\Forms\Components\TextInput::make('elementable_data.rows')
-                    ->label('Number of Rows')
-                    ->numeric()
-                    ->default(3)
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.cols')
-                    ->label('Number of Columns')
-                    ->numeric()
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.maxCount')
-                    ->label('Maximum Character Count')
-                    ->numeric()
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.defaultValue')
-                    ->label('Default Value')
-                    ->disabled($disabled),
+                Fieldset::make('Value')
+                    ->schema([
+                        SchemaHelper::getPlaceholderTextField($disabled),
+                    TextInput::make('elementable_data.rows')
+                        ->label('Number of Rows')
+                        ->numeric()
+                        ->default(3)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.cols')
+                        ->label('Number of Columns')
+                        ->numeric()
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.maxCount')
+                        ->label('Maximum Character Count')
+                        ->numeric()
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.defaultValue')
+                        ->label('Default Value')
+                        ->disabled($disabled),
+                    ])
+                    ->columns(1),
             ]
         );
     }
@@ -79,10 +87,28 @@ class TextareaInputFormElement extends Model
             'placeholder' => $this->placeholder,
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
+            'enableVarSub' => $this->enableVarSub,
             'rows' => $this->rows,
             'cols' => $this->cols,
             'maxCount' => $this->maxCount,
             'defaultValue' => $this->defaultValue,
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'placeholder' => '',
+            'labelText' => '',
+            'hideLabel' => false,
+            'enableVarSub' => false,
+            'rows' => 3,
+            'cols' => null,
+            'maxCount' => null,
+            'defaultValue' => '',
         ];
     }
 }
