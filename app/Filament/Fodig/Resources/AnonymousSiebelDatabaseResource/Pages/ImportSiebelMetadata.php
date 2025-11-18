@@ -32,6 +32,8 @@ class ImportSiebelMetadata extends Page implements HasForms
     protected static string $view = 'filament.fodig.resources.anonymous-siebel-database-resource.pages.import-siebel-metadata';
 
     private const PREVIEW_ROWS = 5;
+    private const PREVIEW_MAX_BYTES = 2_000_000; // Stop preview parsing after ~2 MB to keep requests snappy.
+    private const PREVIEW_SKIP_BYTES = 10_000_000; // Skip parsing entirely when the upload exceeds ~10 MB.
 
     public array $recentUploads = [];
 
@@ -69,7 +71,7 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->storeFiles(false)
                                 ->required()
                                 ->reactive()
-                                ->helperText('Upload the Siebel metadata export (CSV/TXT).')
+                                ->helperText('Upload the Siebel metadata export (CSV/TXT). Large files preview the first few rows only.')
                                 ->afterStateUpdated(fn(Set $set, $state) => $this->handlePreviewState($set, $state)),
                         ]),
                     Wizard\Step::make('Review & Queue')
@@ -146,23 +148,44 @@ class ImportSiebelMetadata extends Page implements HasForms
         $header = [];
         $rows = [];
         $rowCount = 0;
+        $bytesRead = 0;
+        $truncated = false;
+        $skipped = false;
 
-        if (($handle = fopen($file->getRealPath(), 'rb')) !== false) {
+        if ($file->getSize() >= self::PREVIEW_SKIP_BYTES) {
+            $skipped = true;
+        } elseif (($handle = fopen($file->getRealPath(), 'rb')) !== false) {
             $header = fgetcsv($handle) ?: [];
+            $dataStart = ftell($handle) ?: 0;
+
             while (($row = fgetcsv($handle)) !== false) {
                 ++$rowCount;
+
                 if (count($rows) < self::PREVIEW_ROWS) {
                     $rows[] = $row;
                 }
+
+                if (! $truncated) {
+                    $currentOffset = ftell($handle) ?: $dataStart;
+                    $bytesRead = max(0, $currentOffset - $dataStart);
+
+                    if ($bytesRead >= self::PREVIEW_MAX_BYTES) {
+                        $truncated = true;
+                        break;
+                    }
+                }
             }
+
             fclose($handle);
         }
 
         return [
             'header' => $header,
             'rows' => $rows,
-            'row_count' => $rowCount,
+            'row_count' => $truncated ? null : $rowCount,
             'size' => $file->getSize(),
+            'truncated' => $truncated,
+            'skipped' => $skipped,
         ];
     }
 
@@ -174,18 +197,26 @@ class ImportSiebelMetadata extends Page implements HasForms
 
         $header = $preview['header'] ?? [];
         $rows = $preview['rows'] ?? [];
-        $rowCount = $preview['row_count'] ?? count($rows);
+        $rowCount = $preview['row_count'] ?? null;
         $size = $preview['size'] ?? 0;
         $columns = count($header);
+        $truncated = (bool) ($preview['truncated'] ?? false);
+        $skipped = (bool) ($preview['skipped'] ?? false);
 
         $html = '<div class="space-y-4 text-sm">';
         $html .= '<div><span class="font-semibold">File:</span> ' . e($fileName) . '</div>';
         $html .= '<div class="flex flex-wrap gap-4 text-xs text-gray-600">';
         $html .= '<span>Total columns: ' . $columns . '</span>';
         $html .= '<span>Preview rows: ' . count($rows) . '</span>';
-        $html .= '<span>Detected rows: ' . $rowCount . '</span>';
+        $html .= '<span>Detected rows: ' . ($rowCount === null ? 'Unavailable for large files' : $rowCount) . '</span>';
         $html .= '<span>Size: ' . e($this->formatFileSize($size)) . '</span>';
         $html .= '</div>';
+
+        if ($truncated) {
+            $html .= '<div class="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">Preview truncated for faster processing. The full CSV will still be saved and processed when you queue the import.</div>';
+        } elseif ($skipped) {
+            $html .= '<div class="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">Preview skipped because the file is very large. The full CSV will still be saved and processed when you queue the import.</div>';
+        }
 
         if ($columns > 0) {
             $html .= '<div class="overflow-x-auto border border-gray-200 rounded-lg">';
