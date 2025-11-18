@@ -182,6 +182,7 @@ trait InteractsWithAnonymousSiebelSync
 
         $record = DB::table(self::SCHEMAS_TABLE)
             ->where('schema_name', $schemaName)
+            ->where('database_id', $databaseId)
             ->first();
 
         if ($record) {
@@ -339,14 +340,23 @@ trait InteractsWithAnonymousSiebelSync
     /**
      * Inserts or updates a canonical column record from the staging payload.
      */
-    protected function upsertColumn(int $tableId, ?int $dataTypeId, object $row, $now): array
+    protected function upsertColumn(int $tableId, ?int $dataTypeId, object $row, $now, array &$columnCache = []): array
     {
         $columnName = trim($row->column_name);
+        $cacheKey = $this->norm($columnName);
 
-        $existing = DB::table(self::COLUMNS_TABLE)
-            ->where('table_id', $tableId)
-            ->where('column_name', $columnName)
-            ->first();
+        $existing = $columnCache[$tableId][$cacheKey] ?? null;
+
+        if (! $existing) {
+            $existing = DB::table(self::COLUMNS_TABLE)
+                ->where('table_id', $tableId)
+                ->where('column_name', $columnName)
+                ->first();
+
+            if ($existing) {
+                $columnCache[$tableId][$cacheKey] = $existing;
+            }
+        }
 
         $relationships = $this->extractRelationshipsFromRow($row);
         $relationshipsJson = $relationships ? json_encode($relationships, JSON_UNESCAPED_UNICODE) : null;
@@ -384,6 +394,12 @@ trait InteractsWithAnonymousSiebelSync
             DB::table(self::COLUMNS_TABLE)
                 ->where('id', $existing->id)
                 ->update($updates);
+
+            $updatedRecord = clone $existing;
+            foreach ($updates as $field => $value) {
+                $updatedRecord->{$field} = $value;
+            }
+            $columnCache[$tableId][$cacheKey] = $updatedRecord;
 
             $wasResurrected = $existing->deleted_at !== null;
 
@@ -429,6 +445,14 @@ trait InteractsWithAnonymousSiebelSync
             'updated_at' => $now,
         ]));
 
+        $record = (object) array_merge($payload, [
+            'id' => $id,
+            'deleted_at' => null,
+            'changed_at' => null,
+            'changed_fields' => null,
+        ]);
+        $columnCache[$tableId][$cacheKey] = $record;
+
         AnonymizerActivityLogger::logColumnEvent(
             $id,
             'created',
@@ -467,22 +491,45 @@ trait InteractsWithAnonymousSiebelSync
     /**
      * Soft deletes any existing columns that were not present in the latest upload.
      */
-    protected function softDeleteMissingColumns(array $touchedTableIds, array $stagingColumnKeys, $now): int
+    protected function softDeleteMissingColumns(array $touchedTableIdentities, array $stagingColumnKeys, $now): int
     {
-        if ($touchedTableIds === []) {
+        if ($touchedTableIdentities === []) {
             return 0;
         }
 
         $deleted = 0;
+        $identityFilters = array_values($touchedTableIdentities);
 
-        $columns = DB::table(self::COLUMNS_TABLE)
-            ->whereIn('table_id', array_keys($touchedTableIds))
+        $tables = DB::table(self::TABLES_TABLE . ' as t')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->select('t.id', 's.database_id', 's.schema_name', 't.table_name')
+            ->where(function ($query) use ($identityFilters) {
+                foreach ($identityFilters as $filter) {
+                    $query->orWhere(function ($nested) use ($filter) {
+                        $nested
+                            ->where('s.database_id', $filter['database_id'])
+                            ->where('s.schema_name', $filter['schema_name'])
+                            ->where('t.table_name', $filter['table_name']);
+                    });
+                }
+            })
+            ->get();
+
+        if ($tables->isEmpty()) {
+            return 0;
+        }
+
+        $columns = DB::table(self::COLUMNS_TABLE . ' as c')
+            ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->select('c.id', 'c.deleted_at', 'c.column_name', 't.table_name', 's.schema_name', 's.database_id')
+            ->whereIn('c.table_id', $tables->pluck('id'))
             ->get();
 
         foreach ($columns as $column) {
-            $key = $this->columnKey($column->table_id, $column->column_name);
+            $columnKey = $this->columnIdentityKey((int) $column->database_id, $column->schema_name, $column->table_name, $column->column_name);
 
-            if (isset($stagingColumnKeys[$key]) || $column->deleted_at !== null) {
+            if (isset($stagingColumnKeys[$columnKey]) || $column->deleted_at !== null) {
                 continue;
             }
 
@@ -808,6 +855,16 @@ trait InteractsWithAnonymousSiebelSync
     protected function columnKey(int $tableId, string $columnName): string
     {
         return $tableId . '|' . $this->norm($columnName);
+    }
+
+    protected function tableIdentityKey(int $databaseId, string $schemaName, string $tableName): string
+    {
+        return $databaseId . '|' . $this->norm($schemaName) . '|' . $this->norm($tableName);
+    }
+
+    protected function columnIdentityKey(int $databaseId, string $schemaName, string $tableName, string $columnName): string
+    {
+        return $this->tableIdentityKey($databaseId, $schemaName, $tableName) . '|' . $this->norm($columnName);
     }
 
     protected function tripletKey(string $schema, string $table, string $column): string
