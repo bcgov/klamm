@@ -21,9 +21,14 @@ class AnonymousUpload extends Model
         'path',
         'original_name',
         'status',
+        'status_detail',
         'inserted',
         'updated',
         'deleted',
+        'total_bytes',
+        'processed_bytes',
+        'processed_rows',
+        'progress_updated_at',
         'error',
     ];
 
@@ -31,7 +36,28 @@ class AnonymousUpload extends Model
         'inserted' => 'integer',
         'updated' => 'integer',
         'deleted' => 'integer',
+        'total_bytes' => 'integer',
+        'processed_bytes' => 'integer',
+        'processed_rows' => 'integer',
+        'progress_updated_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'progress_percent',
+    ];
+
+    public function getProgressPercentAttribute(): ?int
+    {
+        $totalBytes = $this->total_bytes;
+
+        if (! $totalBytes || $totalBytes <= 0) {
+            return null;
+        }
+
+        $percent = (int) floor(($this->processed_bytes / $totalBytes) * 100);
+
+        return max(0, min(100, $percent));
+    }
 
     public function stagings()
     {

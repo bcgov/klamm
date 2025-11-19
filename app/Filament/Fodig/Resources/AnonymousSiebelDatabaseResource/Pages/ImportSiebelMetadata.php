@@ -36,6 +36,7 @@ class ImportSiebelMetadata extends Page implements HasForms
     private const PREVIEW_SKIP_BYTES = 10_000_000; // Skip parsing entirely when the upload exceeds ~10 MB.
 
     public array $recentUploads = [];
+    public array $notifiedStatuses = [];
 
     // protected function getHeading(): string
     // {
@@ -49,6 +50,7 @@ class ImportSiebelMetadata extends Page implements HasForms
 
     public function mount(): void
     {
+        $this->notifiedStatuses = AnonymousUpload::query()->pluck('status', 'id')->toArray();
         $this->refreshUploads();
     }
 
@@ -104,22 +106,68 @@ class ImportSiebelMetadata extends Page implements HasForms
 
     public function refreshUploads(): void
     {
-        $this->recentUploads = AnonymousUpload::query()
+        $uploads = AnonymousUpload::query()
             ->latest()
             ->limit(10)
-            ->get()
-            ->map(fn(AnonymousUpload $upload) => [
-                'id' => $upload->id,
-                'original_name' => $upload->original_name ?: $upload->file_name,
-                'status' => $upload->status,
-                'inserted' => $upload->inserted ?? 0,
-                'updated' => $upload->updated ?? 0,
-                'deleted' => $upload->deleted ?? 0,
-                'error' => $upload->error,
-                'created_at' => optional($upload->created_at)->toDateTimeString(),
-                'created_at_human' => optional($upload->created_at)->diffForHumans(),
-            ])
+            ->get();
+
+        $this->recentUploads = $uploads
+            ->map(function (AnonymousUpload $upload) {
+                $progressPercent = $upload->progress_percent;
+
+                if ($progressPercent === null && $upload->status === 'completed') {
+                    $progressPercent = 100;
+                }
+
+                $processedBytes = $upload->processed_bytes ?? 0;
+                $totalBytes = $upload->total_bytes ?? null;
+
+                return [
+                    'id' => $upload->id,
+                    'original_name' => $upload->original_name ?: $upload->file_name,
+                    'status' => $upload->status,
+                    'status_detail' => $upload->status_detail,
+                    'inserted' => $upload->inserted ?? 0,
+                    'updated' => $upload->updated ?? 0,
+                    'deleted' => $upload->deleted ?? 0,
+                    'processed_rows' => $upload->processed_rows ?? 0,
+                    'processed_rows_label' => number_format($upload->processed_rows ?? 0),
+                    'processed_bytes' => $processedBytes,
+                    'processed_bytes_label' => $processedBytes > 0 ? $this->formatFileSize($processedBytes) : '—',
+                    'total_bytes' => $totalBytes,
+                    'total_bytes_label' => $totalBytes ? $this->formatFileSize($totalBytes) : '—',
+                    'progress_percent' => $progressPercent,
+                    'progress_percent_label' => $progressPercent !== null ? $progressPercent . '%' : '—',
+                    'progress_updated_at' => optional($upload->progress_updated_at)->toDateTimeString(),
+                    'progress_updated_at_human' => optional($upload->progress_updated_at)->diffForHumans(),
+                    'error' => $upload->error,
+                    'created_at' => optional($upload->created_at)->toDateTimeString(),
+                    'created_at_human' => optional($upload->created_at)->diffForHumans(),
+                ];
+            })
             ->all();
+
+        foreach ($this->recentUploads as $upload) {
+            $id = $upload['id'];
+            $status = $upload['status'];
+            $previousStatus = $this->notifiedStatuses[$id] ?? null;
+
+            if (in_array($status, ['completed', 'failed'], true) && $previousStatus !== $status) {
+                $notification = Notification::make()
+                    ->title($status === 'completed' ? 'Import Completed' : 'Import Failed')
+                    ->body($this->buildCompletionMessage($upload));
+
+                if ($status === 'completed') {
+                    $notification->success();
+                } else {
+                    $notification->danger();
+                }
+
+                $notification->send();
+            }
+
+            $this->notifiedStatuses[$id] = $status;
+        }
     }
 
     private function handlePreviewState(Set $set, mixed $state): void
@@ -265,15 +313,27 @@ class ImportSiebelMetadata extends Page implements HasForms
                 $file->delete();
             }
 
+            try {
+                $fileSize = Storage::disk($disk)->size($storedPath);
+            } catch (Throwable $exception) {
+                report($exception);
+                $fileSize = null;
+            }
+
             $upload = AnonymousUpload::create([
                 'file_disk' => $disk,
                 'file_name' => $filename,
                 'path' => $storedPath,
                 'original_name' => $file->getClientOriginalName(),
                 'status' => 'queued',
+                'status_detail' => 'Queued for processing',
                 'inserted' => 0,
                 'updated' => 0,
                 'deleted' => 0,
+                'total_bytes' => $fileSize,
+                'processed_bytes' => 0,
+                'processed_rows' => 0,
+                'progress_updated_at' => now(),
                 'error' => null,
             ]);
 
@@ -382,8 +442,12 @@ class ImportSiebelMetadata extends Page implements HasForms
         }
     }
 
-    private function formatFileSize(int $bytes): string
+    private function formatFileSize(?int $bytes): string
     {
+        if ($bytes === null) {
+            return '—';
+        }
+
         if ($bytes <= 0) {
             return '0 B';
         }
@@ -392,5 +456,16 @@ class ImportSiebelMetadata extends Page implements HasForms
         $power = min((int) floor(log($bytes, 1024)), count($units) - 1);
 
         return number_format($bytes / (1024 ** $power), 2) . ' ' . $units[$power];
+    }
+
+    private function buildCompletionMessage(array $upload): string
+    {
+        $parts = [
+            'Inserted: ' . number_format($upload['inserted'] ?? 0),
+            'Updated: ' . number_format($upload['updated'] ?? 0),
+            'Deleted: ' . number_format($upload['deleted'] ?? 0),
+        ];
+
+        return ($upload['original_name'] ?? 'Import') . ' — ' . implode(' • ', $parts);
     }
 }

@@ -7,7 +7,7 @@
             </p>
         </x-filament::section>
 
-        <x-filament::section>
+        <x-filament::section wire:poll.10s="refreshUploads">
             <x-slot name="heading">Recent Uploads</x-slot>
 
             @if (empty($this->recentUploads))
@@ -21,6 +21,7 @@
                             <th class="px-3 py-2 font-semibold">File</th>
                             <th class="px-3 py-2 font-semibold">Queued At</th>
                             <th class="px-3 py-2 font-semibold">Status</th>
+                            <th class="px-3 py-2 font-semibold">Progress</th>
                             <th class="px-3 py-2 font-semibold text-right">Inserted</th>
                             <th class="px-3 py-2 font-semibold text-right">Updated</th>
                             <th class="px-3 py-2 font-semibold text-right">Deleted</th>
@@ -50,6 +51,32 @@
                                 <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold {{ $badgeClasses }}">
                                     {{ \Illuminate\Support\Str::title($status) }}
                                 </span>
+                                @if(! empty($upload['status_detail']))
+                                <div class="mt-1 text-xs text-gray-500">{{ $upload['status_detail'] }}</div>
+                                @endif
+                            </td>
+                            <td class="px-3 py-2 align-top text-xs text-gray-700">
+                                @php
+                                $progressPercent = max(0, min(100, (int) ($upload['progress_percent'] ?? 0)));
+                                $progressClass = $status === 'failed' ? 'bg-rose-500' : 'bg-blue-500';
+                                @endphp
+                                <div class="flex items-center gap-2">
+                                    <div class="h-2 w-32 overflow-hidden rounded-full bg-gray-200">
+                                        <div class="h-2 {{ $progressClass }}" @style(['width: ' . $progressPercent . ' %'])></div>
+                                    </div>
+                                    <span class="font-mono text-[11px] text-gray-600">{{ $upload['progress_percent_label'] }}</span>
+                                </div>
+                                <div class="mt-1 flex flex-wrap gap-2 text-[11px] text-gray-500">
+                                    <span>Rows: {{ $upload['processed_rows_label'] }}</span>
+                                    @if($upload['total_bytes_label'] !== '—')
+                                    <span>Read: {{ $upload['processed_bytes_label'] }} / {{ $upload['total_bytes_label'] }}</span>
+                                    @elseif($upload['processed_bytes_label'] !== '—')
+                                    <span>Read: {{ $upload['processed_bytes_label'] }}</span>
+                                    @endif
+                                </div>
+                                @if(! empty($upload['progress_updated_at_human']))
+                                <div class="mt-1 text-[10px] text-gray-400">Updated {{ $upload['progress_updated_at_human'] }}</div>
+                                @endif
                             </td>
                             <td class="px-3 py-2 align-top text-right text-xs text-gray-700">{{ $upload['inserted'] }}</td>
                             <td class="px-3 py-2 align-top text-right text-xs text-gray-700">{{ $upload['updated'] }}</td>

@@ -4,6 +4,7 @@ namespace App\Jobs\Concerns;
 
 use App\Models\Anonymizer\AnonymousUpload;
 use App\Services\Anonymizer\AnonymizerActivityLogger;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +23,12 @@ trait InteractsWithAnonymousSiebelSync
     protected const DATABASES_TABLE = 'anonymous_siebel_databases';
     protected const DATA_TYPES_TABLE = 'anonymous_siebel_data_types';
     protected const DEPENDENCIES_TABLE = 'anonymous_siebel_column_dependencies';
+    protected const METADATA_UPSERT_CHUNK_SIZE = 500;
 
     /**
      * Clears previous staging records and streams CSV rows into staging storage.
      */
-    protected function ingestToStaging(AnonymousUpload $upload): void
+    protected function ingestToStaging(AnonymousUpload $upload): int
     {
         DB::table(self::STAGING_TABLE)
             ->where('upload_id', $upload->id)
@@ -88,10 +90,9 @@ trait InteractsWithAnonymousSiebelSync
             $payload['updated_at'] = $now;
 
             $batch[] = $payload;
-            ++$count;
 
-            if (count($batch) >= 1000) {
-                DB::table(self::STAGING_TABLE)->insert($batch);
+            if (count($batch) >= 2000) {
+                $count += $this->upsertStagingBatch($batch);
                 $batch = [];
             }
         }
@@ -99,12 +100,938 @@ trait InteractsWithAnonymousSiebelSync
         fclose($stream);
 
         if ($batch !== []) {
-            DB::table(self::STAGING_TABLE)->insert($batch);
+            $count += $this->upsertStagingBatch($batch);
         }
 
         if ($count === 0) {
             throw new RuntimeException('The uploaded CSV did not contain any data rows.');
         }
+
+        return $count;
+    }
+
+    protected function upsertStagingBatch(array $batch): int
+    {
+        $now = now();
+
+        foreach ($batch as &$row) {
+            $row['updated_at'] = $now;
+        }
+
+        unset($row);
+
+        DB::table(self::STAGING_TABLE)->upsert(
+            $batch,
+            ['upload_id', 'database_name', 'schema_name', 'table_name', 'column_name'],
+            [
+                'object_type',
+                'column_id',
+                'data_type',
+                'data_length',
+                'data_precision',
+                'data_scale',
+                'nullable',
+                'char_length',
+                'column_comment',
+                'table_comment',
+                'related_columns_raw',
+                'related_columns',
+                'content_hash',
+                'updated_at',
+            ]
+        );
+
+        return count($batch);
+    }
+
+    protected function chunkedUpsert(string $table, array $rows, array $uniqueBy, array $updateColumns, int $chunkSize = self::METADATA_UPSERT_CHUNK_SIZE): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        foreach (array_chunk($rows, $chunkSize) as $chunk) {
+            DB::table($table)->upsert($chunk, $uniqueBy, $updateColumns);
+        }
+    }
+
+    protected function databaseCacheKey(string $databaseName): string
+    {
+        return $this->norm($databaseName);
+    }
+
+    protected function schemaCacheKey(int $databaseId, string $schemaName): string
+    {
+        return $databaseId . '|' . $this->norm($schemaName);
+    }
+
+    protected function tableCacheKey(int $schemaId, string $tableName): string
+    {
+        return $schemaId . '|' . $this->norm($tableName);
+    }
+
+    protected function dataTypeCacheKey(?string $dataType): ?string
+    {
+        if ($dataType === null || $dataType === '') {
+            return null;
+        }
+
+        return $this->norm($dataType);
+    }
+
+    protected function synchronizeSiebelMetadataFromStaging(int $uploadId, CarbonImmutable $runAt): array
+    {
+        $databaseMap = $this->refreshDatabasesFromStaging($uploadId, $runAt);
+        $schemaMap = $this->refreshSchemasFromStaging($uploadId, $runAt, $databaseMap);
+        $tableMap = $this->refreshTablesFromStaging($uploadId, $runAt, $schemaMap, $databaseMap);
+        $dataTypeMap = $this->refreshDataTypesFromStaging($uploadId, $runAt);
+
+        return [
+            'databases' => $databaseMap,
+            'schemas' => $schemaMap,
+            'tables' => $tableMap,
+            'data_types' => $dataTypeMap,
+        ];
+    }
+
+    protected function refreshDatabasesFromStaging(int $uploadId, CarbonImmutable $runAt): array
+    {
+        $names = DB::table(self::STAGING_TABLE)
+            ->where('upload_id', $uploadId)
+            ->distinct()
+            ->pluck('database_name')
+            ->filter(fn($name) => $name !== null && trim($name) !== '')
+            ->values();
+
+        if ($names->isEmpty()) {
+            return [];
+        }
+
+        $existing = DB::table(self::DATABASES_TABLE)
+            ->whereIn('database_name', $names->all())
+            ->get();
+
+        $existingMap = [];
+        foreach ($existing as $record) {
+            $existingMap[$this->databaseCacheKey($record->database_name)] = $record;
+        }
+
+        $rows = [];
+        foreach ($names as $databaseName) {
+            $databaseName = trim((string) $databaseName);
+            if ($databaseName === '') {
+                continue;
+            }
+
+            $key = $this->databaseCacheKey($databaseName);
+            $existingRecord = $existingMap[$key] ?? null;
+            $hash = $this->hashFor([
+                'database_name' => $databaseName,
+            ]);
+
+            if ($existingRecord) {
+                $diff = [];
+
+                if ($existingRecord->content_hash !== $hash) {
+                    $diff['content_hash'] = [
+                        'old' => $existingRecord->content_hash,
+                        'new' => $hash,
+                    ];
+                }
+
+                $rows[] = [
+                    'database_name' => $databaseName,
+                    'description' => $existingRecord->description,
+                    'content_hash' => $hash,
+                    'last_synced_at' => $runAt,
+                    'changed_at' => $diff ? $runAt : $existingRecord->changed_at,
+                    'changed_fields' => $diff ? json_encode($diff, JSON_UNESCAPED_UNICODE) : $existingRecord->changed_fields,
+                    'deleted_at' => null,
+                    'created_at' => $existingRecord->created_at,
+                    'updated_at' => $runAt,
+                ];
+            } else {
+                $rows[] = [
+                    'database_name' => $databaseName,
+                    'description' => null,
+                    'content_hash' => $hash,
+                    'last_synced_at' => $runAt,
+                    'changed_at' => null,
+                    'changed_fields' => null,
+                    'deleted_at' => null,
+                    'created_at' => $runAt,
+                    'updated_at' => $runAt,
+                ];
+            }
+        }
+
+        $this->chunkedUpsert(
+            self::DATABASES_TABLE,
+            $rows,
+            ['database_name'],
+            ['description', 'content_hash', 'last_synced_at', 'changed_at', 'changed_fields', 'deleted_at', 'updated_at']
+        );
+
+        $map = [];
+        $records = DB::table(self::DATABASES_TABLE)
+            ->whereIn('database_name', $names->all())
+            ->get();
+
+        foreach ($records as $record) {
+            $map[$this->databaseCacheKey($record->database_name)] = [
+                'id' => (int) $record->id,
+                'name' => $record->database_name,
+            ];
+        }
+
+        return $map;
+    }
+
+    protected function refreshSchemasFromStaging(int $uploadId, CarbonImmutable $runAt, array $databaseMap): array
+    {
+        if ($databaseMap === []) {
+            return [];
+        }
+
+        $rows = DB::table(self::STAGING_TABLE)
+            ->where('upload_id', $uploadId)
+            ->select('database_name', 'schema_name')
+            ->distinct()
+            ->get();
+
+        $schemas = [];
+        $schemaNames = [];
+        $databaseIds = [];
+
+        foreach ($rows as $row) {
+            $databaseName = trim((string) $row->database_name);
+            if ($databaseName === '') {
+                continue;
+            }
+
+            $databaseKey = $this->databaseCacheKey($databaseName);
+            $databaseEntry = $databaseMap[$databaseKey] ?? null;
+            if (! $databaseEntry) {
+                continue;
+            }
+
+            $schemaName = trim((string) $row->schema_name);
+            if ($schemaName === '') {
+                continue;
+            }
+
+            $schemaKey = $this->schemaCacheKey($databaseEntry['id'], $schemaName);
+            $schemas[$schemaKey] = [
+                'database_id' => $databaseEntry['id'],
+                'schema_name' => $schemaName,
+            ];
+
+            $schemaNames[$schemaName] = true;
+            $databaseIds[$databaseEntry['id']] = true;
+        }
+
+        if ($schemas === []) {
+            return [];
+        }
+
+        $existing = DB::table(self::SCHEMAS_TABLE)
+            ->whereIn('database_id', array_keys($databaseIds))
+            ->whereIn('schema_name', array_keys($schemaNames))
+            ->get();
+
+        $existingMap = [];
+        foreach ($existing as $record) {
+            $existingMap[$this->schemaCacheKey((int) $record->database_id, $record->schema_name)] = $record;
+        }
+
+        $rowsForUpsert = [];
+        foreach ($schemas as $schemaKey => $schema) {
+            $existingRecord = $existingMap[$schemaKey] ?? null;
+            $hash = $this->hashFor([
+                'schema_name' => $schema['schema_name'],
+                'database_id' => $schema['database_id'],
+            ]);
+
+            if ($existingRecord) {
+                $diff = [];
+
+                if ((int) $existingRecord->database_id !== $schema['database_id']) {
+                    $diff['database_id'] = [
+                        'old' => (int) $existingRecord->database_id,
+                        'new' => $schema['database_id'],
+                    ];
+                }
+
+                if ($existingRecord->content_hash !== $hash) {
+                    $diff['content_hash'] = [
+                        'old' => $existingRecord->content_hash,
+                        'new' => $hash,
+                    ];
+                }
+
+                $rowsForUpsert[] = [
+                    'database_id' => $schema['database_id'],
+                    'schema_name' => $schema['schema_name'],
+                    'content_hash' => $hash,
+                    'last_synced_at' => $runAt,
+                    'changed_at' => $diff ? $runAt : $existingRecord->changed_at,
+                    'changed_fields' => $diff ? json_encode($diff, JSON_UNESCAPED_UNICODE) : $existingRecord->changed_fields,
+                    'deleted_at' => null,
+                    'created_at' => $existingRecord->created_at,
+                    'updated_at' => $runAt,
+                ];
+            } else {
+                $rowsForUpsert[] = [
+                    'database_id' => $schema['database_id'],
+                    'schema_name' => $schema['schema_name'],
+                    'content_hash' => $hash,
+                    'last_synced_at' => $runAt,
+                    'changed_at' => null,
+                    'changed_fields' => null,
+                    'deleted_at' => null,
+                    'created_at' => $runAt,
+                    'updated_at' => $runAt,
+                ];
+            }
+        }
+
+        $this->chunkedUpsert(
+            self::SCHEMAS_TABLE,
+            $rowsForUpsert,
+            ['database_id', 'schema_name'],
+            ['content_hash', 'last_synced_at', 'changed_at', 'changed_fields', 'deleted_at', 'updated_at']
+        );
+
+        $records = DB::table(self::SCHEMAS_TABLE)
+            ->whereIn('database_id', array_keys($databaseIds))
+            ->whereIn('schema_name', array_keys($schemaNames))
+            ->get();
+
+        $map = [];
+        foreach ($records as $record) {
+            $map[$this->schemaCacheKey((int) $record->database_id, $record->schema_name)] = [
+                'id' => (int) $record->id,
+                'database_id' => (int) $record->database_id,
+                'schema_name' => $record->schema_name,
+            ];
+        }
+
+        return $map;
+    }
+
+    protected function refreshTablesFromStaging(int $uploadId, CarbonImmutable $runAt, array $schemaMap, array $databaseMap): array
+    {
+        if ($schemaMap === [] || $databaseMap === []) {
+            return [];
+        }
+
+        $rows = DB::table(self::STAGING_TABLE . ' as s')
+            ->where('s.upload_id', $uploadId)
+            ->select(
+                's.database_name',
+                's.schema_name',
+                's.table_name',
+                DB::raw('max(s.object_type) as object_type'),
+                DB::raw('max(s.table_comment) as table_comment')
+            )
+            ->groupBy('s.database_name', 's.schema_name', 's.table_name')
+            ->get();
+
+        $tables = [];
+        $schemaIds = [];
+        $tableNames = [];
+
+        foreach ($rows as $row) {
+            $databaseName = trim((string) $row->database_name);
+            $schemaName = trim((string) $row->schema_name);
+            $tableName = trim((string) $row->table_name);
+
+            if ($databaseName === '' || $schemaName === '' || $tableName === '') {
+                continue;
+            }
+
+            $databaseKey = $this->databaseCacheKey($databaseName);
+            $databaseEntry = $databaseMap[$databaseKey] ?? null;
+            if (! $databaseEntry) {
+                continue;
+            }
+
+            $schemaKey = $this->schemaCacheKey($databaseEntry['id'], $schemaName);
+            $schemaEntry = $schemaMap[$schemaKey] ?? null;
+
+            if (! $schemaEntry) {
+                continue;
+            }
+
+            $schemaId = $schemaEntry['id'];
+
+            $tableKey = $this->tableCacheKey($schemaId, $tableName);
+
+            $tables[$tableKey] = [
+                'schema_id' => $schemaId,
+                'database_id' => $schemaEntry['database_id'],
+                'table_name' => $tableName,
+                'object_type' => $row->object_type ? strtolower($row->object_type) : 'table',
+                'table_comment' => $row->table_comment,
+            ];
+
+            $schemaIds[$schemaId] = true;
+            $tableNames[$tableName] = true;
+        }
+
+        if ($tables === []) {
+            return [];
+        }
+
+        $existing = DB::table(self::TABLES_TABLE)
+            ->whereIn('schema_id', array_keys($schemaIds))
+            ->whereIn('table_name', array_keys($tableNames))
+            ->get();
+
+        $existingMap = [];
+        foreach ($existing as $record) {
+            $existingMap[$this->tableCacheKey((int) $record->schema_id, $record->table_name)] = $record;
+        }
+
+        $rowsForUpsert = [];
+        foreach ($tables as $tableKey => $table) {
+            $existingRecord = $existingMap[$tableKey] ?? null;
+            $hash = $this->hashFor([
+                'table_name' => $table['table_name'],
+                'schema_id' => $table['schema_id'],
+                'object_type' => $table['object_type'],
+                'table_comment' => $table['table_comment'],
+            ]);
+
+            if ($existingRecord) {
+                $diff = [];
+
+                if ($existingRecord->object_type !== $table['object_type']) {
+                    $diff['object_type'] = [
+                        'old' => $existingRecord->object_type,
+                        'new' => $table['object_type'],
+                    ];
+                }
+
+                if ($existingRecord->table_comment !== $table['table_comment']) {
+                    $diff['table_comment'] = [
+                        'old' => $existingRecord->table_comment,
+                        'new' => $table['table_comment'],
+                    ];
+                }
+
+                if ($existingRecord->content_hash !== $hash) {
+                    $diff['content_hash'] = [
+                        'old' => $existingRecord->content_hash,
+                        'new' => $hash,
+                    ];
+                }
+
+                $rowsForUpsert[] = [
+                    'schema_id' => $table['schema_id'],
+                    'table_name' => $table['table_name'],
+                    'object_type' => $table['object_type'],
+                    'table_comment' => $table['table_comment'],
+                    'content_hash' => $hash,
+                    'last_synced_at' => $runAt,
+                    'changed_at' => $diff ? $runAt : $existingRecord->changed_at,
+                    'changed_fields' => $diff ? json_encode($diff, JSON_UNESCAPED_UNICODE) : $existingRecord->changed_fields,
+                    'deleted_at' => null,
+                    'created_at' => $existingRecord->created_at,
+                    'updated_at' => $runAt,
+                ];
+            } else {
+                $rowsForUpsert[] = [
+                    'schema_id' => $table['schema_id'],
+                    'table_name' => $table['table_name'],
+                    'object_type' => $table['object_type'],
+                    'table_comment' => $table['table_comment'],
+                    'content_hash' => $hash,
+                    'last_synced_at' => $runAt,
+                    'changed_at' => null,
+                    'changed_fields' => null,
+                    'deleted_at' => null,
+                    'created_at' => $runAt,
+                    'updated_at' => $runAt,
+                ];
+            }
+        }
+
+        $this->chunkedUpsert(
+            self::TABLES_TABLE,
+            $rowsForUpsert,
+            ['schema_id', 'table_name'],
+            ['object_type', 'table_comment', 'content_hash', 'last_synced_at', 'changed_at', 'changed_fields', 'deleted_at', 'updated_at']
+        );
+
+        $records = DB::table(self::TABLES_TABLE)
+            ->whereIn('schema_id', array_keys($schemaIds))
+            ->whereIn('table_name', array_keys($tableNames))
+            ->get();
+
+        $map = [];
+        foreach ($records as $record) {
+            $map[$this->tableCacheKey((int) $record->schema_id, $record->table_name)] = [
+                'id' => (int) $record->id,
+                'schema_id' => (int) $record->schema_id,
+                'table_name' => $record->table_name,
+            ];
+        }
+
+        return $map;
+    }
+
+    protected function refreshDataTypesFromStaging(int $uploadId, CarbonImmutable $runAt): array
+    {
+        $names = DB::table(self::STAGING_TABLE)
+            ->where('upload_id', $uploadId)
+            ->whereNotNull('data_type')
+            ->distinct()
+            ->pluck('data_type')
+            ->filter(fn($name) => $name !== null && trim($name) !== '')
+            ->values();
+
+        if ($names->isEmpty()) {
+            return [];
+        }
+
+        $existing = DB::table(self::DATA_TYPES_TABLE)
+            ->whereIn('data_type_name', $names->all())
+            ->get();
+
+        $existingMap = [];
+        foreach ($existing as $record) {
+            $key = $this->dataTypeCacheKey($record->data_type_name);
+            if ($key !== null) {
+                $existingMap[$key] = $record;
+            }
+        }
+
+        $rows = [];
+        foreach ($names as $name) {
+            $name = trim((string) $name);
+            if ($name === '') {
+                continue;
+            }
+
+            $key = $this->dataTypeCacheKey($name);
+            if ($key === null) {
+                continue;
+            }
+
+            $existingRecord = $existingMap[$key] ?? null;
+
+            if ($existingRecord) {
+                $rows[] = [
+                    'data_type_name' => $name,
+                    'description' => $existingRecord->description,
+                    'deleted_at' => null,
+                    'created_at' => $existingRecord->created_at,
+                    'updated_at' => $runAt,
+                ];
+            } else {
+                $rows[] = [
+                    'data_type_name' => $name,
+                    'description' => null,
+                    'deleted_at' => null,
+                    'created_at' => $runAt,
+                    'updated_at' => $runAt,
+                ];
+            }
+        }
+
+        $this->chunkedUpsert(
+            self::DATA_TYPES_TABLE,
+            $rows,
+            ['data_type_name'],
+            ['description', 'deleted_at', 'updated_at']
+        );
+
+        $records = DB::table(self::DATA_TYPES_TABLE)
+            ->whereIn('data_type_name', $names->all())
+            ->get();
+
+        $map = [];
+        foreach ($records as $record) {
+            $key = $this->dataTypeCacheKey($record->data_type_name);
+            if ($key !== null) {
+                $map[$key] = [
+                    'id' => (int) $record->id,
+                    'name' => $record->data_type_name,
+                ];
+            }
+        }
+
+        return $map;
+    }
+
+    protected function loadExistingColumnsForChunk(array $tableColumns): array
+    {
+        if ($tableColumns === []) {
+            return [];
+        }
+
+        $tableIds = array_keys($tableColumns);
+        $columnNames = [];
+        foreach ($tableColumns as $columns) {
+            foreach ($columns as $columnName) {
+                $columnNames[] = $columnName;
+            }
+        }
+
+        $columnNames = array_values(array_unique($columnNames));
+
+        if ($columnNames === []) {
+            return [];
+        }
+
+        $records = DB::table(self::COLUMNS_TABLE)
+            ->whereIn('table_id', $tableIds)
+            ->whereIn('column_name', $columnNames)
+            ->get();
+
+        $map = [];
+        foreach ($records as $record) {
+            $map[$this->columnKey((int) $record->table_id, $record->column_name)] = $record;
+        }
+
+        return $map;
+    }
+
+    protected function syncColumnsFromStaging(
+        AnonymousUpload $upload,
+        CarbonImmutable $runAt,
+        ?int $totalBytes,
+        int $stagingCount,
+        array $databaseMap,
+        array $schemaMap,
+        array $tableMap,
+        array $dataTypeMap,
+        ?callable $progressReporter = null
+    ): array {
+        $uploadId = $upload->id;
+        $chunkSize = 1500;
+        $processedRows = 0;
+        $processedBytes = $totalBytes ? 0 : null;
+        $totals = [
+            'inserted' => 0,
+            'updated' => 0,
+        ];
+
+        $touchedTableIdentities = [];
+        $processedColumnIdentities = [];
+        $touchedColumnIds = [];
+
+        $lastProgressAt = microtime(true);
+
+        DB::table(self::STAGING_TABLE . ' as s')
+            ->where('s.upload_id', $uploadId)
+            ->orderBy('s.id')
+            ->chunkById($chunkSize, function ($rows) use (
+                &$processedRows,
+                &$processedBytes,
+                &$totals,
+                &$touchedTableIdentities,
+                &$processedColumnIdentities,
+                &$touchedColumnIds,
+                $stagingCount,
+                $totalBytes,
+                $runAt,
+                $databaseMap,
+                $schemaMap,
+                $tableMap,
+                $dataTypeMap,
+                $progressReporter,
+                &$lastProgressAt
+            ) {
+                $tableColumns = [];
+
+                foreach ($rows as $row) {
+                    $databaseKey = $this->databaseCacheKey($row->database_name);
+                    $databaseEntry = $databaseMap[$databaseKey] ?? null;
+                    if (! $databaseEntry) {
+                        continue;
+                    }
+
+                    $schemaKey = $this->schemaCacheKey($databaseEntry['id'], (string) $row->schema_name);
+                    $schemaEntry = $schemaMap[$schemaKey] ?? null;
+                    if (! $schemaEntry) {
+                        continue;
+                    }
+
+                    $tableName = trim((string) $row->table_name);
+                    if ($tableName === '') {
+                        continue;
+                    }
+
+                    $tableKey = $this->tableCacheKey($schemaEntry['id'], $tableName);
+                    $tableEntry = $tableMap[$tableKey] ?? null;
+                    if (! $tableEntry) {
+                        continue;
+                    }
+
+                    $columnName = trim((string) $row->column_name);
+                    if ($columnName === '') {
+                        continue;
+                    }
+
+                    $tableColumns[$tableEntry['id']][] = $columnName;
+                }
+
+                $existingColumns = $this->loadExistingColumnsForChunk($tableColumns);
+
+                $rowsForUpsert = [];
+                $logCreated = [];
+                $logUpdated = [];
+                $logRestored = [];
+
+                foreach ($rows as $row) {
+                    $databaseKey = $this->databaseCacheKey($row->database_name);
+                    $databaseEntry = $databaseMap[$databaseKey] ?? null;
+                    if (! $databaseEntry) {
+                        continue;
+                    }
+
+                    $schemaKey = $this->schemaCacheKey($databaseEntry['id'], (string) $row->schema_name);
+                    $schemaEntry = $schemaMap[$schemaKey] ?? null;
+                    if (! $schemaEntry) {
+                        continue;
+                    }
+
+                    $tableName = trim((string) $row->table_name);
+                    if ($tableName === '') {
+                        continue;
+                    }
+
+                    $tableKey = $this->tableCacheKey($schemaEntry['id'], $tableName);
+                    $tableEntry = $tableMap[$tableKey] ?? null;
+                    if (! $tableEntry) {
+                        continue;
+                    }
+
+                    $columnName = trim((string) $row->column_name);
+                    if ($columnName === '') {
+                        continue;
+                    }
+
+                    $columnKey = $this->columnKey($tableEntry['id'], $columnName);
+                    $existing = $existingColumns[$columnKey] ?? null;
+
+                    if ($existing) {
+                        $touchedColumnIds[(int) $existing->id] = true;
+                    }
+
+                    $dataTypeKey = $this->dataTypeCacheKey($row->data_type);
+                    $dataTypeEntry = $dataTypeKey ? ($dataTypeMap[$dataTypeKey] ?? null) : null;
+                    $dataTypeId = $dataTypeEntry['id'] ?? null;
+
+                    $nullableFlag = $this->toNullableFlag($row->nullable);
+
+                    $payload = [
+                        'table_id' => $tableEntry['id'],
+                        'column_name' => $columnName,
+                        'column_id' => $row->column_id,
+                        'data_type_id' => $dataTypeId,
+                        'data_length' => $row->data_length,
+                        'data_precision' => $row->data_precision,
+                        'data_scale' => $row->data_scale,
+                        'nullable' => $nullableFlag,
+                        'char_length' => $row->char_length,
+                        'column_comment' => $row->column_comment,
+                        'table_comment' => $row->table_comment,
+                        'related_columns_raw' => $row->related_columns_raw,
+                        'related_columns' => $row->related_columns,
+                        'content_hash' => $row->content_hash,
+                        'last_synced_at' => $runAt,
+                    ];
+
+                    $rowForUpsert = array_merge($payload, [
+                        'deleted_at' => null,
+                        'updated_at' => $runAt,
+                    ]);
+
+                    $fieldsForDiff = array_keys(Arr::except($payload, ['table_id', 'column_name', 'last_synced_at']));
+
+                    if ($existing) {
+                        $diff = $this->diffValues($existing, $payload, $fieldsForDiff);
+                        $wasDeleted = $existing->deleted_at !== null;
+                        $hasChanges = $diff !== [] || $wasDeleted;
+
+                        $rowForUpsert['changed_at'] = $hasChanges ? $runAt : $existing->changed_at;
+                        $rowForUpsert['changed_fields'] = $hasChanges ? json_encode($diff, JSON_UNESCAPED_UNICODE) : $existing->changed_fields;
+                        $rowForUpsert['last_synced_at'] = $runAt;
+                        $rowForUpsert['created_at'] = $existing->created_at;
+
+                        if ($hasChanges) {
+                            if ($wasDeleted) {
+                                $logRestored[] = [
+                                    'id' => (int) $existing->id,
+                                    'diff' => [
+                                        'deleted_at' => [
+                                            'old' => $existing->deleted_at,
+                                            'new' => null,
+                                        ],
+                                    ],
+                                ];
+                            }
+
+                            if ($diff !== []) {
+                                $logUpdated[] = [
+                                    'id' => (int) $existing->id,
+                                    'diff' => $diff,
+                                ];
+                            }
+
+                            ++$totals['updated'];
+                        }
+                    } else {
+                        $rowForUpsert['created_at'] = $runAt;
+                        $rowForUpsert['changed_at'] = null;
+                        $rowForUpsert['changed_fields'] = null;
+
+                        $logCreated[] = [
+                            'table_id' => $tableEntry['id'],
+                            'column_name' => $columnName,
+                        ];
+
+                        ++$totals['inserted'];
+                    }
+
+                    $rowsForUpsert[] = $rowForUpsert;
+
+                    $tableIdentityKey = $this->tableIdentityKey($databaseEntry['id'], $row->schema_name, $tableName);
+                    $touchedTableIdentities[$tableIdentityKey] = [
+                        'database_id' => $databaseEntry['id'],
+                        'schema_name' => $row->schema_name,
+                        'table_name' => $tableName,
+                    ];
+
+                    $columnIdentity = $this->columnIdentityKey($databaseEntry['id'], $row->schema_name, $tableName, $columnName);
+                    $processedColumnIdentities[$columnIdentity] = true;
+                }
+
+                if ($rowsForUpsert !== []) {
+                    DB::table(self::COLUMNS_TABLE)->upsert(
+                        $rowsForUpsert,
+                        ['table_id', 'column_name'],
+                        [
+                            'column_id',
+                            'data_type_id',
+                            'data_length',
+                            'data_precision',
+                            'data_scale',
+                            'nullable',
+                            'char_length',
+                            'column_comment',
+                            'table_comment',
+                            'related_columns_raw',
+                            'related_columns',
+                            'content_hash',
+                            'last_synced_at',
+                            'changed_at',
+                            'changed_fields',
+                            'deleted_at',
+                            'updated_at',
+                        ]
+                    );
+                }
+
+                if ($logCreated !== []) {
+                    $tableIds = array_unique(array_column($logCreated, 'table_id'));
+                    $columnNames = array_unique(array_column($logCreated, 'column_name'));
+
+                    $insertedRecords = DB::table(self::COLUMNS_TABLE)
+                        ->whereIn('table_id', $tableIds)
+                        ->whereIn('column_name', $columnNames)
+                        ->get();
+
+                    $insertedMap = [];
+                    foreach ($insertedRecords as $record) {
+                        $insertedMap[$this->columnKey((int) $record->table_id, $record->column_name)] = (int) $record->id;
+                    }
+
+                    foreach ($logCreated as $entry) {
+                        $key = $this->columnKey($entry['table_id'], $entry['column_name']);
+                        if (isset($insertedMap[$key])) {
+                            AnonymizerActivityLogger::logColumnEvent(
+                                $insertedMap[$key],
+                                'created',
+                                [],
+                                [
+                                    'upload_id' => $this->uploadId,
+                                ]
+                            );
+                        }
+                    }
+
+                    foreach ($insertedMap as $columnId) {
+                        $touchedColumnIds[$columnId] = true;
+                    }
+                }
+
+                foreach ($logRestored as $event) {
+                    AnonymizerActivityLogger::logColumnEvent(
+                        $event['id'],
+                        'restored',
+                        $event['diff'],
+                        [
+                            'upload_id' => $this->uploadId,
+                        ]
+                    );
+                }
+
+                foreach ($logUpdated as $event) {
+                    AnonymizerActivityLogger::logColumnEvent(
+                        $event['id'],
+                        'updated',
+                        $event['diff'],
+                        [
+                            'upload_id' => $this->uploadId,
+                        ]
+                    );
+                }
+
+                $processedRows += count($rows);
+
+                if ($totalBytes) {
+                    $processedBytes = (int) min($totalBytes, floor($totalBytes * ($processedRows / max($stagingCount, 1))));
+                } else {
+                    $processedBytes = $processedRows;
+                }
+
+                if ($progressReporter) {
+                    $shouldReport = $processedRows <= 5 || ($processedRows % 5000 === 0);
+                    $now = microtime(true);
+                    if (! $shouldReport && ($now - $lastProgressAt) >= 2.0) {
+                        $shouldReport = true;
+                    }
+
+                    if ($shouldReport) {
+                        $lastProgressAt = $now;
+                        $progressReporter([
+                            'processed_rows' => $processedRows,
+                            'processed_bytes' => $processedBytes,
+                            'inserted' => $totals['inserted'],
+                            'updated' => $totals['updated'],
+                            'status_detail' => sprintf('Upserting columns (%d/%d)', $processedRows, $stagingCount),
+                        ]);
+                    }
+                }
+            });
+
+        return [
+            'totals' => $totals,
+            'touchedTableIdentities' => $touchedTableIdentities,
+            'processedColumnIdentities' => $processedColumnIdentities,
+            'processedRows' => $stagingCount,
+            'processedBytes' => $totalBytes ?? ($processedBytes ?? 0),
+            'touchedColumnIds' => array_map('intval', array_keys($touchedColumnIds)),
+        ];
+    }
+
+    protected function cleanupStaging(int $uploadId): void
+    {
+        DB::statement('DELETE FROM ' . self::STAGING_TABLE . ' WHERE upload_id = ?', [$uploadId]);
     }
 
     /**
@@ -562,6 +1489,79 @@ trait InteractsWithAnonymousSiebelSync
         }
 
         return $deleted;
+    }
+
+    protected function rebuildColumnRelationships(array $columnIds, CarbonImmutable $runAt): void
+    {
+        $columnIds = array_values(array_unique(array_map('intval', $columnIds)));
+        if ($columnIds === []) {
+            return;
+        }
+
+        foreach (array_chunk($columnIds, 1000) as $chunkIds) {
+            $rows = DB::table(self::COLUMNS_TABLE . ' as c')
+                ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
+                ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+                ->select(
+                    'c.id',
+                    'c.table_id',
+                    'c.column_name',
+                    'c.related_columns',
+                    'c.related_columns_raw',
+                    's.schema_name',
+                    't.table_name'
+                )
+                ->whereIn('c.id', $chunkIds)
+                ->get();
+
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            $columnMeta = [];
+            $relationshipsByColumn = [];
+            $referencedColumns = [];
+            $touchedColumnIds = [];
+
+            foreach ($rows as $row) {
+                $columnKey = $this->columnKey((int) $row->table_id, $row->column_name);
+
+                $columnMeta[$columnKey] = [
+                    'id' => (int) $row->id,
+                    'table_id' => (int) $row->table_id,
+                    'schema_name' => $row->schema_name,
+                    'table_name' => $row->table_name,
+                    'column_name' => $row->column_name,
+                ];
+
+                $touchedColumnIds[(int) $row->id] = true;
+
+                $relationships = $this->extractRelationshipsFromRow($row);
+                if ($relationships === []) {
+                    continue;
+                }
+
+                $relationshipsByColumn[$columnKey] = $relationships;
+
+                foreach ($relationships as $relation) {
+                    if (! isset($relation['schema'], $relation['table'], $relation['column'])) {
+                        continue;
+                    }
+
+                    $referenceKey = $this->tripletKey($relation['schema'], $relation['table'], $relation['column']);
+
+                    if (! isset($referencedColumns[$referenceKey])) {
+                        $referencedColumns[$referenceKey] = [
+                            'schema' => $relation['schema'],
+                            'table' => $relation['table'],
+                            'column' => $relation['column'],
+                        ];
+                    }
+                }
+            }
+
+            $this->syncRelationships($columnMeta, $relationshipsByColumn, $referencedColumns, $touchedColumnIds, $runAt);
+        }
     }
 
     /**
