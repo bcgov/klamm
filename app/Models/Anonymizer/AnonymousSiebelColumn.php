@@ -34,6 +34,8 @@ class AnonymousSiebelColumn extends Model
         'changed_fields',
         'table_id',
         'data_type_id',
+        'metadata_comment',
+        'anonymization_required',
     ];
 
     protected $casts = [
@@ -47,6 +49,7 @@ class AnonymousSiebelColumn extends Model
         'last_synced_at' => 'datetime',
         'changed_at' => 'datetime',
         'changed_fields' => 'array',
+        'anonymization_required' => 'boolean',
     ];
 
     protected static function activityLogNameOverride(): ?string

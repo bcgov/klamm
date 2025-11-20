@@ -57,8 +57,7 @@ class AnonymizationMethodResource extends Resource
                         Forms\Components\Textarea::make('sql_block')
                             ->label('SQL block')
                             ->rows(10)
-                            ->columnSpanFull()
-                            ->hint('Optional reference snippet that documents the anonymization routine.'),
+                            ->columnSpanFull(),
                     ])
                     ->columns(1),
                 Forms\Components\Section::make('Record Metadata')

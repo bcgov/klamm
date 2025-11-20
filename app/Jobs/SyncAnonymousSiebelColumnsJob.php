@@ -10,6 +10,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -98,18 +99,30 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 'status_detail' => 'Reconciling deletions',
             ]);
 
-            $deletedCount = $this->softDeleteMissingColumns($result['touchedTableIdentities'], $result['processedColumnIdentities'], $runAt);
+            $deletedCount = $this->softDeleteMissingColumns(
+                $result['touchedTableIdentities'],
+                $result['processedColumnIdentitiesTempTable'],
+                $runAt
+            );
 
             if ($deletedCount > 0) {
                 $result['totals']['deleted'] = $deletedCount;
             }
 
-            if (! empty($result['touchedColumnIds'])) {
+            if (! empty($result['touchedColumnIdsTempTable'])) {
                 $this->persistProgress($upload->id, [
                     'status_detail' => 'Reconciling relationships',
                 ]);
 
-                $this->rebuildColumnRelationships($result['touchedColumnIds'], $runAt);
+                $this->rebuildColumnRelationships($result['touchedColumnIdsTempTable'], $runAt);
+            }
+
+            // Clean up temporary tables
+            if (isset($result['touchedColumnIdsTempTable'])) {
+                DB::statement("DROP TABLE IF EXISTS {$result['touchedColumnIdsTempTable']}");
+            }
+            if (isset($result['processedColumnIdentitiesTempTable'])) {
+                DB::statement("DROP TABLE IF EXISTS {$result['processedColumnIdentitiesTempTable']}");
             }
 
             $this->persistProgress($upload->id, [

@@ -34,7 +34,7 @@ return new class extends Migration
 
             //custom properties
             $table->text('metadata_comment')->nullable(); // custom comment in Klamm
-            $table->boolean('anonymization_required')->default(false);
+            $table->boolean('anonymization_required')->nullable();
 
             //relationships
             $table->foreignId('table_id')->nullable()->constrained('anonymous_siebel_tables');

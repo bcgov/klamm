@@ -84,6 +84,23 @@ class AnonymousSiebelColumnResource extends Resource
                             ->columnSpanFull()
                             ->label('Related columns (raw)'),
                     ]),
+                Forms\Components\Section::make('Anonymization Settings')
+                    ->schema([
+                        Forms\Components\Textarea::make('metadata_comment')
+                            ->label('Metadata comment')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                        Forms\Components\Toggle::make('anonymization_required')
+                            ->label('Anonymization required'),
+                        Forms\Components\Select::make('anonymizationMethods')
+                            ->label('Anonymization methods')
+                            ->relationship('anonymizationMethods', 'name')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            ->columnSpanFull(),
+                    ]),
                 Forms\Components\Section::make('Sync metadata')
                     ->schema([
                         Forms\Components\Placeholder::make('content_hash')
@@ -117,6 +134,15 @@ class AnonymousSiebelColumnResource extends Resource
                     ->label('Data type')
                     ->sortable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('anonymizationMethods.name')
+                    ->label('Anonymization methods')
+                    ->badge()
+                    ->separator(',')
+                    ->toggleable(),
+                Tables\Columns\IconColumn::make('anonymization_required')
+                    ->label('Anonymization required')
+                    ->boolean()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('nullable')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('data_length')
@@ -136,6 +162,14 @@ class AnonymousSiebelColumnResource extends Resource
                 Tables\Filters\SelectFilter::make('data_type_id')
                     ->label('Data type')
                     ->relationship('dataType', 'data_type_name'),
+                Tables\Filters\SelectFilter::make('anonymizationMethods')
+                    ->label('Anonymization method')
+                    ->relationship('anonymizationMethods', 'name')
+                    ->multiple()
+                    ->preload(),
+                Tables\Filters\TernaryFilter::make('anonymization_required')
+                    ->label('Anonymization required')
+                    ->nullable(),
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([

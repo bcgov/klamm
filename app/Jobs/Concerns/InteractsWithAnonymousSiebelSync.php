@@ -46,6 +46,9 @@ trait InteractsWithAnonymousSiebelSync
             throw new RuntimeException('The uploaded CSV did not contain a header row.');
         }
 
+        // Use associative array keyed by unique constraint to deduplicate within each batch
+        // For cross-batch duplicates, PostgreSQL's ON CONFLICT DO UPDATE handles it
+        // Last occurrence in CSV wins due to the UPSERT update behavior
         $batch = [];
         $now = now();
         $count = 0;
@@ -60,6 +63,7 @@ trait InteractsWithAnonymousSiebelSync
                 $assoc[$key] = $row[$index] ?? null;
             }
 
+            // Build core payload for hash calculation (excludes relationship fields)
             $payload = [
                 'database_name' => trim((string) ($assoc['DATABASE_NAME'] ?? '')),
                 'schema_name' => trim((string) ($assoc['SCHEMA_NAME'] ?? '')),
@@ -77,31 +81,57 @@ trait InteractsWithAnonymousSiebelSync
                 'table_comment' => $this->toNullOrString($assoc['TABLE_COMMENT'] ?? null),
             ];
 
-            $rawRelationships = html_entity_decode((string) ($assoc['RELATED_COLUMNS'] ?? '')) ?: null;
-            $parsedRelationships = $this->parseRelated($rawRelationships ?? '');
+            // Calculate content hash before adding relationship fields (avoids Arr::except memory overhead)
+            $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
+            // Add relationship fields after hash calculation
+            $rawRelationships = $assoc['RELATED_COLUMNS'] ?? null;
+            if ($rawRelationships !== null && $rawRelationships !== '') {
+                $rawRelationships = html_entity_decode((string) $rawRelationships);
+                $parsedRelationships = $this->parseRelated($rawRelationships);
+                $payload['related_columns'] = $parsedRelationships ? json_encode($parsedRelationships, JSON_UNESCAPED_UNICODE) : null;
+            } else {
+                $rawRelationships = null;
+                $payload['related_columns'] = null;
+            }
             $payload['related_columns_raw'] = $rawRelationships;
-            $payload['related_columns'] = $parsedRelationships ? json_encode($parsedRelationships, JSON_UNESCAPED_UNICODE) : null;
 
-            $hashSource = Arr::except($payload, ['related_columns_raw', 'related_columns']);
-            $payload['content_hash'] = hash('sha256', json_encode($hashSource, JSON_UNESCAPED_UNICODE));
+            // Add metadata fields
             $payload['upload_id'] = $upload->id;
             $payload['created_at'] = $now;
             $payload['updated_at'] = $now;
 
-            $batch[] = $payload;
+            // Build unique key for within-batch deduplication (last occurrence wins)
+            $uniqueKey = implode('|', [
+                $payload['upload_id'],
+                $this->norm($payload['database_name']),
+                $this->norm($payload['schema_name']),
+                $this->norm($payload['table_name']),
+                $this->norm($payload['column_name']),
+            ]);
 
-            if (count($batch) >= 2000) {
-                $count += $this->upsertStagingBatch($batch);
+            $batch[$uniqueKey] = $payload;
+
+            if (count($batch) >= 1000) {
+                $count += $this->upsertStagingBatch(array_values($batch));
                 $batch = [];
+
+                // Force garbage collection for very large files
+                if ($count % 10000 === 0) {
+                    gc_collect_cycles();
+                }
             }
         }
 
         fclose($stream);
 
         if ($batch !== []) {
-            $count += $this->upsertStagingBatch($batch);
+            $count += $this->upsertStagingBatch(array_values($batch));
+            $batch = [];
         }
+
+        // Final cleanup
+        gc_collect_cycles();
 
         if ($count === 0) {
             throw new RuntimeException('The uploaded CSV did not contain any data rows.');
@@ -112,6 +142,10 @@ trait InteractsWithAnonymousSiebelSync
 
     protected function upsertStagingBatch(array $batch): int
     {
+        if ($batch === []) {
+            return 0;
+        }
+
         $now = now();
 
         foreach ($batch as &$row) {
@@ -151,7 +185,15 @@ trait InteractsWithAnonymousSiebelSync
         }
 
         foreach (array_chunk($rows, $chunkSize) as $chunk) {
-            DB::table($table)->upsert($chunk, $uniqueBy, $updateColumns);
+            // Deduplicate chunk by uniqueBy keys to prevent ON CONFLICT errors
+            // Last occurrence wins to match CSV semantics
+            $deduplicated = [];
+            foreach ($chunk as $row) {
+                $key = implode('|', array_map(fn($col) => $this->norm((string) ($row[$col] ?? '')), $uniqueBy));
+                $deduplicated[$key] = $row;
+            }
+
+            DB::table($table)->upsert(array_values($deduplicated), $uniqueBy, $updateColumns);
         }
     }
 
@@ -719,9 +761,22 @@ trait InteractsWithAnonymousSiebelSync
         ];
 
         $touchedTableIdentities = [];
-        $processedColumnIdentities = [];
-        $touchedColumnIds = [];
 
+        // Use temporary tables to track processed column identities instead of keeping them in memory
+        // This prevents memory exhaustion with very large imports
+        $tempColumnIdentitiesTable = 'temp_column_identities_' . $uploadId;
+        DB::statement("CREATE TEMPORARY TABLE {$tempColumnIdentitiesTable} (column_identity VARCHAR(512) PRIMARY KEY)");
+
+        $columnIdentitiesBatch = [];
+        $columnIdentitiesBatchSize = 5000;
+
+        // Use a temporary table to track touched column IDs instead of keeping them in memory
+        // This prevents memory exhaustion with very large imports
+        $tempTableName = 'temp_touched_columns_' . $uploadId;
+        DB::statement("CREATE TEMPORARY TABLE {$tempTableName} (column_id INTEGER PRIMARY KEY)");
+
+        $touchedColumnIdsBatch = [];
+        $touchedColumnIdsBatchSize = 5000;
         $lastProgressAt = microtime(true);
 
         DB::table(self::STAGING_TABLE . ' as s')
@@ -732,8 +787,12 @@ trait InteractsWithAnonymousSiebelSync
                 &$processedBytes,
                 &$totals,
                 &$touchedTableIdentities,
-                &$processedColumnIdentities,
-                &$touchedColumnIds,
+                &$columnIdentitiesBatch,
+                $columnIdentitiesBatchSize,
+                $tempColumnIdentitiesTable,
+                &$touchedColumnIdsBatch,
+                $touchedColumnIdsBatchSize,
+                $tempTableName,
                 $stagingCount,
                 $totalBytes,
                 $runAt,
@@ -818,7 +877,12 @@ trait InteractsWithAnonymousSiebelSync
                     $existing = $existingColumns[$columnKey] ?? null;
 
                     if ($existing) {
-                        $touchedColumnIds[(int) $existing->id] = true;
+                        // Batch the touched column IDs for temporary table insert
+                        $touchedColumnIdsBatch[(int) $existing->id] = true;
+                        if (count($touchedColumnIdsBatch) >= $touchedColumnIdsBatchSize) {
+                            $this->flushTouchedColumnIds($tempTableName, $touchedColumnIdsBatch);
+                            $touchedColumnIdsBatch = [];
+                        }
                     }
 
                     $dataTypeKey = $this->dataTypeCacheKey($row->data_type);
@@ -907,7 +971,13 @@ trait InteractsWithAnonymousSiebelSync
                     ];
 
                     $columnIdentity = $this->columnIdentityKey($databaseEntry['id'], $row->schema_name, $tableName, $columnName);
-                    $processedColumnIdentities[$columnIdentity] = true;
+
+                    // Batch the processed column identities for temporary table insert
+                    $columnIdentitiesBatch[$columnIdentity] = true;
+                    if (count($columnIdentitiesBatch) >= $columnIdentitiesBatchSize) {
+                        $this->flushColumnIdentities($tempColumnIdentitiesTable, $columnIdentitiesBatch);
+                        $columnIdentitiesBatch = [];
+                    }
                 }
 
                 if ($rowsForUpsert !== []) {
@@ -965,7 +1035,12 @@ trait InteractsWithAnonymousSiebelSync
                     }
 
                     foreach ($insertedMap as $columnId) {
-                        $touchedColumnIds[$columnId] = true;
+                        // Batch the touched column IDs for temporary table insert
+                        $touchedColumnIdsBatch[$columnId] = true;
+                        if (count($touchedColumnIdsBatch) >= $touchedColumnIdsBatchSize) {
+                            $this->flushTouchedColumnIds($tempTableName, $touchedColumnIdsBatch);
+                            $touchedColumnIdsBatch = [];
+                        }
                     }
                 }
 
@@ -993,6 +1068,11 @@ trait InteractsWithAnonymousSiebelSync
 
                 $processedRows += count($rows);
 
+                // Proactive garbage collection every 10 chunks to prevent memory accumulation
+                if ($processedRows % 15000 === 0) {
+                    gc_collect_cycles();
+                }
+
                 if ($totalBytes) {
                     $processedBytes = (int) min($totalBytes, floor($totalBytes * ($processedRows / max($stagingCount, 1))));
                 } else {
@@ -1019,16 +1099,62 @@ trait InteractsWithAnonymousSiebelSync
                 }
             });
 
+        // Flush any remaining batched touched column IDs
+        if (! empty($touchedColumnIdsBatch)) {
+            $this->flushTouchedColumnIds($tempTableName, $touchedColumnIdsBatch);
+        }
+
+        // Flush any remaining batched column identities
+        if (! empty($columnIdentitiesBatch)) {
+            $this->flushColumnIdentities($tempColumnIdentitiesTable, $columnIdentitiesBatch);
+        }
+
+        // Return temp table names instead of loading all data into memory
+        // The consuming methods will query these tables in chunks
         return [
             'totals' => $totals,
             'touchedTableIdentities' => $touchedTableIdentities,
-            'processedColumnIdentities' => $processedColumnIdentities,
+            'processedColumnIdentitiesTempTable' => $tempColumnIdentitiesTable,
             'processedRows' => $stagingCount,
             'processedBytes' => $totalBytes ?? ($processedBytes ?? 0),
-            'touchedColumnIds' => array_map('intval', array_keys($touchedColumnIds)),
+            'touchedColumnIdsTempTable' => $tempTableName,
         ];
     }
 
+    /**
+     * Flush a batch of touched column IDs to the temporary table.
+     * This prevents memory exhaustion by keeping IDs in the database instead of in memory.
+     */
+    protected function flushTouchedColumnIds(string $tempTableName, array &$batch): void
+    {
+        if (empty($batch)) {
+            return;
+        }
+
+        $values = array_map(fn($id) => "({$id})", array_keys($batch));
+        $valuesStr = implode(',', $values);
+
+        DB::statement("INSERT INTO {$tempTableName} (column_id) VALUES {$valuesStr} ON CONFLICT (column_id) DO NOTHING");
+    }
+
+    /**
+     * Flush a batch of processed column identities to the temporary table.
+     * This prevents memory exhaustion by keeping identities in the database instead of in memory.
+     */
+    protected function flushColumnIdentities(string $tempTableName, array &$batch): void
+    {
+        if (empty($batch)) {
+            return;
+        }
+
+        $values = array_map(
+            fn($identity) => "('" . str_replace("'", "''", $identity) . "')",
+            array_keys($batch)
+        );
+        $valuesStr = implode(',', $values);
+
+        DB::statement("INSERT INTO {$tempTableName} (column_identity) VALUES {$valuesStr} ON CONFLICT (column_identity) DO NOTHING");
+    }
     protected function cleanupStaging(int $uploadId): void
     {
         DB::statement('DELETE FROM ' . self::STAGING_TABLE . ' WHERE upload_id = ?', [$uploadId]);
@@ -1417,8 +1543,12 @@ trait InteractsWithAnonymousSiebelSync
 
     /**
      * Soft deletes any existing columns that were not present in the latest upload.
+     *
+     * @param array $touchedTableIdentities Array of table identities that were touched
+     * @param string $tempTableName Name of temporary table containing processed column identities
+     * @param mixed $now Timestamp for the deletion
      */
-    protected function softDeleteMissingColumns(array $touchedTableIdentities, array $stagingColumnKeys, $now): int
+    protected function softDeleteMissingColumns(array $touchedTableIdentities, string $tempTableName, $now): int
     {
         if ($touchedTableIdentities === []) {
             return 0;
@@ -1446,122 +1576,195 @@ trait InteractsWithAnonymousSiebelSync
             return 0;
         }
 
-        $columns = DB::table(self::COLUMNS_TABLE . ' as c')
+        $tableIds = $tables->pluck('id')->all();
+
+        // Use a more efficient approach: create a temporary table with column identities to delete
+        $tempDeleteCandidatesTable = 'temp_delete_candidates_' . uniqid();
+        DB::statement("CREATE TEMPORARY TABLE {$tempDeleteCandidatesTable} (
+            column_id INTEGER PRIMARY KEY,
+            column_identity VARCHAR(512)
+        )");
+
+        // Insert all non-deleted columns from touched tables into temp table with their identities
+        // This is done in chunks to avoid memory issues
+        DB::table(self::COLUMNS_TABLE . ' as c')
             ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
             ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
-            ->select('c.id', 'c.deleted_at', 'c.column_name', 't.table_name', 's.schema_name', 's.database_id')
-            ->whereIn('c.table_id', $tables->pluck('id'))
-            ->get();
+            ->select('c.id', 'c.column_name', 't.table_name', 's.schema_name', 's.database_id')
+            ->whereIn('c.table_id', $tableIds)
+            ->whereNull('c.deleted_at')
+            ->orderBy('c.id')
+            ->chunk(500, function ($columns) use ($tempDeleteCandidatesTable) {
+                $insertData = [];
+                foreach ($columns as $column) {
+                    $columnKey = $this->columnIdentityKey(
+                        (int) $column->database_id,
+                        $column->schema_name,
+                        $column->table_name,
+                        $column->column_name
+                    );
+                    $insertData[] = [
+                        'column_id' => $column->id,
+                        'column_identity' => $columnKey,
+                    ];
+                }
 
-        foreach ($columns as $column) {
-            $columnKey = $this->columnIdentityKey((int) $column->database_id, $column->schema_name, $column->table_name, $column->column_name);
+                if (!empty($insertData)) {
+                    DB::table($tempDeleteCandidatesTable)->insert($insertData);
+                }
+            });
 
-            if (isset($stagingColumnKeys[$columnKey]) || $column->deleted_at !== null) {
-                continue;
+        // Now find columns to delete: those in candidates table but NOT in processed identities table
+        // Use a LEFT JOIN to find missing entries efficiently
+        $columnsToDelete = DB::table($tempDeleteCandidatesTable . ' as dc')
+            ->leftJoin($tempTableName . ' as processed', 'dc.column_identity', '=', 'processed.column_identity')
+            ->whereNull('processed.column_identity')
+            ->pluck('dc.column_id')
+            ->all();
+
+        // Process deletions in chunks
+        foreach (array_chunk($columnsToDelete, 100) as $chunk) {
+            $columns = DB::table(self::COLUMNS_TABLE . ' as c')
+                ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
+                ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+                ->select('c.id', 's.database_id', 's.schema_name', 't.table_name', 'c.column_name')
+                ->whereIn('c.id', $chunk)
+                ->get();
+
+            foreach ($columns as $column) {
+                $diff = [
+                    'deleted_at' => [
+                        'old' => null,
+                        'new' => $now,
+                    ],
+                ];
+
+                DB::table(self::COLUMNS_TABLE)
+                    ->where('id', $column->id)
+                    ->update([
+                        'deleted_at' => $now,
+                        'changed_at' => $now,
+                        'changed_fields' => json_encode($diff, JSON_UNESCAPED_UNICODE),
+                        'updated_at' => $now,
+                    ]);
+
+                AnonymizerActivityLogger::logColumnEvent(
+                    (int) $column->id,
+                    'deleted',
+                    $diff,
+                    [
+                        'upload_id' => $this->uploadId,
+                    ]
+                );
+
+                ++$deleted;
             }
-
-            $diff = [
-                'deleted_at' => [
-                    'old' => null,
-                    'new' => $now,
-                ],
-            ];
-
-            DB::table(self::COLUMNS_TABLE)
-                ->where('id', $column->id)
-                ->update([
-                    'deleted_at' => $now,
-                    'changed_at' => $now,
-                    'changed_fields' => json_encode($diff, JSON_UNESCAPED_UNICODE),
-                    'updated_at' => $now,
-                ]);
-
-            AnonymizerActivityLogger::logColumnEvent(
-                (int) $column->id,
-                'deleted',
-                $diff,
-                [
-                    'upload_id' => $this->uploadId,
-                ]
-            );
-
-            ++$deleted;
         }
+
+        // Clean up temporary table
+        DB::statement("DROP TABLE IF EXISTS {$tempDeleteCandidatesTable}");
 
         return $deleted;
     }
-
-    protected function rebuildColumnRelationships(array $columnIds, CarbonImmutable $runAt): void
+    /**
+     * Rebuild column relationships from a temporary table containing column IDs.
+     * Processes in chunks to avoid memory exhaustion.
+     *
+     * @param string $tempTableName Name of temporary table containing column IDs
+     * @param CarbonImmutable $runAt Timestamp for the update
+     */
+    protected function rebuildColumnRelationships(string $tempTableName, CarbonImmutable $runAt): void
     {
-        $columnIds = array_values(array_unique(array_map('intval', $columnIds)));
-        if ($columnIds === []) {
+        $chunkSize = 1000;
+        $processedChunks = 0;
+
+        // Process column IDs from temp table in chunks
+        DB::table($tempTableName)
+            ->orderBy('column_id')
+            ->chunk($chunkSize, function ($tempRows) use ($runAt, &$processedChunks) {
+                $chunkIds = $tempRows->pluck('column_id')->map(fn($id) => (int) $id)->all();
+
+                if (empty($chunkIds)) {
+                    return;
+                }
+
+                $this->processColumnRelationshipsChunk($chunkIds, $runAt);
+
+                // Garbage collection every 10 chunks
+                $processedChunks++;
+                if ($processedChunks % 10 === 0) {
+                    gc_collect_cycles();
+                }
+            });
+    }
+
+    /**
+     * Process a chunk of column IDs for relationship rebuilding.
+     */
+    protected function processColumnRelationshipsChunk(array $chunkIds, CarbonImmutable $runAt): void
+    {
+        $rows = DB::table(self::COLUMNS_TABLE . ' as c')
+            ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->select(
+                'c.id',
+                'c.table_id',
+                'c.column_name',
+                'c.related_columns',
+                'c.related_columns_raw',
+                's.schema_name',
+                't.table_name'
+            )
+            ->whereIn('c.id', $chunkIds)
+            ->get();
+
+        if ($rows->isEmpty()) {
             return;
         }
 
-        foreach (array_chunk($columnIds, 1000) as $chunkIds) {
-            $rows = DB::table(self::COLUMNS_TABLE . ' as c')
-                ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
-                ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
-                ->select(
-                    'c.id',
-                    'c.table_id',
-                    'c.column_name',
-                    'c.related_columns',
-                    'c.related_columns_raw',
-                    's.schema_name',
-                    't.table_name'
-                )
-                ->whereIn('c.id', $chunkIds)
-                ->get();
+        $columnMeta = [];
+        $relationshipsByColumn = [];
+        $referencedColumns = [];
+        $touchedColumnIds = [];
 
-            if ($rows->isEmpty()) {
+        foreach ($rows as $row) {
+            $columnKey = $this->columnKey((int) $row->table_id, $row->column_name);
+
+            $columnMeta[$columnKey] = [
+                'id' => (int) $row->id,
+                'table_id' => (int) $row->table_id,
+                'schema_name' => $row->schema_name,
+                'table_name' => $row->table_name,
+                'column_name' => $row->column_name,
+            ];
+
+            $touchedColumnIds[(int) $row->id] = true;
+
+            $relationships = $this->extractRelationshipsFromRow($row);
+            if ($relationships === []) {
                 continue;
             }
 
-            $columnMeta = [];
-            $relationshipsByColumn = [];
-            $referencedColumns = [];
-            $touchedColumnIds = [];
+            $relationshipsByColumn[$columnKey] = $relationships;
 
-            foreach ($rows as $row) {
-                $columnKey = $this->columnKey((int) $row->table_id, $row->column_name);
-
-                $columnMeta[$columnKey] = [
-                    'id' => (int) $row->id,
-                    'table_id' => (int) $row->table_id,
-                    'schema_name' => $row->schema_name,
-                    'table_name' => $row->table_name,
-                    'column_name' => $row->column_name,
-                ];
-
-                $touchedColumnIds[(int) $row->id] = true;
-
-                $relationships = $this->extractRelationshipsFromRow($row);
-                if ($relationships === []) {
+            foreach ($relationships as $relation) {
+                if (! isset($relation['schema'], $relation['table'], $relation['column'])) {
                     continue;
                 }
 
-                $relationshipsByColumn[$columnKey] = $relationships;
+                $referenceKey = $this->tripletKey($relation['schema'], $relation['table'], $relation['column']);
 
-                foreach ($relationships as $relation) {
-                    if (! isset($relation['schema'], $relation['table'], $relation['column'])) {
-                        continue;
-                    }
-
-                    $referenceKey = $this->tripletKey($relation['schema'], $relation['table'], $relation['column']);
-
-                    if (! isset($referencedColumns[$referenceKey])) {
-                        $referencedColumns[$referenceKey] = [
-                            'schema' => $relation['schema'],
-                            'table' => $relation['table'],
-                            'column' => $relation['column'],
-                        ];
-                    }
+                if (! isset($referencedColumns[$referenceKey])) {
+                    $referencedColumns[$referenceKey] = [
+                        'schema' => $relation['schema'],
+                        'table' => $relation['table'],
+                        'column' => $relation['column'],
+                    ];
                 }
             }
-
-            $this->syncRelationships($columnMeta, $relationshipsByColumn, $referencedColumns, $touchedColumnIds, $runAt);
         }
+
+        $this->syncRelationships($columnMeta, $relationshipsByColumn, $referencedColumns, $touchedColumnIds, $runAt);
     }
 
     /**
