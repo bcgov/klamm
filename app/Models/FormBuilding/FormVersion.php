@@ -32,6 +32,8 @@ class FormVersion extends Model
     protected $fillable = [
         'form_id',
         'version_number',
+        'version_date',
+        'version_date_format',
         'status',
         'form_developer_id',
         'comments',

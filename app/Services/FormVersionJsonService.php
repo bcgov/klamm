@@ -34,6 +34,8 @@ class FormVersionJsonService
             'form_id' => $formVersion->form->form_id ?? '',
             'id' => Str::uuid(),
             'version' => $formVersion->version_number,
+            'version_date' => $formVersion->version_date ?? '',
+            'version_date_format' => $formVersion->version_date_format ?? '',
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion),
             'ministry_id' => $formVersion->form->ministry_id ?? null,

@@ -93,6 +93,8 @@ class DateSelectInputFormElement extends Model
             'EEEE, MMMM D, YYYY' => 'EEEE, MMMM D, YYYY',
             'YYYY-MM-DD' => 'YYYY-MM-DD',
             'YYYY-MMM-DD' => 'YYYY-MMM-DD',
+            'YYYY/MM/DD' => 'YYYY/MM/DD',
+            'YYYY/MMM/DD' => 'YYYY/MMM/DD',
             'YY-MM-DD' => 'YY-MM-DD',
             'DD/MM/YYYY' => 'DD/MM/YYYY',
             'D/M/YY' => 'D/M/YY',
