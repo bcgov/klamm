@@ -5,11 +5,13 @@ namespace App\Filament\Forms\Resources;
 use App\Filament\Forms\Resources\FormVersionResource\Pages;
 use App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion;
 use App\Helpers\FormVersionHelper;
+use App\Models\FormBuilding\DateSelectInputFormElement;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\FormVersion;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormMetadata\FormDataSource;
 use App\Models\FormMetadata\FormInterface;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
@@ -89,6 +91,17 @@ class FormVersionResource extends Resource
                                     ->searchable()
                                     ->preload()
                                     ->columnSpan(1),
+                                Fieldset::make('Version Date')
+                                    ->columns(2)
+                                    ->schema([
+                                        DatePicker::make('version_date')
+                                            ->label('Footer Date')
+                                            ->helperText('This will populate in the footer and should be provided by the business area'),
+                                        Select::make('version_date_format')
+                                            ->label('Date Format')
+                                            ->options(DateSelectInputFormElement::getDateFormats())
+                                            ->default('YYYY/MM/DD'),
+                                    ]),
                                 Repeater::make('formVersionFormDataSources')
                                     ->label('Form Data Sources')
                                     ->relationship()
