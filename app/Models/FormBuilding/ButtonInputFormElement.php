@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
+use App\Helpers\SchemaHelper;
 
 class ButtonInputFormElement extends Model
 {
@@ -14,6 +17,7 @@ class ButtonInputFormElement extends Model
     protected $fillable = [
         'text',
         'kind',
+        'enableVarSub',
     ];
 
     protected $casts = [
@@ -26,13 +30,14 @@ class ButtonInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            \Filament\Forms\Components\TextInput::make('elementable_data.text')
+            TextInput::make('elementable_data.text')
                 ->label('Button Text')
                 ->default('Submit')
                 ->required(true)
                 ->autocomplete(false)
                 ->disabled($disabled),
-            \Filament\Forms\Components\Select::make('elementable_data.kind')
+            SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
+            Select::make('elementable_data.kind')
                 ->label('Button Kind')
                 ->options(static::getButtonTypes())
                 ->default('primary')
@@ -56,6 +61,7 @@ class ButtonInputFormElement extends Model
         return [
             'text' => $this->text,
             'kind' => $this->kind,
+            'enableVarSub' => $this->enableVarSub,
         ];
     }
 
@@ -83,6 +89,7 @@ class ButtonInputFormElement extends Model
         return [
             'text' => 'Submit',
             'kind' => 'primary',
+            'enableVarSub' => false,
         ];
     }
 }

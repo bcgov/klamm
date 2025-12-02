@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
 
 class NumberInputFormElement extends Model
 {
@@ -16,6 +19,7 @@ class NumberInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
+        'enableVarSub',
         'min',
         'max',
         'step',
@@ -45,41 +49,46 @@ class NumberInputFormElement extends Model
         return array_merge(
             SchemaHelper::getCommonCarbonFields($disabled),
             [
-                \Filament\Forms\Components\TextInput::make('elementable_data.min')
-                    ->label('Minimum Value')
-                    ->numeric()
-                    ->integer()
-                    ->step(1)
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.max')
-                    ->label('Maximum Value')
-                    ->numeric()
-                    ->integer()
-                    ->step(1)
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.step')
-                    ->label('Step Size')
-                    ->numeric()
-                    ->integer()
-                    ->step(1)
-                    ->default(1)
-                    ->minValue(0)
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.defaultValue')
-                    ->label('Default Value')
-                    ->numeric()
-                    ->step(1)
-                    ->disabled($disabled),
-                \Filament\Forms\Components\Select::make('elementable_data.formatStyle')
-                    ->label('Format Style')
-                    ->options([
-                        'decimal' => 'Decimal',
-                        'currency' => 'Currency',
-                        'integer' => 'Integer',
+                Fieldset::make('Value')
+                    ->schema([
+                        SchemaHelper::getPlaceholderTextField($disabled),
+                    TextInput::make('elementable_data.min')
+                        ->label('Minimum Value')
+                        ->numeric()
+                        ->integer()
+                        ->step(1)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.max')
+                        ->label('Maximum Value')
+                        ->numeric()
+                        ->integer()
+                        ->step(1)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.step')
+                        ->label('Step Size')
+                        ->numeric()
+                        ->integer()
+                        ->step(1)
+                        ->default(1)
+                        ->minValue(0)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.defaultValue')
+                        ->label('Default Value')
+                        ->numeric()
+                        ->step(1)
+                        ->disabled($disabled),
+                    Select::make('elementable_data.formatStyle')
+                        ->label('Format Style')
+                        ->options([
+                            'decimal' => 'Decimal',
+                            'currency' => 'Currency',
+                            'integer' => 'Integer',
+                        ])
+                        ->default('decimal')
+                        ->live()
+                        ->disabled($disabled),
                     ])
-                    ->default('decimal')
-                    ->live()
-                    ->disabled($disabled),
+                    ->columns(1),
             ]
         );
     }
@@ -101,11 +110,30 @@ class NumberInputFormElement extends Model
             'placeholder' => $this->placeholder,
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
+            'enableVarSub' => $this->enableVarSub,
             'min' => $this->min,
             'max' => $this->max,
             'step' => $this->step,
             'defaultValue' => $this->defaultValue,
             'formatStyle' => $this->formatStyle,
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'placeholder' => '',
+            'labelText' => '',
+            'hideLabel' => false,
+            'enableVarSub' => false,
+            'min' => null,
+            'max' => null,
+            'step' => 1,
+            'defaultValue' => null,
+            'formatStyle' => 'integer',
         ];
     }
 }

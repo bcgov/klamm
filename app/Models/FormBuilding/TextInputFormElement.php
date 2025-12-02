@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\TextInput;
 
 class TextInputFormElement extends Model
 {
@@ -16,6 +18,7 @@ class TextInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
+        'enableVarSub',
         'mask',
         'maxCount',
         'defaultValue',
@@ -38,17 +41,22 @@ class TextInputFormElement extends Model
         return array_merge(
             SchemaHelper::getCommonCarbonFields($disabled),
             [
-                \Filament\Forms\Components\TextInput::make('elementable_data.mask')
-                    ->label('Input Mask')
-                    ->autocomplete(false)
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.maxCount')
-                    ->label('Maximum Character Count')
-                    ->numeric()
-                    ->disabled($disabled),
-                \Filament\Forms\Components\TextInput::make('elementable_data.defaultValue')
-                    ->label('Default Value')
-                    ->disabled($disabled),
+                Fieldset::make('Value')
+                    ->schema([
+                        SchemaHelper::getPlaceholderTextField($disabled),
+                        TextInput::make('elementable_data.mask')
+                            ->label('Input Mask')
+                            ->autocomplete(false)
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.maxCount')
+                            ->label('Maximum Character Count')
+                            ->numeric()
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.defaultValue')
+                            ->label('Default Value')
+                            ->disabled($disabled),
+                    ])
+                    ->columns(1),
             ]
         );
     }
@@ -70,9 +78,26 @@ class TextInputFormElement extends Model
             'placeholder' => $this->placeholder,
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
+            'enableVarSub' => $this->enableVarSub,
             'mask' => $this->mask,
             'maxCount' => $this->maxCount,
             'defaultValue' => $this->defaultValue,
+        ];
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'placeholder' => '',
+            'labelText' => '',
+            'hideLabel' => false,
+            'enableVarSub' => false,
+            'mask' => '',
+            'maxCount' => null,
+            'defaultValue' => '',
         ];
     }
 }

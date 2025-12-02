@@ -3,10 +3,13 @@
 namespace App\Models\FormBuilding;
 
 use App\Helpers\SchemaHelper;
+use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\Select;
 
 class DateSelectInputFormElement extends Model
 {
@@ -16,6 +19,7 @@ class DateSelectInputFormElement extends Model
         'placeholder',
         'labelText',
         'hideLabel',
+        'enableVarSub',
         'minDate',
         'maxDate',
         'dateFormat',
@@ -40,20 +44,25 @@ class DateSelectInputFormElement extends Model
         return array_merge(
             SchemaHelper::getCommonCarbonFields($disabled),
             [
-                \Filament\Forms\Components\Select::make('elementable_data.dateFormat')
-                    ->label('Date Format')
-                    ->options(static::getDateFormats())
-                    ->default('YYYY-MMM-DD')
-                    ->required()
-                    ->disabled($disabled),
-                \Filament\Forms\Components\DatePicker::make('elementable_data.minDate')
-                    ->label('Minimum Date')
-                    ->helperText('Earliest date users can select')
-                    ->disabled($disabled),
-                \Filament\Forms\Components\DatePicker::make('elementable_data.maxDate')
-                    ->label('Maximum Date')
-                    ->helperText('Latest date users can select')
-                    ->disabled($disabled),
+                Fieldset::make('Value')
+                    ->schema([
+                        SchemaHelper::getPlaceholderTextField($disabled),
+                        Select::make('elementable_data.dateFormat')
+                            ->label('Date Format')
+                            ->options(static::getDateFormats())
+                            ->default('YYYY-MMM-DD')
+                            ->required()
+                            ->disabled($disabled),
+                        DatePicker::make('elementable_data.minDate')
+                            ->label('Minimum Date')
+                            ->helperText('Earliest date users can select')
+                            ->disabled($disabled),
+                        DatePicker::make('elementable_data.maxDate')
+                            ->label('Maximum Date')
+                            ->helperText('Latest date users can select')
+                            ->disabled($disabled),
+                    ])
+                    ->columns(1),
             ]
         );
     }
@@ -75,6 +84,7 @@ class DateSelectInputFormElement extends Model
             'placeholder' => $this->placeholder,
             'labelText' => $this->labelText,
             'hideLabel' => $this->hideLabel,
+            'enableVarSub' => $this->enableVarSub,
             'minDate' => $this->minDate,
             'maxDate' => $this->maxDate,
             'dateFormat' => $this->dateFormat,
@@ -93,6 +103,8 @@ class DateSelectInputFormElement extends Model
             'EEEE, MMMM D, YYYY' => 'EEEE, MMMM D, YYYY',
             'YYYY-MM-DD' => 'YYYY-MM-DD',
             'YYYY-MMM-DD' => 'YYYY-MMM-DD',
+            'YYYY/MM/DD' => 'YYYY/MM/DD',
+            'YYYY/MMM/DD' => 'YYYY/MMM/DD',
             'YY-MM-DD' => 'YY-MM-DD',
             'DD/MM/YYYY' => 'DD/MM/YYYY',
             'D/M/YY' => 'D/M/YY',
@@ -176,5 +188,21 @@ class DateSelectInputFormElement extends Model
         ];
 
         return $formatMapping[$format] ?? $format;
+    }
+
+    /**
+     * Get default data for this element type when creating new instances.
+     */
+    public static function getDefaultData(): array
+    {
+        return [
+            'placeholder' => '',
+            'labelText' => 'Date Select Input',
+            'hideLabel' => false,
+            'enableVarSub' => false,
+            'minDate' => null,
+            'maxDate' => null,
+            'dateFormat' => 'YYYY-MMM-DD',
+        ];
     }
 }
