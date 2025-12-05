@@ -1557,28 +1557,59 @@ trait InteractsWithAnonymousSiebelSync
         $deleted = 0;
         $identityFilters = array_values($touchedTableIdentities);
 
-        $tables = DB::table(self::TABLES_TABLE . ' as t')
-            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
-            ->select('t.id', 's.database_id', 's.schema_name', 't.table_name')
-            ->where(function ($query) use ($identityFilters) {
-                foreach ($identityFilters as $filter) {
-                    $query->orWhere(function ($nested) use ($filter) {
-                        $nested
-                            ->where('s.database_id', $filter['database_id'])
-                            ->where('s.schema_name', $filter['schema_name'])
-                            ->where('t.table_name', $filter['table_name']);
-                    });
-                }
-            })
-            ->get();
+        // Create a temporary table for table identities to avoid parameter limit issues
+        // PostgreSQL has a limit of 65,535 parameters per query, and with 3 params per table
+        // we can hit this limit with large imports (>20k tables)
+        $tempTableIdentitiesTable = 'temp_table_identities_' . uniqid();
+        DB::statement("CREATE TEMPORARY TABLE {$tempTableIdentitiesTable} (
+            database_id INTEGER NOT NULL,
+            schema_name VARCHAR(255) NOT NULL,
+            table_name VARCHAR(255) NOT NULL
+        )");
 
-        if ($tables->isEmpty()) {
+        // Insert table identities in chunks to stay within parameter limits
+        // Each insert has 3 params, so chunk at ~20k to be safe
+        foreach (array_chunk($identityFilters, 20000) as $chunk) {
+            $insertData = [];
+            foreach ($chunk as $filter) {
+                $insertData[] = [
+                    'database_id' => $filter['database_id'],
+                    'schema_name' => $filter['schema_name'],
+                    'table_name' => $filter['table_name'],
+                ];
+            }
+            if (!empty($insertData)) {
+                DB::table($tempTableIdentitiesTable)->insert($insertData);
+            }
+        }
+
+        // Create a temp table to store table IDs that match our identity filters
+        $tempMatchedTablesTable = 'temp_matched_tables_' . uniqid();
+        DB::statement("CREATE TEMPORARY TABLE {$tempMatchedTablesTable} (
+            table_id INTEGER PRIMARY KEY
+        )");
+
+        // Insert matching table IDs using a join (avoids loading into PHP memory)
+        DB::statement("
+            INSERT INTO {$tempMatchedTablesTable} (table_id)
+            SELECT t.id
+            FROM " . self::TABLES_TABLE . " t
+            INNER JOIN " . self::SCHEMAS_TABLE . " s ON t.schema_id = s.id
+            INNER JOIN {$tempTableIdentitiesTable} ti
+                ON s.database_id = ti.database_id
+                AND s.schema_name = ti.schema_name
+                AND t.table_name = ti.table_name
+        ");
+
+        // Check if we have any matched tables
+        $matchedCount = DB::table($tempMatchedTablesTable)->count();
+        if ($matchedCount === 0) {
+            DB::statement("DROP TABLE IF EXISTS {$tempTableIdentitiesTable}");
+            DB::statement("DROP TABLE IF EXISTS {$tempMatchedTablesTable}");
             return 0;
         }
 
-        $tableIds = $tables->pluck('id')->all();
-
-        // Use a more efficient approach: create a temporary table with column identities to delete
+        // Create a temporary table with column identities to potentially delete
         $tempDeleteCandidatesTable = 'temp_delete_candidates_' . uniqid();
         DB::statement("CREATE TEMPORARY TABLE {$tempDeleteCandidatesTable} (
             column_id INTEGER PRIMARY KEY,
@@ -1586,52 +1617,85 @@ trait InteractsWithAnonymousSiebelSync
         )");
 
         // Insert all non-deleted columns from touched tables into temp table with their identities
-        // This is done in chunks to avoid memory issues
-        DB::table(self::COLUMNS_TABLE . ' as c')
-            ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
-            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
-            ->select('c.id', 'c.column_name', 't.table_name', 's.schema_name', 's.database_id')
-            ->whereIn('c.table_id', $tableIds)
-            ->whereNull('c.deleted_at')
-            ->orderBy('c.id')
-            ->chunk(500, function ($columns) use ($tempDeleteCandidatesTable) {
-                $insertData = [];
-                foreach ($columns as $column) {
-                    $columnKey = $this->columnIdentityKey(
-                        (int) $column->database_id,
-                        $column->schema_name,
-                        $column->table_name,
-                        $column->column_name
-                    );
-                    $insertData[] = [
-                        'column_id' => $column->id,
-                        'column_identity' => $columnKey,
-                    ];
-                }
+        // Process in chunks to avoid memory issues, but use the temp table for the join
+        $lastProcessedId = 0;
+        $chunkSize = 500;
 
-                if (!empty($insertData)) {
-                    DB::table($tempDeleteCandidatesTable)->insert($insertData);
-                }
-            });
-
-        // Now find columns to delete: those in candidates table but NOT in processed identities table
-        // Use a LEFT JOIN to find missing entries efficiently
-        $columnsToDelete = DB::table($tempDeleteCandidatesTable . ' as dc')
-            ->leftJoin($tempTableName . ' as processed', 'dc.column_identity', '=', 'processed.column_identity')
-            ->whereNull('processed.column_identity')
-            ->pluck('dc.column_id')
-            ->all();
-
-        // Process deletions in chunks
-        foreach (array_chunk($columnsToDelete, 100) as $chunk) {
+        do {
             $columns = DB::table(self::COLUMNS_TABLE . ' as c')
                 ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
                 ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
-                ->select('c.id', 's.database_id', 's.schema_name', 't.table_name', 'c.column_name')
-                ->whereIn('c.id', $chunk)
+                ->join($tempMatchedTablesTable . ' as mt', 'c.table_id', '=', 'mt.table_id')
+                ->select('c.id', 'c.column_name', 't.table_name', 's.schema_name', 's.database_id')
+                ->where('c.id', '>', $lastProcessedId)
+                ->whereNull('c.deleted_at')
+                ->orderBy('c.id')
+                ->limit($chunkSize)
                 ->get();
 
+            if ($columns->isEmpty()) {
+                break;
+            }
+
+            $insertData = [];
             foreach ($columns as $column) {
+                $columnKey = $this->columnIdentityKey(
+                    (int) $column->database_id,
+                    $column->schema_name,
+                    $column->table_name,
+                    $column->column_name
+                );
+                $insertData[] = [
+                    'column_id' => $column->id,
+                    'column_identity' => $columnKey,
+                ];
+                $lastProcessedId = $column->id;
+            }
+
+            if (!empty($insertData)) {
+                DB::table($tempDeleteCandidatesTable)->insert($insertData);
+            }
+
+            // Free memory
+            unset($columns, $insertData);
+        } while (true);
+
+        // Create a temp table to store column IDs that need to be deleted
+        // (those in candidates but NOT in processed identities)
+        $tempColumnsToDeleteTable = 'temp_columns_to_delete_' . uniqid();
+        DB::statement("CREATE TEMPORARY TABLE {$tempColumnsToDeleteTable} (
+            column_id INTEGER PRIMARY KEY
+        )");
+
+        // Use SQL to find columns to delete (avoids loading into PHP memory)
+        DB::statement("
+            INSERT INTO {$tempColumnsToDeleteTable} (column_id)
+            SELECT dc.column_id
+            FROM {$tempDeleteCandidatesTable} dc
+            LEFT JOIN {$tempTableName} processed ON dc.column_identity = processed.column_identity
+            WHERE processed.column_identity IS NULL
+        ");
+
+        // Process deletions in chunks using cursor-based pagination
+        $lastDeletedId = 0;
+        $deleteChunkSize = 100;
+
+        do {
+            $columnsToProcess = DB::table(self::COLUMNS_TABLE . ' as c')
+                ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
+                ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+                ->join($tempColumnsToDeleteTable . ' as del', 'c.id', '=', 'del.column_id')
+                ->select('c.id', 's.database_id', 's.schema_name', 't.table_name', 'c.column_name')
+                ->where('c.id', '>', $lastDeletedId)
+                ->orderBy('c.id')
+                ->limit($deleteChunkSize)
+                ->get();
+
+            if ($columnsToProcess->isEmpty()) {
+                break;
+            }
+
+            foreach ($columnsToProcess as $column) {
                 $diff = [
                     'deleted_at' => [
                         'old' => null,
@@ -1657,12 +1721,19 @@ trait InteractsWithAnonymousSiebelSync
                     ]
                 );
 
+                $lastDeletedId = $column->id;
                 ++$deleted;
             }
-        }
 
-        // Clean up temporary table
+            // Free memory
+            unset($columnsToProcess);
+        } while (true);
+
+        // Clean up temporary tables
+        DB::statement("DROP TABLE IF EXISTS {$tempColumnsToDeleteTable}");
         DB::statement("DROP TABLE IF EXISTS {$tempDeleteCandidatesTable}");
+        DB::statement("DROP TABLE IF EXISTS {$tempMatchedTablesTable}");
+        DB::statement("DROP TABLE IF EXISTS {$tempTableIdentitiesTable}");
 
         return $deleted;
     }

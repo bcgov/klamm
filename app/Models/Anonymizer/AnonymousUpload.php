@@ -22,6 +22,7 @@ class AnonymousUpload extends Model
         'original_name',
         'status',
         'status_detail',
+        'import_type',
         'inserted',
         'updated',
         'deleted',

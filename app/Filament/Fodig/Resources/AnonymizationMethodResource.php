@@ -71,6 +71,42 @@ class AnonymizationMethodResource extends Resource
                             ->helperText('Use placeholders such as {{TABLE}}, {{COLUMN}}, or {{ALIAS}} when composing generalized snippets. These will be replaced during job generation.'),
                     ])
                     ->columns(1),
+                Forms\Components\Section::make('Seed Contract')
+                    ->description('Declare how this method participates in the deterministic seed graph so dependent foreign keys stay aligned.')
+                    ->schema([
+                        Forms\Components\Grid::make(3)
+                            ->schema([
+                                Forms\Components\Toggle::make('emits_seed')
+                                    ->label('Emits seed')
+                                    ->helperText('Method outputs the canonical deterministic value other columns will reuse.')
+                                    ->default(false),
+                                Forms\Components\Toggle::make('requires_seed')
+                                    ->label('Requires seed')
+                                    ->helperText('Method expects a parent-provided seed when executed.')
+                                    ->default(false),
+                                Forms\Components\Toggle::make('supports_composite_seed')
+                                    ->label('Composite-ready')
+                                    ->helperText('Method can consume or emit bundled seeds composed of multiple columns.')
+                                    ->default(false),
+                            ]),
+                        Forms\Components\Textarea::make('seed_notes')
+                            ->label('Seed notes')
+                            ->rows(3)
+                            ->helperText('Optional guidance for how this method should be wired into FK contracts (e.g. expected parent columns, seed bundle format).'),
+                    ])
+                    ->columns(1),
+                Forms\Components\Section::make('Package Dependencies')
+                    ->description('Attach reusable SQL packages (e.g. PL/SQL libraries) that must be included before this method runs.')
+                    ->schema([
+                        Forms\Components\Select::make('packages')
+                            ->label('Packages')
+                            ->relationship('packages', 'name', fn($query) => $query->orderBy('name'))
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Any package selected here will be bundled automatically when jobs use this method.'),
+                    ])
+                    ->columns(1),
                 Forms\Components\Section::make('Preview & Guidance')
                     ->schema([
                         Forms\Components\Placeholder::make('sql_preview')
@@ -125,9 +161,30 @@ class AnonymizationMethodResource extends Resource
                     ->label('Summary')
                     ->limit(60)
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\IconColumn::make('emits_seed')
+                    ->label('Emits')
+                    ->boolean()
+                    ->tooltip('Emits deterministic seed for dependents'),
+                Tables\Columns\IconColumn::make('requires_seed')
+                    ->label('Needs')
+                    ->boolean()
+                    ->tooltip('Requires upstream seed'),
+                Tables\Columns\IconColumn::make('supports_composite_seed')
+                    ->label('Composite')
+                    ->boolean()
+                    ->tooltip('Supports composite seed bundles')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('seed_capability_summary')
+                    ->label('Seed contract')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('usage_count')
                     ->label('Columns')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('packages_count')
+                    ->label('Packages')
+                    ->counts('packages')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('has_sql')
                     ->label('SQL')
                     ->boolean()
@@ -147,6 +204,12 @@ class AnonymizationMethodResource extends Resource
                         ->orderBy('category')
                         ->pluck('category', 'category')
                         ->all()),
+                Tables\Filters\TernaryFilter::make('emits_seed')
+                    ->label('Emits seed')
+                    ->nullable(),
+                Tables\Filters\TernaryFilter::make('requires_seed')
+                    ->label('Requires seed')
+                    ->nullable(),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -204,8 +267,21 @@ class AnonymizationMethodResource extends Resource
                     ->hidden(fn($record) => blank($record?->sql_block)),
                 InfolistSection::make('Usage Metrics')
                     ->schema([
+                        TextEntry::make('seed_capability_summary')
+                            ->label('Seed contract')
+                            ->columnSpanFull(),
+                        TextEntry::make('seed_notes')
+                            ->label('Seed notes')
+                            ->columnSpanFull()
+                            ->placeholder('—'),
                         TextEntry::make('usage_count')
                             ->label('Columns using this method'),
+                        TextEntry::make('packages')
+                            ->label('Packages included')
+                            ->getStateUsing(fn(AnonymizationMethods $record) => $record->packages
+                                ? $record->packages->pluck('name')->implode(', ')
+                                : '—')
+                            ->columnSpanFull(),
                         TextEntry::make('created_at')
                             ->dateTime()
                             ->label('Created'),

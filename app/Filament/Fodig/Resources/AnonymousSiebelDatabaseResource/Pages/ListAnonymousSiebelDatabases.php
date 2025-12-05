@@ -3,6 +3,7 @@
 namespace App\Filament\Fodig\Resources\AnonymousSiebelDatabaseResource\Pages;
 
 use App\Filament\Fodig\Resources\AnonymousSiebelDatabaseResource;
+use App\Filament\Fodig\Resources\AnonymousUploadResource;
 use Filament\Actions;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
@@ -19,7 +20,7 @@ class ListAnonymousSiebelDatabases extends ListRecords
             Actions\Action::make('import')
                 ->label('Import')
                 ->icon('heroicon-o-wrench-screwdriver')
-                ->url(fn() => AnonymousSiebelDatabaseResource::getUrl('import'))
+                ->url(fn() => AnonymousUploadResource::getUrl('import'))
                 ->color('primary')
                 ->outlined()
                 ->visible(fn() => Gate::allows('admin')),

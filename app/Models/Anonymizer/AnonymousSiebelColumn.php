@@ -2,6 +2,7 @@
 
 namespace App\Models\Anonymizer;
 
+use App\Enums\SeedContractMode;
 use App\Models\AnonymizationJobs;
 use App\Models\AnonymizationMethods;
 use App\Traits\LogsAnonymizerActivity;
@@ -15,6 +16,8 @@ class AnonymousSiebelColumn extends Model
     use SoftDeletes, HasFactory, LogsAnonymizerActivity;
 
     protected $table = 'anonymous_siebel_columns';
+
+    protected $appends = ['seed_contract_summary'];
 
     protected $fillable = [
         'column_name',
@@ -36,6 +39,9 @@ class AnonymousSiebelColumn extends Model
         'data_type_id',
         'metadata_comment',
         'anonymization_required',
+        'seed_contract_mode',
+        'seed_contract_expression',
+        'seed_contract_notes',
     ];
 
     protected $casts = [
@@ -50,11 +56,39 @@ class AnonymousSiebelColumn extends Model
         'changed_at' => 'datetime',
         'changed_fields' => 'array',
         'anonymization_required' => 'boolean',
+        'seed_contract_mode' => SeedContractMode::class,
     ];
 
     protected static function activityLogNameOverride(): ?string
     {
         return 'anonymous_siebel_columns';
+    }
+
+    public function getSeedContractSummaryAttribute(): string
+    {
+        $mode = $this->seed_contract_mode;
+
+        if (! $mode) {
+            return 'Not declared';
+        }
+
+        $suffix = [];
+
+        if ($this->seed_contract_expression) {
+            $suffix[] = 'expression defined';
+        }
+
+        if ($this->seed_contract_notes) {
+            $suffix[] = 'notes';
+        }
+
+        $summary = $mode->label();
+
+        if ($suffix !== []) {
+            $summary .= ' (' . implode(', ', $suffix) . ')';
+        }
+
+        return $summary;
     }
 
     protected static function activityLogAttributesOverride(): ?array
@@ -116,12 +150,16 @@ class AnonymousSiebelColumn extends Model
 
     public function childColumns()
     {
-        return $this->belongsToMany(self::class, 'anonymous_siebel_column_dependencies', 'parent_field_id', 'child_field_id');
+        return $this->belongsToMany(self::class, 'anonymous_siebel_column_dependencies', 'parent_field_id', 'child_field_id')
+            ->withPivot(['seed_bundle_label', 'seed_bundle_components', 'is_seed_mandatory'])
+            ->withTimestamps();
     }
 
     public function parentColumns()
     {
-        return $this->belongsToMany(self::class, 'anonymous_siebel_column_dependencies', 'child_field_id', 'parent_field_id');
+        return $this->belongsToMany(self::class, 'anonymous_siebel_column_dependencies', 'child_field_id', 'parent_field_id')
+            ->withPivot(['seed_bundle_label', 'seed_bundle_components', 'is_seed_mandatory'])
+            ->withTimestamps();
     }
 
     public function anonymizationMethods(): BelongsToMany

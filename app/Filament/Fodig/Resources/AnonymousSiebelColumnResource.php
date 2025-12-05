@@ -2,11 +2,14 @@
 
 namespace App\Filament\Fodig\Resources;
 
+use App\Enums\SeedContractMode;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers\ActivityLogRelationManager;
+use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -92,6 +95,42 @@ class AnonymousSiebelColumnResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\Toggle::make('anonymization_required')
                             ->label('Anonymization required'),
+                        Forms\Components\Fieldset::make('Seed contract')
+                            ->schema([
+                                Forms\Components\Select::make('seed_contract_mode')
+                                    ->label('Seed role')
+                                    ->placeholder('Select seed role')
+                                    ->options(SeedContractMode::options())
+                                    ->searchable()
+                                    ->native(false)
+                                    ->helperText('Label how this column participates in deterministic seed propagation.')
+                                    ->dehydrateStateUsing(fn($state) => $state ?: null),
+                                Forms\Components\Placeholder::make('seed_contract_mode_description')
+                                    ->label('Guidance')
+                                    ->content(function (Get $get): string {
+                                        $mode = $get('seed_contract_mode');
+
+                                        if (! $mode) {
+                                            return 'Select a seed role to see expected behavior.';
+                                        }
+
+                                        $enum = SeedContractMode::tryFrom($mode);
+
+                                        return $enum?->description() ?? 'Unknown seed role.';
+                                    })
+                                    ->columnSpan(2),
+                                Forms\Components\Textarea::make('seed_contract_expression')
+                                    ->label('Seed expression / bundle definition')
+                                    ->rows(3)
+                                    ->columnSpanFull()
+                                    ->helperText('Document the SQL expression or ordered bundle that should be reused by dependent columns.'),
+                                Forms\Components\Textarea::make('seed_contract_notes')
+                                    ->label('Seed notes')
+                                    ->rows(3)
+                                    ->columnSpanFull()
+                                    ->helperText('Capture edge cases, migrations, or verification steps tied to this seed contract.'),
+                            ])
+                            ->columns(2),
                         Forms\Components\Select::make('anonymizationMethods')
                             ->label('Anonymization methods')
                             ->relationship('anonymizationMethods', 'name')
@@ -100,6 +139,11 @@ class AnonymousSiebelColumnResource extends Resource
                             ->preload()
                             ->nullable()
                             ->columnSpanFull(),
+                        Forms\Components\Placeholder::make('seed_contract_summary_display')
+                            ->label('Current seed contract summary')
+                            ->content(fn(?AnonymousSiebelColumn $record) => $record?->seed_contract_summary ?? 'Not declared')
+                            ->columnSpanFull()
+                            ->visibleOn('edit'),
                     ]),
                 Forms\Components\Section::make('Sync metadata')
                     ->schema([
@@ -130,6 +174,10 @@ class AnonymousSiebelColumnResource extends Resource
                     ->label('Table')
                     ->sortable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('table.schema.schema_name')
+                    ->label('Schema')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('dataType.data_type_name')
                     ->label('Data type')
                     ->sortable()
@@ -139,12 +187,28 @@ class AnonymousSiebelColumnResource extends Resource
                     ->badge()
                     ->separator(',')
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('seed_contract_summary')
+                    ->label('Seed contract')
+                    ->wrap()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('anonymization_required')
                     ->label('Anonymization required')
                     ->boolean()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('nullable')
                     ->boolean(),
+                Tables\Columns\TextColumn::make('parentColumns_count')
+                    ->label('Parent columns')
+                    ->counts('parentColumns')
+                    ->sortable()
+                    ->badge()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('childColumns_count')
+                    ->label('Child columns')
+                    ->counts('childColumns')
+                    ->sortable()
+                    ->badge()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('data_length')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -156,8 +220,19 @@ class AnonymousSiebelColumnResource extends Resource
                     ->sortable(),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('database_id')
+                    ->label('Database')
+                    ->searchable()
+                    ->preload()
+                    ->relationship('table.schema.database', 'database_name'),
+                Tables\Filters\SelectFilter::make('schema_id')
+                    ->label('Schema')
+                    ->searchable()
+                    ->preload()
+                    ->relationship('table.schema', 'schema_name'),
                 Tables\Filters\SelectFilter::make('table_id')
                     ->label('Table')
+                    ->searchable()
                     ->relationship('table', 'table_name'),
                 Tables\Filters\SelectFilter::make('data_type_id')
                     ->label('Data type')
@@ -167,6 +242,33 @@ class AnonymousSiebelColumnResource extends Resource
                     ->relationship('anonymizationMethods', 'name')
                     ->multiple()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('seed_contract_mode')
+                    ->label('Seed role')
+                    ->options(SeedContractMode::options()),
+                Tables\Filters\SelectFilter::make('parentColumns')
+                    ->label('Depends on column')
+                    ->relationship('parentColumns', 'column_name')
+                    ->multiple()
+                    ->searchable(),
+                Tables\Filters\SelectFilter::make('childColumns')
+                    ->label('Used by column')
+                    ->relationship('childColumns', 'column_name')
+                    ->multiple()
+                    ->searchable(),
+                Tables\Filters\TernaryFilter::make('has_parents')
+                    ->label('Has parent columns')
+                    ->nullable()
+                    ->queries(
+                        true: fn(Builder $query) => $query->whereHas('parentColumns'),
+                        false: fn(Builder $query) => $query->whereDoesntHave('parentColumns'),
+                    ),
+                Tables\Filters\TernaryFilter::make('has_children')
+                    ->label('Has child columns')
+                    ->nullable()
+                    ->queries(
+                        true: fn(Builder $query) => $query->whereHas('childColumns'),
+                        false: fn(Builder $query) => $query->whereDoesntHave('childColumns'),
+                    ),
                 Tables\Filters\TernaryFilter::make('anonymization_required')
                     ->label('Anonymization required')
                     ->nullable(),
@@ -187,6 +289,8 @@ class AnonymousSiebelColumnResource extends Resource
     public static function getRelations(): array
     {
         return [
+            RelationManagers\ParentColumnsRelationManager::class,
+            RelationManagers\ChildColumnsRelationManager::class,
             ActivityLogRelationManager::class,
         ];
     }
@@ -198,6 +302,7 @@ class AnonymousSiebelColumnResource extends Resource
             'create' => Pages\CreateAnonymousSiebelColumn::route('/create'),
             'view' => Pages\ViewAnonymousSiebelColumn::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelColumn::route('/{record}/edit'),
+            'bulk-assign' => Pages\BulkAssignSeedContracts::route('/bulk-assign-seed-contracts'),
         ];
     }
 }

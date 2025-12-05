@@ -20,7 +20,7 @@ class GenerateAnonymizationJobSql implements ShouldQueue
     {
         $job = AnonymizationJobs::query()
             ->with([
-                'columns.anonymizationMethods',
+                'columns.anonymizationMethods.packages',
                 'columns.table.schema.database',
                 'columns.parentColumns.table.schema.database',
             ])

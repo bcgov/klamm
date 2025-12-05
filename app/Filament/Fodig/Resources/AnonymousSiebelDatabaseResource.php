@@ -99,7 +99,6 @@ class AnonymousSiebelDatabaseResource extends Resource
     {
         return [
             'index' => Pages\ListAnonymousSiebelDatabases::route('/'),
-            'import' => Pages\ImportSiebelMetadata::route('/import'),
             'create' => Pages\CreateAnonymousSiebelDatabase::route('/create'),
             'edit' => Pages\EditAnonymousSiebelDatabase::route('/{record}/edit'),
         ];

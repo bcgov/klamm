@@ -4,11 +4,17 @@ namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymizationJobResource\Pages;
 use App\Models\AnonymizationJobs;
+use App\Models\AnonymizationPackage;
+use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Services\Anonymizer\AnonymizationJobScriptService;
 use Filament\Forms;
+use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Section as FormSection;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Infolists\Components\Grid as InfolistGrid;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\Section as InfolistSection;
@@ -19,11 +25,15 @@ use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class AnonymizationJobResource extends Resource
 {
     protected static ?string $model = AnonymizationJobs::class;
+
+    protected const PACKAGE_DEPENDENCY_RELATION = '__packageDependencies';
 
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
 
@@ -71,7 +81,9 @@ class AnonymizationJobResource extends Resource
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->placeholder('Select databases to anonymize'),
+                            ->live()
+                            ->afterStateUpdated(fn($state, Set $set, Get $get) => self::refreshColumnsFromScope($set, $get))
+                            ->placeholder('Pick one or more databases as the outer boundary for this job.'),
                         Select::make('schemas')
                             ->relationship(
                                 name: 'schemas',
@@ -83,7 +95,9 @@ class AnonymizationJobResource extends Resource
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->placeholder('Optionally scope to schemas'),
+                            ->live()
+                            ->afterStateUpdated(fn($state, Set $set, Get $get) => self::refreshColumnsFromScope($set, $get))
+                            ->placeholder('Optionally narrow the scope to individual schemas.'),
                         Select::make('tables')
                             ->relationship(
                                 name: 'tables',
@@ -95,8 +109,33 @@ class AnonymizationJobResource extends Resource
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->placeholder('Optionally scope to tables'),
+                            ->live()
+                            ->afterStateUpdated(fn($state, Set $set, Get $get) => self::refreshColumnsFromScope($set, $get))
+                            ->placeholder('Optionally focus on specific tables that require anonymization tweaks.'),
+                        Fieldset::make('Column builder')
+                            ->schema([
+                                ToggleButtons::make('column_builder_mode')
+                                    ->label('Column selection mode')
+                                    ->options(self::columnBuilderModeOptions())
+                                    ->inline()
+                                    ->default('custom')
+                                    ->live()
+                                    ->dehydrated(false)
+                                    ->helperText('Use helper presets to auto-populate the column list based on catalog metadata. Switch back to Manual to take full control.')
+                                    ->afterStateUpdated(fn(?string $state, Set $set, Get $get) => self::syncColumnsFromMode($state, $set, $get)),
+                                Forms\Components\Placeholder::make('column_selection_summary')
+                                    ->label('Selection summary')
+                                    ->content(fn(Get $get) => self::columnSelectionSummary($get('columns')))
+                                    ->columnSpanFull(),
+                                Forms\Components\Placeholder::make('package_selection_summary')
+                                    ->label('Package dependencies')
+                                    ->content(fn(Get $get) => self::packageDependenciesSummary($get('columns')))
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(1)
+                            ->columnSpanFull(),
                         Select::make('columns')
+                            ->label('Columns')
                             ->relationship(
                                 name: 'columns',
                                 titleAttribute: 'column_name',
@@ -108,6 +147,8 @@ class AnonymizationJobResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
+                            ->helperText('Fine-tune the generated list by searching or removing specific columns. The SQL preview updates automatically.')
+                            ->getOptionLabelFromRecordUsing(fn(AnonymousSiebelColumn $record) => self::formatColumnLabel($record))
                             ->afterStateHydrated(function ($state, callable $set, $livewire) {
                                 $columnIds = is_array($state) ? $state : ($state ? [$state] : []);
 
@@ -333,6 +374,33 @@ class AnonymizationJobResource extends Resource
                             ->visible(fn(AnonymizationJobs $record) => $record->methods->isNotEmpty()),
                     ])
                     ->visible(fn(AnonymizationJobs $record) => $record->methods->isNotEmpty()),
+                InfolistSection::make('Package Dependencies')
+                    ->schema([
+                        RepeatableEntry::make('packages')
+                            ->label('Packages')
+                            ->getStateUsing(fn(AnonymizationJobs $record) => self::packagesForJob($record)
+                                ->map(fn(AnonymizationPackage $package) => [
+                                    'name' => $package->name,
+                                    'platform' => $package->database_platform,
+                                    'summary' => $package->summary,
+                                ])
+                                ->all())
+                            ->schema([
+                                TextEntry::make('name')
+                                    ->label('Package')
+                                    ->extraAttributes(['class' => 'font-medium text-slate-900']),
+                                TextEntry::make('platform')
+                                    ->label('Platform')
+                                    ->formatStateUsing(fn(?string $state) => $state ? Str::headline($state) : '—'),
+                                TextEntry::make('summary')
+                                    ->label('Summary')
+                                    ->placeholder('—')
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(2)
+                            ->visible(fn(array $state) => ! empty($state)),
+                    ])
+                    ->visible(fn(AnonymizationJobs $record) => self::packagesForJob($record)->isNotEmpty()),
                 InfolistSection::make('Generated SQL Script')
                     ->schema([
                         TextEntry::make('sql_script')
@@ -414,5 +482,199 @@ class AnonymizationJobResource extends Resource
         }
 
         return app(AnonymizationJobScriptService::class)->buildForColumnIds($columnIds);
+    }
+
+    protected static function columnBuilderModeOptions(): array
+    {
+        return [
+            'custom' => 'Manual',
+            'flagged' => 'Flagged columns',
+            'with_methods' => 'Has methods',
+            'missing' => 'Missing method',
+            'all' => 'Entire scope',
+        ];
+    }
+
+    protected static function syncColumnsFromMode(?string $mode, Set $set, Get $get): void
+    {
+        if ($mode === null || $mode === 'custom') {
+            return;
+        }
+
+        $set('columns', self::autoColumnsForMode($mode, self::scopeContextFromForm($get)));
+    }
+
+    protected static function refreshColumnsFromScope(Set $set, Get $get): void
+    {
+        $mode = $get('column_builder_mode') ?? 'custom';
+
+        if ($mode === 'custom') {
+            return;
+        }
+
+        $set('columns', self::autoColumnsForMode($mode, self::scopeContextFromForm($get)));
+    }
+
+    protected static function autoColumnsForMode(string $mode, array $context): array
+    {
+        $query = self::scopedColumnsQuery($context)
+            ->orderBy('schemas.schema_name')
+            ->orderBy('tables.table_name')
+            ->orderBy('anonymous_siebel_columns.column_name')
+            ->limit(2_000);
+
+        $query = match ($mode) {
+            'flagged' => $query->where('anonymous_siebel_columns.anonymization_required', true),
+            'missing' => $query->whereDoesntHave('anonymizationMethods'),
+            'with_methods' => $query->whereHas('anonymizationMethods'),
+            default => $query,
+        };
+
+        return $query
+            ->pluck('anonymous_siebel_columns.id')
+            ->map(fn($id) => (int) $id)
+            ->all();
+    }
+
+    protected static function scopedColumnsQuery(array $context): Builder
+    {
+        $query = AnonymousSiebelColumn::query()
+            ->select('anonymous_siebel_columns.id')
+            ->join('anonymous_siebel_tables as tables', 'tables.id', '=', 'anonymous_siebel_columns.table_id')
+            ->join('anonymous_siebel_schemas as schemas', 'schemas.id', '=', 'tables.schema_id')
+            ->join('anonymous_siebel_databases as databases', 'databases.id', '=', 'schemas.database_id');
+
+        if ($context['tables'] !== []) {
+            $query->whereIn('tables.id', $context['tables']);
+        } elseif ($context['schemas'] !== []) {
+            $query->whereIn('schemas.id', $context['schemas']);
+        } elseif ($context['databases'] !== []) {
+            $query->whereIn('databases.id', $context['databases']);
+        }
+
+        return $query->distinct();
+    }
+
+    protected static function scopeContextFromForm(Get $get): array
+    {
+        return [
+            'databases' => self::sanitizeIds($get('databases')),
+            'schemas' => self::sanitizeIds($get('schemas')),
+            'tables' => self::sanitizeIds($get('tables')),
+        ];
+    }
+
+    protected static function sanitizeIds($value): array
+    {
+        $ids = array_map('intval', Arr::wrap($value));
+
+        return array_values(array_filter($ids, fn(int $id) => $id > 0));
+    }
+
+    protected static function columnSelectionSummary($columnIds): string
+    {
+        $ids = self::sanitizeIds($columnIds);
+
+        if ($ids === []) {
+            return 'No columns selected yet.';
+        }
+
+        /** @var Collection<int, AnonymousSiebelColumn> $columns */
+        $columns = AnonymousSiebelColumn::query()
+            ->select('id', 'anonymization_required')
+            ->withCount('anonymizationMethods')
+            ->whereIn('id', $ids)
+            ->get();
+
+        if ($columns->isEmpty()) {
+            return 'No columns selected yet.';
+        }
+
+        $total = $columns->count();
+        $withMethod = $columns->where('anonymization_methods_count', '>', 0)->count();
+        $withoutMethod = $total - $withMethod;
+        $flagged = $columns->where('anonymization_required', true)->count();
+
+        return sprintf(
+            '%s %s selected — %s with methods, %s without, %s flagged as required.',
+            number_format($total),
+            Str::plural('column', $total),
+            number_format($withMethod),
+            number_format($withoutMethod),
+            number_format($flagged)
+        );
+    }
+
+    protected static function packageDependenciesSummary($columnIds): string
+    {
+        $ids = self::sanitizeIds($columnIds);
+
+        if ($ids === []) {
+            return 'No package dependencies detected yet.';
+        }
+
+        $packages = AnonymizationPackage::query()
+            ->select('anonymization_packages.id', 'anonymization_packages.name', 'anonymization_packages.database_platform')
+            ->join('anonymization_method_package as amp', 'amp.anonymization_package_id', '=', 'anonymization_packages.id')
+            ->join('anonymization_method_column as amc', 'amc.method_id', '=', 'amp.anonymization_method_id')
+            ->whereIn('amc.column_id', $ids)
+            ->distinct()
+            ->orderBy('anonymization_packages.name')
+            ->get();
+
+        if ($packages->isEmpty()) {
+            return 'No package dependencies detected yet.';
+        }
+
+        $labels = $packages->map(function (AnonymizationPackage $package) {
+            $platform = $package->database_platform ? strtoupper($package->database_platform) : null;
+            return $platform
+                ? $package->name . ' (' . $platform . ')'
+                : $package->name;
+        })->all();
+
+        return sprintf(
+            '%s %s required: %s',
+            number_format($packages->count()),
+            Str::plural('package', $packages->count()),
+            implode(', ', $labels)
+        );
+    }
+
+    protected static function packagesForJob(AnonymizationJobs $job)
+    {
+        if ($job->relationLoaded(self::PACKAGE_DEPENDENCY_RELATION)) {
+            return $job->getRelation(self::PACKAGE_DEPENDENCY_RELATION);
+        }
+
+        $packages = AnonymizationPackage::query()
+            ->select('anonymization_packages.*')
+            ->join('anonymization_method_package as amp', 'amp.anonymization_package_id', '=', 'anonymization_packages.id')
+            ->join('anonymization_job_columns as ajc', 'ajc.anonymization_method_id', '=', 'amp.anonymization_method_id')
+            ->where('ajc.job_id', $job->getKey())
+            ->whereNotNull('ajc.anonymization_method_id')
+            ->distinct()
+            ->orderBy('anonymization_packages.name')
+            ->get();
+
+        $job->setRelation(self::PACKAGE_DEPENDENCY_RELATION, $packages);
+
+        return $packages;
+    }
+
+    protected static function formatColumnLabel(AnonymousSiebelColumn $column): string
+    {
+        $column->loadMissing('table.schema.database');
+
+        $segments = array_filter([
+            $column->table?->schema?->database?->database_name,
+            $column->table?->schema?->schema_name,
+            $column->table?->table_name,
+            $column->column_name,
+        ]);
+
+        return $segments !== []
+            ? implode('.', $segments)
+            : $column->column_name;
     }
 }

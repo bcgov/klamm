@@ -1,13 +1,14 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\AnonymousSiebelDatabaseResource\Pages;
+namespace App\Filament\Fodig\Resources\AnonymousUploadResource\Pages;
 
-use App\Filament\Fodig\Resources\AnonymousSiebelDatabaseResource;
+use App\Filament\Fodig\Resources\AnonymousUploadResource;
 use App\Jobs\SyncAnonymousSiebelColumnsJob;
 use App\Models\Anonymizer\AnonymousUpload;
 use Filament\Actions;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Wizard;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -22,31 +23,45 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 class ImportSiebelMetadata extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string $resource = AnonymousSiebelDatabaseResource::class;
-    protected static string $view = 'filament.fodig.resources.anonymous-siebel-database-resource.pages.import-siebel-metadata';
+    protected static string $resource = AnonymousUploadResource::class;
+    protected static string $view = 'filament.fodig.resources.anonymous-upload-resource.pages.import-siebel-metadata';
+
+    protected static ?string $title = 'Import Siebel Metadata';
 
     private const PREVIEW_ROWS = 5;
     private const PREVIEW_MAX_BYTES = 2_000_000; // Stop preview parsing after ~2 MB to keep requests snappy.
     private const PREVIEW_SKIP_BYTES = 10_000_000; // Skip parsing entirely when the upload exceeds ~10 MB.
 
+    public const REQUIRED_HEADER_COLUMNS = [
+        'DATABASE_NAME',
+        'SCHEMA_NAME',
+        'OBJECT_TYPE',
+        'TABLE_NAME',
+        'COLUMN_NAME',
+        'COLUMN_ID',
+        'DATA_TYPE',
+    ];
+
+    public const OPTIONAL_HEADER_COLUMNS = [
+        'DATA_LENGTH',
+        'DATA_PRECISION',
+        'DATA_SCALE',
+        'NULLABLE',
+        'CHAR_LENGTH',
+        'TABLE_COMMENT',
+        'COLUMN_COMMENT',
+        'RELATED_COLUMNS',
+    ];
+
     public array $recentUploads = [];
     public array $notifiedStatuses = [];
-
-    // protected function getHeading(): string
-    // {
-    //     return 'Import Siebel Metadata';
-    // }
-
-    // protected function getSubheading(): ?string
-    // {
-    //     return 'Upload anonymized Siebel metadata CSV files and queue the sync job.';
-    // }
 
     public function mount(): void
     {
@@ -57,6 +72,17 @@ class ImportSiebelMetadata extends Page implements HasForms
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('back_to_list')
+                ->label('Back to Uploads')
+                ->icon('heroicon-o-arrow-left')
+                ->color('gray')
+                ->url(fn() => AnonymousUploadResource::getUrl('index')),
+            Actions\Action::make('download_template')
+                ->label('Download Template')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->outlined()
+                ->action(fn() => $this->downloadTemplate()),
             Actions\Action::make('import_metadata')
                 ->label('Import Metadata')
                 ->icon('heroicon-o-arrow-up-tray')
@@ -64,6 +90,22 @@ class ImportSiebelMetadata extends Page implements HasForms
                 ->outlined()
                 ->modalWidth('3xl')
                 ->steps([
+                    Wizard\Step::make('Import Type')
+                        ->schema([
+                            Radio::make('import_type')
+                                ->label('Import Type')
+                                ->options([
+                                    'full' => 'Full Import',
+                                    'partial' => 'Partial Import',
+                                ])
+                                ->descriptions([
+                                    'full' => 'Replaces all metadata. Records not in the CSV will be soft-deleted.',
+                                    'partial' => 'Updates only the records in the CSV. Existing records remain unchanged.',
+                                ])
+                                ->required()
+                                ->default('partial')
+                                ->inline(false),
+                        ]),
                     Wizard\Step::make('Upload CSV')
                         ->schema([
                             FileUpload::make('csv_file')
@@ -82,7 +124,8 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->label('')
                                 ->content(fn(Get $get) => $this->previewMarkup(
                                     $get('file_name'),
-                                    $get('preview') ?? []
+                                    $get('preview') ?? [],
+                                    $get('import_type')
                                 )),
                         ]),
                 ])
@@ -199,11 +242,14 @@ class ImportSiebelMetadata extends Page implements HasForms
         $bytesRead = 0;
         $truncated = false;
         $skipped = false;
+        $missing = [];
 
         if ($file->getSize() >= self::PREVIEW_SKIP_BYTES) {
             $skipped = true;
         } elseif (($handle = fopen($file->getRealPath(), 'rb')) !== false) {
             $header = fgetcsv($handle) ?: [];
+            $header = $this->normalizeHeader($header);
+            $missing = $this->missingRequiredColumns($header);
             $dataStart = ftell($handle) ?: 0;
 
             while (($row = fgetcsv($handle)) !== false) {
@@ -234,10 +280,11 @@ class ImportSiebelMetadata extends Page implements HasForms
             'size' => $file->getSize(),
             'truncated' => $truncated,
             'skipped' => $skipped,
+            'missing_required' => $missing,
         ];
     }
 
-    private function previewMarkup(?string $fileName, array $preview): HtmlString
+    private function previewMarkup(?string $fileName, array $preview, ?string $importType = null): HtmlString
     {
         if (! $fileName || $preview === []) {
             return new HtmlString('<p class="text-sm text-gray-500">Upload a CSV to review its contents before queueing the import.</p>');
@@ -250,8 +297,20 @@ class ImportSiebelMetadata extends Page implements HasForms
         $columns = count($header);
         $truncated = (bool) ($preview['truncated'] ?? false);
         $skipped = (bool) ($preview['skipped'] ?? false);
+        $missing = $preview['missing_required'] ?? [];
 
         $html = '<div class="space-y-4 text-sm">';
+
+        if ($importType) {
+            $importTypeLabel = $importType === 'full' ? 'Full Import' : 'Partial Import';
+            $importTypeColor = $importType === 'full' ? 'rose' : 'blue';
+            $html .= '<div class="rounded-md bg-' . $importTypeColor . '-50 px-3 py-2 text-xs text-' . $importTypeColor . '-800 font-semibold">Import Type: ' . e($importTypeLabel) . '</div>';
+
+            if ($importType === 'full') {
+                $html .= '<div class="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">⚠️ Full import will soft-delete any existing records not present in this CSV.</div>';
+            }
+        }
+
         $html .= '<div><span class="font-semibold">File:</span> ' . e($fileName) . '</div>';
         $html .= '<div class="flex flex-wrap gap-4 text-xs text-gray-600">';
         $html .= '<span>Total columns: ' . $columns . '</span>';
@@ -264,6 +323,10 @@ class ImportSiebelMetadata extends Page implements HasForms
             $html .= '<div class="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">Preview truncated for faster processing. The full CSV will still be saved and processed when you queue the import.</div>';
         } elseif ($skipped) {
             $html .= '<div class="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">Preview skipped because the file is very large. The full CSV will still be saved and processed when you queue the import.</div>';
+        }
+
+        if ($missing) {
+            $html .= '<div class="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800">Missing required columns: ' . e(implode(', ', $missing)) . '. Please update the export and re-upload before queueing the import.</div>';
         }
 
         if ($columns > 0) {
@@ -300,6 +363,7 @@ class ImportSiebelMetadata extends Page implements HasForms
     {
         try {
             $file = $this->resolveUploadedFile($data['csv_file'] ?? null);
+            $importType = $data['import_type'] ?? 'partial';
 
             $disk = config('filesystems.default', 'local');
             $directory = 'anonymous-siebel/imports';
@@ -325,6 +389,7 @@ class ImportSiebelMetadata extends Page implements HasForms
                 'file_name' => $filename,
                 'path' => $storedPath,
                 'original_name' => $file->getClientOriginalName(),
+                'import_type' => $importType,
                 'status' => 'queued',
                 'status_detail' => 'Queued for processing',
                 'inserted' => 0,
@@ -354,6 +419,48 @@ class ImportSiebelMetadata extends Page implements HasForms
                 ->persistent()
                 ->send();
         }
+    }
+
+    private function downloadTemplate(): StreamedResponse
+    {
+        $headers = array_merge(self::REQUIRED_HEADER_COLUMNS, self::OPTIONAL_HEADER_COLUMNS);
+        $rows = [
+            ['DB_A', 'SCHEMA_CORE', 'TABLE', 'S_CONTACT', 'LAST_NAME', 1, 'VARCHAR2', 100, null, null, 'Y', null, 'Stores last names', 'Siebel contact table', 'OUTBOUND -> CORE.S_ORG_EXT.ACCNT_NAME via ACCNT_CON'],
+            ['DB_A', 'SCHEMA_CORE', 'TABLE', 'S_CONTACT', 'EMAIL_ADDR', 2, 'VARCHAR2', 255, null, null, 'Y', null, 'Primary email address', 'Siebel contact table', ''],
+        ];
+
+        $csv = implode(',', $headers) . PHP_EOL;
+        foreach ($rows as $row) {
+            $csv .= implode(',', array_map(fn($value) => '"' . str_replace('"', '""', (string) $value) . '"', $row)) . PHP_EOL;
+        }
+
+        return response()->streamDownload(function () use ($csv) {
+            echo $csv;
+        }, 'siebel_metadata_template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    private function normalizeHeader(array $header): array
+    {
+        $normalized = [];
+
+        foreach ($header as $value) {
+            $value = strtoupper(trim((string) $value));
+
+            if ($value === '') {
+                continue;
+            }
+
+            $normalized[] = $value;
+        }
+
+        return $normalized;
+    }
+
+    private function missingRequiredColumns(array $normalizedHeader): array
+    {
+        return array_values(array_diff(self::REQUIRED_HEADER_COLUMNS, $normalizedHeader));
     }
 
     private function resolveUploadedFile(mixed $state): UploadedFile

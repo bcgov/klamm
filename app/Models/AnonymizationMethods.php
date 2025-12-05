@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\AnonymizationJobs;
+use App\Models\AnonymizationPackage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -24,7 +25,7 @@ class AnonymizationMethods extends Model
      *
      * @var array<int, string>
      */
-    protected $appends = ['usage_count'];
+    protected $appends = ['usage_count', 'seed_capability_summary'];
 
     /**
      * Hide the raw relation-derived count since we surface usage_count instead.
@@ -43,6 +44,10 @@ class AnonymizationMethods extends Model
         'what_it_does',
         'how_it_works',
         'sql_block',
+        'emits_seed',
+        'requires_seed',
+        'supports_composite_seed',
+        'seed_notes',
     ];
 
     /**
@@ -50,6 +55,9 @@ class AnonymizationMethods extends Model
      */
     protected $casts = [
         'id' => 'integer',
+        'emits_seed' => 'boolean',
+        'requires_seed' => 'boolean',
+        'supports_composite_seed' => 'boolean',
     ];
 
     public function columns(): BelongsToMany
@@ -73,6 +81,16 @@ class AnonymizationMethods extends Model
             ->withTimestamps();
     }
 
+    public function packages(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationPackage::class,
+            'anonymization_method_package',
+            'anonymization_method_id',
+            'anonymization_package_id'
+        )->withTimestamps();
+    }
+
     public function getUsageCountAttribute(): int
     {
         $count = $this->getAttribute('columns_count');
@@ -86,5 +104,26 @@ class AnonymizationMethods extends Model
         }
 
         return $this->columns()->count();
+    }
+
+    public function getSeedCapabilitySummaryAttribute(): string
+    {
+        $flags = [];
+
+        if ($this->emits_seed) {
+            $flags[] = 'Emits seed';
+        }
+
+        if ($this->requires_seed) {
+            $flags[] = 'Requires seed';
+        }
+
+        if ($this->supports_composite_seed) {
+            $flags[] = 'Composite-ready';
+        }
+
+        return $flags === []
+            ? 'No seed contract declared'
+            : implode(' • ', $flags);
     }
 }
