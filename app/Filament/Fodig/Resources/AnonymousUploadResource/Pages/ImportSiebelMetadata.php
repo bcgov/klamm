@@ -60,6 +60,60 @@ class ImportSiebelMetadata extends Page implements HasForms
         'RELATED_COLUMNS',
     ];
 
+    // Alternate Siebel-column format headers (all optional per request).
+    private const SIEBEL_COLUMNS_HEADER_CANDIDATES = [
+        'NAME',
+        'CHANGED',
+        'PARENT TABLE',
+        'PROJECT',
+        'REPOSITORY NAME',
+        'USER NAME',
+        'ALIAS',
+        'TYPE',
+        'PRIMARY KEY',
+        'USER KEY SEQUENCE',
+        'NULLABLE',
+        'TRANSLATE',
+        'TRANSLATION TABLE NAME',
+        'REQUIRED',
+        'FOREIGN KEY TABLE',
+        'USE FUNCTION KEY',
+        'PHYSICAL TYPE',
+        'LENGTH',
+        'PRECISION',
+        'SCALE',
+        'DEFAULT',
+        'LOV TYPE',
+        'LOV BOUNDED',
+        'SEQUENCE OBJECT',
+        'FORCE CASE',
+        'CASCADE CLEAR',
+        'PRIMARY CHILD COLUMN',
+        'PRIMARY INTER TABLE',
+        'TRANSACTION LOG CODE',
+        'VALID CONDITION',
+        'DENORMALIZATION PATH',
+        'PRIMARY CHILD TABLE',
+        'PRIMARY CHILD COLUMN',
+        'STATUS',
+        'PRIMARY CHILD JOIN COLUMN',
+        'PRIMARY JOIN COLUMN',
+        'EIM PROCESSING COLUMN FLAG',
+        'FK COLUMN 1:M REL NAME',
+        'FK COLUMN M:1 REL NAME',
+        'SEQUENCE',
+        'ASCII ONLY',
+        'INACTIVE',
+        'COMMENTS',
+        'NO MATCH VALUE',
+        'SYSTEM FIELD MAPPING',
+        'PARTITION SEQUENCE NUMBER',
+        'DEFAULT INSENSITIVITY',
+        'COMPUTATION EXPRESSION',
+        'ENCRYPT KEY SPECIFIER',
+        'MODULE'
+    ];
+
     public array $recentUploads = [];
     public array $notifiedStatuses = [];
 
@@ -106,6 +160,57 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->default('partial')
                                 ->inline(false),
                         ]),
+                    Wizard\Step::make('Partial Scope')
+                        // Keep this step rendered to avoid Livewire autofocus issues when steps toggle visibility.
+                        // Disable it for full imports so it's non-interactive but still present in DOM.
+                        ->disabled(fn(Get $get) => ($get('import_type') ?? 'partial') === 'full')
+                        ->columns(2)
+                        ->schema([
+                            Radio::make('partial_scope')
+                                ->label('Apply updates to')
+                                ->options([
+                                    'database' => 'Database',
+                                    'schema' => 'Schema',
+                                    'table' => 'Table',
+                                ])
+                                ->default('schema')
+                                ->inline(false),
+                            Radio::make('scope_select_mode')
+                                ->label('Scope selection')
+                                ->options([
+                                    'select' => 'Select existing',
+                                    'manual' => 'Enter manually',
+                                ])
+                                ->default('select')
+                                ->inline(false),
+                            \Filament\Forms\Components\Select::make('scope_existing')
+                                ->label('Existing name')
+                                ->options(function (Get $get) {
+                                    $scope = $get('partial_scope') ?? 'schema';
+                                    return $this->getExistingScopeOptions($scope);
+                                })
+                                ->visible(fn(Get $get) => ($get('scope_select_mode') ?? 'select') === 'select')
+                                ->searchable()
+                                ->preload(),
+                            \Filament\Forms\Components\TextInput::make('scope_manual')
+                                ->label('Manual name')
+                                ->visible(fn(Get $get) => ($get('scope_select_mode') ?? 'select') === 'manual')
+                                ->maxLength(255),
+                            \Filament\Forms\Components\Toggle::make('is_siebel_columns_format')
+                                ->label('CSV uses Siebel "Parent Table/Name" column format')
+                                ->helperText('Enable if your CSV looks like the Siebel Column export (all columns optional).')
+                                ->default(false),
+                            Placeholder::make('scope_hint')
+                                ->content(function (Get $get) {
+                                    $isAlt = (bool) ($get('is_siebel_columns_format') ?? false);
+                                    $header = $get('preview')['header'] ?? [];
+                                    $looksAlt = $header ? $this->isSiebelColumnsHeader($this->normalizeHeader($header)) : false;
+                                    if ($isAlt || $looksAlt) {
+                                        return new HtmlString('<div class="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2">When using the Siebel column format, select or enter a Schema (or Database) so the import assigns the upload to that scope.</div>');
+                                    }
+                                    return new HtmlString('');
+                                }),
+                        ]),
                     Wizard\Step::make('Upload CSV')
                         ->schema([
                             FileUpload::make('csv_file')
@@ -119,6 +224,8 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->afterStateUpdated(fn(Set $set, $state) => $this->handlePreviewState($set, $state)),
                         ]),
                     Wizard\Step::make('Review & Queue')
+                        ->disabled(fn(Get $get) => !($get('file_name')))
+                        ->visible(fn(Get $get) => (bool) $get('csv_file'))
                         ->schema([
                             Placeholder::make('preview')
                                 ->label('')
@@ -364,6 +471,11 @@ class ImportSiebelMetadata extends Page implements HasForms
         try {
             $file = $this->resolveUploadedFile($data['csv_file'] ?? null);
             $importType = $data['import_type'] ?? 'partial';
+            $isSiebelColumns = (bool) ($data['is_siebel_columns_format'] ?? false);
+            $scopeType = $data['partial_scope'] ?? null;
+            $scopeName = ($data['scope_select_mode'] ?? 'select') === 'select'
+                ? ($data['scope_existing'] ?? null)
+                : ($data['scope_manual'] ?? null);
 
             $disk = config('filesystems.default', 'local');
             $directory = 'anonymous-siebel/imports';
@@ -371,7 +483,28 @@ class ImportSiebelMetadata extends Page implements HasForms
             $basename = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'siebel-metadata';
             $filename = now()->format('Ymd_His') . '_' . $basename . '.' . $extension;
 
-            $storedPath = $file->storeAs($directory, $filename, $disk);
+            // If alternate Siebel-column format, transform into the canonical header CSV expected by downstream jobs.
+            // Auto-detect Siebel-column format based on header even if the toggle wasn't set.
+            $header = $this->tryReadHeader($file);
+            $looksSiebelColumns = $header !== null && $this->isSiebelColumnsHeader($this->normalizeHeader($header));
+            if ($isSiebelColumns || $looksSiebelColumns) {
+                // For partial imports, require an explicit scope; for full imports, bypass scope enforcement.
+                $transformScopeType = null;
+                $transformScopeName = null;
+                if ($importType === 'partial') {
+                    if (! $scopeName || ! in_array($scopeType, ['schema', 'database', 'table'], true)) {
+                        throw new RuntimeException('For Siebel-column CSVs, select a scope (Database/Schema/Table) and provide a name.');
+                    }
+                    $transformScopeType = $scopeType;
+                    $transformScopeName = $scopeName;
+                }
+
+                $csvTransformed = $this->transformSiebelColumnsCsv($file, $transformScopeType, $transformScopeName);
+                $storedPath = $directory . '/' . $filename;
+                Storage::disk($disk)->put($storedPath, $csvTransformed);
+            } else {
+                $storedPath = $file->storeAs($directory, $filename, $disk);
+            }
 
             if (method_exists($file, 'delete')) {
                 $file->delete();
@@ -390,8 +523,12 @@ class ImportSiebelMetadata extends Page implements HasForms
                 'path' => $storedPath,
                 'original_name' => $file->getClientOriginalName(),
                 'import_type' => $importType,
+                'scope_type' => $scopeType,
+                'scope_name' => $scopeName,
                 'status' => 'queued',
-                'status_detail' => 'Queued for processing',
+                'status_detail' => $isSiebelColumns
+                    || $looksSiebelColumns ? 'Queued (Siebel column format transformed)'
+                    : 'Queued for processing',
                 'inserted' => 0,
                 'updated' => 0,
                 'deleted' => 0,
@@ -460,7 +597,171 @@ class ImportSiebelMetadata extends Page implements HasForms
 
     private function missingRequiredColumns(array $normalizedHeader): array
     {
+        // Accept either canonical headers or the Siebel-column format; when the latter is detected, no required columns.
+        if ($this->isSiebelColumnsHeader($normalizedHeader)) {
+            return [];
+        }
         return array_values(array_diff(self::REQUIRED_HEADER_COLUMNS, $normalizedHeader));
+    }
+
+    private function isSiebelColumnsHeader(array $normalizedHeader): bool
+    {
+        // Consider it Siebel-column format if it contains NAME and PARENT TABLE, plus PHYSICAL TYPE or LENGTH,
+        // and most columns look like the provided Siebel template.
+        $set = array_flip($normalizedHeader);
+        $required = ['NAME', 'PARENT TABLE'];
+        foreach ($required as $r) {
+            if (! isset($set[$r])) {
+                return false;
+            }
+        }
+        if (! (isset($set['PHYSICAL TYPE']) || isset($set['LENGTH']) || isset($set['FOREIGN KEY TABLE']))) {
+            return false;
+        }
+        // Heuristic: at least 8 of the known Siebel headers present
+        $present = 0;
+        foreach (self::SIEBEL_COLUMNS_HEADER_CANDIDATES as $name) {
+            if (isset($set[$name])) {
+                $present++;
+            }
+        }
+        return $present >= 8;
+    }
+
+    private function tryReadHeader(UploadedFile $file): ?array
+    {
+        try {
+            $h = fopen($file->getRealPath(), 'rb');
+            if ($h === false) {
+                return null;
+            }
+            $header = fgetcsv($h) ?: [];
+            fclose($h);
+            return $header;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function transformSiebelColumnsCsv(UploadedFile $file, ?string $scopeType, ?string $scopeName): string
+    {
+        // Build canonical CSV with REQUIRED + OPTIONAL headers using the Siebel-column format rows.
+        $headers = array_merge(self::REQUIRED_HEADER_COLUMNS, self::OPTIONAL_HEADER_COLUMNS);
+        $out = fopen('php://temp', 'w+');
+        fputcsv($out, $headers);
+
+        $in = fopen($file->getRealPath(), 'rb');
+        if ($in === false) {
+            throw new RuntimeException('Unable to read uploaded CSV for transformation.');
+        }
+
+        $rawHeader = fgetcsv($in) ?: [];
+        $hdr = $this->normalizeHeader($rawHeader);
+        $idx = fn(string $name) => array_search($name, $hdr, true);
+
+        // Determine scope values.
+        $database = null;
+        $schema = null;
+        $tableScope = null;
+        switch ($scopeType) {
+            case 'database':
+                $database = $scopeName;
+                break;
+            case 'schema':
+                $schema = $scopeName;
+                break;
+            case 'table':
+                $tableScope = $scopeName;
+                break;
+        }
+
+        while (($row = fgetcsv($in)) !== false) {
+            // Map fields from Siebel-column format
+            $parentTable = trim((string) $this->getByIndex($row, $idx('PARENT TABLE')));
+            $columnName = trim((string) $this->getByIndex($row, $idx('NAME')));
+            $dataType = trim((string) ($this->getByIndex($row, $idx('PHYSICAL TYPE')) ?? ''));
+            $length = $this->getByIndex($row, $idx('LENGTH'));
+            $precision = $this->getByIndex($row, $idx('PRECISION'));
+            $scale = $this->getByIndex($row, $idx('SCALE'));
+            $nullable = trim((string) ($this->getByIndex($row, $idx('NULLABLE')) ?? ''));
+            $fkTable = trim((string) ($this->getByIndex($row, $idx('FOREIGN KEY TABLE')) ?? ''));
+            $comments = $this->getByIndex($row, $idx('COMMENTS'));
+
+            // Canonical fields
+            // Fallbacks ensure staging can resolve database/schema maps.
+            // Use sensible defaults when no scope is provided.
+            $databaseFinal = $database ?: 'Siebel';
+            $schemaFinal = $schema ?: 'Siebel';
+
+            $canonical = [
+                'DATABASE_NAME' => $databaseFinal,
+                'SCHEMA_NAME' => $schemaFinal,
+                'OBJECT_TYPE' => 'TABLE',
+                'TABLE_NAME' => $parentTable ?: ($tableScope ?? ''),
+                'COLUMN_NAME' => $columnName ?: '',
+                'COLUMN_ID' => null,
+                'DATA_TYPE' => $dataType ?: '',
+                'DATA_LENGTH' => $length ?: null,
+                'DATA_PRECISION' => $precision ?: null,
+                'DATA_SCALE' => $scale ?: null,
+                'NULLABLE' => $nullable ?: null,
+                'CHAR_LENGTH' => null,
+                'TABLE_COMMENT' => null,
+                'COLUMN_COMMENT' => $comments ?: null,
+                'RELATED_COLUMNS' => $fkTable ?: null,
+            ];
+
+            // Write in header order
+            $ordered = [];
+            foreach ($headers as $h) {
+                $ordered[] = $canonical[$h] ?? null;
+            }
+            fputcsv($out, $ordered);
+        }
+
+        fclose($in);
+        rewind($out);
+        $csv = stream_get_contents($out) ?: '';
+        fclose($out);
+        return $csv;
+    }
+
+    private function getByIndex(array $row, $index): ?string
+    {
+        if ($index === false || $index === null) {
+            return null;
+        }
+        $val = $row[$index] ?? null;
+        return $val === null ? null : (string) $val;
+    }
+
+    private function getExistingScopeOptions(string $scope): array
+    {
+        try {
+            // Use Eloquent models to ensure correct column names and soft-delete handling.
+            switch ($scope) {
+                case 'database':
+                    return \App\Models\Anonymizer\AnonymousSiebelDatabase::query()
+                        ->orderBy('database_name')
+                        ->pluck('database_name', 'database_name')
+                        ->all();
+                case 'schema':
+                    return \App\Models\Anonymizer\AnonymousSiebelSchema::query()
+                        ->orderBy('schema_name')
+                        ->pluck('schema_name', 'schema_name')
+                        ->all();
+                case 'table':
+                    return \App\Models\Anonymizer\AnonymousSiebelTable::query()
+                        ->orderBy('table_name')
+                        ->pluck('table_name', 'table_name')
+                        ->all();
+                default:
+                    return [];
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            return [];
+        }
     }
 
     private function resolveUploadedFile(mixed $state): UploadedFile

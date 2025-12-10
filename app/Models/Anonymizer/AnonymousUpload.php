@@ -20,6 +20,8 @@ class AnonymousUpload extends Model
         'file_name',
         'path',
         'original_name',
+        'scope_type',
+        'scope_name',
         'status',
         'status_detail',
         'import_type',
@@ -34,6 +36,8 @@ class AnonymousUpload extends Model
     ];
 
     protected $casts = [
+        'scope_type' => 'string',
+        'scope_name' => 'string',
         'inserted' => 'integer',
         'updated' => 'integer',
         'deleted' => 'integer',

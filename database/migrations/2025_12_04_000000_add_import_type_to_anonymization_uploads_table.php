@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('anonymization_uploads', function (Blueprint $table) {
-            $table->string('import_type', 20)->default('partial')->after('original_name');
+            if (! Schema::hasColumn('anonymization_uploads', 'import_type')) {
+                $table->string('import_type', 20)->default('partial')->after('original_name');
+            }
         });
     }
 

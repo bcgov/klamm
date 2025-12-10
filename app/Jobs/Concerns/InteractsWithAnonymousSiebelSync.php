@@ -46,6 +46,63 @@ trait InteractsWithAnonymousSiebelSync
             throw new RuntimeException('The uploaded CSV did not contain a header row.');
         }
 
+        $isCanonicalHeader = in_array('DATABASE_NAME', $header, true)
+            && in_array('SCHEMA_NAME', $header, true)
+            && in_array('TABLE_NAME', $header, true)
+            && in_array('COLUMN_NAME', $header, true);
+        $isSiebelColumnsHeader = in_array('NAME', $header, true)
+            && in_array('PARENT TABLE', $header, true);
+        $siebelIndexMap = [];
+        if ($isSiebelColumnsHeader && ! $isCanonicalHeader) {
+            foreach ($header as $i => $h) {
+                $siebelIndexMap[$h] = $i;
+            }
+        }
+
+        // Pre-resolve scope context from existing catalog when possible so staging rows have both schema and database.
+        $scopeType = $upload->scope_type ?? null;
+        $scopeName = $upload->scope_name ?? null;
+        $resolvedScope = [
+            'database_name' => null,
+            'schema_name' => null,
+            'table_name' => null,
+        ];
+        if (is_string($scopeType) && is_string($scopeName) && trim($scopeName) !== '') {
+            $normScopeName = $this->norm($scopeName);
+            if ($scopeType === 'schema') {
+                // Find the database name for this schema
+                $record = DB::table(self::SCHEMAS_TABLE . ' as s')
+                    ->join(self::DATABASES_TABLE . ' as d', 'd.id', '=', 's.database_id')
+                    ->whereRaw('UPPER(TRIM(s.schema_name)) = ?', [$normScopeName])
+                    ->select(['d.database_name', 's.schema_name'])
+                    ->first();
+                if ($record) {
+                    $resolvedScope['schema_name'] = (string) $record->schema_name;
+                    $resolvedScope['database_name'] = (string) $record->database_name;
+                } else {
+                    // Fall back to provided name; database will be resolved later if present in CSV
+                    $resolvedScope['schema_name'] = $scopeName;
+                }
+            } elseif ($scopeType === 'table') {
+                // Find schema and database for this table
+                $record = DB::table(self::TABLES_TABLE . ' as t')
+                    ->join(self::SCHEMAS_TABLE . ' as s', 's.id', '=', 't.schema_id')
+                    ->join(self::DATABASES_TABLE . ' as d', 'd.id', '=', 's.database_id')
+                    ->whereRaw('UPPER(TRIM(t.table_name)) = ?', [$normScopeName])
+                    ->select(['d.database_name', 's.schema_name', 't.table_name'])
+                    ->first();
+                if ($record) {
+                    $resolvedScope['table_name'] = (string) $record->table_name;
+                    $resolvedScope['schema_name'] = (string) $record->schema_name;
+                    $resolvedScope['database_name'] = (string) $record->database_name;
+                } else {
+                    $resolvedScope['table_name'] = $scopeName;
+                }
+            } elseif ($scopeType === 'database') {
+                $resolvedScope['database_name'] = $scopeName;
+            }
+        }
+
         // Use associative array keyed by unique constraint to deduplicate within each batch
         // For cross-batch duplicates, PostgreSQL's ON CONFLICT DO UPDATE handles it
         // Last occurrence in CSV wins due to the UPSERT update behavior
@@ -59,8 +116,30 @@ trait InteractsWithAnonymousSiebelSync
             }
 
             $assoc = [];
-            foreach ($header as $index => $key) {
-                $assoc[$key] = $row[$index] ?? null;
+            if ($isCanonicalHeader) {
+                foreach ($header as $i => $key) {
+                    $assoc[$key] = $row[$i] ?? null;
+                }
+            } elseif ($isSiebelColumnsHeader) {
+                // Map Siebel column export to canonical column keys expected downstream
+                $assoc = $this->mapSiebelColumnsRowToCanonicalAssoc($row, $siebelIndexMap);
+                // Skip rows missing required table/column
+                if (($assoc['TABLE_NAME'] ?? '') === '' || ($assoc['COLUMN_NAME'] ?? '') === '') {
+                    continue;
+                }
+                // Apply upload-provided scope (database/schema/table) with resolved context to ensure both names present
+                // Use sensible defaults when no scope is provided or resolved
+                $assoc['DATABASE_NAME'] = $resolvedScope['database_name'] ?: ($assoc['DATABASE_NAME'] ?: 'Siebel');
+                $assoc['SCHEMA_NAME'] = $resolvedScope['schema_name'] ?: ($assoc['SCHEMA_NAME'] ?: 'Siebel');
+                if ($resolvedScope['table_name']) {
+                    // Filter to selected table name
+                    if ($this->norm((string) $assoc['TABLE_NAME']) !== $this->norm($resolvedScope['table_name'])) {
+                        continue; // skip this row
+                    }
+                }
+            } else {
+                // Unknown format; skip row
+                continue;
             }
 
             // Build core payload for hash calculation (excludes relationship fields)
@@ -138,6 +217,48 @@ trait InteractsWithAnonymousSiebelSync
         }
 
         return $count;
+    }
+
+    /**
+     * Maps a Siebel-column CSV row to canonical assoc keys used by staging.
+     */
+    protected function mapSiebelColumnsRowToCanonicalAssoc(array $row, array $idx): array
+    {
+        $get = function (string $key) use ($row, $idx) {
+            if (! isset($idx[$key])) {
+                return null;
+            }
+            $val = $row[$idx[$key]] ?? null;
+            return $val === null ? null : trim((string) $val);
+        };
+
+        $parentTable = $get('PARENT TABLE') ?? '';
+        $columnName = $get('NAME') ?? '';
+        $dataType = strtoupper((string) ($get('PHYSICAL TYPE') ?? ''));
+        $length = $get('LENGTH');
+        $precision = $get('PRECISION');
+        $scale = $get('SCALE');
+        $nullable = strtoupper((string) ($get('NULLABLE') ?? ''));
+        $fkTable = $get('FOREIGN KEY TABLE');
+        $comments = $get('COMMENTS');
+
+        return [
+            'DATABASE_NAME' => null,
+            'SCHEMA_NAME' => null,
+            'OBJECT_TYPE' => 'TABLE',
+            'TABLE_NAME' => $parentTable,
+            'COLUMN_NAME' => $columnName,
+            'COLUMN_ID' => null,
+            'DATA_TYPE' => $dataType,
+            'DATA_LENGTH' => $length,
+            'DATA_PRECISION' => $precision,
+            'DATA_SCALE' => $scale,
+            'NULLABLE' => $nullable ?: null,
+            'CHAR_LENGTH' => null,
+            'TABLE_COMMENT' => null,
+            'COLUMN_COMMENT' => $comments,
+            'RELATED_COLUMNS' => $fkTable,
+        ];
     }
 
     protected function upsertStagingBatch(array $batch): int
