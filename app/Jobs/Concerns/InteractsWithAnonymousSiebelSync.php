@@ -1648,18 +1648,93 @@ trait InteractsWithAnonymousSiebelSync
      */
     protected function extractRelationshipsFromRow(object $row): array
     {
+        $relationships = [];
+
+        // Prefer decoded JSON structure if present
         if ($row->related_columns) {
             $decoded = json_decode($row->related_columns, true);
             if (is_array($decoded)) {
-                return array_values(array_filter($decoded, fn($item) => is_array($item)));
+                $relationships = array_values(array_filter($decoded, fn($item) => is_array($item)));
             }
         }
 
-        if (! $row->related_columns_raw) {
-            return [];
+        // Fallback: parse raw text
+        if ($relationships === []) {
+            if (! $row->related_columns_raw) {
+                return [];
+            }
+            $relationships = $this->parseRelated((string) $row->related_columns_raw) ?: [];
         }
 
-        return $this->parseRelated($row->related_columns_raw) ?: [];
+        // Normalize "descriptor"-only items into structured triplets using row context.
+        // Heuristic: treat descriptor as a table name in the same schema; default target column to ROW_ID; OUTBOUND edge.
+        $schemaName = isset($row->schema_name) ? (string) $row->schema_name : 'Siebel';
+        $normalized = [];
+        foreach ($relationships as $rel) {
+            if (isset($rel['schema'], $rel['table'], $rel['column'])) {
+                // Already structured; keep as-is
+                $normalized[] = [
+                    'direction' => strtoupper($rel['direction'] ?? 'OUTBOUND'),
+                    'schema' => (string) $rel['schema'],
+                    'table' => (string) $rel['table'],
+                    'column' => (string) $rel['column'],
+                    'constraint' => $rel['constraint'] ?? null,
+                ];
+                continue;
+            }
+
+            $descriptor = null;
+            if (is_array($rel) && isset($rel['descriptor'])) {
+                $descriptor = trim((string) $rel['descriptor']);
+            } elseif (is_string($rel)) {
+                $descriptor = trim($rel);
+            }
+
+            if ($descriptor === null || $descriptor === '') {
+                continue;
+            }
+
+            // If descriptor looks like schema.table.column, try to split
+            if (preg_match('/^([^.]+)\.([^.]+)\.([^\s]+)$/', $descriptor, $m)) {
+                $normalized[] = [
+                    'direction' => 'OUTBOUND',
+                    'schema' => trim($m[1]),
+                    'table' => trim($m[2]),
+                    'column' => trim($m[3]),
+                    'constraint' => null,
+                ];
+                continue;
+            }
+
+            // Otherwise, assume descriptor is a table name (possibly with a suffix token); target PK column ROW_ID.
+            $tableCandidate = $descriptor;
+            $normalized[] = [
+                'direction' => 'OUTBOUND',
+                'schema' => $schemaName,
+                'table' => $tableCandidate,
+                'column' => 'ROW_ID',
+                'constraint' => null,
+            ];
+
+            // Heuristic: if descriptor has a suffix token (e.g., S_FN_AAGSVC_CON), also try without the final token.
+            if (str_contains($tableCandidate, '_')) {
+                $parts = preg_split('/_+/', $tableCandidate) ?: [];
+                if (count($parts) > 1) {
+                    $alt = implode('_', array_slice($parts, 0, -1));
+                    if ($alt !== '' && $alt !== $tableCandidate) {
+                        $normalized[] = [
+                            'direction' => 'OUTBOUND',
+                            'schema' => $schemaName,
+                            'table' => $alt,
+                            'column' => 'ROW_ID',
+                            'constraint' => null,
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $normalized;
     }
 
     /**
