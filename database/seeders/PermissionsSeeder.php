@@ -204,6 +204,11 @@ class PermissionsSeeder extends Seeder
             'create AnonymousUpload',
             'update AnonymousUpload',
             'delete AnonymousUpload',
+            'view-any ChangeTicket',
+            'view ChangeTicket',
+            'create ChangeTicket',
+            'update ChangeTicket',
+            'delete ChangeTicket',
         ])->where('guard_name', 'web')->get());
 
         // Assign user role with read-only access to all resources

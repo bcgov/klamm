@@ -81,7 +81,84 @@ class AnonymousSiebelColumnResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\TagsInput::make('related_columns')
                             ->label('Related columns')
-                            ->columnSpanFull(),
+                            ->columnSpanFull()
+                            ->visibleOn('edit'),
+                        Forms\Components\Placeholder::make('related_columns_display')
+                            ->label('Related columns')
+                            ->columnSpanFull()
+                            ->content(function (?AnonymousSiebelColumn $record): string {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                $raw = $record->related_columns;
+                                // Normalize stored value to array of strings
+                                $names = [];
+                                if (is_array($raw)) {
+                                    $names = array_values(array_filter(array_map(function ($v) {
+                                        if (is_string($v)) return trim($v);
+                                        if (is_object($v) && isset($v->name)) return trim((string)$v->name);
+                                        if (is_array($v) && isset($v['name'])) return trim((string)$v['name']);
+                                        return is_scalar($v) ? trim((string)$v) : null;
+                                    }, $raw)));
+                                } elseif (is_string($raw)) {
+                                    // CSV or single string
+                                    $names = collect(preg_split('/\s*,\s*/', $raw, -1, PREG_SPLIT_NO_EMPTY))
+                                        ->map(fn($s) => trim($s))
+                                        ->filter()
+                                        ->values()
+                                        ->all();
+                                } elseif (! $raw && $record->related_columns_raw) {
+                                    // Fallback to raw text
+                                    $names = collect(preg_split('/[\s,]+/', (string)$record->related_columns_raw, -1, PREG_SPLIT_NO_EMPTY))
+                                        ->map(fn($s) => trim($s))
+                                        ->filter()
+                                        ->values()
+                                        ->all();
+                                }
+
+                                if (empty($names)) {
+                                    return '—';
+                                }
+
+                                // Attempt to resolve to columns in same table by name
+                                $table = $record->getRelationValue('table') ?? $record->table()->withTrashed()->first();
+                                $query = $table
+                                    ? $table->columns()->whereIn('column_name', $names)
+                                    : AnonymousSiebelColumn::query()->whereIn('column_name', $names);
+
+                                $found = $query->get(['id', 'column_name'])->keyBy('column_name');
+                                // If not found locally, try global lookup by simple name (last token after dot)
+                                $simpleNames = collect($names)
+                                    ->map(fn($n) => (str_contains($n, '.') ? preg_replace('/^.*\./', '', $n) : $n))
+                                    ->map(fn($n) => trim($n))
+                                    ->filter()
+                                    ->values()
+                                    ->all();
+                                $globalFound = AnonymousSiebelColumn::query()
+                                    ->whereIn('column_name', $simpleNames)
+                                    ->get(['id', 'column_name'])
+                                    ->groupBy('column_name');
+                                $links = [];
+                                foreach ($names as $n) {
+                                    $col = $found->get($n);
+                                    if ($col) {
+                                        $url = static::getUrl('view', ['record' => $col->id]);
+                                        $links[] = "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">" . e($col->column_name) . "</a>";
+                                    } else {
+                                        $key = str_contains($n, '.') ? preg_replace('/^.*\./', '', $n) : $n;
+                                        $candidate = optional($globalFound->get($key))->first();
+                                        if ($candidate) {
+                                            $url = static::getUrl('view', ['record' => $candidate->id]);
+                                            $links[] = "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">" . e($candidate->column_name) . "</a>";
+                                        } else {
+                                            $links[] = e($n);
+                                        }
+                                    }
+                                }
+
+                                return implode(', ', $links);
+                            })
+                            ->hiddenOn('edit'),
                         Forms\Components\Textarea::make('related_columns_raw')
                             ->rows(3)
                             ->columnSpanFull()
@@ -95,42 +172,6 @@ class AnonymousSiebelColumnResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\Toggle::make('anonymization_required')
                             ->label('Anonymization required'),
-                        Forms\Components\Fieldset::make('Seed contract')
-                            ->schema([
-                                Forms\Components\Select::make('seed_contract_mode')
-                                    ->label('Seed role')
-                                    ->placeholder('Select seed role')
-                                    ->options(SeedContractMode::options())
-                                    ->searchable()
-                                    ->native(false)
-                                    ->helperText('Label how this column participates in deterministic seed propagation.')
-                                    ->dehydrateStateUsing(fn($state) => $state ?: null),
-                                Forms\Components\Placeholder::make('seed_contract_mode_description')
-                                    ->label('Guidance')
-                                    ->content(function (Get $get): string {
-                                        $mode = $get('seed_contract_mode');
-
-                                        if (! $mode) {
-                                            return 'Select a seed role to see expected behavior.';
-                                        }
-
-                                        $enum = SeedContractMode::tryFrom($mode);
-
-                                        return $enum?->description() ?? 'Unknown seed role.';
-                                    })
-                                    ->columnSpan(2),
-                                Forms\Components\Textarea::make('seed_contract_expression')
-                                    ->label('Seed expression / bundle definition')
-                                    ->rows(3)
-                                    ->columnSpanFull()
-                                    ->helperText('Document the SQL expression or ordered bundle that should be reused by dependent columns.'),
-                                Forms\Components\Textarea::make('seed_contract_notes')
-                                    ->label('Seed notes')
-                                    ->rows(3)
-                                    ->columnSpanFull()
-                                    ->helperText('Capture edge cases, migrations, or verification steps tied to this seed contract.'),
-                            ])
-                            ->columns(2),
                         Forms\Components\Select::make('anonymizationMethods')
                             ->label('Anonymization methods')
                             ->relationship('anonymizationMethods', 'name')
@@ -139,11 +180,6 @@ class AnonymousSiebelColumnResource extends Resource
                             ->preload()
                             ->nullable()
                             ->columnSpanFull(),
-                        Forms\Components\Placeholder::make('seed_contract_summary_display')
-                            ->label('Current seed contract summary')
-                            ->content(fn(?AnonymousSiebelColumn $record) => $record?->seed_contract_summary ?? 'Not declared')
-                            ->columnSpanFull()
-                            ->visibleOn('edit'),
                     ]),
                 Forms\Components\Section::make('Sync metadata')
                     ->schema([
@@ -187,27 +223,122 @@ class AnonymousSiebelColumnResource extends Resource
                     ->badge()
                     ->separator(',')
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('seed_contract_summary')
-                    ->label('Seed contract')
-                    ->wrap()
-                    ->toggleable(),
+                // Tables\Columns\TextColumn::make('seed_contract_summary')
+                //     ->label('')
+                //     ->visible(false),
                 Tables\Columns\IconColumn::make('anonymization_required')
                     ->label('Anonymization required')
                     ->boolean()
                     ->toggleable(),
                 Tables\Columns\IconColumn::make('nullable')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('parentColumns_count')
+                Tables\Columns\TextColumn::make('parentColumns')
                     ->label('Parent columns')
-                    ->counts('parentColumns')
-                    ->sortable()
-                    ->badge()
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('childColumns_count')
+                    ->html()
+                    ->getStateUsing(function (AnonymousSiebelColumn $record): string {
+                        $parents = $record->parentColumns()
+                            ->select('anonymous_siebel_columns.id', 'anonymous_siebel_columns.column_name')
+                            ->get();
+                        if ($parents->isEmpty()) {
+                            return '—';
+                        }
+                        return $parents->map(function ($col) {
+                            $url = static::getUrl('view', ['record' => $col->id]);
+                            $name = e($col->column_name);
+                            return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>";
+                        })->implode(', ');
+                    })
+                    ->toggleable()
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('parentColumns', function (Builder $q) use ($search) {
+                            $q->where('column_name', 'like', "%{$search}%");
+                        });
+                    }),
+                Tables\Columns\TextColumn::make('childColumns')
                     ->label('Child columns')
-                    ->counts('childColumns')
-                    ->sortable()
-                    ->badge()
+                    ->html()
+                    ->getStateUsing(function (AnonymousSiebelColumn $record): string {
+                        $children = $record->childColumns()
+                            ->select('anonymous_siebel_columns.id', 'anonymous_siebel_columns.column_name')
+                            ->get();
+                        if ($children->isEmpty()) {
+                            return '—';
+                        }
+                        return $children->map(function ($col) {
+                            $url = static::getUrl('view', ['record' => $col->id]);
+                            $name = e($col->column_name);
+                            return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>";
+                        })->implode(', ');
+                    })
+                    ->toggleable()
+                    ->searchable(query: function (Builder $query, string $search) {
+                        $query->whereHas('childColumns', function (Builder $q) use ($search) {
+                            $q->where('column_name', 'like', "%{$search}%");
+                        });
+                    }),
+                Tables\Columns\TextColumn::make('relatedColumns')
+                    ->label('Related columns')
+                    ->html()
+                    ->getStateUsing(function (AnonymousSiebelColumn $record): string {
+                        $raw = $record->related_columns;
+                        $names = [];
+                        if (is_array($raw)) {
+                            $names = array_values(array_filter(array_map(function ($v) {
+                                if (is_string($v)) return trim($v);
+                                if (is_object($v) && isset($v->name)) return trim((string)$v->name);
+                                if (is_array($v) && isset($v['name'])) return trim((string)$v['name']);
+                                return is_scalar($v) ? trim((string)$v) : null;
+                            }, $raw)));
+                        } elseif (is_string($raw)) {
+                            $names = collect(preg_split('/\s*,\s*/', $raw, -1, PREG_SPLIT_NO_EMPTY))
+                                ->map(fn($s) => trim($s))
+                                ->filter()
+                                ->values()
+                                ->all();
+                        } elseif (! $raw && $record->related_columns_raw) {
+                            $names = collect(preg_split('/[\s,]+/', (string)$record->related_columns_raw, -1, PREG_SPLIT_NO_EMPTY))
+                                ->map(fn($s) => trim($s))
+                                ->filter()
+                                ->values()
+                                ->all();
+                        }
+                        if (empty($names)) {
+                            return '—';
+                        }
+                        $table = $record->getRelationValue('table') ?? $record->table()->withTrashed()->first();
+                        $query = $table
+                            ? $table->columns()->whereIn('column_name', $names)
+                            : AnonymousSiebelColumn::query()->whereIn('column_name', $names);
+                        $found = $query->get(['id', 'column_name'])->keyBy('column_name');
+                        $simpleNames = collect($names)
+                            ->map(fn($n) => (str_contains($n, '.') ? preg_replace('/^.*\./', '', $n) : $n))
+                            ->map(fn($n) => trim($n))
+                            ->filter()
+                            ->values()
+                            ->all();
+                        $globalFound = AnonymousSiebelColumn::query()
+                            ->whereIn('column_name', $simpleNames)
+                            ->get(['id', 'column_name'])
+                            ->groupBy('column_name');
+                        $links = [];
+                        foreach ($names as $n) {
+                            $col = $found->get($n);
+                            if ($col) {
+                                $url = static::getUrl('view', ['record' => $col->id]);
+                                $links[] = "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">" . e($col->column_name) . "</a>";
+                            } else {
+                                $key = str_contains($n, '.') ? preg_replace('/^.*\./', '', $n) : $n;
+                                $candidate = optional($globalFound->get($key))->first();
+                                if ($candidate) {
+                                    $url = static::getUrl('view', ['record' => $candidate->id]);
+                                    $links[] = "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">" . e($candidate->column_name) . "</a>";
+                                } else {
+                                    $links[] = e($n);
+                                }
+                            }
+                        }
+                        return implode(', ', $links);
+                    })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('data_length')
                     ->sortable()
@@ -242,9 +373,6 @@ class AnonymousSiebelColumnResource extends Resource
                     ->relationship('anonymizationMethods', 'name')
                     ->multiple()
                     ->preload(),
-                Tables\Filters\SelectFilter::make('seed_contract_mode')
-                    ->label('Seed role')
-                    ->options(SeedContractMode::options()),
                 Tables\Filters\SelectFilter::make('parentColumns')
                     ->label('Depends on column')
                     ->relationship('parentColumns', 'column_name')
@@ -302,7 +430,7 @@ class AnonymousSiebelColumnResource extends Resource
             'create' => Pages\CreateAnonymousSiebelColumn::route('/create'),
             'view' => Pages\ViewAnonymousSiebelColumn::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelColumn::route('/{record}/edit'),
-            'bulk-assign' => Pages\BulkAssignSeedContracts::route('/bulk-assign-seed-contracts'),
+            // 'bulk-assign' => Pages\BulkAssignSeedContracts::route('/bulk-assign-seed-contracts'),
         ];
     }
 }

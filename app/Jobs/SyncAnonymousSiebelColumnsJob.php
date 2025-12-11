@@ -99,14 +99,20 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 'status_detail' => 'Reconciling deletions',
             ]);
 
-            $deletedCount = $this->softDeleteMissingColumns(
-                $result['touchedTableIdentities'],
-                $result['processedColumnIdentitiesTempTable'],
-                $runAt
-            );
+            $isFullImport = ($upload->import_type ?? 'partial') === 'full';
 
-            if ($deletedCount > 0) {
-                $result['totals']['deleted'] = $deletedCount;
+            if ($isFullImport) {
+                $deletedCount = $this->softDeleteMissingColumns(
+                    $result['touchedTableIdentities'],
+                    $result['processedColumnIdentitiesTempTable'],
+                    $runAt
+                );
+
+                if ($deletedCount > 0) {
+                    $result['totals']['deleted'] = $deletedCount;
+                }
+            } else {
+                $result['totals']['deleted'] = $result['totals']['deleted'] ?? 0;
             }
 
             if (! empty($result['touchedColumnIdsTempTable'])) {
@@ -127,12 +133,12 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
             $this->persistProgress($upload->id, [
                 'deleted' => $result['totals']['deleted'] ?? 0,
-                'status_detail' => 'Import completed',
+                'status_detail' => $isFullImport ? 'Import completed' : 'Import completed (no delete reconcile for partial import)',
             ]);
 
             $upload->update([
                 'status' => 'completed',
-                'status_detail' => 'Import completed',
+                'status_detail' => $isFullImport ? 'Import completed' : 'Import completed (no delete reconcile for partial import)',
                 'error' => null,
                 'inserted' => $result['totals']['inserted'],
                 'updated' => $result['totals']['updated'],

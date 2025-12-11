@@ -5,6 +5,7 @@ namespace App\Models\Anonymizer;
 use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Jobs\GenerateChangeTicketsFromUpload;
 
 class AnonymousUpload extends Model
 {
@@ -45,7 +46,20 @@ class AnonymousUpload extends Model
         'processed_bytes' => 'integer',
         'processed_rows' => 'integer',
         'progress_updated_at' => 'datetime',
+
+
+
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (self $upload) {
+            // Dispatch ticket generation when an upload transitions to completed
+            if ($upload->wasChanged('status') && $upload->status === 'completed') {
+                GenerateChangeTicketsFromUpload::dispatch($upload->id);
+            }
+        });
+    }
 
     protected $appends = [
         'progress_percent',
