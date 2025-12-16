@@ -30,10 +30,12 @@ class AnonymousSiebelDataTypeResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('data_type_name')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled(fn(?AnonymousSiebelDataType $record) => (bool) $record?->exists),
                         Forms\Components\Textarea::make('description')
                             ->rows(3)
-                            ->columnSpanFull(),
+                            ->columnSpanFull()
+                            ->disabled(fn(?AnonymousSiebelDataType $record) => (bool) $record?->exists),
                     ])
                     ->columns(2),
             ]);

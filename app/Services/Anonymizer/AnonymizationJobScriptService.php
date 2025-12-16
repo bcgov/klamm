@@ -5,12 +5,37 @@ namespace App\Services\Anonymizer;
 use App\Enums\SeedContractMode;
 use App\Models\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
+use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\AnonymizationMethods;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class AnonymizationJobScriptService
 {
+    protected const SEED_PLACEHOLDERS = [
+        '{{SEED_MAP_LOOKUP}}',
+        '{{SEED_EXPR}}',
+        '{{SEED_SOURCE_QUALIFIED}}',
+    ];
+
+    protected function methodUsesSeedPlaceholders(?AnonymizationMethods $method): bool
+    {
+        $sqlBlock = trim((string) ($method?->sql_block ?? ''));
+
+        if ($sqlBlock === '') {
+            return false;
+        }
+
+        foreach (self::SEED_PLACEHOLDERS as $placeholder) {
+            if (str_contains($sqlBlock, $placeholder)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function buildForJob(AnonymizationJobs $job): string
     {
         $job->loadMissing([
@@ -29,7 +54,38 @@ class AnonymizationJobScriptService
         return $script;
     }
 
-    public function buildForColumnIds(array $columnIds): string
+    public function reviewSeedContractsForJob(AnonymizationJobs $job): array
+    {
+        $job->loadMissing([
+            'columns.anonymizationMethods.packages',
+            'columns.table.schema.database',
+            'columns.parentColumns.table.schema.database',
+        ]);
+
+        $columns = $job->columns ?? collect();
+
+        if ($columns->isEmpty()) {
+            return [
+                'errors' => collect(),
+                'warnings' => collect(),
+                'issues' => collect(),
+            ];
+        }
+
+        if (method_exists($columns, 'loadMissing')) {
+            $columns->loadMissing([
+                'anonymizationMethods.packages',
+                'table.schema.database',
+                'parentColumns.table.schema.database',
+            ]);
+        }
+
+        $ordered = $this->topologicallySortColumns($columns);
+
+        return $this->validateSeedContracts($ordered);
+    }
+
+    public function buildForColumnIds(array $columnIds, ?AnonymizationJobs $job = null): string
     {
         $columnIds = array_filter(array_map('intval', $columnIds));
 
@@ -46,7 +102,7 @@ class AnonymizationJobScriptService
             ->whereIn('id', $columnIds)
             ->get();
 
-        return $this->buildFromColumns($columns);
+        return $this->buildFromColumns($columns, $job);
     }
 
     public function buildFromColumns(Collection $columns, ?AnonymizationJobs $job = null): string
@@ -69,9 +125,14 @@ class AnonymizationJobScriptService
             return '';
         }
 
-        $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job));
+        $seedProviders = $this->resolveSeedProviders($ordered);
 
-        $contractReview = $this->validateSeedContracts($ordered);
+        $rewriteContext = $this->buildJobTableRewriteContext($ordered, $job);
+        $seedMapContext = $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext);
+
+        $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
+
+        $contractReview = $this->validateSeedContracts($ordered, $seedProviders, $seedMapContext);
 
         if ($contractReview['errors']->isNotEmpty() || $contractReview['warnings']->isNotEmpty()) {
             $lines = array_merge($lines, $this->renderContractReview($contractReview));
@@ -99,11 +160,37 @@ class AnonymizationJobScriptService
                 }
 
                 foreach ($package->compiledSqlBlocks() as $block) {
-                    $lines[] = trim($block);
+                    $lines[] = trim($this->rewritePackageSqlBlock((string) $block, $rewriteContext));
                     $lines[] = '';
                 }
             }
 
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+        }
+
+        $tableCloneStatements = $this->renderJobTableClones($rewriteContext);
+        if ($tableCloneStatements !== []) {
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '-- Target Tables'
+                . ' (schema ' . ($rewriteContext['target_schema'] ?? 'unknown') . ')'
+                . ' (prefix ' . ($rewriteContext['table_prefix'] ?? 'none') . ')';
+            $lines[] = '-- Creates working copies and keeps all updates isolated.';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            $lines = array_merge($lines, $tableCloneStatements);
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+        }
+
+        $seedMapStatements = $this->renderSeedMapTables($seedMapContext);
+        if ($seedMapStatements !== []) {
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '-- Seed Maps (relationship preservation)';
+            $lines[] = '-- Lookup tables keep dependent keys aligned with seed providers.';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            $lines = array_merge($lines, $seedMapStatements);
             $lines[] = str_repeat('=', 70);
             $lines[] = '';
         }
@@ -143,7 +230,7 @@ class AnonymizationJobScriptService
             if ($sqlBlock === '') {
                 $lines[] = '-- No SQL block defined for this method.';
             } else {
-                foreach ($this->renderSqlBlocksForColumns($sqlBlock, $columnsInGroup) as $renderedBlock) {
+                foreach ($this->renderSqlBlocksForColumns($sqlBlock, $columnsInGroup, $seedProviders, $rewriteContext, $seedMapContext) as $renderedBlock) {
                     $lines[] = $renderedBlock;
                 }
             }
@@ -154,11 +241,12 @@ class AnonymizationJobScriptService
         return trim(implode(PHP_EOL, $lines));
     }
 
-    protected function validateSeedContracts(Collection $columns): array
+    protected function validateSeedContracts(Collection $columns, array $seedProviders = [], array $seedMapContext = []): array
     {
         $selected = $columns->keyBy('id');
         $errors = collect();
         $warnings = collect();
+        $issues = collect();
 
         /** @var AnonymousSiebelColumn $column */
         foreach ($columns as $column) {
@@ -166,36 +254,66 @@ class AnonymizationJobScriptService
             $mode = $column->seed_contract_mode;
             $columnLabel = $this->describeColumn($column);
 
+            $pushIssue = function (string $severity, string $message, string $code = 'seed_contract') use (&$issues, $column) {
+                $issues->push([
+                    'column_id' => $column->id,
+                    'severity' => $severity,
+                    'code' => $code,
+                    'message' => $message,
+                ]);
+            };
+
             if (! $method) {
                 $message = $columnLabel . ': No anonymization method is attached; seed contract cannot be evaluated.';
 
                 if ($column->seed_contract_mode && $column->seed_contract_mode !== SeedContractMode::NONE) {
-                    $errors->push($message . ' Assign a method that honors the declared seed role.');
+                    $detail = $message . ' Assign a method that honors the declared seed role.';
+                    $errors->push($detail);
+                    $pushIssue('error', $detail, 'missing_method');
                 } else {
                     $warnings->push($message);
+                    $pushIssue('warning', $message, 'missing_method');
                 }
 
                 continue;
             }
 
+            $usesSeedPlaceholder = $this->methodUsesSeedPlaceholders($method);
+
+            // If the method is flagged as requiring a seed but doesn't reference placeholders, do not hard-block
+            // generation — warn so the author can fix the method definition.
+            if ($method->requires_seed && ! $usesSeedPlaceholder) {
+                $detail = $columnLabel . ': Method ' . $method->name
+                    . ' is marked as requiring a seed, but its SQL block does not reference ' . implode(', ', self::SEED_PLACEHOLDERS) . '.';
+                $warnings->push($detail);
+                $pushIssue('warning', $detail, 'seed_placeholder_missing');
+            }
+
+            // Only enforce explicit declarations; do not require users to mark SOURCE/CONSUMER
+            // when the method already emits/requires a seed.
             if ($mode === SeedContractMode::SOURCE && ! $method->emits_seed) {
-                $errors->push($columnLabel . ': Declared as a seed source but method ' . $method->name . ' is not marked as emitting a seed.');
+                $detail = $columnLabel . ': Declared as a seed source but method ' . $method->name . ' is not marked as emitting a seed.';
+                $errors->push($detail);
+                $pushIssue('error', $detail, 'source_mismatch');
             }
 
             if ($mode === SeedContractMode::CONSUMER && ! $method->requires_seed) {
-                $errors->push($columnLabel . ': Declared as a seed consumer but method ' . $method->name . ' does not require a seed.');
+                $detail = $columnLabel . ': Declared as a seed consumer but method ' . $method->name . ' does not require a seed.';
+                $errors->push($detail);
+                $pushIssue('error', $detail, 'consumer_mismatch');
+            }
+
+            if ($mode === SeedContractMode::CONSUMER && $method->requires_seed && ! $usesSeedPlaceholder) {
+                $detail = $columnLabel . ': Declared as a seed consumer and method ' . $method->name
+                    . ' requires a seed, but the method SQL does not reference seed placeholders. Seed wiring may be ineffective.';
+                $warnings->push($detail);
+                $pushIssue('warning', $detail, 'consumer_placeholder_missing');
             }
 
             if ($mode === SeedContractMode::COMPOSITE && ! $method->supports_composite_seed) {
-                $errors->push($columnLabel . ': Declared as a composite seed but method ' . $method->name . ' is not composite-ready.');
-            }
-
-            if (($mode === null || $mode === SeedContractMode::NONE) && $method->requires_seed) {
-                $errors->push($columnLabel . ': Method ' . $method->name . ' requires a seed but the column is not marked as a consumer or composite.');
-            }
-
-            if (($mode === null || $mode === SeedContractMode::NONE) && $method->emits_seed) {
-                $warnings->push($columnLabel . ': Method ' . $method->name . ' emits a seed but the column is not marked as a seed source.');
+                $detail = $columnLabel . ': Declared as a composite seed but method ' . $method->name . ' is not composite-ready.';
+                $errors->push($detail);
+                $pushIssue('error', $detail, 'composite_mismatch');
             }
 
             if (! $this->columnRequiresSeed($column, $method)) {
@@ -205,7 +323,18 @@ class AnonymizationJobScriptService
             $parents = $column->getRelationValue('parentColumns') ?? collect();
 
             if ($parents->isEmpty()) {
-                $errors->push($columnLabel . ': Seed consumer columns must declare at least one parent dependency.');
+                $fallbackProvider = $this->inferSeedProviderFromSelection($column, $columns);
+
+                if ($fallbackProvider) {
+                    $detail = $columnLabel . ': No explicit parent dependency set; using inferred seed provider ' . $this->describeColumn($fallbackProvider) . '.';
+                    $warnings->push($detail);
+                    $pushIssue('warning', $detail, 'implicit_seed_provider');
+                    continue;
+                }
+
+                $detail = $columnLabel . ': Seed consumer columns must declare at least one parent dependency.';
+                $errors->push($detail);
+                $pushIssue('error', $detail, 'missing_parent');
                 continue;
             }
 
@@ -213,14 +342,19 @@ class AnonymizationJobScriptService
                 $mandatory = $parentRelation->pivot->is_seed_mandatory ?? true;
                 $bundleDescriptor = $this->describeSeedBundle($parentRelation);
                 $parentLabel = $this->describeColumn($parentRelation);
-                $parentMode = $parentRelation->seed_contract_mode;
                 $selectedParent = $selected->get($parentRelation->id);
 
                 if (! $selectedParent) {
-                    if ($mandatory && $parentMode !== SeedContractMode::EXTERNAL) {
-                        $errors->push($columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor . ' but it is not included in this job.');
+                    // If the parent isn't in the job, allow "EXTERNAL" parents to be omitted (non-blocking),
+                    // otherwise keep the previous behavior.
+                    if ($mandatory && $parentRelation->seed_contract_mode !== SeedContractMode::EXTERNAL) {
+                        $detail = $columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor . ' but it is not included in this job.';
+                        $errors->push($detail);
+                        $pushIssue('error', $detail, 'missing_parent_selection');
                     } else {
-                        $warnings->push($columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor . ' is not included; verify the external seed handshake.');
+                        $detail = $columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor . ' is not included; verify the external seed handshake.';
+                        $warnings->push($detail);
+                        $pushIssue('warning', $detail, 'external_seed_handshake');
                     }
                     continue;
                 }
@@ -228,7 +362,21 @@ class AnonymizationJobScriptService
                 $parentMethod = $this->resolveMethodForColumn($selectedParent);
 
                 if (! $this->columnProvidesSeed($selectedParent, $parentMethod)) {
-                    $errors->push($columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor . ' does not emit a seed but is referenced as a dependency.');
+                    $detail = $columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor . ' does not emit a seed but is referenced as a dependency.';
+                    $errors->push($detail);
+                    $pushIssue('error', $detail, 'parent_not_seed');
+                }
+
+                // If we are building a seed map for this provider, require an explicit seed expression.
+                if (isset(($seedMapContext['providers'] ?? [])[(int) $selectedParent->id])) {
+                    $expr = trim((string) ($selectedParent->seed_contract_expression ?? ''));
+                    if ($expr === '') {
+                        $defaultExpr = $this->seedExpressionForProvider($selectedParent);
+                        $detail = $columnLabel . ': Parent ' . $parentLabel
+                            . ' is used as a seed provider but is missing seed_contract_expression; defaulting to ' . $defaultExpr . '.';
+                        $warnings->push($detail);
+                        $pushIssue('warning', $detail, 'seed_provider_expression_missing');
+                    }
                 }
             }
         }
@@ -236,6 +384,7 @@ class AnonymizationJobScriptService
         return [
             'errors' => $errors,
             'warnings' => $warnings,
+            'issues' => $issues,
         ];
     }
 
@@ -275,6 +424,7 @@ class AnonymizationJobScriptService
     {
         $mode = $column->seed_contract_mode;
 
+        // Explicit overrides still win.
         if ($mode === SeedContractMode::SOURCE || $mode === SeedContractMode::COMPOSITE || $mode === SeedContractMode::EXTERNAL) {
             return true;
         }
@@ -286,11 +436,142 @@ class AnonymizationJobScriptService
     {
         $mode = $column->seed_contract_mode;
 
+        // Explicit overrides still win.
         if ($mode === SeedContractMode::CONSUMER || $mode === SeedContractMode::COMPOSITE) {
             return true;
         }
 
-        return (bool) ($method?->requires_seed);
+        // Prefer method SQL as the source of truth for whether a seed is actually consumed.
+        return (bool) ($method?->requires_seed) && $this->methodUsesSeedPlaceholders($method);
+    }
+
+    protected function resolveSeedProviders(Collection $columns): array
+    {
+        $providers = [];
+
+        $seedEmitters = $columns
+            ->filter(function (AnonymousSiebelColumn $candidate) {
+                return $this->columnProvidesSeed($candidate, $this->resolveMethodForColumn($candidate));
+            })
+            ->values();
+
+        $emittersByTable = $seedEmitters
+            ->groupBy(fn(AnonymousSiebelColumn $c) => (int) ($c->table_id ?? 0));
+
+        /** @var AnonymousSiebelColumn $column */
+        foreach ($columns as $column) {
+            $method = $this->resolveMethodForColumn($column);
+            $provider = $this->seedProviderForColumn($column, $method, $emittersByTable, $seedEmitters);
+
+            $providers[$column->id] = [
+                'provider' => $provider,
+                'expression' => $this->seedExpressionForProvider($provider ?? $column),
+            ];
+        }
+
+        return $providers;
+    }
+
+    protected function seedProviderForColumn(
+        AnonymousSiebelColumn $column,
+        ?AnonymizationMethods $method,
+        Collection $emittersByTable,
+        Collection $seedEmitters
+    ): ?AnonymousSiebelColumn {
+        if (! $this->columnRequiresSeed($column, $method)) {
+            return $this->columnProvidesSeed($column, $method) ? $column : null;
+        }
+
+        // 1) Prefer explicit parent dependencies that provide a seed.
+        $parents = $column->getRelationValue('parentColumns') ?? collect();
+
+        foreach ($parents as $parent) {
+            $parentMethod = $this->resolveMethodForColumn($parent);
+
+            if ($this->columnProvidesSeed($parent, $parentMethod)) {
+                return $parent;
+            }
+        }
+
+        // 2) Fallback: seed emitter in the same table (if any).
+        $tableId = (int) ($column->table_id ?? 0);
+        $sameTable = ($emittersByTable->get($tableId) ?? collect())
+            ->filter(fn(AnonymousSiebelColumn $c) => $c->id !== $column->id)
+            ->values();
+
+        if ($sameTable->count() === 1) {
+            return $sameTable->first();
+        }
+
+        if ($sameTable->count() > 1) {
+            // Deterministic but conservative: pick the first alphabetically.
+            return $sameTable->sortBy('column_name')->first();
+        }
+
+        // 3) Fallback: if exactly one other seed emitter exists in the job, use it.
+        $global = $seedEmitters
+            ->filter(fn(AnonymousSiebelColumn $c) => $c->id !== $column->id)
+            ->values();
+
+        if ($global->count() === 1) {
+            return $global->first();
+        }
+
+        // Unknown/ambiguous provider; let validation report missing_parent when appropriate.
+        return null;
+    }
+
+    /**
+     * Used by resolveSeedProviders() to compute {{SEED_EXPR}}.
+     * Prefers explicit seed_contract_expression, otherwise defaults to tgt.<column>.
+     */
+    protected function seedExpressionForProvider(AnonymousSiebelColumn $provider): string
+    {
+        $expression = trim((string) ($provider->seed_contract_expression ?? ''));
+
+        if ($expression !== '') {
+            return $expression;
+        }
+
+        return 'tgt.' . ($provider->column_name ?? 'seed');
+    }
+
+    protected function inferSeedProviderFromSelection(AnonymousSiebelColumn $column, Collection $selectedColumns): ?AnonymousSiebelColumn
+    {
+        $method = $this->resolveMethodForColumn($column);
+
+        if (! $this->columnRequiresSeed($column, $method)) {
+            return null;
+        }
+
+        $seedEmitters = $selectedColumns
+            ->filter(function (AnonymousSiebelColumn $candidate) {
+                return $this->columnProvidesSeed($candidate, $this->resolveMethodForColumn($candidate));
+            })
+            ->values();
+
+        if ($seedEmitters->isEmpty()) {
+            return null;
+        }
+
+        $tableId = (int) ($column->table_id ?? 0);
+        $sameTable = $seedEmitters
+            ->filter(fn(AnonymousSiebelColumn $c) => (int) ($c->table_id ?? 0) === $tableId && $c->id !== $column->id)
+            ->values();
+
+        if ($sameTable->count() === 1) {
+            return $sameTable->first();
+        }
+
+        if ($sameTable->count() > 1) {
+            return $sameTable->sortBy('column_name')->first();
+        }
+
+        $global = $seedEmitters
+            ->filter(fn(AnonymousSiebelColumn $c) => $c->id !== $column->id)
+            ->values();
+
+        return $global->count() === 1 ? $global->first() : null;
     }
 
     protected function describeSeedBundle(AnonymousSiebelColumn $parent): string
@@ -339,13 +620,13 @@ class AnonymizationJobScriptService
             ->values();
     }
 
-    protected function renderSqlBlocksForColumns(string $template, Collection $columns): array
+    protected function renderSqlBlocksForColumns(string $template, Collection $columns, array $seedProviders = [], array $rewriteContext = [], array $seedMapContext = []): array
     {
         $output = [];
 
         /** @var AnonymousSiebelColumn $column */
         foreach ($columns as $column) {
-            $rendered = $this->applyPlaceholders($template, $column);
+            $rendered = $this->applyPlaceholders($template, $column, $seedProviders[$column->id] ?? null, $rewriteContext, $seedMapContext);
 
             $output[] = '-- Applies to: ' . $this->describeColumn($column);
             $output[] = $rendered;
@@ -355,28 +636,427 @@ class AnonymizationJobScriptService
         return $output === [] ? [$template] : $output;
     }
 
-    protected function applyPlaceholders(string $template, AnonymousSiebelColumn $column): string
-    {
+    protected function applyPlaceholders(
+        string $template,
+        AnonymousSiebelColumn $column,
+        ?array $seedProvider = null,
+        array $rewriteContext = [],
+        array $seedMapContext = []
+    ): string {
         $table = $column->getRelationValue('table');
         $schema = $table?->getRelationValue('schema');
         $database = $schema?->getRelationValue('database');
 
+        $tableId = (int) ($table?->getKey() ?? $column->table_id ?? 0);
+        $tableMap = $rewriteContext['tables_by_id'] ?? [];
+        $mapped = $tableId > 0 ? ($tableMap[$tableId] ?? null) : null;
+
+        $renderSchemaName = $mapped['target_schema'] ?? ($schema?->schema_name ?? '');
+        $renderTableName = $mapped['target_table'] ?? ($table?->table_name ?? '');
+
         $qualifiedTable = collect([
-            $database?->database_name,
-            $schema?->schema_name,
-            $table?->table_name,
+            // Intentionally omit database name when rewriting for job execution.
+            $mapped ? null : $database?->database_name,
+            $renderSchemaName,
+            $renderTableName,
         ])->filter()->implode('.');
 
+        $seedColumnName = $seedProvider['provider']?->column_name ?? $column->column_name ?? '';
+        $seedSourceLabel = isset($seedProvider['provider'])
+            ? $this->describeColumn($seedProvider['provider'])
+            : $this->describeColumn($column);
+        $seedQualified = $this->seedQualifiedReference($column, $seedProvider['provider'] ?? null, $qualifiedTable, $rewriteContext);
+        $seedExpression = $seedProvider['expression'] ?? ('tgt.' . $seedColumnName);
+
+        $seedMap = $this->seedMapForColumn($seedProvider['provider'] ?? null, $seedMapContext);
+        $seedMapTable = $seedMap['seed_map_table'] ?? '';
+        $seedMapLookup = $seedMapTable !== ''
+            ? '(SELECT sm.new_value FROM ' . $seedMapTable . ' sm WHERE sm.old_value = tgt.' . ($column->column_name ?? '') . ' AND ROWNUM = 1)'
+            : '';
+
         $replacements = [
-            '{{TABLE}}' => $qualifiedTable ?: ($table?->table_name ?? '{{TABLE}}'),
-            '{{TABLE_NAME}}' => $table?->table_name ?? '',
-            '{{SCHEMA}}' => $schema?->schema_name ?? '',
-            '{{DATABASE}}' => $database?->database_name ?? '',
+            '{{TABLE}}' => $qualifiedTable ?: ($renderTableName ?: ($table?->table_name ?? '{{TABLE}}')),
+            '{{TABLE_NAME}}' => $renderTableName,
+            '{{SCHEMA}}' => $renderSchemaName,
+            '{{DATABASE}}' => $mapped ? '' : ($database?->database_name ?? ''),
             '{{COLUMN}}' => $column->column_name ?? '',
             '{{ALIAS}}' => 'tgt',
+            '{{SEED_COLUMN}}' => $seedColumnName,
+            '{{SEED_SOURCE}}' => $seedSourceLabel,
+            '{{SEED_SOURCE_QUALIFIED}}' => $seedQualified,
+            '{{SEED_EXPR}}' => $seedExpression,
+            '{{SEED_MAP_TABLE}}' => $seedMapTable,
+            '{{SEED_MAP_LOOKUP}}' => $seedMapLookup,
         ];
 
-        return str_replace(array_keys($replacements), array_values($replacements), $template);
+        $rendered = str_replace(array_keys($replacements), array_values($replacements), $template);
+
+        $rawReplace = $rewriteContext['raw_replace'] ?? [];
+        if ($rawReplace !== []) {
+            $rendered = str_replace(array_keys($rawReplace), array_values($rawReplace), $rendered);
+        }
+
+        return $rendered;
+    }
+
+    protected function buildJobTableRewriteContext(Collection $columns, ?AnonymizationJobs $job): array
+    {
+        $targetSchema = $this->targetSchemaForJob($job);
+        $tablePrefix = $this->tablePrefixForJob($job);
+
+        if (! $targetSchema || ! $tablePrefix) {
+            return [];
+        }
+
+        $tables = collect();
+
+        // Full jobs clone the entire selected schema(s).
+        if ($job && $job->job_type === AnonymizationJobs::TYPE_FULL) {
+            $schemaIds = $this->schemaIdsForJobOrSelection($job, $columns);
+
+            if ($schemaIds !== []) {
+                $tables = AnonymousSiebelTable::query()
+                    ->withTrashed()
+                    ->with(['schema.database'])
+                    ->whereIn('schema_id', $schemaIds)
+                    ->orderBy('table_name')
+                    ->get();
+            }
+        }
+
+        /** @var AnonymousSiebelColumn $column */
+        foreach ($columns as $column) {
+            $table = $column->getRelationValue('table');
+            if ($table) {
+                $tables->push($table);
+            }
+
+            $parents = $column->getRelationValue('parentColumns') ?? collect();
+            foreach ($parents as $parent) {
+                $parentTable = $parent->getRelationValue('table');
+                if ($parentTable) {
+                    $tables->push($parentTable);
+                }
+            }
+        }
+
+        $tables = $tables
+            ->filter()
+            ->unique(fn($t) => (int) $t->getKey())
+            ->values();
+
+        $tablesById = [];
+        $rawReplace = [];
+
+        foreach ($tables as $table) {
+            $schema = $table->getRelationValue('schema');
+            $database = $schema?->getRelationValue('database');
+            $sourceSchema = $schema?->schema_name;
+            $sourceTable = $table->table_name;
+
+            if (! $sourceSchema || ! $sourceTable) {
+                continue;
+            }
+
+            $targetTable = $this->oracleIdentifier($tablePrefix . '_' . $sourceTable);
+            $targetQualified = $targetSchema . '.' . $targetTable;
+            $sourceQualified = $sourceSchema . '.' . $sourceTable;
+
+            $tablesById[(int) $table->getKey()] = [
+                'source_schema' => $sourceSchema,
+                'source_table' => $sourceTable,
+                'source_qualified' => $sourceQualified,
+                'target_schema' => $targetSchema,
+                'target_table' => $targetTable,
+                'target_qualified' => $targetQualified,
+            ];
+
+            // Rewrite common patterns that may appear in user SQL blocks.
+            $rawReplace[$sourceQualified] = $targetQualified;
+
+            if ($database?->database_name) {
+                $rawReplace[$database->database_name . '.' . $sourceQualified] = $targetQualified;
+            }
+        }
+
+        // Apply longer matches first to reduce accidental partial rewrites.
+        if ($rawReplace !== []) {
+            uksort($rawReplace, fn($a, $b) => strlen($b) <=> strlen($a));
+        }
+
+        return [
+            'target_schema' => $targetSchema,
+            'table_prefix' => $tablePrefix,
+            'tables_by_id' => $tablesById,
+            'raw_replace' => $rawReplace,
+        ];
+    }
+
+    protected function schemaIdsForJobOrSelection(AnonymizationJobs $job, Collection $selectedColumns): array
+    {
+        $schemaIds = DB::table('anonymization_job_schemas')
+            ->where('job_id', (int) $job->getKey())
+            ->pluck('schema_id')
+            ->map(fn($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($schemaIds !== []) {
+            return $schemaIds;
+        }
+
+        return $selectedColumns
+            ->map(fn(AnonymousSiebelColumn $column) => (int) ($column->getRelationValue('table')?->schema_id ?? 0))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function targetSchemaForJob(?AnonymizationJobs $job): ?string
+    {
+        $type = $job?->job_type;
+
+        return match ($type) {
+            AnonymizationJobs::TYPE_FULL => 'SBLANONF',
+            AnonymizationJobs::TYPE_PARTIAL => 'SBLANONP',
+            default => null,
+        };
+    }
+
+    protected function tablePrefixForJob(?AnonymizationJobs $job): ?string
+    {
+        $name = trim((string) ($job?->name ?? ''));
+
+        if ($name === '') {
+            return null;
+        }
+
+        $parts = preg_split('/[^A-Za-z0-9]+/', $name) ?: [];
+        $parts = array_values(array_filter(array_map('trim', $parts), fn($p) => $p !== ''));
+
+        if ($parts === []) {
+            return null;
+        }
+
+        $parts = array_map(fn($part) => Str::studly($part), $parts);
+
+        // "Camel case using _ instead of spaces" => Studly segments joined by underscores.
+        return implode('_', $parts);
+    }
+
+    protected function renderJobTableClones(array $rewriteContext): array
+    {
+        $tablesById = $rewriteContext['tables_by_id'] ?? [];
+
+        if ($tablesById === []) {
+            return [];
+        }
+
+        $lines = [];
+        foreach ($tablesById as $mapping) {
+            $source = $mapping['source_qualified'] ?? null;
+            $target = $mapping['target_qualified'] ?? null;
+            if (! $source || ! $target) {
+                continue;
+            }
+
+            $lines[] = '-- Clone: ' . $source . ' -> ' . $target;
+            $lines[] = 'BEGIN';
+            $lines[] = "  EXECUTE IMMEDIATE 'DROP TABLE {$target} PURGE';";
+            $lines[] = 'EXCEPTION';
+            $lines[] = '  WHEN OTHERS THEN';
+            $lines[] = '    IF SQLCODE != -942 THEN RAISE; END IF;';
+            $lines[] = 'END;';
+            $lines[] = '/';
+            $lines[] = 'CREATE TABLE ' . $target . ' AS SELECT * FROM ' . $source . ';';
+            $lines[] = '';
+        }
+
+        return $lines;
+    }
+
+    protected function oracleIdentifier(string $name): string
+    {
+        $clean = preg_replace('/[^A-Za-z0-9_]/', '_', $name);
+        $clean = preg_replace('/_+/', '_', (string) $clean);
+        $clean = trim((string) $clean, '_');
+        if ($clean === '') {
+            $clean = 'OBJ';
+        }
+
+        if (strlen($clean) <= 30) {
+            return $clean;
+        }
+
+        $hash = substr(md5($clean), 0, 8);
+        $baseLen = 30 - 1 - 8;
+        return substr($clean, 0, $baseLen) . '_' . $hash;
+    }
+
+    protected function rewritePackageSqlBlock(string $block, array $rewriteContext): string
+    {
+        $prefix = $rewriteContext['table_prefix'] ?? null;
+
+        if (! is_string($prefix) || $prefix === '') {
+            return $block;
+        }
+
+        preg_match_all('/\bcreate\s+table\s+([A-Za-z0-9_]+)\b/i', $block, $matches);
+        $tableNames = array_values(array_unique($matches[1] ?? []));
+
+        if ($tableNames === []) {
+            return $block;
+        }
+
+        foreach ($tableNames as $tableName) {
+            if (! is_string($tableName) || $tableName === '' || str_contains($tableName, '.')) {
+                continue;
+            }
+
+            $prefixed = $this->oracleIdentifier($prefix . '_' . $tableName);
+            $block = preg_replace('/\b' . preg_quote($tableName, '/') . '\b/', $prefixed, $block);
+        }
+
+        return $block;
+    }
+
+    protected function buildSeedMapContext(Collection $columns, array $seedProviders, array $rewriteContext): array
+    {
+        $providers = [];
+
+        $targetSchema = $rewriteContext['target_schema'] ?? null;
+        $prefix = $rewriteContext['table_prefix'] ?? null;
+        $tableMap = $rewriteContext['tables_by_id'] ?? [];
+
+        if (! is_string($targetSchema) || $targetSchema === '' || ! is_string($prefix) || $prefix === '' || ! is_array($tableMap)) {
+            return [];
+        }
+
+        $providerIds = [];
+
+        /** @var AnonymousSiebelColumn $column */
+        foreach ($columns as $column) {
+            $method = $this->resolveMethodForColumn($column);
+            if (! $this->columnRequiresSeed($column, $method)) {
+                continue;
+            }
+
+            $provider = $seedProviders[$column->id]['provider'] ?? null;
+            if ($provider instanceof AnonymousSiebelColumn) {
+                $providerIds[(int) $provider->id] = true;
+            }
+        }
+
+        foreach (array_keys($providerIds) as $providerId) {
+            /** @var AnonymousSiebelColumn|null $provider */
+            $provider = $columns->firstWhere('id', $providerId);
+            if (! $provider) {
+                continue;
+            }
+
+            $providerTable = $provider->getRelationValue('table');
+            $tableId = (int) ($providerTable?->getKey() ?? $provider->table_id ?? 0);
+            $mapped = $tableId > 0 ? ($tableMap[$tableId] ?? null) : null;
+
+            if (! is_array($mapped) || ! isset($mapped['target_qualified'], $mapped['source_table'])) {
+                continue;
+            }
+
+            $seedMapName = $this->oracleIdentifier(
+                $prefix . '_SEEDMAP_' . ($mapped['source_table'] ?? 'T') . '_' . ($provider->column_name ?? 'C')
+            );
+
+            $providers[(int) $providerId] = [
+                'provider_id' => (int) $providerId,
+                'provider_column' => $provider->column_name,
+                'provider_table' => $mapped['target_qualified'],
+                'seed_expression' => $this->seedExpressionForProvider($provider),
+                'seed_map_table' => $targetSchema . '.' . $seedMapName,
+            ];
+        }
+
+        return [
+            'providers' => $providers,
+        ];
+    }
+
+    protected function renderSeedMapTables(array $seedMapContext): array
+    {
+        $providers = $seedMapContext['providers'] ?? [];
+        if (! is_array($providers) || $providers === []) {
+            return [];
+        }
+
+        $lines = [];
+        foreach ($providers as $provider) {
+            $seedMapTable = $provider['seed_map_table'] ?? null;
+            $providerTable = $provider['provider_table'] ?? null;
+            $providerColumn = $provider['provider_column'] ?? null;
+            $seedExpr = $provider['seed_expression'] ?? null;
+
+            if (! $seedMapTable || ! $providerTable || ! $providerColumn || ! $seedExpr) {
+                continue;
+            }
+
+            $lines[] = '-- Seed map for: ' . $providerTable . '.' . $providerColumn;
+            $lines[] = 'BEGIN';
+            $lines[] = "  EXECUTE IMMEDIATE 'DROP TABLE {$seedMapTable} PURGE';";
+            $lines[] = 'EXCEPTION';
+            $lines[] = '  WHEN OTHERS THEN';
+            $lines[] = '    IF SQLCODE != -942 THEN RAISE; END IF;';
+            $lines[] = 'END;';
+            $lines[] = '/';
+            $lines[] = 'CREATE TABLE ' . $seedMapTable . ' AS';
+            $lines[] = 'SELECT';
+            $lines[] = '  tgt.' . $providerColumn . ' AS old_value,';
+            $lines[] = '  ' . $seedExpr . ' AS new_value';
+            $lines[] = 'FROM ' . $providerTable . ' tgt;';
+            $lines[] = '';
+        }
+
+        return $lines;
+    }
+
+    protected function seedMapForColumn(?AnonymousSiebelColumn $provider, array $seedMapContext): array
+    {
+        if (! $provider) {
+            return [];
+        }
+
+        $providers = $seedMapContext['providers'] ?? [];
+        if (! is_array($providers)) {
+            return [];
+        }
+
+        return $providers[(int) $provider->id] ?? [];
+    }
+
+    protected function seedQualifiedReference(
+        AnonymousSiebelColumn $column,
+        ?AnonymousSiebelColumn $provider,
+        string $fallbackQualifiedTable,
+        array $rewriteContext
+    ): string {
+        $subject = $provider ?: $column;
+        $subjectTable = $subject->getRelationValue('table');
+        $tableId = (int) ($subjectTable?->getKey() ?? $subject->table_id ?? 0);
+        $mapped = ($rewriteContext['tables_by_id'] ?? [])[$tableId] ?? null;
+
+        $qualified = $mapped['target_qualified'] ?? null;
+        if ($qualified) {
+            return $qualified . '.' . ($subject->column_name ?? '');
+        }
+
+        if ($provider) {
+            return $this->describeColumn($provider);
+        }
+
+        return $fallbackQualifiedTable
+            ? ($fallbackQualifiedTable . '.' . ($column->column_name ?? ''))
+            : ($column->column_name ?? '');
     }
 
     protected function jobHeaderMetadata(?AnonymizationJobs $job): array
@@ -396,7 +1076,7 @@ class AnonymizationJobScriptService
         ];
     }
 
-    protected function buildHeaderLines(array $jobMeta): array
+    protected function buildHeaderLines(array $jobMeta, array $rewriteContext = []): array
     {
         $lines = [
             str_repeat('=', 70),
@@ -414,6 +1094,13 @@ class AnonymizationJobScriptService
 
         $lines[] = str_repeat('=', 70);
         $lines[] = '';
+
+        $targetSchema = $rewriteContext['target_schema'] ?? null;
+        if (is_string($targetSchema) && $targetSchema !== '') {
+            $lines[] = '-- Execute everything within the target schema by default.';
+            $lines[] = 'ALTER SESSION SET CURRENT_SCHEMA = ' . $targetSchema . ';';
+            $lines[] = '';
+        }
 
         return $lines;
     }

@@ -35,20 +35,25 @@ class AnonymousSiebelColumnResource extends Resource
                             ->relationship('table', 'table_name')
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->required()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\Select::make('data_type_id')
                             ->label('Data type')
                             ->relationship('dataType', 'data_type_name')
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->required()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('column_name')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('column_id')
                             ->numeric()
-                            ->minValue(0),
-                        Forms\Components\Toggle::make('nullable'),
+                            ->minValue(0)
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\Toggle::make('nullable')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Dimensions')
@@ -56,19 +61,23 @@ class AnonymousSiebelColumnResource extends Resource
                         Forms\Components\TextInput::make('data_length')
                             ->numeric()
                             ->minValue(0)
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('char_length')
                             ->numeric()
                             ->minValue(0)
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('data_precision')
                             ->numeric()
                             ->minValue(0)
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('data_scale')
                             ->numeric()
                             ->minValue(0)
-                            ->nullable(),
+                            ->nullable()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                     ])
                     ->columns(4),
                 Forms\Components\Section::make('Metadata')
@@ -170,6 +179,33 @@ class AnonymousSiebelColumnResource extends Resource
                             ->label('Metadata comment')
                             ->rows(3)
                             ->columnSpanFull(),
+                        Forms\Components\ToggleButtons::make('anonymization_requirement_reviewed')
+                            ->label('Anonymization requirement reviewed')
+                            ->inline()
+                            ->options([
+                                '' => 'Unreviewed',
+                                '1' => 'Yes',
+                                '0' => 'No',
+                            ])
+                            ->colors([
+                                '' => 'gray',
+                                '1' => 'success',
+                                '0' => 'danger',
+                            ])
+                            ->afterStateHydrated(function (Forms\Components\ToggleButtons $component, $state): void {
+                                if ($state === null) {
+                                    $component->state('');
+                                    return;
+                                }
+                                $component->state($state ? '1' : '0');
+                            })
+                            ->dehydrateStateUsing(function ($state) {
+                                if ($state === '' || $state === null) {
+                                    return null;
+                                }
+
+                                return $state === '1';
+                            }),
                         Forms\Components\Toggle::make('anonymization_required')
                             ->label('Anonymization required'),
                         Forms\Components\Select::make('anonymizationMethods')
@@ -183,17 +219,17 @@ class AnonymousSiebelColumnResource extends Resource
                     ]),
                 Forms\Components\Section::make('Sync metadata')
                     ->schema([
-                        Forms\Components\Placeholder::make('content_hash')
-                            ->label('Content hash')
-                            ->content(fn(?AnonymousSiebelColumn $record) => $record?->content_hash ?? '—'),
                         Forms\Components\Placeholder::make('last_synced_at')
                             ->label('Last synced')
                             ->content(fn(?AnonymousSiebelColumn $record) => optional($record?->last_synced_at)?->toDayDateTimeString() ?? '—'),
                         Forms\Components\Placeholder::make('changed_at')
                             ->label('Changed at')
                             ->content(fn(?AnonymousSiebelColumn $record) => optional($record?->changed_at)?->toDayDateTimeString() ?? '—'),
+                        Forms\Components\Placeholder::make('content_hash')
+                            ->label('Content hash')
+                            ->content(fn(?AnonymousSiebelColumn $record) => $record?->content_hash ?? '—'),
                     ])
-                    ->columns(3)
+                    ->columns(2)
                     ->hiddenOn('create'),
             ]);
     }
@@ -226,6 +262,10 @@ class AnonymousSiebelColumnResource extends Resource
                 // Tables\Columns\TextColumn::make('seed_contract_summary')
                 //     ->label('')
                 //     ->visible(false),
+                Tables\Columns\IconColumn::make('anonymization_requirement_reviewed')
+                    ->label('Requirement reviewed')
+                    ->boolean()
+                    ->toggleable(),
                 Tables\Columns\IconColumn::make('anonymization_required')
                     ->label('Anonymization required')
                     ->boolean()

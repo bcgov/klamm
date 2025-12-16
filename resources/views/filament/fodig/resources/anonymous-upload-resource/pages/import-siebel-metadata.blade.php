@@ -9,31 +9,13 @@ $optionalColumns = \App\Filament\Fodig\Resources\AnonymousUploadResource\Pages\I
             <x-slot name="heading">How It Works</x-slot>
             <div class="grid gap-6 md:grid-cols-2">
                 <div class="space-y-3 text-sm text-gray-600">
-                    <p>Export the latest Siebel metadata as CSV and upload it via the <strong>Import Metadata</strong> action. We read structure only—no production data is required.</p>
+                    <p>Export the latest Siebel metadata as CSV and upload it via the <strong>Import Metadata</strong> action.</p>
                     <ol class="list-decimal space-y-2 pl-5">
-                        <li>Download the template (or match your export headers) to confirm the required columns.</li>
-                        <li>Upload the CSV and review the preview for missing headers or formatting issues.</li>
                         <li>Queue the import to stream the rows into staging and reconcile the catalog. Change tracking is automatic.</li>
                     </ol>
-                    <p class="text-xs text-gray-500">Tip: Keep uploads under 10&nbsp;MB for faster previews. Larger files still process correctly once queued.</p>
                 </div>
                 <div class="grid gap-4 text-sm">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Required columns</p>
-                        <div class="mt-2 flex flex-wrap gap-2">
-                            @foreach ($requiredColumns as $column)
-                            <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{{ $column }}</span>
-                            @endforeach
-                        </div>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Optional columns</p>
-                        <div class="mt-2 flex flex-wrap gap-2">
-                            @foreach ($optionalColumns as $column)
-                            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{{ $column }}</span>
-                            @endforeach
-                        </div>
-                    </div>
+
                 </div>
             </div>
         </x-filament::section>

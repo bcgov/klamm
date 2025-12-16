@@ -2,7 +2,9 @@
 
 namespace App\Filament\Fodig\Resources;
 
+use App\Enums\SeedContractMode;
 use App\Filament\Fodig\Resources\AnonymizationJobResource\Pages;
+use App\Jobs\GenerateAnonymizationJobSql;
 use App\Models\AnonymizationJobs;
 use App\Models\AnonymizationPackage;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
@@ -27,6 +29,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AnonymizationJobResource extends Resource
@@ -122,14 +125,14 @@ class AnonymizationJobResource extends Resource
                                     ->live()
                                     ->dehydrated(false)
                                     ->helperText('Use helper presets to auto-populate the column list based on catalog metadata. Switch back to Manual to take full control.')
-                                    ->afterStateUpdated(fn(?string $state, Set $set, Get $get) => self::syncColumnsFromMode($state, $set, $get)),
+                                    ->afterStateUpdated(fn(?string $state, Set $set, $get) => self::handleColumnBuilderModeChange($state, $set, $get)),
                                 Forms\Components\Placeholder::make('column_selection_summary')
                                     ->label('Selection summary')
-                                    ->content(fn(Get $get) => self::columnSelectionSummary($get('columns')))
+                                    ->content(fn(Get $get) => self::columnSelectionSummary($get('columns'), $get('column_builder_mode')))
                                     ->columnSpanFull(),
                                 Forms\Components\Placeholder::make('package_selection_summary')
                                     ->label('Package dependencies')
-                                    ->content(fn(Get $get) => self::packageDependenciesSummary($get('columns')))
+                                    ->content(fn(Get $get) => self::packageDependenciesSummary($get('columns'), $get('column_builder_mode')))
                                     ->columnSpanFull(),
                             ])
                             ->columns(1)
@@ -147,9 +150,63 @@ class AnonymizationJobResource extends Resource
                             ->searchable()
                             ->preload()
                             ->reactive()
+                            ->extraAttributes(fn(Get $get) => self::isEntireScopeMode($get('column_builder_mode'))
+                                ? ['style' => 'pointer-events: none; opacity: .6;']
+                                : [])
+                            ->saveRelationshipsUsing(function ($record, $state, Get $get): void {
+                                if (! $record instanceof AnonymizationJobs) {
+                                    return;
+                                }
+
+                                if (! self::isEntireScopeMode($get('column_builder_mode'))) {
+                                    $record->columns()->sync(Arr::wrap($state));
+                                    GenerateAnonymizationJobSql::dispatch($record->getKey());
+                                    return;
+                                }
+
+                                // Entire scope: populate pivot server-side (avoid Livewire state explosion).
+                                $context = self::scopeContextFromForm($get);
+
+                                // wipe previous explicit selections
+                                $record->columns()->detach();
+
+                                if ($context['databases'] === [] && $context['schemas'] === [] && $context['tables'] === []) {
+                                    return;
+                                }
+
+                                // Entire scope: attach columns + best-effort method id (MIN(method_id)) in chunks.
+                                self::scopedJobColumnSelectionQuery($context)
+                                    ->chunkById(
+                                        5_000,
+                                        function (Collection $rows) use ($record) {
+                                            $payload = [];
+
+                                            foreach ($rows as $row) {
+                                                $payload[(int) $row->id] = [
+                                                    'anonymization_method_id' => $row->anonymization_method_id !== null
+                                                        ? (int) $row->anonymization_method_id
+                                                        : null,
+                                                ];
+                                            }
+
+                                            if ($payload !== []) {
+                                                $record->columns()->attach($payload);
+                                            }
+                                        },
+                                        'anonymous_siebel_columns.id',
+                                        'id'
+                                    );
+
+                                GenerateAnonymizationJobSql::dispatch($record->getKey());
+                            })
                             ->helperText('Fine-tune the generated list by searching or removing specific columns. The SQL preview updates automatically.')
                             ->getOptionLabelFromRecordUsing(fn(AnonymousSiebelColumn $record) => self::formatColumnLabel($record))
-                            ->afterStateHydrated(function ($state, callable $set, $livewire) {
+                            ->afterStateHydrated(function ($state, callable $set, Get $get, $livewire) {
+                                if (self::isEntireScopeMode($get('column_builder_mode'))) {
+                                    self::applyEntireScopePreview($set);
+                                    return;
+                                }
+
                                 $columnIds = is_array($state) ? $state : ($state ? [$state] : []);
 
                                 if ($columnIds === []) {
@@ -170,7 +227,12 @@ class AnonymizationJobResource extends Resource
                                 $set('sql_script', $script);
                                 $set('sql_script_preview', $preview);
                             })
-                            ->afterStateUpdated(function (?array $state, callable $set) {
+                            ->afterStateUpdated(function (?array $state, callable $set, Get $get) {
+                                if (self::isEntireScopeMode($get('column_builder_mode'))) {
+                                    self::applyEntireScopePreview($set);
+                                    return;
+                                }
+
                                 $script = self::buildSqlPreview($state ?? []);
                                 $preview = $script !== ''
                                     ? $script
@@ -481,7 +543,122 @@ class AnonymizationJobResource extends Resource
             return '';
         }
 
+        self::ensureSeedContractModesForColumns($columnIds);
+
         return app(AnonymizationJobScriptService::class)->buildForColumnIds($columnIds);
+    }
+
+    protected static function ensureSeedContractModesForColumns(array $columnIds): void
+    {
+        $columnIds = array_values(array_filter(array_map('intval', $columnIds)));
+
+        if ($columnIds === []) {
+            return;
+        }
+
+        // IMPORTANT: if any selected columns have legacy/invalid strings (e.g. "seed_source"),
+        // they will crash enum casting. Null them out before generating SQL.
+        self::normalizeSeedContractModesForColumns($columnIds);
+
+        // Only fill missing seed_contract_mode; do not overwrite explicit user configuration.
+        $rows = DB::table('anonymization_method_column as amc')
+            ->join('anonymization_methods as m', 'm.id', '=', 'amc.method_id')
+            ->whereIn('amc.column_id', $columnIds)
+            ->groupBy('amc.column_id')
+            ->select([
+                'amc.column_id',
+                DB::raw('MAX(CASE WHEN m.emits_seed = true THEN 1 ELSE 0 END) as emits_seed'),
+                DB::raw('MAX(CASE WHEN m.requires_seed = true THEN 1 ELSE 0 END) as requires_seed'),
+            ])
+            ->get();
+
+        foreach ($rows as $row) {
+            $emits = (int) ($row->emits_seed ?? 0) === 1;
+            $requires = (int) ($row->requires_seed ?? 0) === 1;
+
+            $semantic = match (true) {
+                $emits && $requires => 'composite',
+                $emits => 'seed_source',
+                $requires => 'consumer',
+                default => null,
+            };
+
+            $enumValue = self::seedContractEnumBackingValue($semantic);
+
+            if ($enumValue === null) {
+                continue;
+            }
+
+            DB::table('anonymous_siebel_columns')
+                ->where('id', (int) $row->column_id)
+                ->whereNull('seed_contract_mode')
+                ->update([
+                    'seed_contract_mode' => $enumValue,
+                ]);
+        }
+    }
+
+    protected static function normalizeSeedContractModesForColumns(array $columnIds): void
+    {
+        $allowed = array_map(static fn(SeedContractMode $case) => $case->value, SeedContractMode::cases());
+
+        DB::table('anonymous_siebel_columns')
+            ->whereIn('id', $columnIds)
+            ->whereNotNull('seed_contract_mode')
+            ->whereNotIn('seed_contract_mode', $allowed)
+            ->update([
+                'seed_contract_mode' => null,
+            ]);
+    }
+
+    /**
+     * Map our semantic labels to the actual enum backing values used by App\Enums\SeedContractMode.
+     * This avoids hard-coding values that may differ from your enum (and would crash SeedContractMode::from()).
+     */
+    protected static function seedContractEnumBackingValue(?string $semantic): ?string
+    {
+        $semantic = $semantic !== null ? trim($semantic) : null;
+
+        if ($semantic === null || $semantic === '') {
+            return null;
+        }
+
+        $target = strtolower(preg_replace('/[^a-z]/', '', $semantic));
+        $cases = SeedContractMode::cases();
+
+        foreach ($cases as $case) {
+            $nameNorm = strtolower(preg_replace('/[^a-z]/', '', $case->name));
+            if ($nameNorm === $target) {
+                return $case->value;
+            }
+        }
+
+        foreach ($cases as $case) {
+            $valueNorm = strtolower(preg_replace('/[^a-z]/', '', (string) $case->value));
+            if ($valueNorm === $target) {
+                return $case->value;
+            }
+        }
+
+        // Handle common synonyms if your enum uses different wording.
+        $synonyms = [
+            'seedsource' => ['provider', 'source'],
+            'consumer' => ['dependent'],
+            'composite' => ['both'],
+        ];
+
+        foreach (($synonyms[$target] ?? []) as $alt) {
+            $altNorm = strtolower(preg_replace('/[^a-z]/', '', $alt));
+            foreach ($cases as $case) {
+                $nameNorm = strtolower(preg_replace('/[^a-z]/', '', $case->name));
+                $valueNorm = strtolower(preg_replace('/[^a-z]/', '', (string) $case->value));
+                if ($nameNorm === $altNorm || $valueNorm === $altNorm) {
+                    return $case->value;
+                }
+            }
+        }
+
+        return null;
     }
 
     protected static function columnBuilderModeOptions(): array
@@ -497,7 +674,7 @@ class AnonymizationJobResource extends Resource
 
     protected static function syncColumnsFromMode(?string $mode, Set $set, Get $get): void
     {
-        if ($mode === null || $mode === 'custom') {
+        if ($mode === null || $mode === 'custom' || $mode === 'all') {
             return;
         }
 
@@ -508,7 +685,25 @@ class AnonymizationJobResource extends Resource
     {
         $mode = $get('column_builder_mode') ?? 'custom';
 
+        // If user only picks a scope (db/schema/table) and doesn't manually pick columns,
+        // default to "Entire scope" to avoid 200k+ IDs in Livewire state.
         if ($mode === 'custom') {
+            $context = self::scopeContextFromForm($get);
+            $hasScope = ($context['databases'] !== []) || ($context['schemas'] !== []) || ($context['tables'] !== []);
+            $hasManualColumns = self::sanitizeIds($get('columns')) !== [];
+
+            if ($hasScope && ! $hasManualColumns) {
+                $set('column_builder_mode', 'all');
+                $set('columns', []);
+                self::applyEntireScopePreview($set);
+            }
+
+            return;
+        }
+
+        if (self::isEntireScopeMode($mode)) {
+            $set('columns', []);
+            self::applyEntireScopePreview($set);
             return;
         }
 
@@ -520,8 +715,7 @@ class AnonymizationJobResource extends Resource
         $query = self::scopedColumnsQuery($context)
             ->orderBy('schemas.schema_name')
             ->orderBy('tables.table_name')
-            ->orderBy('anonymous_siebel_columns.column_name')
-            ->limit(2_000);
+            ->orderBy('anonymous_siebel_columns.column_name');
 
         $query = match ($mode) {
             'flagged' => $query->where('anonymous_siebel_columns.anonymization_required', true),
@@ -539,7 +733,12 @@ class AnonymizationJobResource extends Resource
     protected static function scopedColumnsQuery(array $context): Builder
     {
         $query = AnonymousSiebelColumn::query()
-            ->select('anonymous_siebel_columns.id')
+            ->select([
+                'anonymous_siebel_columns.id',
+                'schemas.schema_name',
+                'tables.table_name',
+                'anonymous_siebel_columns.column_name',
+            ])
             ->join('anonymous_siebel_tables as tables', 'tables.id', '=', 'anonymous_siebel_columns.table_id')
             ->join('anonymous_siebel_schemas as schemas', 'schemas.id', '=', 'tables.schema_id')
             ->join('anonymous_siebel_databases as databases', 'databases.id', '=', 'schemas.database_id');
@@ -571,10 +770,15 @@ class AnonymizationJobResource extends Resource
         return array_values(array_filter($ids, fn(int $id) => $id > 0));
     }
 
-    protected static function columnSelectionSummary($columnIds): string
+    protected static function columnSelectionSummary($columnIds, ?string $mode = null): string
     {
-        $ids = self::sanitizeIds($columnIds);
+        if (self::isEntireScopeMode($mode)) {
+            return 'Entire scope selected — SQL will be generated for every in-scope column after save.';
+        }
 
+        // If a scope exists but no explicit columns, treat it as implicit full-scope behavior.
+        // (UI may briefly show this before refreshColumnsFromScope flips the mode to "all".)
+        $ids = self::sanitizeIds($columnIds);
         if ($ids === []) {
             return 'No columns selected yet.';
         }
@@ -605,8 +809,12 @@ class AnonymizationJobResource extends Resource
         );
     }
 
-    protected static function packageDependenciesSummary($columnIds): string
+    protected static function packageDependenciesSummary($columnIds, ?string $mode = null): string
     {
+        if (self::isEntireScopeMode($mode)) {
+            return 'Entire scope selected — package requirements will be calculated from the scope on save.';
+        }
+
         $ids = self::sanitizeIds($columnIds);
 
         if ($ids === []) {
@@ -676,5 +884,71 @@ class AnonymizationJobResource extends Resource
         return $segments !== []
             ? implode('.', $segments)
             : $column->column_name;
+    }
+
+    protected static function handleColumnBuilderModeChange(?string $mode, Set $set, Get $get): void
+    {
+        if ($mode === null) {
+            return;
+        }
+
+        if (self::isEntireScopeMode($mode)) {
+            $set('columns', []);
+            self::applyEntireScopePreview($set);
+            return;
+        }
+
+        self::syncColumnsFromMode($mode, $set, $get);
+    }
+
+    protected static function applyEntireScopePreview(Set $set): void
+    {
+        $set('sql_script', null);
+        $set('sql_script_preview', self::allScopePreviewMessage());
+    }
+
+    protected static function isEntireScopeMode(?string $mode): bool
+    {
+        return $mode === 'all';
+    }
+
+    protected static function allScopePreviewMessage(): string
+    {
+        return '-- Entire scope selected. SQL will be generated for all scoped columns after saving this job.';
+    }
+
+    /**
+     * Build the "entire scope" column list without materializing 200k IDs in Livewire state.
+     * Also returns a best-effort anonymization_method_id for the job pivot (MIN method per column).
+     */
+    protected static function scopedJobColumnSelectionQuery(array $context): Builder
+    {
+        $query = AnonymousSiebelColumn::query()
+            ->select([
+                'anonymous_siebel_columns.id as id',
+                DB::raw('MIN(amc.method_id) as anonymization_method_id'),
+                'anonymous_siebel_columns.anonymization_required',
+            ])
+            ->join('anonymous_siebel_tables as tables', 'tables.id', '=', 'anonymous_siebel_columns.table_id')
+            ->join('anonymous_siebel_schemas as schemas', 'schemas.id', '=', 'tables.schema_id')
+            ->join('anonymous_siebel_databases as databases', 'databases.id', '=', 'schemas.database_id')
+            ->leftJoin('anonymization_method_column as amc', 'amc.column_id', '=', 'anonymous_siebel_columns.id');
+
+        if ($context['tables'] !== []) {
+            $query->whereIn('tables.id', $context['tables']);
+        } elseif ($context['schemas'] !== []) {
+            $query->whereIn('schemas.id', $context['schemas']);
+        } elseif ($context['databases'] !== []) {
+            $query->whereIn('databases.id', $context['databases']);
+        }
+
+        // Actionable set: flagged required OR has at least one method.
+        return $query
+            ->where(function (Builder $q) {
+                $q->where('anonymous_siebel_columns.anonymization_required', true)
+                    ->orWhereNotNull('amc.method_id');
+            })
+            ->groupBy('anonymous_siebel_columns.id', 'anonymous_siebel_columns.anonymization_required')
+            ->orderBy('anonymous_siebel_columns.id');
     }
 }

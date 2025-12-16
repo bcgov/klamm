@@ -31,30 +31,34 @@ class AnonymousSiebelSchemaResource extends Resource
                             ->label('Database')
                             ->relationship('database', 'database_name')
                             ->searchable()
-                            ->required(),
+                            ->required()
+                            ->disabled(fn(?AnonymousSiebelSchema $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('schema_name')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled(fn(?AnonymousSiebelSchema $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('type')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled(fn(?AnonymousSiebelSchema $record) => (bool) $record?->exists),
                         Forms\Components\Textarea::make('description')
                             ->rows(3)
-                            ->columnSpanFull(),
+                            ->columnSpanFull()
+                            ->disabled(fn(?AnonymousSiebelSchema $record) => (bool) $record?->exists),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Sync metadata')
                     ->schema([
-                        Forms\Components\Placeholder::make('content_hash')
-                            ->label('Content hash')
-                            ->content(fn(?AnonymousSiebelSchema $record) => $record?->content_hash ?? '—'),
                         Forms\Components\Placeholder::make('last_synced_at')
                             ->label('Last synced')
                             ->content(fn(?AnonymousSiebelSchema $record) => optional($record?->last_synced_at)?->toDayDateTimeString() ?? '—'),
                         Forms\Components\Placeholder::make('changed_at')
                             ->label('Changed at')
                             ->content(fn(?AnonymousSiebelSchema $record) => optional($record?->changed_at)?->toDayDateTimeString() ?? '—'),
+                        Forms\Components\Placeholder::make('content_hash')
+                            ->label('Content hash')
+                            ->content(fn(?AnonymousSiebelSchema $record) => $record?->content_hash ?? '—'),
                     ])
-                    ->columns(3)
+                    ->columns(2)
                     ->hiddenOn('create'),
             ]);
     }
@@ -92,6 +96,7 @@ class AnonymousSiebelSchemaResource extends Resource
                 Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
@@ -114,6 +119,7 @@ class AnonymousSiebelSchemaResource extends Resource
         return [
             'index' => Pages\ListAnonymousSiebelSchemas::route('/'),
             'create' => Pages\CreateAnonymousSiebelSchema::route('/create'),
+            'view' => Pages\ViewAnonymousSiebelSchema::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelSchema::route('/{record}/edit'),
         ];
     }

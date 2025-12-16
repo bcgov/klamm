@@ -29,26 +29,28 @@ class AnonymousSiebelDatabaseResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('database_name')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->disabled(fn(?AnonymousSiebelDatabase $record) => (bool) $record?->exists),
                         Forms\Components\Textarea::make('description')
                             ->maxLength(65535)
                             ->rows(3)
-                            ->columnSpanFull(),
+                            ->columnSpanFull()
+                            ->disabled(fn(?AnonymousSiebelDatabase $record) => (bool) $record?->exists),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Sync metadata')
                     ->schema([
-                        Forms\Components\Placeholder::make('content_hash')
-                            ->label('Content hash')
-                            ->content(fn(?AnonymousSiebelDatabase $record) => $record?->content_hash ?? '—'),
                         Forms\Components\Placeholder::make('last_synced_at')
                             ->label('Last synced')
                             ->content(fn(?AnonymousSiebelDatabase $record) => optional($record?->last_synced_at)?->toDayDateTimeString() ?? '—'),
                         Forms\Components\Placeholder::make('changed_at')
                             ->label('Changed at')
                             ->content(fn(?AnonymousSiebelDatabase $record) => optional($record?->changed_at)?->toDayDateTimeString() ?? '—'),
+                        Forms\Components\Placeholder::make('content_hash')
+                            ->label('Content hash')
+                            ->content(fn(?AnonymousSiebelDatabase $record) => $record?->content_hash ?? '—'),
                     ])
-                    ->columns(3)
+                    ->columns(2)
                     ->hiddenOn('create'),
             ]);
     }

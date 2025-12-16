@@ -102,8 +102,10 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             $isFullImport = ($upload->import_type ?? 'partial') === 'full';
 
             if ($isFullImport) {
+                $deletionScope = $this->resolveFullImportDeletionScope($upload, $result['touchedTableIdentities']);
+
                 $deletedCount = $this->softDeleteMissingColumns(
-                    $result['touchedTableIdentities'],
+                    $deletionScope,
                     $result['processedColumnIdentitiesTempTable'],
                     $runAt
                 );
@@ -146,6 +148,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 'processed_rows' => $result['processedRows'],
                 'processed_bytes' => $result['processedBytes'],
                 'progress_updated_at' => CarbonImmutable::now(),
+                'retention_until' => CarbonImmutable::now()->addDays(max(1, (int) config('anonymizer.upload_retention_days', 30))),
             ]);
         } catch (Throwable $exception) {
             $upload->update([
@@ -153,6 +156,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 'status_detail' => 'Failed',
                 'error' => $exception->getMessage(),
                 'progress_updated_at' => CarbonImmutable::now(),
+                'retention_until' => CarbonImmutable::now()->addDays(max(1, (int) config('anonymizer.upload_retention_days', 30))),
             ]);
 
             throw $exception;

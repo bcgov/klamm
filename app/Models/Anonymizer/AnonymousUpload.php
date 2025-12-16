@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Jobs\GenerateChangeTicketsFromUpload;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class AnonymousUpload extends Model
 {
@@ -33,6 +35,9 @@ class AnonymousUpload extends Model
         'processed_bytes',
         'processed_rows',
         'progress_updated_at',
+        'retention_until',
+        'file_deleted_at',
+        'file_deleted_reason',
         'error',
     ];
 
@@ -46,6 +51,8 @@ class AnonymousUpload extends Model
         'processed_bytes' => 'integer',
         'processed_rows' => 'integer',
         'progress_updated_at' => 'datetime',
+        'retention_until' => 'datetime',
+        'file_deleted_at' => 'datetime',
 
 
 
@@ -81,5 +88,49 @@ class AnonymousUpload extends Model
     public function stagings()
     {
         return $this->hasMany(AnonymousSiebelStaging::class, 'upload_id');
+    }
+
+    public function storageDisk(): string
+    {
+        return $this->file_disk ?: config('filesystems.default', 'local');
+    }
+
+    public function hasStoredFile(): bool
+    {
+        if (! $this->path) {
+            return false;
+        }
+
+        try {
+            return Storage::disk($this->storageDisk())->exists($this->path);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    public function deleteStoredFile(string $reason = 'manual'): bool
+    {
+        $disk = $this->storageDisk();
+        $path = $this->path;
+
+        $deleted = false;
+
+        if ($path) {
+            try {
+                $storage = Storage::disk($disk);
+                if ($storage->exists($path)) {
+                    $deleted = (bool) $storage->delete($path);
+                }
+            } catch (Throwable) {
+                $deleted = false;
+            }
+        }
+
+        $this->forceFill([
+            'file_deleted_at' => now(),
+            'file_deleted_reason' => $reason,
+        ])->save();
+
+        return $deleted;
     }
 }

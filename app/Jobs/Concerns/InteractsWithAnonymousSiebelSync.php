@@ -886,7 +886,11 @@ trait InteractsWithAnonymousSiebelSync
         // Use temporary tables to track processed column identities instead of keeping them in memory
         // This prevents memory exhaustion with very large imports
         $tempColumnIdentitiesTable = 'temp_column_identities_' . $uploadId;
-        DB::statement("CREATE TEMPORARY TABLE {$tempColumnIdentitiesTable} (column_identity VARCHAR(512) PRIMARY KEY)");
+        DB::statement("CREATE TEMPORARY TABLE {$tempColumnIdentitiesTable} (
+            table_id INTEGER NOT NULL,
+            column_name VARCHAR(512) NOT NULL,
+            PRIMARY KEY (table_id, column_name)
+        )");
 
         $columnIdentitiesBatch = [];
         $columnIdentitiesBatchSize = 5000;
@@ -1091,10 +1095,13 @@ trait InteractsWithAnonymousSiebelSync
                         'table_name' => $tableName,
                     ];
 
-                    $columnIdentity = $this->columnIdentityKey($databaseEntry['id'], $row->schema_name, $tableName, $columnName);
+                    $columnIdentityKey = $tableEntry['id'] . '|' . $this->norm($columnName);
 
                     // Batch the processed column identities for temporary table insert
-                    $columnIdentitiesBatch[$columnIdentity] = true;
+                    $columnIdentitiesBatch[$columnIdentityKey] = [
+                        'table_id' => $tableEntry['id'],
+                        'column_name' => $this->norm($columnName),
+                    ];
                     if (count($columnIdentitiesBatch) >= $columnIdentitiesBatchSize) {
                         $this->flushColumnIdentities($tempColumnIdentitiesTable, $columnIdentitiesBatch);
                         $columnIdentitiesBatch = [];
@@ -1248,14 +1255,12 @@ trait InteractsWithAnonymousSiebelSync
      */
     protected function flushTouchedColumnIds(string $tempTableName, array &$batch): void
     {
-        if (empty($batch)) {
+        if ($batch === []) {
             return;
         }
 
-        $values = array_map(fn($id) => "({$id})", array_keys($batch));
-        $valuesStr = implode(',', $values);
-
-        DB::statement("INSERT INTO {$tempTableName} (column_id) VALUES {$valuesStr} ON CONFLICT (column_id) DO NOTHING");
+        $rows = array_map(fn($id) => ['column_id' => $id], array_keys($batch));
+        DB::table($tempTableName)->insertOrIgnore($rows);
     }
 
     /**
@@ -1264,17 +1269,11 @@ trait InteractsWithAnonymousSiebelSync
      */
     protected function flushColumnIdentities(string $tempTableName, array &$batch): void
     {
-        if (empty($batch)) {
+        if ($batch === []) {
             return;
         }
 
-        $values = array_map(
-            fn($identity) => "('" . str_replace("'", "''", $identity) . "')",
-            array_keys($batch)
-        );
-        $valuesStr = implode(',', $values);
-
-        DB::statement("INSERT INTO {$tempTableName} (column_identity) VALUES {$valuesStr} ON CONFLICT (column_identity) DO NOTHING");
+        DB::table($tempTableName)->insertOrIgnore(array_values($batch));
     }
     protected function cleanupStaging(int $uploadId): void
     {
@@ -1744,7 +1743,7 @@ trait InteractsWithAnonymousSiebelSync
      * @param string $tempTableName Name of temporary table containing processed column identities
      * @param mixed $now Timestamp for the deletion
      */
-    protected function softDeleteMissingColumns(array $touchedTableIdentities, string $tempTableName, $now): int
+    protected function softDeleteMissingColumns(array $touchedTableIdentities, string $processedColumnsTempTable, $now): int
     {
         if ($touchedTableIdentities === []) {
             return 0;
@@ -1753,9 +1752,6 @@ trait InteractsWithAnonymousSiebelSync
         $deleted = 0;
         $identityFilters = array_values($touchedTableIdentities);
 
-        // Create a temporary table for table identities to avoid parameter limit issues
-        // PostgreSQL has a limit of 65,535 parameters per query, and with 3 params per table
-        // we can hit this limit with large imports (>20k tables)
         $tempTableIdentitiesTable = 'temp_table_identities_' . uniqid();
         DB::statement("CREATE TEMPORARY TABLE {$tempTableIdentitiesTable} (
             database_id INTEGER NOT NULL,
@@ -1763,8 +1759,6 @@ trait InteractsWithAnonymousSiebelSync
             table_name VARCHAR(255) NOT NULL
         )");
 
-        // Insert table identities in chunks to stay within parameter limits
-        // Each insert has 3 params, so chunk at ~20k to be safe
         foreach (array_chunk($identityFilters, 20000) as $chunk) {
             $insertData = [];
             foreach ($chunk as $filter) {
@@ -1774,18 +1768,14 @@ trait InteractsWithAnonymousSiebelSync
                     'table_name' => $filter['table_name'],
                 ];
             }
-            if (!empty($insertData)) {
+            if ($insertData !== []) {
                 DB::table($tempTableIdentitiesTable)->insert($insertData);
             }
         }
 
-        // Create a temp table to store table IDs that match our identity filters
         $tempMatchedTablesTable = 'temp_matched_tables_' . uniqid();
-        DB::statement("CREATE TEMPORARY TABLE {$tempMatchedTablesTable} (
-            table_id INTEGER PRIMARY KEY
-        )");
+        DB::statement("CREATE TEMPORARY TABLE {$tempMatchedTablesTable} (table_id INTEGER PRIMARY KEY)");
 
-        // Insert matching table IDs using a join (avoids loading into PHP memory)
         DB::statement("
             INSERT INTO {$tempMatchedTablesTable} (table_id)
             SELECT t.id
@@ -1797,82 +1787,27 @@ trait InteractsWithAnonymousSiebelSync
                 AND t.table_name = ti.table_name
         ");
 
-        // Check if we have any matched tables
-        $matchedCount = DB::table($tempMatchedTablesTable)->count();
-        if ($matchedCount === 0) {
+        if (DB::table($tempMatchedTablesTable)->count() === 0) {
             DB::statement("DROP TABLE IF EXISTS {$tempTableIdentitiesTable}");
             DB::statement("DROP TABLE IF EXISTS {$tempMatchedTablesTable}");
             return 0;
         }
 
-        // Create a temporary table with column identities to potentially delete
-        $tempDeleteCandidatesTable = 'temp_delete_candidates_' . uniqid();
-        DB::statement("CREATE TEMPORARY TABLE {$tempDeleteCandidatesTable} (
-            column_id INTEGER PRIMARY KEY,
-            column_identity VARCHAR(512)
-        )");
-
-        // Insert all non-deleted columns from touched tables into temp table with their identities
-        // Process in chunks to avoid memory issues, but use the temp table for the join
-        $lastProcessedId = 0;
-        $chunkSize = 500;
-
-        do {
-            $columns = DB::table(self::COLUMNS_TABLE . ' as c')
-                ->join(self::TABLES_TABLE . ' as t', 'c.table_id', '=', 't.id')
-                ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
-                ->join($tempMatchedTablesTable . ' as mt', 'c.table_id', '=', 'mt.table_id')
-                ->select('c.id', 'c.column_name', 't.table_name', 's.schema_name', 's.database_id')
-                ->where('c.id', '>', $lastProcessedId)
-                ->whereNull('c.deleted_at')
-                ->orderBy('c.id')
-                ->limit($chunkSize)
-                ->get();
-
-            if ($columns->isEmpty()) {
-                break;
-            }
-
-            $insertData = [];
-            foreach ($columns as $column) {
-                $columnKey = $this->columnIdentityKey(
-                    (int) $column->database_id,
-                    $column->schema_name,
-                    $column->table_name,
-                    $column->column_name
-                );
-                $insertData[] = [
-                    'column_id' => $column->id,
-                    'column_identity' => $columnKey,
-                ];
-                $lastProcessedId = $column->id;
-            }
-
-            if (!empty($insertData)) {
-                DB::table($tempDeleteCandidatesTable)->insert($insertData);
-            }
-
-            // Free memory
-            unset($columns, $insertData);
-        } while (true);
-
-        // Create a temp table to store column IDs that need to be deleted
-        // (those in candidates but NOT in processed identities)
         $tempColumnsToDeleteTable = 'temp_columns_to_delete_' . uniqid();
-        DB::statement("CREATE TEMPORARY TABLE {$tempColumnsToDeleteTable} (
-            column_id INTEGER PRIMARY KEY
-        )");
+        DB::statement("CREATE TEMPORARY TABLE {$tempColumnsToDeleteTable} (column_id INTEGER PRIMARY KEY)");
 
-        // Use SQL to find columns to delete (avoids loading into PHP memory)
         DB::statement("
             INSERT INTO {$tempColumnsToDeleteTable} (column_id)
-            SELECT dc.column_id
-            FROM {$tempDeleteCandidatesTable} dc
-            LEFT JOIN {$tempTableName} processed ON dc.column_identity = processed.column_identity
-            WHERE processed.column_identity IS NULL
+            SELECT c.id
+            FROM " . self::COLUMNS_TABLE . " c
+            INNER JOIN {$tempMatchedTablesTable} mt ON c.table_id = mt.table_id
+            LEFT JOIN {$processedColumnsTempTable} processed
+                ON processed.table_id = c.table_id
+                AND processed.column_name = UPPER(TRIM(c.column_name))
+            WHERE c.deleted_at IS NULL
+              AND processed.table_id IS NULL
         ");
 
-        // Process deletions in chunks using cursor-based pagination
         $lastDeletedId = 0;
         $deleteChunkSize = 100;
 
@@ -1920,14 +1855,9 @@ trait InteractsWithAnonymousSiebelSync
                 $lastDeletedId = $column->id;
                 ++$deleted;
             }
-
-            // Free memory
-            unset($columnsToProcess);
         } while (true);
 
-        // Clean up temporary tables
         DB::statement("DROP TABLE IF EXISTS {$tempColumnsToDeleteTable}");
-        DB::statement("DROP TABLE IF EXISTS {$tempDeleteCandidatesTable}");
         DB::statement("DROP TABLE IF EXISTS {$tempMatchedTablesTable}");
         DB::statement("DROP TABLE IF EXISTS {$tempTableIdentitiesTable}");
 
@@ -2136,6 +2066,7 @@ trait InteractsWithAnonymousSiebelSync
         $missing = array_diff_key($referencedColumns, $byTriplet);
         if ($missing === []) {
             return [
+
                 'byKey' => $byKey,
                 'byTriplet' => $byTriplet,
             ];
@@ -2345,5 +2276,128 @@ trait InteractsWithAnonymousSiebelSync
     protected function norm(string $value): string
     {
         return Str::upper(trim($value));
+    }
+
+    protected function resolveFullImportDeletionScope(AnonymousUpload $upload, array $touchedTableIdentities): array
+    {
+        if (($upload->import_type ?? 'partial') !== 'full') {
+            return $touchedTableIdentities;
+        }
+
+        $scope = strtolower((string) ($upload->scope_type ?? ''));
+        $resolved = match ($scope) {
+            '' => $this->fetchAllTableIdentities(),
+            'database' => $this->fetchTableIdentitiesForDatabase($upload->scope_name),
+            'schema' => $this->fetchTableIdentitiesForSchema($upload->scope_name),
+            'table' => $this->fetchTableIdentitiesForTable($upload->scope_name),
+            default => $touchedTableIdentities,
+        };
+
+        if ($scope === '' && $resolved === []) {
+            return $touchedTableIdentities;
+        }
+
+        return $resolved ?: $touchedTableIdentities;
+    }
+
+    protected function fetchAllTableIdentities(): array
+    {
+        $rows = DB::table(self::TABLES_TABLE . ' as t')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->select('s.database_id', 's.schema_name', 't.table_name')
+            ->whereNull('t.deleted_at')
+            ->get();
+
+        return $this->mapTableIdentityRows($rows);
+    }
+
+    protected function fetchTableIdentitiesForDatabase(?string $databaseName): array
+    {
+        if (! is_string($databaseName) || trim($databaseName) === '') {
+            return [];
+        }
+
+        $rows = DB::table(self::TABLES_TABLE . ' as t')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->join(self::DATABASES_TABLE . ' as d', 's.database_id', '=', 'd.id')
+            ->select('s.database_id', 's.schema_name', 't.table_name')
+            ->whereNull('t.deleted_at')
+            ->whereRaw('UPPER(TRIM(d.database_name)) = ?', [$this->norm($databaseName)])
+            ->get();
+
+        return $this->mapTableIdentityRows($rows);
+    }
+
+    protected function fetchTableIdentitiesForSchema(?string $schemaIdentifier): array
+    {
+        if (! is_string($schemaIdentifier) || trim($schemaIdentifier) === '') {
+            return [];
+        }
+
+        $databaseFilter = null;
+        $schemaName = $schemaIdentifier;
+
+        if (str_contains($schemaIdentifier, '.')) {
+            [$databaseFilter, $schemaName] = array_map('trim', explode('.', $schemaIdentifier, 2));
+        }
+
+        $query = DB::table(self::TABLES_TABLE . ' as t')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->select('s.database_id', 's.schema_name', 't.table_name')
+            ->whereNull('t.deleted_at')
+            ->whereRaw('UPPER(TRIM(s.schema_name)) = ?', [$this->norm($schemaName)]);
+
+        if ($databaseFilter && $databaseFilter !== '') {
+            $query->join(self::DATABASES_TABLE . ' as d', 's.database_id', '=', 'd.id')
+                ->whereRaw('UPPER(TRIM(d.database_name)) = ?', [$this->norm($databaseFilter)]);
+        }
+
+        return $this->mapTableIdentityRows($query->get());
+    }
+
+    protected function fetchTableIdentitiesForTable(?string $tableIdentifier): array
+    {
+        if (! is_string($tableIdentifier) || trim($tableIdentifier) === '') {
+            return [];
+        }
+
+        $schemaFilter = null;
+        $tableName = $tableIdentifier;
+
+        if (str_contains($tableIdentifier, '.')) {
+            [$schemaFilter, $tableName] = array_map('trim', explode('.', $tableIdentifier, 2));
+        }
+
+        $query = DB::table(self::TABLES_TABLE . ' as t')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->select('s.database_id', 's.schema_name', 't.table_name')
+            ->whereNull('t.deleted_at')
+            ->whereRaw('UPPER(TRIM(t.table_name)) = ?', [$this->norm($tableName)]);
+
+        if ($schemaFilter && $schemaFilter !== '') {
+            $query->whereRaw('UPPER(TRIM(s.schema_name)) = ?', [$this->norm($schemaFilter)]);
+        }
+
+        return $this->mapTableIdentityRows($query->get());
+    }
+
+    protected function mapTableIdentityRows($rows): array
+    {
+        $identities = [];
+
+        foreach ($rows as $row) {
+            if ($row->database_id === null || $row->schema_name === null || $row->table_name === null) {
+                continue;
+            }
+
+            $key = $this->tableIdentityKey((int) $row->database_id, $row->schema_name, $row->table_name);
+            $identities[$key] = [
+                'database_id' => (int) $row->database_id,
+                'schema_name' => $row->schema_name,
+                'table_name' => $row->table_name,
+            ];
+        }
+
+        return array_values($identities);
     }
 }

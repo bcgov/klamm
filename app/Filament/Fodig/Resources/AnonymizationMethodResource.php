@@ -3,6 +3,7 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\Pages;
+use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\ColumnsRelationManager;
 use App\Models\AnonymizationMethods;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -112,9 +113,6 @@ class AnonymizationMethodResource extends Resource
                         Forms\Components\Placeholder::make('sql_preview')
                             ->label('SQL preview')
                             ->content(fn(Get $get) => self::renderSqlPreview($get('sql_block'))),
-                        Forms\Components\Placeholder::make('prompting_tip')
-                            ->label('Prompt template')
-                            ->content(fn(Get $get) => self::promptingHelp($get('name'), $get('category'))),
                         Forms\Components\Placeholder::make('usage_hint')
                             ->label('Column usage')
                             ->content(function (?AnonymizationMethods $record) {
@@ -299,16 +297,6 @@ class AnonymizationMethodResource extends Resource
                             ->placeholder('No columns reference this method yet.'),
                     ])
                     ->visible(fn(AnonymizationMethods $record) => $record->usage_count > 0),
-                InfolistSection::make('Prompt Guidance')
-                    ->schema([
-                        TextEntry::make('prompt_template')
-                            ->label('Suggested template')
-                            ->getStateUsing(fn(AnonymizationMethods $record) => self::promptingHelp($record->name, $record->category))
-                            ->columnSpanFull()
-                            ->extraAttributes(['class' => 'text-sm text-gray-700']),
-                    ])
-                    ->collapsible()
-                    ->collapsed(),
             ]);
     }
 
@@ -319,6 +307,13 @@ class AnonymizationMethodResource extends Resource
             'create' => Pages\CreateAnonymizationMethod::route('/create'),
             'view' => Pages\ViewAnonymizationMethod::route('/{record}'),
             'edit' => Pages\EditAnonymizationMethod::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            ColumnsRelationManager::class,
         ];
     }
 
@@ -356,25 +351,6 @@ class AnonymizationMethodResource extends Resource
         $escaped = e($sql);
 
         return new HtmlString('<pre class="rounded-lg bg-slate-950/5 p-4 font-mono text-sm leading-relaxed">' . $escaped . '</pre>');
-    }
-
-    protected static function promptingHelp(?string $name, ?string $category): HtmlString
-    {
-        $method = $name ?: '<<Method Name>>';
-        $categoryLabel = $category ?: '<<Category>>';
-
-        $template = <<<HTML
-<div class="space-y-2 text-sm text-gray-600">
-    <pre class="overflow-x-auto rounded-lg bg-slate-950/5 p-3 font-mono text-xs">Generate an anonymization method named "{$method}" (category: {$categoryLabel}).
-Describe the transformation and produce a SQL snippet that:
-- Preserves referential integrity where possible
-- Avoids selecting live production data
-- Provides comments explaining intent
-Use placeholders such as {{TABLE}} and {{COLUMN}} so the snippet can be reused.</pre>
-</div>
-HTML;
-
-        return new HtmlString($template);
     }
 
     protected static function columnsPreview(AnonymizationMethods $record): string

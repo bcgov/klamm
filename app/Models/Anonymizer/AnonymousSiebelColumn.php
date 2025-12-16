@@ -39,6 +39,7 @@ class AnonymousSiebelColumn extends Model
         'data_type_id',
         'metadata_comment',
         'anonymization_required',
+        'anonymization_requirement_reviewed',
         'seed_contract_mode',
         'seed_contract_expression',
         'seed_contract_notes',
@@ -56,6 +57,7 @@ class AnonymousSiebelColumn extends Model
         'changed_at' => 'datetime',
         'changed_fields' => 'array',
         'anonymization_required' => 'boolean',
+        'anonymization_requirement_reviewed' => 'boolean',
         'seed_contract_mode' => SeedContractMode::class,
     ];
 
@@ -110,6 +112,9 @@ class AnonymousSiebelColumn extends Model
             'content_hash',
             'last_synced_at',
             'changed_at',
+            'anonymization_required',
+            'anonymization_requirement_reviewed',
+            'metadata_comment',
         ];
     }
 

@@ -131,12 +131,12 @@ class ImportSiebelMetadata extends Page implements HasForms
                 ->icon('heroicon-o-arrow-left')
                 ->color('gray')
                 ->url(fn() => AnonymousUploadResource::getUrl('index')),
-            Actions\Action::make('download_template')
-                ->label('Download Template')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->outlined()
-                ->action(fn() => $this->downloadTemplate()),
+            // Actions\Action::make('download_template')
+            //     ->label('Download Extraction Logic')
+            //     ->icon('heroicon-o-arrow-down-tray')
+            //     ->color('gray')
+            //     ->outlined()
+            //     ->action(fn() => $this->downloadTemplate()),
             Actions\Action::make('import_metadata')
                 ->label('Import Metadata')
                 ->icon('heroicon-o-arrow-up-tray')

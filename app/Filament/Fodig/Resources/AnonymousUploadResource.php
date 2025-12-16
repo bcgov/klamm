@@ -15,6 +15,7 @@ use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class AnonymousUploadResource extends Resource
 {
@@ -152,6 +153,14 @@ class AnonymousUploadResource extends Resource
                     ->label('Queued At')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('retention_until')
+                    ->label('Retain Until')
+                    ->dateTime()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('file_deleted_at')
+                    ->label('File Deleted At')
+                    ->dateTime()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -169,6 +178,22 @@ class AnonymousUploadResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('delete_csv')
+                    ->label('Delete CSV')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(function (AnonymousUpload $record): bool {
+                        if ($record->file_deleted_at) {
+                            return false;
+                        }
+
+                        $disk = $record->file_disk ?: config('filesystems.default', 'local');
+                        return filled($record->path) && Storage::disk($disk)->exists($record->path);
+                    })
+                    ->action(function (AnonymousUpload $record): void {
+                        $record->deleteStoredFile('manual');
+                    }),
                 Tables\Actions\ViewAction::make(),
             ])
             ->bulkActions([
@@ -268,6 +293,18 @@ class AnonymousUploadResource extends Resource
                                 TextEntry::make('progress_updated_at')
                                     ->label('Progress Updated At')
                                     ->dateTime(),
+                            ]),
+                        InfolistGrid::make(3)
+                            ->schema([
+                                TextEntry::make('retention_until')
+                                    ->label('Retain Until')
+                                    ->dateTime(),
+                                TextEntry::make('file_deleted_at')
+                                    ->label('File Deleted At')
+                                    ->dateTime(),
+                                TextEntry::make('file_deleted_reason')
+                                    ->label('File Deleted Reason')
+                                    ->formatStateUsing(fn(?string $state): string => $state ?: '—'),
                             ]),
                     ]),
                 InfolistSection::make('Error Information')
