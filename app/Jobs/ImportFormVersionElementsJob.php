@@ -767,12 +767,19 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $technicalName = $element['name'] ?? $humanReadableLabel;
 
                 // Extract reference ID and generated ID from UUID
-                $parts = explode('-', $element['uuid']);
-                $referenceId = implode('-', array_slice($parts, 0, -5));
-                $uuid = implode('-', array_slice($parts, -5));
-                // Fallback for reference ID
-                if (empty($referenceId)) {
-                    $referenceId = $humanReadableLabel;
+                if ($element['uuid'] ?? false) {
+                    // JSON v2
+                    $parts = explode('-', $element['uuid']);
+                    $referenceId = implode('-', array_slice($parts, 0, -5));
+                    $uuid = implode('-', array_slice($parts, -5));
+                    // Fallback for reference ID
+                    if (empty($referenceId)) {
+                        $referenceId = $humanReadableLabel;
+                    }
+                } else {
+                    // ADZE templates
+                    $uuid = $element['token'];
+                    $referenceId = $element['name'];
                 }
 
                 $attributes += ['is_read_only' => false];
