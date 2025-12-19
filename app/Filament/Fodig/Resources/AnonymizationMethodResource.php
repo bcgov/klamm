@@ -4,7 +4,7 @@ namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\Pages;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\ColumnsRelationManager;
-use App\Models\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationMethods;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -41,12 +41,11 @@ class AnonymizationMethodResource extends Resource
                             ->maxLength(255)
                             ->unique(ignoreRecord: true)
                             ->helperText('Keep the name concise and action-oriented (e.g. "Hash contact email").'),
-                        Forms\Components\TextInput::make('category')
-                            ->label('Category')
-                            ->datalist(fn() => self::categoryOptionsWithExisting())
-                            ->maxLength(255)
-                            ->placeholder('e.g. Hashing / Deterministic')
-                            ->helperText('Categories keep the method library tidy. Pick one of the common groupings or enter a custom label.'),
+                        Forms\Components\TagsInput::make('categories')
+                            ->label('Categories')
+                            ->suggestions(fn() => AnonymizationMethods::categoryOptionsWithExisting())
+                            ->placeholder('Add one or more categories')
+                            ->helperText('Add one or more canonical masking categories to keep the library discoverable.'),
                         Forms\Components\Textarea::make('description')
                             ->rows(3)
                             ->columnSpanFull()
@@ -149,11 +148,10 @@ class AnonymizationMethodResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('category')
-                    ->sortable()
-                    ->searchable()
+                Tables\Columns\TextColumn::make('categories')
+                    ->label('Categories')
                     ->badge()
-                    ->color('gray')
+                    ->separator(',')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('description')
                     ->label('Summary')
@@ -195,13 +193,32 @@ class AnonymizationMethodResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('category')
+                Tables\Filters\SelectFilter::make('categories')
                     ->label('Category')
-                    ->options(fn() => AnonymizationMethods::query()
-                        ->whereNotNull('category')
-                        ->orderBy('category')
-                        ->pluck('category', 'category')
-                        ->all()),
+                    ->multiple()
+                    ->options(fn() => array_combine(
+                        AnonymizationMethods::categoryOptionsWithExisting(),
+                        AnonymizationMethods::categoryOptionsWithExisting(),
+                    ))
+                    ->query(function ($query, array $data) {
+                        $values = $data['values'] ?? null;
+
+                        if (! is_array($values) || $values === []) {
+                            return $query;
+                        }
+
+                        return $query->where(function ($builder) use ($values) {
+                            foreach ($values as $category) {
+                                if (! is_string($category) || trim($category) === '') {
+                                    continue;
+                                }
+
+                                $builder
+                                    ->orWhereJsonContains('categories', trim($category))
+                                    ->orWhere('category', trim($category));
+                            }
+                        });
+                    }),
                 Tables\Filters\TernaryFilter::make('emits_seed')
                     ->label('Emits seed')
                     ->nullable(),
@@ -232,7 +249,20 @@ class AnonymizationMethodResource extends Resource
                                 TextEntry::make('name')
                                     ->label('Method')
                                     ->weight('bold'),
-                                TextEntry::make('category')
+                                TextEntry::make('categories')
+                                    ->label('Categories')
+                                    ->formatStateUsing(function ($state, ?AnonymizationMethods $record) {
+                                        if ($record) {
+                                            return $record->categorySummary() ?? '—';
+                                        }
+
+                                        if (is_array($state) && $state !== []) {
+                                            $labels = array_values(array_filter(array_map(fn($v) => is_string($v) ? trim($v) : null, $state)));
+                                            return $labels !== [] ? implode(' • ', $labels) : '—';
+                                        }
+
+                                        return '—';
+                                    })
                                     ->placeholder('—'),
                             ])->columns(2),
                         TextEntry::make('description')
@@ -315,31 +345,6 @@ class AnonymizationMethodResource extends Resource
         return [
             ColumnsRelationManager::class,
         ];
-    }
-
-    protected static function categoryOptions(): array
-    {
-        return [
-            'Hashing / Deterministic',
-            'Masking / Redaction',
-            'Pseudonymization',
-            'Aggregation / Bucketing',
-            'Synthetic Data',
-            'Utility / Helper',
-        ];
-    }
-
-    protected static function categoryOptionsWithExisting(): array
-    {
-        $existing = AnonymizationMethods::query()
-            ->whereNotNull('category')
-            ->pluck('category')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        return array_values(array_unique(array_merge(self::categoryOptions(), $existing)));
     }
 
     protected static function renderSqlPreview(?string $sql): HtmlString

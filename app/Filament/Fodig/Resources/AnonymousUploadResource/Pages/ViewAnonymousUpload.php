@@ -22,6 +22,12 @@ class ViewAnonymousUpload extends ViewRecord
                 ->color('gray')
                 ->visible(fn() => $this->canDownload())
                 ->action(fn() => $this->downloadCsv()),
+            Actions\Action::make('download_errors')
+                ->label('Download Errors')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->color('warning')
+                ->visible(fn() => $this->canDownloadErrors())
+                ->action(fn() => $this->downloadErrors()),
             Actions\Action::make('delete_csv')
                 ->label('Delete CSV')
                 ->icon('heroicon-o-trash')
@@ -62,6 +68,43 @@ class ViewAnonymousUpload extends ViewRecord
             echo $storage->get($path);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    protected function canDownloadErrors(): bool
+    {
+        $disk = $this->record->file_disk ?: config('filesystems.default', 'local');
+        $path = $this->record->path;
+
+        if (! $path) {
+            return false;
+        }
+
+        return Storage::disk($disk)->exists($path . '.errors.json');
+    }
+
+    protected function downloadErrors(): ?StreamedResponse
+    {
+        $disk = $this->record->file_disk ?: config('filesystems.default', 'local');
+        $path = $this->record->path;
+        $filenameBase = pathinfo((string) ($this->record->original_name ?: $this->record->file_name ?: 'upload.csv'), PATHINFO_FILENAME);
+        $filename = $filenameBase . '.errors.json';
+
+        if (! $path) {
+            return null;
+        }
+
+        $errorPath = $path . '.errors.json';
+        $storage = Storage::disk($disk);
+
+        if (! $storage->exists($errorPath)) {
+            return null;
+        }
+
+        return response()->streamDownload(function () use ($storage, $errorPath) {
+            echo $storage->get($errorPath);
+        }, $filename, [
+            'Content-Type' => 'application/json; charset=UTF-8',
         ]);
     }
 

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Anonymizer;
 
 use App\Models\Anonymizer\AnonymousSiebelColumn;
-use App\Models\AnonymizationJobs;
-use App\Models\AnonymizationPackage;
+use App\Models\Anonymizer\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationPackage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,6 +12,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class AnonymizationMethods extends Model
 {
     use HasFactory;
+
+    public const CATEGORY_SHUFFLE_MASKING = 'Shuffle Masking';
+    public const CATEGORY_BLURRING_PERTURBATION = 'Blurring or Perturbation';
+    public const CATEGORY_ENCRYPTION = 'Encryption';
+    public const CATEGORY_FORMAT_PRESERVING_RANDOMIZATION = 'Format Preserving Randomization';
+    public const CATEGORY_CONDITIONAL_MASKING = 'Conditional Masking';
+    public const CATEGORY_COMPOUND_MASKING = 'Compound Masking';
+    public const CATEGORY_DETERMINISTIC_MASKING = 'Deterministic Masking';
 
     /**
      * Automatically load the column usage counts to keep metrics consistent.
@@ -40,6 +48,7 @@ class AnonymizationMethods extends Model
     protected $fillable = [
         'name',
         'category',
+        'categories',
         'description',
         'what_it_does',
         'how_it_works',
@@ -55,10 +64,83 @@ class AnonymizationMethods extends Model
      */
     protected $casts = [
         'id' => 'integer',
+        'categories' => 'array',
         'emits_seed' => 'boolean',
         'requires_seed' => 'boolean',
         'supports_composite_seed' => 'boolean',
     ];
+
+    /**
+     * Canonical masking categories used across the method library.
+     */
+    public static function categoryOptions(): array
+    {
+        return [
+            self::CATEGORY_SHUFFLE_MASKING,
+            self::CATEGORY_BLURRING_PERTURBATION,
+            self::CATEGORY_ENCRYPTION,
+            self::CATEGORY_FORMAT_PRESERVING_RANDOMIZATION,
+            self::CATEGORY_CONDITIONAL_MASKING,
+            self::CATEGORY_COMPOUND_MASKING,
+            self::CATEGORY_DETERMINISTIC_MASKING,
+        ];
+    }
+
+    /**
+     * Merge canonical categories with any existing values in the database.
+     *
+     * PostgreSQL cannot DISTINCT over JSON columns, so we gather and de-dup in PHP.
+     */
+    public static function categoryOptionsWithExisting(): array
+    {
+        $existingLegacy = self::query()
+            ->whereNotNull('category')
+            ->pluck('category')
+            ->filter()
+            ->map(fn(string $value) => trim($value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $existingTagged = self::query()
+            ->whereNotNull('categories')
+            ->get(['categories'])
+            ->pluck('categories')
+            ->flatMap(function ($value) {
+                if (! is_array($value)) {
+                    return [];
+                }
+
+                return array_values(array_filter(array_map(function ($item) {
+                    return is_string($item) ? trim($item) : null;
+                }, $value)));
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return array_values(array_unique(array_merge(self::categoryOptions(), $existingLegacy, $existingTagged)));
+    }
+
+    /**
+     * Backwards-compatible category label used by older UI blocks.
+     */
+    public function categorySummary(): ?string
+    {
+        $categories = $this->getAttribute('categories');
+
+        if (is_array($categories) && $categories !== []) {
+            $labels = array_values(array_filter(array_map(fn($v) => is_string($v) ? trim($v) : null, $categories)));
+
+            return $labels !== [] ? implode(' • ', $labels) : null;
+        }
+
+        $legacy = $this->getAttribute('category');
+
+        return is_string($legacy) && trim($legacy) !== '' ? trim($legacy) : null;
+    }
 
     public function columns(): BelongsToMany
     {

@@ -3,12 +3,14 @@
 namespace App\Jobs\Concerns;
 
 use App\Models\Anonymizer\AnonymousUpload;
+use App\Jobs\Exceptions\AnonymousSiebelCsvValidationException;
 use App\Services\Anonymizer\AnonymizerActivityLogger;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 
 /**
@@ -25,14 +27,47 @@ trait InteractsWithAnonymousSiebelSync
     protected const DEPENDENCIES_TABLE = 'anonymous_siebel_column_dependencies';
     protected const METADATA_UPSERT_CHUNK_SIZE = 500;
 
+    protected const CSV_VALIDATION_ERROR_CAP = 200;
+
+    protected const CANONICAL_REQUIRED_HEADER_COLUMNS = [
+        'DATABASE_NAME',
+        'SCHEMA_NAME',
+        'OBJECT_TYPE',
+        'TABLE_NAME',
+        'COLUMN_NAME',
+        'COLUMN_ID',
+        'DATA_TYPE',
+    ];
+
+    protected const CANONICAL_OPTIONAL_HEADER_COLUMNS = [
+        'DATA_LENGTH',
+        'DATA_PRECISION',
+        'DATA_SCALE',
+        'NULLABLE',
+        'CHAR_LENGTH',
+        'TABLE_COMMENT',
+        'COLUMN_COMMENT',
+        'RELATED_COLUMNS',
+    ];
+
     /**
      * Clears previous staging records and streams CSV rows into staging storage.
      */
-    protected function ingestToStaging(AnonymousUpload $upload): int
+    protected function ingestToStaging(AnonymousUpload $upload, ?callable $progressReporter = null): int
     {
         DB::table(self::STAGING_TABLE)
             ->where('upload_id', $upload->id)
             ->delete();
+
+        // Clear any prior error report for this upload.
+        try {
+            $errorPath = $this->csvErrorReportPath($upload);
+            if ($errorPath && Storage::disk($upload->file_disk)->exists($errorPath)) {
+                Storage::disk($upload->file_disk)->delete($errorPath);
+            }
+        } catch (\Throwable) {
+            // Non-fatal; continue with ingestion.
+        }
 
         $stream = Storage::disk($upload->file_disk)->readStream($upload->path);
         if (! $stream) {
@@ -52,6 +87,77 @@ trait InteractsWithAnonymousSiebelSync
             && in_array('COLUMN_NAME', $header, true);
         $isSiebelColumnsHeader = in_array('NAME', $header, true)
             && in_array('PARENT TABLE', $header, true);
+
+        $allowedCanonicalHeaders = array_values(array_unique(array_merge(
+            self::CANONICAL_REQUIRED_HEADER_COLUMNS,
+            self::CANONICAL_OPTIONAL_HEADER_COLUMNS,
+        )));
+        $missingHeaderColumns = [];
+        $unknownHeaderColumns = [];
+
+        if ($isCanonicalHeader) {
+            $missingHeaderColumns = array_values(array_diff(self::CANONICAL_REQUIRED_HEADER_COLUMNS, $header));
+            $unknownHeaderColumns = array_values(array_diff($header, $allowedCanonicalHeaders));
+        } elseif ($isSiebelColumnsHeader) {
+            $missingHeaderColumns = [];
+            $unknownHeaderColumns = [];
+        } else {
+            fclose($stream);
+
+            $report = [
+                'upload_id' => $upload->id,
+                'format' => 'unknown',
+                'header' => $header,
+                'missing_header_columns' => [],
+                'unknown_header_columns' => [],
+                'error_cap' => self::CSV_VALIDATION_ERROR_CAP,
+                'errors' => [
+                    [
+                        'row' => 1,
+                        'field' => 'HEADER',
+                        'message' => 'Unrecognized CSV header. Expected canonical Siebel metadata headers (e.g. DATABASE_NAME, SCHEMA_NAME, TABLE_NAME, COLUMN_NAME) or Siebel column export headers (e.g. NAME, PARENT TABLE).',
+                        'value' => null,
+                    ],
+                ],
+                'generated_at' => now()->toIso8601String(),
+            ];
+            $this->writeCsvErrorReport($upload, $report);
+
+            throw new AnonymousSiebelCsvValidationException('CSV validation failed: unrecognized header format. Download the error report for details.', $report);
+        }
+
+        if ($missingHeaderColumns !== [] || $unknownHeaderColumns !== []) {
+            fclose($stream);
+
+            $problems = [];
+            if ($missingHeaderColumns !== []) {
+                $problems[] = 'missing required columns: ' . implode(', ', $missingHeaderColumns);
+            }
+            if ($unknownHeaderColumns !== []) {
+                $problems[] = 'unknown columns: ' . implode(', ', $unknownHeaderColumns);
+            }
+
+            $report = [
+                'upload_id' => $upload->id,
+                'format' => $isCanonicalHeader ? 'canonical' : 'siebel_columns',
+                'header' => $header,
+                'missing_header_columns' => $missingHeaderColumns,
+                'unknown_header_columns' => $unknownHeaderColumns,
+                'error_cap' => self::CSV_VALIDATION_ERROR_CAP,
+                'errors' => [
+                    [
+                        'row' => 1,
+                        'field' => 'HEADER',
+                        'message' => 'CSV header validation failed (' . implode('; ', $problems) . ').',
+                        'value' => null,
+                    ],
+                ],
+                'generated_at' => now()->toIso8601String(),
+            ];
+            $this->writeCsvErrorReport($upload, $report);
+
+            throw new AnonymousSiebelCsvValidationException('CSV validation failed: invalid header row. Download the error report for details.', $report);
+        }
         $siebelIndexMap = [];
         if ($isSiebelColumnsHeader && ! $isCanonicalHeader) {
             foreach ($header as $i => $h) {
@@ -109,8 +215,62 @@ trait InteractsWithAnonymousSiebelSync
         $batch = [];
         $now = now();
         $count = 0;
+        $rowNumber = 1;
+
+        $totalBytes = $upload->total_bytes ?? null;
+        $dataStart = null;
+        $lastProgressAt = microtime(true);
+        try {
+            $offset = ftell($stream);
+            if (is_int($offset) || is_float($offset)) {
+                $dataStart = (int) $offset;
+            }
+        } catch (\Throwable) {
+            $dataStart = null;
+        }
+        $validationErrors = [];
+        $validationErrorCount = 0;
+        $hasValidationErrors = false;
+        $format = $isCanonicalHeader ? 'canonical' : 'siebel_columns';
+
+        $rules = [
+            'DATABASE_NAME' => ['required', 'string', 'max:255'],
+            'SCHEMA_NAME' => ['required', 'string', 'max:255'],
+            'OBJECT_TYPE' => ['required', 'string', 'max:50'],
+            'TABLE_NAME' => ['required', 'string', 'max:255'],
+            'COLUMN_NAME' => ['required', 'string', 'max:255'],
+            'COLUMN_ID' => ['nullable', 'integer', 'min:0'],
+            'DATA_TYPE' => ['required', 'string', 'max:255'],
+            'DATA_LENGTH' => ['nullable', 'integer', 'min:0'],
+            'DATA_PRECISION' => ['nullable', 'integer', 'min:0'],
+            'DATA_SCALE' => ['nullable', 'integer', 'min:0'],
+            'CHAR_LENGTH' => ['nullable', 'integer', 'min:0'],
+            'NULLABLE' => ['nullable', 'string', 'in:Y,N,YES,NO,true,false,TRUE,FALSE,0,1'],
+            'TABLE_COMMENT' => ['nullable', 'string'],
+            'COLUMN_COMMENT' => ['nullable', 'string'],
+            'RELATED_COLUMNS' => ['nullable', 'string'],
+        ];
+
+        $attributeNames = [
+            'DATABASE_NAME' => 'DATABASE_NAME',
+            'SCHEMA_NAME' => 'SCHEMA_NAME',
+            'OBJECT_TYPE' => 'OBJECT_TYPE',
+            'TABLE_NAME' => 'TABLE_NAME',
+            'COLUMN_NAME' => 'COLUMN_NAME',
+            'COLUMN_ID' => 'COLUMN_ID',
+            'DATA_TYPE' => 'DATA_TYPE',
+            'DATA_LENGTH' => 'DATA_LENGTH',
+            'DATA_PRECISION' => 'DATA_PRECISION',
+            'DATA_SCALE' => 'DATA_SCALE',
+            'CHAR_LENGTH' => 'CHAR_LENGTH',
+            'NULLABLE' => 'NULLABLE',
+            'TABLE_COMMENT' => 'TABLE_COMMENT',
+            'COLUMN_COMMENT' => 'COLUMN_COMMENT',
+            'RELATED_COLUMNS' => 'RELATED_COLUMNS',
+        ];
 
         while (($row = fgetcsv($stream)) !== false) {
+            $rowNumber++;
             if ($row === null || $row === [null] || $row === ['']) {
                 continue;
             }
@@ -142,29 +302,84 @@ trait InteractsWithAnonymousSiebelSync
                 continue;
             }
 
+            // Normalize values for validation (trim + empty => null).
+            $normalized = [];
+            foreach ($assoc as $k => $v) {
+                if ($v === null) {
+                    $normalized[$k] = null;
+                    continue;
+                }
+                $val = is_string($v) ? trim($v) : $v;
+
+                if (is_string($val) && in_array($k, ['COLUMN_ID', 'DATA_LENGTH', 'DATA_PRECISION', 'DATA_SCALE', 'CHAR_LENGTH'], true)) {
+                    // Accept common thousands separators from exports (e.g. "2,000").
+                    $candidate = str_replace([',', ' '], '', $val);
+                    if ($candidate !== '' && preg_match('/^\d+$/', $candidate)) {
+                        $val = $candidate;
+                    }
+                }
+
+                $normalized[$k] = ($val === '') ? null : $val;
+            }
+
+            $validator = Validator::make($normalized, $rules, [], $attributeNames);
+            if ($validator->fails()) {
+                $hasValidationErrors = true;
+                $errorArrays = $validator->errors()->toArray();
+
+                foreach ($errorArrays as $field => $messages) {
+                    foreach ($messages as $message) {
+                        if ($validationErrorCount >= self::CSV_VALIDATION_ERROR_CAP) {
+                            break 3;
+                        }
+
+                        $value = $normalized[$field] ?? null;
+                        if (is_string($value) && strlen($value) > 200) {
+                            $value = substr($value, 0, 200) . '…';
+                        }
+
+                        $validationErrors[] = [
+                            'row' => $rowNumber,
+                            'field' => $field,
+                            'message' => $message,
+                            'value' => $value,
+                        ];
+                        $validationErrorCount++;
+                    }
+                }
+
+                // Once errors exist, skip staging work to keep the job predictable.
+                continue;
+            }
+
+            if ($hasValidationErrors) {
+                // We already have errors; do not stage additional rows.
+                continue;
+            }
+
             // Build core payload for hash calculation (excludes relationship fields)
             $payload = [
-                'database_name' => trim((string) ($assoc['DATABASE_NAME'] ?? '')),
-                'schema_name' => trim((string) ($assoc['SCHEMA_NAME'] ?? '')),
-                'object_type' => strtolower(trim((string) ($assoc['OBJECT_TYPE'] ?? 'table'))),
-                'table_name' => trim((string) ($assoc['TABLE_NAME'] ?? '')),
-                'column_name' => trim((string) ($assoc['COLUMN_NAME'] ?? '')),
-                'column_id' => $this->toInt($assoc['COLUMN_ID'] ?? null),
-                'data_type' => $this->toNullOrString($assoc['DATA_TYPE'] ?? null),
-                'data_length' => $this->toInt($assoc['DATA_LENGTH'] ?? null),
-                'data_precision' => $this->toInt($assoc['DATA_PRECISION'] ?? null),
-                'data_scale' => $this->toInt($assoc['DATA_SCALE'] ?? null),
-                'nullable' => $this->toNullOrString($assoc['NULLABLE'] ?? null),
-                'char_length' => $this->toInt($assoc['CHAR_LENGTH'] ?? null),
-                'column_comment' => $this->toNullOrString($assoc['COLUMN_COMMENT'] ?? null),
-                'table_comment' => $this->toNullOrString($assoc['TABLE_COMMENT'] ?? null),
+                'database_name' => trim((string) ($normalized['DATABASE_NAME'] ?? '')),
+                'schema_name' => trim((string) ($normalized['SCHEMA_NAME'] ?? '')),
+                'object_type' => strtolower(trim((string) ($normalized['OBJECT_TYPE'] ?? 'table'))),
+                'table_name' => trim((string) ($normalized['TABLE_NAME'] ?? '')),
+                'column_name' => trim((string) ($normalized['COLUMN_NAME'] ?? '')),
+                'column_id' => $this->toInt($normalized['COLUMN_ID'] ?? null),
+                'data_type' => $this->toNullOrString($normalized['DATA_TYPE'] ?? null),
+                'data_length' => $this->toInt($normalized['DATA_LENGTH'] ?? null),
+                'data_precision' => $this->toInt($normalized['DATA_PRECISION'] ?? null),
+                'data_scale' => $this->toInt($normalized['DATA_SCALE'] ?? null),
+                'nullable' => $this->toNullOrString($normalized['NULLABLE'] ?? null),
+                'char_length' => $this->toInt($normalized['CHAR_LENGTH'] ?? null),
+                'column_comment' => $this->toNullOrString($normalized['COLUMN_COMMENT'] ?? null),
+                'table_comment' => $this->toNullOrString($normalized['TABLE_COMMENT'] ?? null),
             ];
 
             // Calculate content hash before adding relationship fields (avoids Arr::except memory overhead)
             $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
             // Add relationship fields after hash calculation
-            $rawRelationships = $assoc['RELATED_COLUMNS'] ?? null;
+            $rawRelationships = $normalized['RELATED_COLUMNS'] ?? null;
             if ($rawRelationships !== null && $rawRelationships !== '') {
                 $rawRelationships = html_entity_decode((string) $rawRelationships);
                 $parsedRelationships = $this->parseRelated($rawRelationships);
@@ -200,9 +415,59 @@ trait InteractsWithAnonymousSiebelSync
                     gc_collect_cycles();
                 }
             }
+
+            if ($progressReporter) {
+                $nowAt = microtime(true);
+                if (($nowAt - $lastProgressAt) >= 1.0) {
+                    $lastProgressAt = $nowAt;
+
+                    $processedBytes = null;
+                    if ($totalBytes && $dataStart !== null) {
+                        try {
+                            $pos = ftell($stream);
+                            if (is_int($pos) || is_float($pos)) {
+                                $processedBytes = max(0, (int) $pos);
+                            }
+                        } catch (\Throwable) {
+                            $processedBytes = null;
+                        }
+                    }
+
+                    $payload = [
+                        'status_detail' => 'Loading staging',
+                        'run_phase' => 'staging',
+                        'processed_rows' => $rowNumber,
+                    ];
+                    if ($processedBytes !== null) {
+                        $payload['processed_bytes'] = $processedBytes;
+                    }
+                    $progressReporter($payload);
+                }
+            }
         }
 
         fclose($stream);
+
+        if ($hasValidationErrors) {
+            $report = [
+                'upload_id' => $upload->id,
+                'format' => $format,
+                'header' => $header,
+                'missing_header_columns' => $missingHeaderColumns,
+                'unknown_header_columns' => $unknownHeaderColumns,
+                'error_cap' => self::CSV_VALIDATION_ERROR_CAP,
+                'capped' => $validationErrorCount >= self::CSV_VALIDATION_ERROR_CAP,
+                'error_count' => $validationErrorCount,
+                'errors' => $validationErrors,
+                'generated_at' => now()->toIso8601String(),
+            ];
+            $this->writeCsvErrorReport($upload, $report);
+
+            throw new AnonymousSiebelCsvValidationException(
+                'CSV validation failed: ' . $validationErrorCount . ' row error(s). Download the error report for details.',
+                $report
+            );
+        }
 
         if ($batch !== []) {
             $count += $this->upsertStagingBatch(array_values($batch));
@@ -217,6 +482,30 @@ trait InteractsWithAnonymousSiebelSync
         }
 
         return $count;
+    }
+
+    protected function csvErrorReportPath(AnonymousUpload $upload): ?string
+    {
+        if (! $upload->path) {
+            return null;
+        }
+
+        return $upload->path . '.errors.json';
+    }
+
+    protected function writeCsvErrorReport(AnonymousUpload $upload, array $report): void
+    {
+        $path = $this->csvErrorReportPath($upload);
+        if (! $path) {
+            return;
+        }
+
+        $json = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($json === false) {
+            return;
+        }
+
+        Storage::disk($upload->file_disk)->put($path, $json);
     }
 
     /**
@@ -2210,6 +2499,14 @@ trait InteractsWithAnonymousSiebelSync
         $value = is_string($value) ? trim($value) : $value;
         if ($value === '' || $value === null) {
             return null;
+        }
+
+        if (is_string($value)) {
+            // Handle common thousands separators from exports (e.g. "1,000").
+            $candidate = str_replace([',', ' '], '', $value);
+            if ($candidate !== '' && preg_match('/^\d+$/', $candidate)) {
+                $value = $candidate;
+            }
         }
 
         return (int) $value;

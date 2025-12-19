@@ -4,6 +4,7 @@ namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymousUploadResource\Pages;
 use App\Models\Anonymizer\AnonymousUpload;
+use App\Jobs\SyncAnonymousSiebelColumnsJob;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\Grid as InfolistGrid;
@@ -73,6 +74,12 @@ class AnonymousUploadResource extends Resource
                             ->label('Status Detail')
                             ->disabled()
                             ->columnSpanFull(),
+                        Forms\Components\TextInput::make('run_phase')
+                            ->label('Run Phase')
+                            ->disabled(),
+                        Forms\Components\TextInput::make('failed_phase')
+                            ->label('Failed Phase')
+                            ->disabled(),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Processing Metrics')
@@ -89,6 +96,9 @@ class AnonymousUploadResource extends Resource
                         Forms\Components\TextInput::make('processed_rows')
                             ->label('Processed Rows')
                             ->disabled(),
+                        Forms\Components\TextInput::make('warnings_count')
+                            ->label('Warnings')
+                            ->disabled(),
                     ])
                     ->columns(4),
                 Forms\Components\Section::make('Error Information')
@@ -98,8 +108,34 @@ class AnonymousUploadResource extends Resource
                             ->disabled()
                             ->rows(3)
                             ->columnSpanFull(),
+                        Forms\Components\Textarea::make('error_context')
+                            ->label('Error Context')
+                            ->disabled()
+                            ->formatStateUsing(function ($state): string {
+                                if (is_array($state)) {
+                                    return (string) json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                                }
+                                return (string) ($state ?? '');
+                            })
+                            ->rows(6)
+                            ->columnSpanFull(),
                     ])
                     ->visible(fn(?AnonymousUpload $record): bool => filled($record?->error)),
+                Forms\Components\Section::make('Warnings')
+                    ->schema([
+                        Forms\Components\Textarea::make('warnings')
+                            ->label('Warnings')
+                            ->disabled()
+                            ->formatStateUsing(function ($state): string {
+                                if (is_array($state)) {
+                                    return (string) json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                                }
+                                return (string) ($state ?? '');
+                            })
+                            ->rows(6)
+                            ->columnSpanFull(),
+                    ])
+                    ->visible(fn(?AnonymousUpload $record): bool => (int) ($record?->warnings_count ?? 0) > 0),
             ]);
     }
 
@@ -137,6 +173,9 @@ class AnonymousUploadResource extends Resource
                 TextColumn::make('progress_percent')
                     ->label('Progress')
                     ->formatStateUsing(fn(?int $state): string => $state !== null ? "{$state}%" : '—'),
+                TextColumn::make('run_phase')
+                    ->label('Phase')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('inserted')
                     ->label('Inserted')
                     ->numeric()
@@ -149,6 +188,12 @@ class AnonymousUploadResource extends Resource
                     ->label('Deleted')
                     ->numeric()
                     ->alignEnd(),
+                TextColumn::make('warnings_count')
+                    ->label('Warnings')
+                    ->badge()
+                    ->color(fn(AnonymousUpload $record) => ($record->warnings_count ?? 0) > 0 ? 'warning' : 'gray')
+                    ->formatStateUsing(fn($state) => (int) $state > 0 ? (string) $state : '—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->label('Queued At')
                     ->dateTime()
@@ -178,6 +223,24 @@ class AnonymousUploadResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('resume_import')
+                    ->label('Resume')
+                    ->icon('heroicon-o-play')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->visible(fn(AnonymousUpload $record): bool => $record->status === 'failed')
+                    ->action(function (AnonymousUpload $record): void {
+                        SyncAnonymousSiebelColumnsJob::dispatch($record->id);
+                    }),
+                Tables\Actions\Action::make('restart_import')
+                    ->label('Restart')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->visible(fn(AnonymousUpload $record): bool => $record->status === 'failed')
+                    ->action(function (AnonymousUpload $record): void {
+                        SyncAnonymousSiebelColumnsJob::dispatch($record->id, true);
+                    }),
                 Tables\Actions\Action::make('delete_csv')
                     ->label('Delete CSV')
                     ->icon('heroicon-o-trash')

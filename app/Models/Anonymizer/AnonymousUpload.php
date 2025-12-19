@@ -27,6 +27,9 @@ class AnonymousUpload extends Model
         'scope_name',
         'status',
         'status_detail',
+        'run_phase',
+        'checkpoint',
+        'failed_phase',
         'import_type',
         'inserted',
         'updated',
@@ -39,6 +42,9 @@ class AnonymousUpload extends Model
         'file_deleted_at',
         'file_deleted_reason',
         'error',
+        'error_context',
+        'warnings_count',
+        'warnings',
     ];
 
     protected $casts = [
@@ -53,6 +59,11 @@ class AnonymousUpload extends Model
         'progress_updated_at' => 'datetime',
         'retention_until' => 'datetime',
         'file_deleted_at' => 'datetime',
+
+        'checkpoint' => 'array',
+        'error_context' => 'array',
+        'warnings_count' => 'integer',
+        'warnings' => 'array',
 
 
 
@@ -120,6 +131,11 @@ class AnonymousUpload extends Model
                 $storage = Storage::disk($disk);
                 if ($storage->exists($path)) {
                     $deleted = (bool) $storage->delete($path);
+                }
+
+                $errorPath = $path . '.errors.json';
+                if ($storage->exists($errorPath)) {
+                    $storage->delete($errorPath);
                 }
             } catch (Throwable) {
                 $deleted = false;

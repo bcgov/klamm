@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Anonymizer;
 
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelDatabase;
 use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelTable;
-use App\Models\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationMethods;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -35,6 +36,13 @@ class AnonymizationJobs extends Model
         'job_type',
         'status',
         'output_format',
+        'seed_store_mode',
+        'seed_store_schema',
+        'seed_store_prefix',
+        'seed_map_hygiene_mode',
+        'job_seed',
+        'pre_mask_sql',
+        'post_mask_sql',
         'last_run_at',
         'duration_seconds',
         'sql_script',

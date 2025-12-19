@@ -3,21 +3,82 @@
 namespace App\Services\Anonymizer;
 
 use App\Enums\SeedContractMode;
-use App\Models\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelTable;
-use App\Models\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationMethods;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
 class AnonymizationJobScriptService
 {
+    private const WHERE_IN_CHUNK_SIZE = 10000;
+
     protected const SEED_PLACEHOLDERS = [
         '{{SEED_MAP_LOOKUP}}',
         '{{SEED_EXPR}}',
         '{{SEED_SOURCE_QUALIFIED}}',
     ];
+
+    protected function oracleStringLiteral(?string $value): string
+    {
+        if ($value === null) {
+            return "''";
+        }
+
+        return "'" . str_replace("'", "''", $value) . "'";
+    }
+
+    protected function oracleColumnTypeForColumn(AnonymousSiebelColumn $column): string
+    {
+        $typeName = strtolower(trim((string) ($column->getRelationValue('dataType')?->data_type_name ?? '')));
+
+        if ($typeName === '') {
+            $typeName = strtolower(trim((string) ($column->data_type ?? '')));
+        }
+
+        if (str_contains($typeName, 'clob')) {
+            return 'CLOB';
+        }
+
+        if (str_contains($typeName, 'date')) {
+            return 'DATE';
+        }
+
+        if (str_contains($typeName, 'timestamp')) {
+            return 'TIMESTAMP';
+        }
+
+        if (str_contains($typeName, 'number') || str_contains($typeName, 'numeric') || str_contains($typeName, 'decimal')) {
+            $precision = (int) ($column->data_precision ?? 0);
+            $scale = (int) ($column->data_scale ?? 0);
+
+            if ($precision > 0) {
+                return $scale > 0 ? "NUMBER({$precision},{$scale})" : "NUMBER({$precision})";
+            }
+
+            return 'NUMBER';
+        }
+
+        if (str_contains($typeName, 'char') || str_contains($typeName, 'varchar')) {
+            $length = (int) ($column->data_length ?? $column->char_length ?? 0);
+            if ($length <= 0) {
+                $length = 255;
+            }
+
+            // Oracle VARCHAR2 max in SQL is typically 4000 bytes.
+            $length = min($length, 4000);
+            return "VARCHAR2({$length})";
+        }
+
+        return 'VARCHAR2(4000)';
+    }
+
+    protected function normalizeJobOption(?string $value): string
+    {
+        return strtolower(trim((string) $value));
+    }
 
     protected function methodUsesSeedPlaceholders(?AnonymizationMethods $method): bool
     {
@@ -54,6 +115,62 @@ class AnonymizationJobScriptService
         return $script;
     }
 
+    public function buildCloneOnlyForJob(AnonymizationJobs $job): string
+    {
+        $rewriteContext = $this->buildJobTableRewriteContext(collect(), $job);
+
+        if ($rewriteContext === []) {
+            return '-- No SQL generated: this job has no explicit columns and no scoped databases/schemas/tables selected.';
+        }
+
+        $tableCloneStatements = $this->renderJobTableClones($rewriteContext);
+
+        if ($tableCloneStatements === []) {
+            return '-- No SQL generated: this job has no explicit columns and no scoped databases/schemas/tables selected.';
+        }
+
+        $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
+
+        $lines[] = str_repeat('=', 70);
+        $lines[] = '-- Target Tables'
+            . ' (schema ' . ($rewriteContext['target_schema'] ?? 'unknown') . ')'
+            . ' (prefix ' . ($rewriteContext['table_prefix'] ?? 'none') . ')';
+        $lines[] = '-- Creates working copies and keeps all updates isolated.';
+        $lines[] = str_repeat('=', 70);
+        $lines[] = '';
+        $lines = array_merge($lines, $tableCloneStatements);
+        $lines[] = str_repeat('=', 70);
+        $lines[] = '';
+
+        $preMaskSql = trim((string) ($job->pre_mask_sql ?? ''));
+        if ($preMaskSql !== '') {
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '-- Pre-mask SQL';
+            $lines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            $lines = array_merge($lines, preg_split('/\R/', $preMaskSql) ?: []);
+            $lines[] = '';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+        }
+
+        $postMaskSql = trim((string) ($job->post_mask_sql ?? ''));
+        if ($postMaskSql !== '') {
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '-- Post-mask SQL';
+            $lines[] = '-- Runs after masking updates and seed maps are applied.';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            $lines = array_merge($lines, preg_split('/\R/', $postMaskSql) ?: []);
+            $lines[] = '';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+        }
+
+        return trim(implode(PHP_EOL, $lines));
+    }
+
     public function reviewSeedContractsForJob(AnonymizationJobs $job): array
     {
         $job->loadMissing([
@@ -87,20 +204,26 @@ class AnonymizationJobScriptService
 
     public function buildForColumnIds(array $columnIds, ?AnonymizationJobs $job = null): string
     {
-        $columnIds = array_filter(array_map('intval', $columnIds));
+        $columnIds = array_values(array_unique(array_filter(array_map('intval', $columnIds))));
 
         if ($columnIds === []) {
             return '';
         }
 
-        $columns = AnonymousSiebelColumn::query()
-            ->with([
-                'anonymizationMethods.packages',
-                'table.schema.database',
-                'parentColumns.table.schema.database',
-            ])
-            ->whereIn('id', $columnIds)
-            ->get();
+        $columns = collect();
+
+        foreach (array_chunk($columnIds, self::WHERE_IN_CHUNK_SIZE) as $chunk) {
+            $columns = $columns->merge(
+                AnonymousSiebelColumn::query()
+                    ->with([
+                        'anonymizationMethods.packages',
+                        'table.schema.database',
+                        'parentColumns.table.schema.database',
+                    ])
+                    ->whereIn('id', $chunk)
+                    ->get()
+            );
+        }
 
         return $this->buildFromColumns($columns, $job);
     }
@@ -128,7 +251,7 @@ class AnonymizationJobScriptService
         $seedProviders = $this->resolveSeedProviders($ordered);
 
         $rewriteContext = $this->buildJobTableRewriteContext($ordered, $job);
-        $seedMapContext = $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext);
+        $seedMapContext = $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext, $job);
 
         $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
 
@@ -141,6 +264,11 @@ class AnonymizationJobScriptService
                 $lines[] = '-- SQL generation halted due to blocking seed contract violations.';
                 return trim(implode(PHP_EOL, $lines));
             }
+        }
+
+        $impact = $this->buildImpactReport($ordered, $job, $seedProviders, $rewriteContext, $seedMapContext);
+        if ($impact !== []) {
+            $lines = array_merge($lines, $impact);
         }
         $packages = $this->collectPackagesFromColumns($ordered);
 
@@ -179,6 +307,19 @@ class AnonymizationJobScriptService
             $lines[] = str_repeat('=', 70);
             $lines[] = '';
             $lines = array_merge($lines, $tableCloneStatements);
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+        }
+
+        $preMaskSql = trim((string) ($job?->pre_mask_sql ?? ''));
+        if ($preMaskSql !== '') {
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '-- Pre-mask SQL';
+            $lines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            $lines = array_merge($lines, preg_split('/\R/', $preMaskSql) ?: []);
+            $lines[] = '';
             $lines[] = str_repeat('=', 70);
             $lines[] = '';
         }
@@ -236,6 +377,24 @@ class AnonymizationJobScriptService
             }
 
             $lines[] = '';
+        }
+
+        $postMaskSql = trim((string) ($job?->post_mask_sql ?? ''));
+        if ($postMaskSql !== '') {
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '-- Post-mask SQL';
+            $lines[] = '-- Runs after masking updates complete.';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            $lines = array_merge($lines, preg_split('/\R/', $postMaskSql) ?: []);
+            $lines[] = '';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+        }
+
+        $hygiene = $this->renderSeedMapHygieneSection($seedMapContext, $job);
+        if ($hygiene !== []) {
+            $lines = array_merge($lines, $hygiene);
         }
 
         return trim(implode(PHP_EOL, $lines));
@@ -674,6 +833,9 @@ class AnonymizationJobScriptService
             ? '(SELECT sm.new_value FROM ' . $seedMapTable . ' sm WHERE sm.old_value = tgt.' . ($column->column_name ?? '') . ' AND ROWNUM = 1)'
             : '';
 
+        $jobSeed = $rewriteContext['job_seed'] ?? '';
+        $jobSeedLiteral = $rewriteContext['job_seed_literal'] ?? "''";
+
         $replacements = [
             '{{TABLE}}' => $qualifiedTable ?: ($renderTableName ?: ($table?->table_name ?? '{{TABLE}}')),
             '{{TABLE_NAME}}' => $renderTableName,
@@ -687,6 +849,8 @@ class AnonymizationJobScriptService
             '{{SEED_EXPR}}' => $seedExpression,
             '{{SEED_MAP_TABLE}}' => $seedMapTable,
             '{{SEED_MAP_LOOKUP}}' => $seedMapLookup,
+            '{{JOB_SEED}}' => is_string($jobSeed) ? $jobSeed : '',
+            '{{JOB_SEED_LITERAL}}' => is_string($jobSeedLiteral) ? $jobSeedLiteral : "''",
         ];
 
         $rendered = str_replace(array_keys($replacements), array_values($replacements), $template);
@@ -789,7 +953,171 @@ class AnonymizationJobScriptService
             'table_prefix' => $tablePrefix,
             'tables_by_id' => $tablesById,
             'raw_replace' => $rawReplace,
+            'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
+            'seed_store_schema' => trim((string) ($job?->seed_store_schema ?? '')),
+            'seed_store_prefix' => trim((string) ($job?->seed_store_prefix ?? '')),
+            'seed_map_hygiene_mode' => trim((string) ($job?->seed_map_hygiene_mode ?? '')),
+            'job_seed' => (string) ($job?->job_seed ?? ''),
+            'job_seed_literal' => $this->oracleStringLiteral($job?->job_seed),
         ];
+    }
+
+    protected function renderSeedMapHygieneSection(array $seedMapContext, ?AnonymizationJobs $job): array
+    {
+        $seedStoreMode = $this->normalizeJobOption($job?->seed_store_mode);
+        $mode = $this->normalizeJobOption($job?->seed_map_hygiene_mode);
+
+        if ($seedStoreMode !== 'persistent' || $mode === '' || $mode === 'none') {
+            return [];
+        }
+
+        $providers = $seedMapContext['providers'] ?? [];
+        if (! is_array($providers) || $providers === []) {
+            return [];
+        }
+
+        $tables = [];
+        foreach ($providers as $provider) {
+            if (($provider['seed_map_persistence'] ?? null) !== 'persistent') {
+                continue;
+            }
+
+            $table = trim((string) ($provider['seed_map_table'] ?? ''));
+            if ($table !== '') {
+                $tables[$table] = true;
+            }
+        }
+
+        $tables = array_keys($tables);
+        sort($tables);
+
+        if ($tables === []) {
+            return [];
+        }
+
+        $commented = $mode !== 'execute';
+        $prefix = $commented ? '-- ' : '';
+
+        $lines = [
+            str_repeat('=', 70),
+            '-- Seed Map Hygiene (Oracle MGMT_DM_TT analogue)',
+            '-- Seed maps store old→new value mappings and should be removed before exporting/cloning to less-secure environments.',
+            '-- Mode: ' . ($commented ? 'commented' : 'execute'),
+            str_repeat('=', 70),
+            '',
+        ];
+
+        foreach ($tables as $table) {
+            $lines[] = $prefix . '-- Drop seed map: ' . $table;
+            $lines[] = $prefix . 'BEGIN';
+            $lines[] = $prefix . "  EXECUTE IMMEDIATE 'DROP TABLE {$table} PURGE';";
+            $lines[] = $prefix . 'EXCEPTION';
+            $lines[] = $prefix . '  WHEN OTHERS THEN';
+            $lines[] = $prefix . '    IF SQLCODE != -942 THEN RAISE; END IF;';
+            $lines[] = $prefix . 'END;';
+            $lines[] = $prefix . '/';
+            $lines[] = '';
+        }
+
+        $lines[] = str_repeat('=', 70);
+        $lines[] = '';
+
+        return $lines;
+    }
+
+    protected function buildImpactReport(
+        Collection $columns,
+        ?AnonymizationJobs $job,
+        array $seedProviders,
+        array $rewriteContext,
+        array $seedMapContext
+    ): array {
+        $lines = [
+            str_repeat('=', 70),
+            '-- Impact Report (heuristics)',
+            '-- This section mirrors Oracle-style preflight guidance using metadata + method templates only.',
+            '-- It does not inspect real data or constraints; treat warnings as prompts for review.',
+            str_repeat('=', 70),
+            '',
+        ];
+
+        $warnings = [];
+
+        $seedStoreMode = $this->normalizeJobOption($job?->seed_store_mode);
+        if ($seedStoreMode === 'persistent') {
+            $warnings[] = 'Persistent seed maps are enabled: ensure the seed store schema is access-controlled and dropped before distributing masked datasets.';
+        }
+
+        /** @var AnonymousSiebelColumn $column */
+        foreach ($columns as $column) {
+            $method = $this->resolveMethodForColumn($column);
+            $sqlBlock = strtolower(trim((string) ($method?->sql_block ?? '')));
+
+            if ($sqlBlock === '') {
+                continue;
+            }
+
+            $label = $this->describeColumn($column);
+            $dataType = strtoupper(trim((string) ($column->getRelationValue('dataType')?->data_type_name ?? '')));
+            $length = (int) ($column->data_length ?? $column->char_length ?? 0);
+            $mode = $column->seed_contract_mode;
+
+            $isKeyLike = preg_match('/(^|_)(id|rowid|row_id|integration_id|key)(_|$)/i', (string) ($column->column_name ?? '')) === 1;
+
+            $isConditional = str_contains($sqlBlock, 'case ') || (str_contains($sqlBlock, ' when ') && str_contains($sqlBlock, ' then '));
+            $usesSeedMapLookup = str_contains($sqlBlock, strtolower('{{SEED_MAP_LOOKUP}}'));
+            $usesHash = str_contains($sqlBlock, 'standard_hash') || str_contains($sqlBlock, 'dbms_crypto') || str_contains($sqlBlock, 'sha');
+            $usesRandom = str_contains($sqlBlock, 'dbms_random') || str_contains($sqlBlock, 'random');
+            $usesRegexp = str_contains($sqlBlock, 'regexp_replace');
+
+            if ($isConditional) {
+                if (($column->getRelationValue('parentColumns') ?? collect())->isNotEmpty() || $mode === SeedContractMode::CONSUMER || $mode === SeedContractMode::COMPOSITE) {
+                    $warnings[] = $label . ': Conditional masking detected; column participates in a dependency/seed graph. Oracle warns of conditional “bleeding” with duplicates + dependents. Prefer deterministic mapping tables (seed maps) over inline CASE for key fields.';
+                } else {
+                    $warnings[] = $label . ': Conditional masking detected. Review duplicates and ensure conditional branches do not produce collisions.';
+                }
+            }
+
+            if ($usesSeedMapLookup && $seedStoreMode !== 'persistent') {
+                $warnings[] = $label . ': Uses {{SEED_MAP_LOOKUP}} but seed store is not persistent. Cross-run determinism requires persistent seed maps.';
+            }
+
+            if ($usesHash && ($dataType === 'VARCHAR' || $dataType === 'VARCHAR2' || str_contains($dataType, 'CHAR'))) {
+                if ($length > 0 && $length < 32) {
+                    $warnings[] = $label . ": Hashing detected with {$dataType}({$length}). Risk of truncation/collisions. Ensure the expression output fits the column (e.g., use RAWTOHEX + adequate length) and verify unique constraints.";
+                } else {
+                    $warnings[] = $label . ": Hashing detected. Ensure expression output type/length matches {$dataType}" . ($length > 0 ? "({$length})" : '') . ' and does not violate uniqueness constraints.';
+                }
+            }
+
+            if ($usesRandom && $isKeyLike && $length > 0 && $length <= 8) {
+                $warnings[] = $label . ": Randomization detected on key-like column with short length ({$length}). Uniqueness capacity may be too small; consider deterministic seed mapping or a larger target width.";
+            }
+
+            if ($usesRegexp) {
+                $warnings[] = $label . ': REGEXP-based masking detected. Ensure all original values match the regex to preserve one-to-one mapping and avoid uniqueness violations.';
+            }
+        }
+
+        $warnings = array_values(array_unique(array_filter(array_map('trim', $warnings))));
+
+        if ($warnings === []) {
+            $lines[] = '-- No heuristic warnings generated.';
+            $lines[] = '';
+            $lines[] = str_repeat('=', 70);
+            $lines[] = '';
+            return $lines;
+        }
+
+        foreach ($warnings as $warning) {
+            $lines[] = '-- WARNING: ' . $warning;
+        }
+
+        $lines[] = '';
+        $lines[] = str_repeat('=', 70);
+        $lines[] = '';
+
+        return $lines;
     }
 
     protected function schemaIdsForJobOrSelection(AnonymizationJobs $job, Collection $selectedColumns): array
@@ -805,6 +1133,46 @@ class AnonymizationJobScriptService
 
         if ($schemaIds !== []) {
             return $schemaIds;
+        }
+
+        $tableIds = DB::table('anonymization_job_tables')
+            ->where('job_id', (int) $job->getKey())
+            ->pluck('table_id')
+            ->map(fn($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($tableIds !== []) {
+            return DB::table('anonymous_siebel_tables')
+                ->whereIn('id', $tableIds)
+                ->pluck('schema_id')
+                ->map(fn($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $databaseIds = DB::table('anonymization_job_databases')
+            ->where('job_id', (int) $job->getKey())
+            ->pluck('database_id')
+            ->map(fn($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($databaseIds !== []) {
+            return DB::table('anonymous_siebel_schemas')
+                ->whereIn('database_id', $databaseIds)
+                ->pluck('id')
+                ->map(fn($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
         }
 
         return $selectedColumns
@@ -923,7 +1291,7 @@ class AnonymizationJobScriptService
         return $block;
     }
 
-    protected function buildSeedMapContext(Collection $columns, array $seedProviders, array $rewriteContext): array
+    protected function buildSeedMapContext(Collection $columns, array $seedProviders, array $rewriteContext, ?AnonymizationJobs $job = null): array
     {
         $providers = [];
 
@@ -931,7 +1299,24 @@ class AnonymizationJobScriptService
         $prefix = $rewriteContext['table_prefix'] ?? null;
         $tableMap = $rewriteContext['tables_by_id'] ?? [];
 
+        $seedStoreMode = strtolower(trim((string) ($job?->seed_store_mode ?? ($rewriteContext['seed_store_mode'] ?? 'temporary'))));
+        $seedStoreSchema = trim((string) ($job?->seed_store_schema ?? ($rewriteContext['seed_store_schema'] ?? '')));
+        $seedStorePrefix = trim((string) ($job?->seed_store_prefix ?? ($rewriteContext['seed_store_prefix'] ?? '')));
+
+        $isPersistent = $seedStoreMode === 'persistent';
+        if ($seedStoreSchema === '') {
+            $seedStoreSchema = (string) $targetSchema;
+        }
+
+        if ($seedStorePrefix === '') {
+            $seedStorePrefix = (string) $prefix;
+        }
+
         if (! is_string($targetSchema) || $targetSchema === '' || ! is_string($prefix) || $prefix === '' || ! is_array($tableMap)) {
+            return [];
+        }
+
+        if ($isPersistent && (! is_string($seedStoreSchema) || $seedStoreSchema === '' || ! is_string($seedStorePrefix) || $seedStorePrefix === '')) {
             return [];
         }
 
@@ -966,15 +1351,26 @@ class AnonymizationJobScriptService
             }
 
             $seedMapName = $this->oracleIdentifier(
-                $prefix . '_SEEDMAP_' . ($mapped['source_table'] ?? 'T') . '_' . ($provider->column_name ?? 'C')
+                ($isPersistent ? $seedStorePrefix : $prefix)
+                    . '_SEEDMAP_' . ($mapped['source_table'] ?? 'T') . '_' . ($provider->column_name ?? 'C')
             );
+
+            // Ensure dataType is available for stable DDL generation.
+            if (! $provider->relationLoaded('dataType')) {
+                $provider->loadMissing('dataType');
+            }
+
+            $columnType = $this->oracleColumnTypeForColumn($provider);
 
             $providers[(int) $providerId] = [
                 'provider_id' => (int) $providerId,
                 'provider_column' => $provider->column_name,
                 'provider_table' => $mapped['target_qualified'],
                 'seed_expression' => $this->seedExpressionForProvider($provider),
-                'seed_map_table' => $targetSchema . '.' . $seedMapName,
+                'seed_map_table' => ($isPersistent ? $seedStoreSchema : $targetSchema) . '.' . $seedMapName,
+                'seed_map_persistence' => $isPersistent ? 'persistent' : 'temporary',
+                'old_value_type' => $columnType,
+                'new_value_type' => $columnType,
             ];
         }
 
@@ -996,25 +1392,51 @@ class AnonymizationJobScriptService
             $providerTable = $provider['provider_table'] ?? null;
             $providerColumn = $provider['provider_column'] ?? null;
             $seedExpr = $provider['seed_expression'] ?? null;
+            $persistence = $provider['seed_map_persistence'] ?? 'temporary';
+            $oldValueType = $provider['old_value_type'] ?? 'VARCHAR2(4000)';
+            $newValueType = $provider['new_value_type'] ?? 'VARCHAR2(4000)';
 
             if (! $seedMapTable || ! $providerTable || ! $providerColumn || ! $seedExpr) {
                 continue;
             }
 
             $lines[] = '-- Seed map for: ' . $providerTable . '.' . $providerColumn;
-            $lines[] = 'BEGIN';
-            $lines[] = "  EXECUTE IMMEDIATE 'DROP TABLE {$seedMapTable} PURGE';";
-            $lines[] = 'EXCEPTION';
-            $lines[] = '  WHEN OTHERS THEN';
-            $lines[] = '    IF SQLCODE != -942 THEN RAISE; END IF;';
-            $lines[] = 'END;';
-            $lines[] = '/';
-            $lines[] = 'CREATE TABLE ' . $seedMapTable . ' AS';
-            $lines[] = 'SELECT';
-            $lines[] = '  tgt.' . $providerColumn . ' AS old_value,';
-            $lines[] = '  ' . $seedExpr . ' AS new_value';
-            $lines[] = 'FROM ' . $providerTable . ' tgt;';
-            $lines[] = '';
+
+            if ($persistence === 'persistent') {
+                $lines[] = 'BEGIN';
+                $lines[] = "  EXECUTE IMMEDIATE 'CREATE TABLE {$seedMapTable} (old_value {$oldValueType} PRIMARY KEY, new_value {$newValueType})';";
+                $lines[] = 'EXCEPTION';
+                $lines[] = '  WHEN OTHERS THEN';
+                $lines[] = '    IF SQLCODE != -955 THEN RAISE; END IF;';
+                $lines[] = 'END;';
+                $lines[] = '/';
+
+                $lines[] = 'MERGE INTO ' . $seedMapTable . ' sm';
+                $lines[] = 'USING (';
+                $lines[] = '  SELECT DISTINCT';
+                $lines[] = '    tgt.' . $providerColumn . ' AS old_value,';
+                $lines[] = '    ' . $seedExpr . ' AS new_value';
+                $lines[] = '  FROM ' . $providerTable . ' tgt';
+                $lines[] = ') src';
+                $lines[] = 'ON (sm.old_value = src.old_value)';
+                $lines[] = 'WHEN NOT MATCHED THEN';
+                $lines[] = '  INSERT (old_value, new_value) VALUES (src.old_value, src.new_value);';
+                $lines[] = '';
+            } else {
+                $lines[] = 'BEGIN';
+                $lines[] = "  EXECUTE IMMEDIATE 'DROP TABLE {$seedMapTable} PURGE';";
+                $lines[] = 'EXCEPTION';
+                $lines[] = '  WHEN OTHERS THEN';
+                $lines[] = '    IF SQLCODE != -942 THEN RAISE; END IF;';
+                $lines[] = 'END;';
+                $lines[] = '/';
+                $lines[] = 'CREATE TABLE ' . $seedMapTable . ' AS';
+                $lines[] = 'SELECT';
+                $lines[] = '  tgt.' . $providerColumn . ' AS old_value,';
+                $lines[] = '  ' . $seedExpr . ' AS new_value';
+                $lines[] = 'FROM ' . $providerTable . ' tgt;';
+                $lines[] = '';
+            }
         }
 
         return $lines;
@@ -1113,8 +1535,9 @@ class AnonymizationJobScriptService
 
         $label = '-- Method: ' . $method->name;
 
-        if ($method->category) {
-            $label .= ' [' . $method->category . ']';
+        $categorySummary = $method->categorySummary();
+        if ($categorySummary) {
+            $label .= ' [' . $categorySummary . ']';
         }
 
         return $label;

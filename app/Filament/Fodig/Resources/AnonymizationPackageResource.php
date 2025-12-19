@@ -3,7 +3,7 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymizationPackageResource\Pages;
-use App\Models\AnonymizationPackage;
+use App\Models\Anonymizer\AnonymizationPackage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\Grid as InfolistGrid;

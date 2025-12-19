@@ -12,7 +12,7 @@ use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelDatabase;
 use App\Models\Anonymizer\AnonymousUpload;
-use App\Models\ChangeTicket;
+use App\Models\Anonymizer\ChangeTicket;
 use App\Filament\Fodig\Resources\ChangeTicketResource;
 use Illuminate\Support\Str;
 

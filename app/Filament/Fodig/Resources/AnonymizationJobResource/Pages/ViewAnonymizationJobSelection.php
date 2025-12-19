@@ -3,7 +3,7 @@
 namespace App\Filament\Fodig\Resources\AnonymizationJobResource\Pages;
 
 use App\Filament\Fodig\Resources\AnonymizationJobResource;
-use App\Models\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationJobs;
 use Filament\Actions;
 use Filament\Resources\Pages\Page;
 

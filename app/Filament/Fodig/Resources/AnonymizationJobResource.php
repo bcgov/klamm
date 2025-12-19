@@ -5,8 +5,8 @@ namespace App\Filament\Fodig\Resources;
 use App\Enums\SeedContractMode;
 use App\Filament\Fodig\Resources\AnonymizationJobResource\Pages;
 use App\Jobs\GenerateAnonymizationJobSql;
-use App\Models\AnonymizationJobs;
-use App\Models\AnonymizationPackage;
+use App\Models\Anonymizer\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationPackage;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Services\Anonymizer\AnonymizationJobScriptService;
 use Filament\Forms;
@@ -69,6 +69,58 @@ class AnonymizationJobResource extends Resource
                             ->required()
                             ->options(self::statusOptions())
                             ->default(AnonymizationJobs::STATUS_DRAFT),
+                    ])
+                    ->columns(2),
+                FormSection::make('Execution Options')
+                    ->schema([
+                        Select::make('seed_store_mode')
+                            ->label('Seed map persistence')
+                            ->options([
+                                'temporary' => 'Temporary (drop/recreate every run)',
+                                'persistent' => 'Persistent (reusable across runs)',
+                            ])
+                            ->default('temporary')
+                            ->required()
+                            ->live()
+                            ->helperText('Persistent seed maps enable deterministic masking that is repeatable across runs. Store them in a secured schema and drop before distributing masked datasets.'),
+                        Forms\Components\TextInput::make('seed_store_schema')
+                            ->label('Seed store schema')
+                            ->maxLength(64)
+                            ->placeholder('e.g. SBLSEED')
+                            ->visible(fn(Get $get) => $get('seed_store_mode') === 'persistent')
+                            ->helperText('Optional. Defaults to the job target schema if blank.'),
+                        Forms\Components\TextInput::make('seed_store_prefix')
+                            ->label('Seed store prefix')
+                            ->maxLength(64)
+                            ->placeholder('e.g. KLAMM')
+                            ->visible(fn(Get $get) => $get('seed_store_mode') === 'persistent')
+                            ->helperText('Optional. Defaults to the job table prefix derived from the job name.'),
+                        Select::make('seed_map_hygiene_mode')
+                            ->label('Seed map hygiene')
+                            ->options([
+                                'none' => 'Do not emit cleanup SQL',
+                                'commented' => 'Emit commented DROP statements (recommended)',
+                                'execute' => 'Emit executable DROP statements',
+                            ])
+                            ->default('commented')
+                            ->visible(fn(Get $get) => $get('seed_store_mode') === 'persistent')
+                            ->helperText('Oracle-style hygiene: seed/mapping tables can contain sensitive old→new value mappings. Drop before exporting/cloning to less-secure environments.'),
+                        Forms\Components\TextInput::make('job_seed')
+                            ->label('Job seed')
+                            ->maxLength(255)
+                            ->password()
+                            ->revealable()
+                            ->helperText('Optional. Use in SQL blocks via {{JOB_SEED_LITERAL}} for stable deterministic hashing.'),
+                        Forms\Components\Textarea::make('pre_mask_sql')
+                            ->label('Pre-mask SQL')
+                            ->rows(6)
+                            ->placeholder('-- Optional SQL/PLSQL to run after target tables are cloned, before masking updates')
+                            ->helperText('Inserted into the generated script after target table clones are created.'),
+                        Forms\Components\Textarea::make('post_mask_sql')
+                            ->label('Post-mask SQL')
+                            ->rows(6)
+                            ->placeholder('-- Optional SQL/PLSQL to run after masking updates complete')
+                            ->helperText('Inserted into the generated script at the end.'),
                     ])
                     ->columns(2),
                 FormSection::make('Scope')
@@ -428,8 +480,11 @@ class AnonymizationJobResource extends Resource
                                 TextEntry::make('name')
                                     ->label('Method')
                                     ->extraAttributes(['class' => 'font-medium text-slate-900']),
-                                TextEntry::make('category')
+                                TextEntry::make('categories')
                                     ->label('Category')
+                                    ->formatStateUsing(fn($state, $record) => method_exists($record, 'categorySummary')
+                                        ? ($record->categorySummary() ?? '—')
+                                        : '—')
                                     ->placeholder('—'),
                             ])
                             ->columns(2)

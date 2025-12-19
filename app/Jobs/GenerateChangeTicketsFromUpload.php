@@ -2,14 +2,15 @@
 
 namespace App\Jobs;
 
-use App\Models\ChangeTicket;
+use App\Models\Anonymizer\ChangeTicket;
 use App\Models\Anonymizer\AnonymousUpload;
 use App\Models\Anonymizer\AnonymousSiebelStaging;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelDatabase;
-use App\Models\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationJobs;
+
 use App\Models\Anonymizer\AnonymousSiebelColumnDependency;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -87,6 +88,10 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                 ->orderBy('anonymous_siebel_columns.id')
                 ->chunk(500, function ($changedColumns) use ($upload, &$changedCount) {
                     foreach ($changedColumns as $col) {
+                        $hasJobDependency = DB::table('anonymization_job_columns')
+                            ->where('column_id', $col->id)
+                            ->exists();
+
                         $scopeName = "{$col->schema_name}.{$col->table_name}.{$col->column_name}";
                         $title = "Column changed: {$scopeName}";
 
@@ -110,13 +115,19 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             continue;
                         }
 
+                        $severity = $this->severityForChangedColumn($col->changed_fields, $hasJobDependency);
+                        $priority = $hasJobDependency ? 'high' : 'normal';
+
                         ChangeTicket::create([
                             'title' => $title,
                             'status' => 'open',
-                            'priority' => 'normal',
+                            'priority' => $priority,
+                            'severity' => $severity,
                             'scope_type' => 'column',
                             'scope_name' => $scopeName,
-                            'impact_summary' => 'Column definition changed in latest upload. Review anonymization method association.',
+                            'impact_summary' => $hasJobDependency
+                                ? 'Column definition changed and is referenced by anonymization jobs. Review jobs/methods for breakage.'
+                                : 'Column definition changed in latest upload. Review anonymization method association.',
                             'diff_payload' => $col->changed_fields,
                             'upload_id' => $upload->id,
                         ]);
@@ -159,6 +170,7 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             'title' => $title,
                             'status' => 'open',
                             'priority' => 'normal',
+                            'severity' => 'low',
                             'scope_type' => 'column',
                             'scope_name' => $scopeName,
                             'impact_summary' => 'Column was added in this upload. Review anonymization method association.',
@@ -222,6 +234,7 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                                 'title' => $title,
                                 'status' => 'open',
                                 'priority' => $hasJobDependency ? 'high' : 'normal',
+                                'severity' => $hasJobDependency ? 'high' : 'medium',
                                 'scope_type' => 'column',
                                 'scope_name' => $scopeName,
                                 'impact_summary' => $hasJobDependency
@@ -283,6 +296,7 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             'title' => $title,
                             'status' => 'open',
                             'priority' => 'normal',
+                            'severity' => 'medium',
                             'scope_type' => 'table',
                             'scope_name' => $scopeName,
                             'impact_summary' => 'Table attributes changed compared to catalog. Review anonymization methods and jobs.',
@@ -313,5 +327,58 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
             ]);
             throw $e; // let the worker mark it failed, but now we have details
         }
+    }
+
+    private function severityForChangedColumn(?string $diffPayload, bool $hasJobDependency): string
+    {
+        if ($hasJobDependency) {
+            return 'high';
+        }
+
+        if (! is_string($diffPayload) || trim($diffPayload) === '') {
+            return 'medium';
+        }
+
+        $decoded = json_decode($diffPayload, true);
+        if (! is_array($decoded) || $decoded === []) {
+            return 'medium';
+        }
+
+        $keys = array_keys($decoded);
+
+        // High severity: breaking schema/shape changes.
+        $highKeys = [
+            'deleted_at',
+            'data_type_id',
+            'data_type',
+            'data_length',
+            'data_precision',
+            'data_scale',
+            'char_length',
+            'nullable',
+            'column_id',
+            'related_columns',
+            'related_columns_raw',
+            'table_id',
+        ];
+
+        foreach ($highKeys as $k) {
+            if (in_array($k, $keys, true)) {
+                return 'high';
+            }
+        }
+
+        // Low severity: documentation-only changes.
+        $lowOnly = [
+            'column_comment',
+            'table_comment',
+            'content_hash',
+        ];
+        $nonLow = array_diff($keys, $lowOnly);
+        if ($nonLow === []) {
+            return 'low';
+        }
+
+        return 'medium';
     }
 }

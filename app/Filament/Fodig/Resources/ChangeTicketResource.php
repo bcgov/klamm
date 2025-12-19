@@ -3,7 +3,7 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\ChangeTicketResource\Pages;
-use App\Models\ChangeTicket;
+use App\Models\Anonymizer\ChangeTicket;
 use App\Models\Anonymizer\AnonymousUpload;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms;
@@ -27,6 +27,14 @@ class ChangeTicketResource extends Resource
     protected static ?string $navigationLabel = 'Change Tickets';
     protected static ?int $navigationSort = 75;
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->orderByRaw("CASE severity WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC")
+            ->orderByRaw("CASE status WHEN 'open' THEN 3 WHEN 'in_progress' THEN 2 WHEN 'resolved' THEN 1 WHEN 'dismissed' THEN 0 ELSE 0 END DESC")
+            ->orderByDesc('created_at');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -47,6 +55,14 @@ class ChangeTicketResource extends Resource
                                 'normal' => 'Normal',
                                 'high' => 'High',
                             ])->inline()->required(),
+                        ToggleButtons::make('severity')
+                            ->options([
+                                'low' => 'Low',
+                                'medium' => 'Medium',
+                                'high' => 'High',
+                            ])
+                            ->inline()
+                            ->required(),
                         Select::make('scope_type')
                             ->options([
                                 'database' => 'Database',
@@ -72,6 +88,14 @@ class ChangeTicketResource extends Resource
                 TextColumn::make('title')->searchable()->wrap(),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('priority')->badge(),
+                TextColumn::make('severity')
+                    ->badge()
+                    ->color(fn(string $state): string => match ($state) {
+                        'high' => 'danger',
+                        'medium' => 'warning',
+                        'low' => 'gray',
+                        default => 'gray',
+                    }),
                 TextColumn::make('scope_type')->label('Scope')->toggleable(),
                 TextColumn::make('scope_name')->toggleable(),
                 TextColumn::make('upload.original_name')->label('Upload')->toggleable(),
@@ -91,6 +115,12 @@ class ChangeTicketResource extends Resource
                         'low' => 'Low',
                         'normal' => 'Normal',
                         'high' => 'High',
+                    ]),
+                Tables\Filters\SelectFilter::make('severity')
+                    ->options([
+                        'high' => 'High',
+                        'medium' => 'Medium',
+                        'low' => 'Low',
                     ]),
                 Tables\Filters\Filter::make('latest_upload')
                     ->label('Latest Upload')

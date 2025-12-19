@@ -3,8 +3,8 @@
 namespace App\Models\Anonymizer;
 
 use App\Enums\SeedContractMode;
-use App\Models\AnonymizationJobs;
-use App\Models\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationMethods;
 use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

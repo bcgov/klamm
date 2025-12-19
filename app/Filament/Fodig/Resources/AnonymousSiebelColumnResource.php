@@ -7,6 +7,7 @@ use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers\ActivityLogRelationManager;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
+use App\Models\Anonymizer\AnonymizationMethods;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -210,9 +211,22 @@ class AnonymousSiebelColumnResource extends Resource
                             ->label('Anonymization required'),
                         Forms\Components\Select::make('anonymizationMethods')
                             ->label('Anonymization methods')
-                            ->relationship('anonymizationMethods', 'name')
+                            ->relationship('anonymizationMethods', 'name', fn(Builder $query) => $query
+                                ->select([
+                                    'anonymization_methods.id',
+                                    'anonymization_methods.name',
+                                    'anonymization_methods.category',
+                                ])
+                                ->orderBy('anonymization_methods.name'))
                             ->multiple()
                             ->searchable()
+                            ->getOptionLabelFromRecordUsing(function (AnonymizationMethods $record): string {
+                                $summary = $record->categorySummary();
+
+                                return $summary
+                                    ? ($record->name . ' — ' . $summary)
+                                    : $record->name;
+                            })
                             ->preload()
                             ->nullable()
                             ->columnSpanFull(),
@@ -410,9 +424,45 @@ class AnonymousSiebelColumnResource extends Resource
                     ->relationship('dataType', 'data_type_name'),
                 Tables\Filters\SelectFilter::make('anonymizationMethods')
                     ->label('Anonymization method')
-                    ->relationship('anonymizationMethods', 'name')
+                    ->relationship('anonymizationMethods', 'name', fn(Builder $query) => $query
+                        ->select([
+                            'anonymization_methods.id',
+                            'anonymization_methods.name',
+                            'anonymization_methods.category',
+                        ])
+                        ->orderBy('anonymization_methods.name'))
                     ->multiple()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('anonymization_method_categories')
+                    ->label('Method category')
+                    ->multiple()
+                    ->options(fn() => array_combine(
+                        AnonymizationMethods::categoryOptionsWithExisting(),
+                        AnonymizationMethods::categoryOptionsWithExisting(),
+                    ))
+                    ->query(function (Builder $query, array $data) {
+                        $values = $data['values'] ?? null;
+
+                        if (! is_array($values) || $values === []) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('anonymizationMethods', function (Builder $methodQuery) use ($values) {
+                            $methodQuery->where(function (Builder $builder) use ($values) {
+                                foreach ($values as $category) {
+                                    if (! is_string($category) || trim($category) === '') {
+                                        continue;
+                                    }
+
+                                    $category = trim($category);
+
+                                    $builder
+                                        ->orWhereJsonContains('anonymization_methods.categories', $category)
+                                        ->orWhere('anonymization_methods.category', $category);
+                                }
+                            });
+                        });
+                    }),
                 Tables\Filters\SelectFilter::make('parentColumns')
                     ->label('Depends on column')
                     ->relationship('parentColumns', 'column_name')

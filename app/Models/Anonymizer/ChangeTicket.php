@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Anonymizer;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +13,7 @@ class ChangeTicket extends Model
         'title',
         'status',
         'priority',
+        'severity',
         'scope_type',
         'scope_name',
         'impact_summary',
