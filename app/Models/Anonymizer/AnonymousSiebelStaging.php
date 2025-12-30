@@ -4,12 +4,45 @@ namespace App\Models\Anonymizer;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\LogsAnonymizerActivity;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 
 class AnonymousSiebelStaging extends Model
 {
-    use HasFactory;
+    use SoftDeletes, HasFactory, LogsAnonymizerActivity;
     protected $table = 'anonymous_siebel_stagings';
+
+    protected static function activityLogNameOverride(): ?string
+    {
+        return 'anonymous_siebel_stagings';
+    }
+
+    protected function activityLogSubjectIdentifier(): ?string
+    {
+        $table = $this->table_name ?: null;
+        $column = $this->column_name ?: null;
+
+        if ($table && $column) {
+            return $table . '.' . $column;
+        }
+
+        return $column ?: ($table ?: ('#' . $this->getKey()));
+    }
+
+    protected function describeActivityEvent(string $eventName, array $context = []): string
+    {
+        $subject = $this->activityLogSubjectIdentifier() ?: ('#' . $this->getKey());
+        $label = "Staging {$subject}";
+
+        return match ($eventName) {
+            'created' => "{$label} created",
+            'deleted' => "{$label} deleted",
+            'restored' => "{$label} restored",
+            'updated' => "{$label} updated",
+            default => $this->defaultActivityDescription($eventName, $context),
+        };
+    }
     protected $fillable = [
         'upload_id',
         'database_name',
@@ -42,6 +75,6 @@ class AnonymousSiebelStaging extends Model
 
     public function upload()
     {
-        return $this->belongsTo(AnonymousUpload::class, 'upload_id');
+        return $this->belongsTo(AnonymousUpload::class, 'upload_id')->withTrashed();
     }
 }

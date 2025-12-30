@@ -7,14 +7,39 @@ use App\Models\Anonymizer\AnonymousSiebelDatabase;
 use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Traits\LogsAnonymizerActivity;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AnonymizationJobs extends Model
 {
-    use HasFactory;
+    use SoftDeletes, HasFactory, LogsAnonymizerActivity;
+
+    protected static function activityLogNameOverride(): ?string
+    {
+        return 'anonymization_jobs';
+    }
+
+    protected function activityLogSubjectIdentifier(): ?string
+    {
+        return $this->name ?: ('#' . $this->getKey());
+    }
+
+    protected function describeActivityEvent(string $eventName, array $context = []): string
+    {
+        $job = $this->name ?: ('#' . $this->getKey());
+
+        return match ($eventName) {
+            'created' => "Anonymization job {$job} created",
+            'deleted' => "Anonymization job {$job} deleted",
+            'restored' => "Anonymization job {$job} restored",
+            'updated' => "Anonymization job {$job} updated",
+            default => $this->defaultActivityDescription($eventName, $context),
+        };
+    }
 
     public const STATUS_DRAFT = 'draft';
     public const STATUS_SCHEDULED = 'scheduled';

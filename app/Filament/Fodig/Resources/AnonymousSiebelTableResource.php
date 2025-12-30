@@ -21,6 +21,14 @@ class AnonymousSiebelTableResource extends Resource
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Tables';
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
+
 
     public static function form(Form $form): Form
     {
@@ -111,7 +119,7 @@ class AnonymousSiebelTableResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Fodig\RelationManagers\ActivityLogRelationManager::class,
         ];
     }
 

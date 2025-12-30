@@ -6,6 +6,7 @@ use App\Filament\Fodig\Resources\ChangeTicketResource\Pages;
 use App\Models\Anonymizer\ChangeTicket;
 use App\Models\Anonymizer\AnonymousUpload;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms;
 use Filament\Forms\Components\Section as FormSection;
 use Filament\Forms\Components\Select;
@@ -30,6 +31,9 @@ class ChangeTicketResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
             ->orderByRaw("CASE severity WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END DESC")
             ->orderByRaw("CASE status WHEN 'open' THEN 3 WHEN 'in_progress' THEN 2 WHEN 'resolved' THEN 1 WHEN 'dismissed' THEN 0 ELSE 0 END DESC")
             ->orderByDesc('created_at');
@@ -103,6 +107,7 @@ class ChangeTicketResource extends Resource
                 TextColumn::make('resolved_at')->dateTime()->sortable()->toggleable(),
             ])
             ->filters([
+                Tables\Filters\TrashedFilter::make(),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'open' => 'Open',

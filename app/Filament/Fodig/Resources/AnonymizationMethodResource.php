@@ -2,6 +2,7 @@
 
 namespace App\Filament\Fodig\Resources;
 
+use App\Filament\Concerns\HasMonacoSql;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\Pages;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\ColumnsRelationManager;
 use App\Models\Anonymizer\AnonymizationMethods;
@@ -15,10 +16,15 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Components\Checkbox;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\HtmlString;
 
 class AnonymizationMethodResource extends Resource
 {
+    use HasMonacoSql;
+
     protected static ?string $model = AnonymizationMethods::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-sparkles';
@@ -28,6 +34,14 @@ class AnonymizationMethodResource extends Resource
     protected static ?string $navigationLabel = 'Methods';
 
     protected static ?int $navigationSort = 60;
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
 
     public static function form(Form $form): Form
     {
@@ -40,16 +54,16 @@ class AnonymizationMethodResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->unique(ignoreRecord: true)
-                            ->helperText('Keep the name concise and action-oriented (e.g. "Hash contact email").'),
+                            ->helperText('Short, unique, and easy to scan.'),
                         Forms\Components\TagsInput::make('categories')
                             ->label('Categories')
-                            ->suggestions(fn() => AnonymizationMethods::categoryOptionsWithExisting())
+                            ->suggestions(fn() => self::categoryOptions())
                             ->placeholder('Add one or more categories')
-                            ->helperText('Add one or more canonical masking categories to keep the library discoverable.'),
+                            ->helperText('Used for grouping and filtering in the method library.'),
                         Forms\Components\Textarea::make('description')
                             ->rows(3)
                             ->columnSpanFull()
-                            ->helperText('Summarize when to use this method and any caveats for downstream teams.'),
+                            ->helperText('Optional summary and caveats.'),
                     ])
                     ->columns(2),
                 Forms\Components\Section::make('Implementation Notes')
@@ -58,17 +72,17 @@ class AnonymizationMethodResource extends Resource
                         Forms\Components\MarkdownEditor::make('what_it_does')
                             ->label('What it does')
                             ->columnSpanFull()
-                            ->helperText('Explain the user-visible outcome. This content can include bullet lists or links to policy references.'),
+                            ->helperText('Outcome and usage notes.'),
                         Forms\Components\MarkdownEditor::make('how_it_works')
                             ->label('How it works')
                             ->columnSpanFull()
-                            ->helperText('Document the algorithmic steps or assumptions (e.g. seeded hash, surrogate lookups, referential integrity expectations).'),
-                        Forms\Components\Textarea::make('sql_block')
-                            ->label('SQL block')
-                            ->rows(12)
-                            ->columnSpanFull()
-                            ->extraAttributes(['class' => 'font-mono text-sm'])
-                            ->helperText('Use placeholders such as {{TABLE}}, {{COLUMN}}, or {{ALIAS}} when composing generalized snippets. These will be replaced during job generation.'),
+                            ->helperText('Implementation detail, assumptions, and constraints.'),
+                        self::sqlEditor(
+                            field: 'sql_block',
+                            label: 'SQL block',
+                            height: '350px',
+                            helperText: 'Supports placeholders like {{TABLE}}, {{COLUMN}}, {{ALIAS}} for job generation.'
+                        ),
                     ])
                     ->columns(1),
                 Forms\Components\Section::make('Seed Contract')
@@ -148,6 +162,15 @@ class AnonymizationMethodResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('version')
+                    ->label('Ver')
+                    ->badge()
+                    ->sortable()
+                    ->toggleable(),
+                Tables\Columns\IconColumn::make('is_current')
+                    ->label('Current')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('categories')
                     ->label('Categories')
                     ->badge()
@@ -193,13 +216,11 @@ class AnonymizationMethodResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
+                Tables\Filters\TrashedFilter::make(),
                 Tables\Filters\SelectFilter::make('categories')
                     ->label('Category')
                     ->multiple()
-                    ->options(fn() => array_combine(
-                        AnonymizationMethods::categoryOptionsWithExisting(),
-                        AnonymizationMethods::categoryOptionsWithExisting(),
-                    ))
+                    ->options(fn() => self::categoryOptionsForSelect())
                     ->query(function ($query, array $data) {
                         $values = $data['values'] ?? null;
 
@@ -207,15 +228,20 @@ class AnonymizationMethodResource extends Resource
                             return $query;
                         }
 
+                        $values = array_values(array_filter(array_map(
+                            fn($value) => is_string($value) ? trim($value) : null,
+                            $values,
+                        )));
+
+                        if ($values === []) {
+                            return $query;
+                        }
+
                         return $query->where(function ($builder) use ($values) {
                             foreach ($values as $category) {
-                                if (! is_string($category) || trim($category) === '') {
-                                    continue;
-                                }
-
                                 $builder
-                                    ->orWhereJsonContains('categories', trim($category))
-                                    ->orWhere('category', trim($category));
+                                    ->orWhereJsonContains('categories', $category)
+                                    ->orWhere('category', $category);
                             }
                         });
                     }),
@@ -228,11 +254,104 @@ class AnonymizationMethodResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('new_version')
+                    ->label('New version')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->requiresConfirmation()
+                    ->modalHeading('Create a new method version?')
+                    ->modalDescription('This will duplicate the method settings into a new record (leaving existing job/column links on the current version).')
+                    ->modalSubmitActionLabel('Create version')
+                    ->action(function (AnonymizationMethods $record) {
+                        $new = $record->createNewVersion();
+
+                        return redirect(self::getUrl('edit', ['record' => $new]));
+                    }),
+                Tables\Actions\Action::make('edit')
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->requiresConfirmation(fn(AnonymizationMethods $record) => $record->isInUse())
+                    ->modalHeading(fn(AnonymizationMethods $record) => 'Edit method currently in use?')
+                    ->modalDescription(fn(AnonymizationMethods $record) => self::methodUsageWarning($record))
+                    ->modalSubmitActionLabel('Continue to edit')
+                    ->form(fn(AnonymizationMethods $record) => $record->isInUse()
+                        ? [
+                            Checkbox::make('acknowledge')
+                                ->label('I understand that editing this method can change SQL generation for existing jobs/columns.')
+                                ->accepted()
+                                ->required(),
+                        ]
+                        : [])
+                    ->action(fn(AnonymizationMethods $record) => redirect(self::getUrl('edit', ['record' => $record]))),
+                Tables\Actions\Action::make('delete')
+                    ->label('Delete')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn(AnonymizationMethods $record) => $record->isInUse() ? 'Delete method currently in use?' : 'Delete method?')
+                    ->modalDescription(fn(AnonymizationMethods $record) => $record->isInUse()
+                        ? (self::methodUsageWarning($record) . ' Deleting will remove this method from future selections, but existing associations may still affect previously generated exports.')
+                        : 'This will soft-delete the anonymization method.')
+                    ->modalSubmitActionLabel('Delete method')
+                    ->form(fn(AnonymizationMethods $record) => $record->isInUse()
+                        ? [
+                            Checkbox::make('acknowledge')
+                                ->label('I understand and want to delete this method anyway.')
+                                ->accepted()
+                                ->required(),
+                        ]
+                        : [])
+                    ->action(fn(AnonymizationMethods $record) => $record->delete()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('delete')
+                        ->label('Delete selected')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Delete selected methods?')
+                        ->modalDescription(function ($records) {
+                            $total = is_iterable($records) ? count($records) : 0;
+
+                            $inUseCount = 0;
+                            foreach ($records as $record) {
+                                if ($record instanceof AnonymizationMethods && $record->isInUse()) {
+                                    $inUseCount++;
+                                }
+                            }
+
+                            if ($inUseCount > 0) {
+                                return "{$inUseCount} of {$total} selected methods are currently attached to jobs/columns. This operation requires explicit acknowledgement.";
+                            }
+
+                            return 'This will soft-delete the selected anonymization methods.';
+                        })
+                        ->form(function ($records) {
+                            $anyInUse = false;
+                            foreach ($records as $record) {
+                                if ($record instanceof AnonymizationMethods && $record->isInUse()) {
+                                    $anyInUse = true;
+                                    break;
+                                }
+                            }
+
+                            return $anyInUse
+                                ? [
+                                    Checkbox::make('acknowledge')
+                                        ->label('I understand and want to delete methods that are currently in use.')
+                                        ->accepted()
+                                        ->required(),
+                                ]
+                                : [];
+                        })
+                        ->action(function ($records) {
+                            foreach ($records as $record) {
+                                if ($record instanceof AnonymizationMethods) {
+                                    $record->delete();
+                                }
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->defaultSort('name');
@@ -251,18 +370,7 @@ class AnonymizationMethodResource extends Resource
                                     ->weight('bold'),
                                 TextEntry::make('categories')
                                     ->label('Categories')
-                                    ->formatStateUsing(function ($state, ?AnonymizationMethods $record) {
-                                        if ($record) {
-                                            return $record->categorySummary() ?? '—';
-                                        }
-
-                                        if (is_array($state) && $state !== []) {
-                                            $labels = array_values(array_filter(array_map(fn($v) => is_string($v) ? trim($v) : null, $state)));
-                                            return $labels !== [] ? implode(' • ', $labels) : '—';
-                                        }
-
-                                        return '—';
-                                    })
+                                    ->formatStateUsing(fn($state, ?AnonymizationMethods $record) => self::formatCategorySummary($state, $record))
                                     ->placeholder('—'),
                             ])->columns(2),
                         TextEntry::make('description')
@@ -274,23 +382,24 @@ class AnonymizationMethodResource extends Resource
                         TextEntry::make('what_it_does')
                             ->label('What it does')
                             ->columnSpanFull()
+                            ->markdown()
                             ->placeholder('—'),
                         TextEntry::make('how_it_works')
                             ->label('How it works')
                             ->columnSpanFull()
+                            ->markdown()
                             ->placeholder('—'),
                     ])
                     ->collapsed()
                     ->collapsible(),
                 InfolistSection::make('SQL Reference')
                     ->schema([
-                        TextEntry::make('sql_block')
-                            ->label('SQL block')
-                            ->columnSpanFull()
-                            ->placeholder('No SQL block documented.')
-                            ->extraAttributes([
-                                'class' => 'font-mono whitespace-pre-wrap text-sm'
-                            ]),
+                        self::sqlViewer(
+                            field: 'sql_block',
+                            label: 'SQL block',
+                            height: '350px',
+                            helperText: 'Use placeholders like {{TABLE}} and {{COLUMN}} in reusable snippets.'
+                        ),
                     ])
                     ->hidden(fn($record) => blank($record?->sql_block)),
                 InfolistSection::make('Usage Metrics')
@@ -344,11 +453,53 @@ class AnonymizationMethodResource extends Resource
     {
         return [
             ColumnsRelationManager::class,
+            \App\Filament\Fodig\RelationManagers\ActivityLogRelationManager::class,
         ];
+    }
+
+    /**
+     * Returns the canonical category list used by tags + table filters.
+     * Keeping this centralized prevents the UI from drifting between components.
+     */
+    protected static function categoryOptions(): array
+    {
+        return AnonymizationMethods::categoryOptionsWithExisting();
+    }
+
+    /**
+     * Filament SelectFilter expects a keyed map of value => label.
+     */
+    protected static function categoryOptionsForSelect(): array
+    {
+        $options = self::categoryOptions();
+
+        return $options === []
+            ? []
+            : array_combine($options, $options);
+    }
+
+    protected static function formatCategorySummary(mixed $state, ?AnonymizationMethods $record): string
+    {
+        if ($record) {
+            return $record->categorySummary() ?? '—';
+        }
+
+        if (! is_array($state) || $state === []) {
+            return '—';
+        }
+
+        $labels = array_values(array_filter(array_map(
+            fn($value) => is_string($value) ? trim($value) : null,
+            $state,
+        )));
+
+        return $labels !== [] ? implode(' • ', $labels) : '—';
     }
 
     protected static function renderSqlPreview(?string $sql): HtmlString
     {
+        // Placeholder previews accept HTML; escape the user input to avoid
+        // rendering arbitrary HTML while still providing a readable preformatted preview.
         if (blank($sql)) {
             return new HtmlString('<p class="text-sm text-gray-500">Add SQL to preview how it will appear in job exports.</p>');
         }
@@ -360,6 +511,8 @@ class AnonymizationMethodResource extends Resource
 
     protected static function columnsPreview(AnonymizationMethods $record): string
     {
+        // This preview is meant to be a fast, representative sample for the infolist.
+        // Keep it bounded (limit) and eager-load relationships to avoid N+1 queries.
         $columns = $record->columns()
             ->with(['table.schema:id,schema_name', 'table:id,table_name,schema_id'])
             ->orderBy('column_name')
@@ -386,5 +539,27 @@ class AnonymizationMethodResource extends Resource
         }
 
         return $preview;
+    }
+
+    protected static function methodUsageWarning(AnonymizationMethods $record): string
+    {
+        $columnCount = (int) $record->usage_count;
+        $jobCount = $record->distinctJobUsageCount();
+
+        $parts = [];
+
+        if ($columnCount > 0) {
+            $parts[] = "Referenced by {$columnCount} column" . ($columnCount === 1 ? '' : 's');
+        }
+
+        if ($jobCount > 0) {
+            $parts[] = "Included in {$jobCount} job" . ($jobCount === 1 ? '' : 's');
+        }
+
+        if ($parts === []) {
+            return 'This method is not currently associated with any jobs or columns.';
+        }
+
+        return implode(' • ', $parts) . '. Changes here can impact generated anonymization SQL. Consider using “New version” to preserve existing behavior.';
     }
 }

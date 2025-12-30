@@ -5,13 +5,41 @@ namespace App\Models\Anonymizer;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationPackage;
+use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class AnonymizationMethods extends Model
 {
-    use HasFactory;
+    use SoftDeletes, HasFactory, LogsAnonymizerActivity;
+
+    protected static function activityLogNameOverride(): ?string
+    {
+        return 'anonymization_methods';
+    }
+
+    protected function activityLogSubjectIdentifier(): ?string
+    {
+        return $this->name ?: ('#' . $this->getKey());
+    }
+
+    protected function describeActivityEvent(string $eventName, array $context = []): string
+    {
+        $method = $this->name ?: ('#' . $this->getKey());
+
+        return match ($eventName) {
+            'created' => "Anonymization method {$method} created",
+            'deleted' => "Anonymization method {$method} deleted",
+            'restored' => "Anonymization method {$method} restored",
+            'updated' => "Anonymization method {$method} updated",
+            default => $this->defaultActivityDescription($eventName, $context),
+        };
+    }
 
     public const CATEGORY_SHUFFLE_MASKING = 'Shuffle Masking';
     public const CATEGORY_BLURRING_PERTURBATION = 'Blurring or Perturbation';
@@ -68,7 +96,26 @@ class AnonymizationMethods extends Model
         'emits_seed' => 'boolean',
         'requires_seed' => 'boolean',
         'supports_composite_seed' => 'boolean',
+        'version' => 'integer',
+        'version_root_id' => 'integer',
+        'supersedes_id' => 'integer',
+        'is_current' => 'boolean',
     ];
+
+    public function versionRoot(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'version_root_id');
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(self::class, 'version_root_id')->orderBy('version');
+    }
+
+    public function supersedes(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'supersedes_id');
+    }
 
     /**
      * Canonical masking categories used across the method library.
@@ -207,5 +254,65 @@ class AnonymizationMethods extends Model
         return $flags === []
             ? 'No seed contract declared'
             : implode(' • ', $flags);
+    }
+
+    public function isInUse(): bool
+    {
+        return $this->columns()->exists() || $this->jobs()->exists();
+    }
+
+    public function distinctJobUsageCount(): int
+    {
+        // `anonymization_job_columns` can contain multiple rows per job (one per column).
+        // Count distinct jobs so the warning text is accurate.
+        return (int) $this->jobs()
+            ->distinct('anonymization_jobs.id')
+            ->count('anonymization_jobs.id');
+    }
+
+    public function createNewVersion(): self
+    {
+        return DB::transaction(function () {
+            $rootId = $this->version_root_id ?: $this->getKey();
+
+            $nextVersion = (int) self::query()
+                ->where('version_root_id', $rootId)
+                ->max('version');
+            $nextVersion = max(1, $nextVersion) + 1;
+
+            // Keep the original record as-is for any existing job/column associations.
+            $this->forceFill([
+                'is_current' => false,
+                'version_root_id' => $rootId,
+            ])->save();
+
+            /** @var self $new */
+            $new = $this->replicate([
+                // These are eager-loaded counts / computed attributes, not real columns.
+                'columns_count',
+                'packages_count',
+                'usage_count',
+                'seed_capability_summary',
+            ]);
+            $new->version_root_id = $rootId;
+            $new->supersedes_id = $this->getKey();
+            $new->version = $nextVersion;
+            $new->is_current = true;
+
+            // `name` is unique in the DB + Filament form validation. Suffix the new version
+            // so we can store multiple versions without dropping that constraint.
+            $baseName = (string) $this->name;
+            $new->name = mb_strimwidth($baseName . ' (v' . $nextVersion . ')', 0, 255, '');
+
+            $new->save();
+
+            // Copy package dependencies (safe: affects only the new method version).
+            $packageIds = $this->packages()->pluck('anonymization_packages.id')->all();
+            if ($packageIds !== []) {
+                $new->packages()->sync($packageIds);
+            }
+
+            return $new;
+        });
     }
 }

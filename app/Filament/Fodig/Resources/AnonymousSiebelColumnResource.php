@@ -4,8 +4,8 @@ namespace App\Filament\Fodig\Resources;
 
 use App\Enums\SeedContractMode;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
-use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers\ActivityLogRelationManager;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
+use App\Filament\Fodig\RelationManagers\ActivityLogRelationManager;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymizationMethods;
 use Filament\Forms;
@@ -24,6 +24,14 @@ class AnonymousSiebelColumnResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Columns';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
 
     public static function form(Form $form): Form
     {

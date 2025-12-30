@@ -1,23 +1,31 @@
 <?php
 
-namespace App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
+namespace App\Filament\Fodig\RelationManagers;
 
 use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
-use Spatie\Activitylog\Models\Activity;
-use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables\Table;
 use Filament\Forms\Form;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Rmsramos\Activitylog\ActivitylogPlugin;
 use Rmsramos\Activitylog\Resources\ActivitylogResource;
-
+use Spatie\Activitylog\Models\Activity;
 
 class ActivityLogRelationManager extends RelationManager
 {
     protected static string $relationship = 'activities';
 
     protected static ?string $title = 'Activity Log';
+
+    public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
+    {
+        return method_exists($ownerRecord, 'activities')
+            && method_exists($ownerRecord, 'getMorphClass')
+            && method_exists($ownerRecord, 'getKey')
+            && method_exists($ownerRecord, 'activityLogName');
+    }
 
     protected function getTableQuery(): ?Builder
     {
@@ -30,22 +38,6 @@ class ActivityLogRelationManager extends RelationManager
             ->latest('activity_log.created_at');
     }
 
-    // public function table(Table $table): Table
-    // {
-    //     CustomActivitylogResource::resetConfiguration();
-    //     CustomActivitylogResource::withColumns(['event', 'description', 'causer_name', 'properties', 'created_at']);
-    //     CustomActivitylogResource::withFilters(['date', 'event', 'causer_name']);
-
-    //     $configured = CustomActivitylogResource::configureStandardTable(
-    //         $table
-    //             ->heading('Activity Log')
-    //             ->deferLoading()
-    //     );
-
-    //     CustomActivitylogResource::resetConfiguration();
-
-    //     return $configured;
-    // }
     public function form(Form $form): Form
     {
         return ActivitylogResource::form($form);

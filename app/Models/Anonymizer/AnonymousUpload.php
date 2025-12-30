@@ -6,14 +6,40 @@ use Illuminate\Database\Eloquent\Model;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Jobs\GenerateChangeTicketsFromUpload;
+use App\Traits\LogsAnonymizerActivity;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class AnonymousUpload extends Model
 {
-    use HasFactory;
+    use SoftDeletes, HasFactory, LogsAnonymizerActivity;
 
     protected $table = 'anonymization_uploads';
+
+    protected static function activityLogNameOverride(): ?string
+    {
+        return 'anonymization_uploads';
+    }
+
+    protected function activityLogSubjectIdentifier(): ?string
+    {
+        return $this->original_name ?: ($this->file_name ?: ('#' . $this->getKey()));
+    }
+
+    protected function describeActivityEvent(string $eventName, array $context = []): string
+    {
+        $identifier = $this->activityLogSubjectIdentifier();
+        $upload = $identifier ? "Upload {$identifier}" : ('Upload #' . $this->getKey());
+
+        return match ($eventName) {
+            'created' => "{$upload} created",
+            'deleted' => "{$upload} deleted",
+            'restored' => "{$upload} restored",
+            'updated' => "{$upload} updated",
+            default => $this->defaultActivityDescription($eventName, $context),
+        };
+    }
 
     /**
      * Allow mass assignment for upload bookkeeping fields.
