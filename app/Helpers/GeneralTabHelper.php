@@ -414,9 +414,10 @@ class GeneralTabHelper
                     ->icons([
                         'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
                         'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
-                        'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-list-bullet',
+                        'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
                         'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
                         'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
+                        'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
                         'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
                         'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
                         'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',

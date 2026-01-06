@@ -62,4 +62,16 @@ class SelectOptionFormElement extends Model
 
         return self::create($optionData);
     }
+
+    /**
+     * Create an option for a checkbox group
+     */
+    public static function createForCheckboxGroup(CheckboxGroupFormElement $checkboxGroup, array $optionData): self
+    {
+        $optionData['optionable_type'] = CheckboxGroupFormElement::class;
+        $optionData['optionable_id'] = $checkboxGroup->id;
+        $optionData['value'] = $optionData['value'] ?? \Illuminate\Support\Str::slug($optionData['label'], '-');
+
+        return self::create($optionData);
+    }
 }
