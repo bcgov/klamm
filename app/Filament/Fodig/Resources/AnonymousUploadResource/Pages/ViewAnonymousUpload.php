@@ -3,7 +3,6 @@
 namespace App\Filament\Fodig\Resources\AnonymousUploadResource\Pages;
 
 use App\Filament\Fodig\Resources\AnonymousUploadResource;
-use App\Models\Anonymizer\AnonymousUpload;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Storage;
@@ -110,19 +109,15 @@ class ViewAnonymousUpload extends ViewRecord
 
     protected function canDeleteCsv(): bool
     {
-        /** @var AnonymousUpload $record */
         $record = $this->record;
-
         if ($record->file_deleted_at) {
             return false;
         }
-
         return $this->canDownload();
     }
 
     protected function deleteCsv(): void
     {
-        /** @var AnonymousUpload $record */
         $record = $this->record;
         $record->deleteStoredFile('manual');
     }

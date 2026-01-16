@@ -10,6 +10,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
+// Relation manager showing parent (source) columns that this column references via foreign keys.
 class ParentColumnsRelationManager extends RelationManager
 {
     protected static string $relationship = 'parentColumns';

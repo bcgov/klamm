@@ -10,6 +10,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
+// Relation manager showing child (dependent) columns that reference this column via foreign keys.
 class ChildColumnsRelationManager extends RelationManager
 {
     protected static string $relationship = 'childColumns';

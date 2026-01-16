@@ -23,7 +23,6 @@ class EditAnonymizationPackage extends EditRecord
                 ->modalDescription('This will duplicate the package settings into a new record. It will not be attached to any methods automatically.')
                 ->modalSubmitActionLabel('Create version')
                 ->action(function () {
-                    /** @var AnonymizationPackage $record */
                     $record = $this->getRecord();
                     $new = $record->createNewVersion();
 
@@ -48,7 +47,6 @@ class EditAnonymizationPackage extends EditRecord
 
     protected function getFormActions(): array
     {
-        /** @var AnonymizationPackage $record */
         $record = $this->getRecord();
 
         return [

@@ -3,7 +3,6 @@
 namespace App\Filament\Fodig\Resources;
 
 use App\Filament\Fodig\Resources\AnonymousSiebelSchemaResource\Pages;
-use App\Filament\Fodig\Resources\AnonymousSiebelSchemaResource\RelationManagers;
 use App\Models\Anonymizer\AnonymousSiebelSchema;
 use Filament\Forms;
 use Filament\Forms\Form;

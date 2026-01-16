@@ -25,6 +25,7 @@ class ViewAnonymizationJob extends ViewRecord
                 ->visible(fn() => filled($this->record->sql_script))
                 ->tooltip('Exports the generated anonymization script for manual execution.')
                 ->action(fn() => $this->downloadSqlScript()),
+            // Queue SQL regeneration for background worker.
             Actions\Action::make('regenerateSql')
                 ->label('Regenerate SQL')
                 ->icon('heroicon-o-arrow-path')
@@ -33,7 +34,6 @@ class ViewAnonymizationJob extends ViewRecord
                 ->requiresConfirmation()
                 ->action(function () {
                     GenerateAnonymizationJobSql::dispatch($this->record->getKey());
-
                     Notification::make()
                         ->success()
                         ->title('SQL regeneration queued')

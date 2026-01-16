@@ -24,8 +24,7 @@ class ColumnsRelationManager extends RelationManager
             ->heading('Columns using this method')
             ->description('Catalog columns currently linked to this anonymization method.')
             ->modifyQueryUsing(function (Builder $query) {
-                // PostgreSQL cannot use DISTINCT with JSON columns.
-                // Override Filament's automatic distinct behavior.
+                // Override Filament's automatic distinct behavior to avoid SQL errors.
                 $query->getQuery()->distinct = false;
 
                 return $query

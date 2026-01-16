@@ -9,6 +9,8 @@ use Filament\Resources\Pages\Page;
 
 class ViewAnonymizationJobSelection extends Page
 {
+    // Read-only job details page showing the scope/selection for an anonymization job.
+
     protected static string $resource = AnonymizationJobResource::class;
 
     protected static string $view = 'filament.fodig.resources.anonymization-job-resource.pages.view-selection';

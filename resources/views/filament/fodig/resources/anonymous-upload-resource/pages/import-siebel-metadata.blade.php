@@ -1,6 +1,6 @@
 @php
-$requiredColumns = \App\Filament\Fodig\Resources\AnonymousUploadResource\Pages\ImportSiebelMetadata::REQUIRED_HEADER_COLUMNS;
-$optionalColumns = \App\Filament\Fodig\Resources\AnonymousUploadResource\Pages\ImportSiebelMetadata::OPTIONAL_HEADER_COLUMNS;
+$requiredColumns = \App\Constants\Fodig\Anonymizer\SiebelMetadata::REQUIRED_HEADER_COLUMNS;
+$optionalColumns = \App\Constants\Fodig\Anonymizer\SiebelMetadata::OPTIONAL_HEADER_COLUMNS;
 @endphp
 
 <x-filament::page>

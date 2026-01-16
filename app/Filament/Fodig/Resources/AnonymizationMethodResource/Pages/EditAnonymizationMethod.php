@@ -10,6 +10,7 @@ use Filament\Resources\Pages\EditRecord;
 
 class EditAnonymizationMethod extends EditRecord
 {
+    // When a method is in use by jobs/columns, the UI forces explicit acknowledgement before delete or saving changes to reduce accidental breakage.
     protected static string $resource = AnonymizationMethodResource::class;
 
     protected function getHeaderActions(): array
@@ -23,10 +24,8 @@ class EditAnonymizationMethod extends EditRecord
                 ->modalDescription('This will duplicate the method settings into a new record (existing job/column links remain on the current version).')
                 ->modalSubmitActionLabel('Create version')
                 ->action(function () {
-                    /** @var AnonymizationMethods $record */
                     $record = $this->getRecord();
                     $new = $record->createNewVersion();
-
                     return $this->redirect(AnonymizationMethodResource::getUrl('edit', ['record' => $new]));
                 }),
             Actions\DeleteAction::make()
@@ -35,6 +34,7 @@ class EditAnonymizationMethod extends EditRecord
                 ->modalDescription(fn(AnonymizationMethods $record) => $record->isInUse()
                     ? 'This method is attached to jobs/columns. Deleting it can break future SQL regeneration and remove it from selection.'
                     : 'This will soft-delete the anonymization method.')
+                // If the method is currently linked to jobs/columns, require the user to check an 'acknowledge' box before permitting deletion.
                 ->form(fn(AnonymizationMethods $record) => $record->isInUse()
                     ? [
                         Checkbox::make('acknowledge')
@@ -48,7 +48,6 @@ class EditAnonymizationMethod extends EditRecord
 
     protected function getFormActions(): array
     {
-        /** @var AnonymizationMethods $record */
         $record = $this->getRecord();
 
         return [

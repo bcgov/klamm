@@ -24,7 +24,6 @@ class ViewAnonymizationMethod extends ViewRecord
                 ->modalSubmitActionLabel('Create version')
                 ->action(function (AnonymizationMethods $record) {
                     $new = $record->createNewVersion();
-
                     return $this->redirect(AnonymizationMethodResource::getUrl('edit', ['record' => $new]));
                 }),
             Actions\Action::make('edit')
