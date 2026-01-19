@@ -2,6 +2,7 @@
 
 namespace App\Services\Anonymizer;
 
+use App\Services\Anonymizer\Concerns\BuildsDoubleSeededDeterministicOracleScripts;
 use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 
 class AnonymizationJobScriptService
 {
+    use BuildsDoubleSeededDeterministicOracleScripts;
+
     private const WHERE_IN_CHUNK_SIZE = 10000;
 
     protected const SEED_PLACEHOLDERS = [
@@ -67,7 +70,6 @@ class AnonymizationJobScriptService
                 $length = 255;
             }
 
-            // Oracle VARCHAR2 max in SQL is typically 4000 bytes.
             $length = min($length, 4000);
             return "VARCHAR2({$length})";
         }
@@ -97,6 +99,31 @@ class AnonymizationJobScriptService
         return false;
     }
 
+    protected function oracleColumnMaxLength(AnonymousSiebelColumn $column): int
+    {
+        $typeName = strtolower(trim((string) ($column->data_type ?? '')));
+
+        if (str_contains($typeName, 'clob')) {
+            return 4000;
+        }
+
+        if (
+            str_contains($typeName, 'char')
+            || str_contains($typeName, 'varchar')
+            || str_contains($typeName, 'nvarchar')
+            || str_contains($typeName, 'nchar')
+        ) {
+            $length = (int) ($column->data_length ?? $column->char_length ?? 0);
+            if ($length <= 0) {
+                $length = 255;
+            }
+
+            return min($length, 4000);
+        }
+
+        return 4000;
+    }
+
     public function buildForJob(AnonymizationJobs $job): string
     {
         $job->loadMissing([
@@ -106,7 +133,12 @@ class AnonymizationJobScriptService
         ]);
 
         $columns = $job->columns ?? collect();
-        $script = $this->buildFromColumns($columns, $job);
+
+        if ($this->normalizeJobOption($job->seed_store_mode) === 'double-seeded') {
+            $script = $this->buildDoubleSeededDeterministicFromColumns($columns, $job);
+        } else {
+            $script = $this->buildFromColumns($columns, $job);
+        }
 
         if (trim($script) === '') {
             return '-- No anonymization SQL generated: no columns or anonymization methods configured for this job.';
@@ -131,40 +163,44 @@ class AnonymizationJobScriptService
 
         $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
 
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
+        $targetMode = $this->normalizeJobOption((string) ($rewriteContext['target_table_mode'] ?? '')) ?: 'prefixed';
+        $modeLabel = $targetMode === 'anon'
+            ? 'mode INITIAL_* → ANON_*'
+            : ('prefix ' . ($rewriteContext['table_prefix'] ?? 'none'));
         $lines[] = '-- Target Tables'
             . ' (schema ' . ($rewriteContext['target_schema'] ?? 'unknown') . ')'
-            . ' (prefix ' . ($rewriteContext['table_prefix'] ?? 'none') . ')';
+            . ' (' . $modeLabel . ')';
         $lines[] = '-- Creates working copies and keeps all updates isolated.';
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
         $lines[] = '';
         $lines = array_merge($lines, $tableCloneStatements);
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
         $lines[] = '';
 
         $preMaskSql = trim((string) ($job->pre_mask_sql ?? ''));
         if ($preMaskSql !== '') {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '-- Pre-mask SQL';
             $lines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $preMaskSql) ?: []);
             $lines[] = '';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
         $postMaskSql = trim((string) ($job->post_mask_sql ?? ''));
         if ($postMaskSql !== '') {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '-- Post-mask SQL';
             $lines[] = '-- Runs after masking updates and seed maps are applied.';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $postMaskSql) ?: []);
             $lines[] = '';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
@@ -251,7 +287,9 @@ class AnonymizationJobScriptService
         $seedProviders = $this->resolveSeedProviders($ordered);
 
         $rewriteContext = $this->buildJobTableRewriteContext($ordered, $job);
-        $seedMapContext = $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext, $job);
+        $seedMapContext = $this->jobUsesSeedMapPlaceholders($ordered)
+            ? $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext, $job)
+            : [];
 
         $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
 
@@ -273,14 +311,14 @@ class AnonymizationJobScriptService
         $packages = $this->collectPackagesFromColumns($ordered);
 
         if ($packages->isNotEmpty()) {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '-- Package Dependencies';
             $lines[] = '-- Ordered for deterministic exports';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
 
             foreach ($packages as $package) {
-                $lines[] = str_repeat('-', 70);
+                $lines[] = $this->commentDivider('-');
                 $lines[] = '-- Package: ' . $package->display_label;
 
                 if ($package->summary) {
@@ -293,53 +331,57 @@ class AnonymizationJobScriptService
                 }
             }
 
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
         $tableCloneStatements = $this->renderJobTableClones($rewriteContext);
         if ($tableCloneStatements !== []) {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
+            $targetMode = $this->normalizeJobOption((string) ($rewriteContext['target_table_mode'] ?? '')) ?: 'prefixed';
+            $modeLabel = $targetMode === 'anon'
+                ? 'mode INITIAL_* → ANON_*'
+                : ('prefix ' . ($rewriteContext['table_prefix'] ?? 'none'));
             $lines[] = '-- Target Tables'
                 . ' (schema ' . ($rewriteContext['target_schema'] ?? 'unknown') . ')'
-                . ' (prefix ' . ($rewriteContext['table_prefix'] ?? 'none') . ')';
+                . ' (' . $modeLabel . ')';
             $lines[] = '-- Creates working copies and keeps all updates isolated.';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, $tableCloneStatements);
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
         $preMaskSql = trim((string) ($job?->pre_mask_sql ?? ''));
         if ($preMaskSql !== '') {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '-- Pre-mask SQL';
             $lines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $preMaskSql) ?: []);
             $lines[] = '';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
         $seedMapStatements = $this->renderSeedMapTables($seedMapContext);
         if ($seedMapStatements !== []) {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '-- Seed Maps (relationship preservation)';
             $lines[] = '-- Lookup tables keep dependent keys aligned with seed providers.';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, $seedMapStatements);
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
         $groups = [];
         $groupOrder = [];
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($ordered as $column) {
             $method = $this->resolveMethodForColumn($column);
             $key = $method?->id ?? 'none';
@@ -357,12 +399,12 @@ class AnonymizationJobScriptService
 
         foreach ($groupOrder as $key) {
             $group = $groups[$key];
-            /** @var AnonymizationMethods|null $method */
+            // @var AnonymizationMethods|null $method
             $method = $group['method'];
-            /** @var Collection<int, AnonymousSiebelColumn> $columnsInGroup */
+            // @var Collection<int, AnonymousSiebelColumn> $columnsInGroup
             $columnsInGroup = collect($group['columns']);
 
-            $lines[] = str_repeat('-', 70);
+            $lines[] = $this->commentDivider('-');
             $lines[] = $this->methodHeading($method);
             $lines[] = $this->columnsListing($columnsInGroup, $ordered->pluck('id')->all());
 
@@ -381,14 +423,14 @@ class AnonymizationJobScriptService
 
         $postMaskSql = trim((string) ($job?->post_mask_sql ?? ''));
         if ($postMaskSql !== '') {
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '-- Post-mask SQL';
             $lines[] = '-- Runs after masking updates complete.';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $postMaskSql) ?: []);
             $lines[] = '';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
@@ -397,7 +439,36 @@ class AnonymizationJobScriptService
             $lines = array_merge($lines, $hygiene);
         }
 
+        // Commit final DML so masking updates persist.
+        $lines[] = $this->commentDivider('=');
+        $lines[] = '-- Finalize';
+        $lines[] = 'COMMIT;';
+        $lines[] = $this->commentDivider('=');
+        $lines[] = '';
+
         return trim(implode(PHP_EOL, $lines));
+    }
+
+    protected function jobUsesSeedMapPlaceholders(Collection $columns): bool
+    {
+        // @var AnonymousSiebelColumn $column
+        foreach ($columns as $column) {
+            $method = $this->resolveMethodForColumn($column);
+            $sqlBlock = strtolower((string) ($method?->sql_block ?? ''));
+
+            if ($sqlBlock === '') {
+                continue;
+            }
+
+            if (
+                str_contains($sqlBlock, strtolower('{{SEED_MAP_LOOKUP}}'))
+                || str_contains($sqlBlock, strtolower('{{SEED_MAP_TABLE}}'))
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function validateSeedContracts(Collection $columns, array $seedProviders = [], array $seedMapContext = []): array
@@ -407,7 +478,7 @@ class AnonymizationJobScriptService
         $warnings = collect();
         $issues = collect();
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($columns as $column) {
             $method = $this->resolveMethodForColumn($column);
             $mode = $column->seed_contract_mode;
@@ -425,6 +496,14 @@ class AnonymizationJobScriptService
             if (! $method) {
                 $message = $columnLabel . ': No anonymization method is attached; seed contract cannot be evaluated.';
 
+                // Allow SOURCE/EXTERNAL columns without a method (they can exist only to supply {{SEED_EXPR}}).
+                if (in_array($mode, [SeedContractMode::SOURCE, SeedContractMode::EXTERNAL], true)) {
+                    $detail = $message . ' Column is declared as a seed provider; continuing without a method.';
+                    $warnings->push($detail);
+                    $pushIssue('warning', $detail, 'missing_method');
+                    continue;
+                }
+
                 if ($column->seed_contract_mode && $column->seed_contract_mode !== SeedContractMode::NONE) {
                     $detail = $message . ' Assign a method that honors the declared seed role.';
                     $errors->push($detail);
@@ -439,8 +518,7 @@ class AnonymizationJobScriptService
 
             $usesSeedPlaceholder = $this->methodUsesSeedPlaceholders($method);
 
-            // If the method is flagged as requiring a seed but doesn't reference placeholders, do not hard-block
-            // generation — warn so the author can fix the method definition.
+            // Warn if a method is marked requires_seed but doesn't reference any seed placeholders.
             if ($method->requires_seed && ! $usesSeedPlaceholder) {
                 $detail = $columnLabel . ': Method ' . $method->name
                     . ' is marked as requiring a seed, but its SQL block does not reference ' . implode(', ', self::SEED_PLACEHOLDERS) . '.';
@@ -448,8 +526,7 @@ class AnonymizationJobScriptService
                 $pushIssue('warning', $detail, 'seed_placeholder_missing');
             }
 
-            // Only enforce explicit declarations; do not require users to mark SOURCE/CONSUMER
-            // when the method already emits/requires a seed.
+            // Only enforce explicit mode mismatches; inferred emit/consume behavior doesn't require manual flags.
             if ($mode === SeedContractMode::SOURCE && ! $method->emits_seed) {
                 $detail = $columnLabel . ': Declared as a seed source but method ' . $method->name . ' is not marked as emitting a seed.';
                 $errors->push($detail);
@@ -504,12 +581,20 @@ class AnonymizationJobScriptService
                 $selectedParent = $selected->get($parentRelation->id);
 
                 if (! $selectedParent) {
-                    // If the parent isn't in the job, allow "EXTERNAL" parents to be omitted (non-blocking),
-                    // otherwise keep the previous behavior.
+                    // Allow EXTERNAL parents to be omitted from the job selection (non-blocking).
                     if ($mandatory && $parentRelation->seed_contract_mode !== SeedContractMode::EXTERNAL) {
-                        $detail = $columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor . ' but it is not included in this job.';
-                        $errors->push($detail);
-                        $pushIssue('error', $detail, 'missing_parent_selection');
+                        $fallbackProvider = $this->inferSeedProviderFromSelection($column, $columns);
+
+                        if ($fallbackProvider) {
+                            $detail = $columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor
+                                . ' but it is not included in this job; using inferred seed provider ' . $this->describeColumn($fallbackProvider) . ' instead.';
+                            $warnings->push($detail);
+                            $pushIssue('warning', $detail, 'missing_parent_selection');
+                        } else {
+                            $detail = $columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor . ' but it is not included in this job.';
+                            $errors->push($detail);
+                            $pushIssue('error', $detail, 'missing_parent_selection');
+                        }
                     } else {
                         $detail = $columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor . ' is not included; verify the external seed handshake.';
                         $warnings->push($detail);
@@ -521,12 +606,14 @@ class AnonymizationJobScriptService
                 $parentMethod = $this->resolveMethodForColumn($selectedParent);
 
                 if (! $this->columnProvidesSeed($selectedParent, $parentMethod)) {
-                    $detail = $columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor . ' does not emit a seed but is referenced as a dependency.';
-                    $errors->push($detail);
-                    $pushIssue('error', $detail, 'parent_not_seed');
+                    // If a selected parent doesn't provide a seed, warn (don't block) so SQL can still generate.
+                    $detail = $columnLabel . ': Parent ' . $parentLabel . $bundleDescriptor
+                        . ' is referenced as a dependency but is not declared as a seed provider; using it anyway. Consider marking it as SOURCE.';
+                    $warnings->push($detail);
+                    $pushIssue('warning', $detail, 'parent_not_seed');
                 }
 
-                // If we are building a seed map for this provider, require an explicit seed expression.
+                // Require an explicit seed expression when a provider participates in a generated seed map.
                 if (isset(($seedMapContext['providers'] ?? [])[(int) $selectedParent->id])) {
                     $expr = trim((string) ($selectedParent->seed_contract_expression ?? ''));
                     if ($expr === '') {
@@ -550,9 +637,9 @@ class AnonymizationJobScriptService
     protected function renderContractReview(array $review): array
     {
         $lines = [
-            str_repeat('=', 70),
+            $this->commentDivider('='),
             '-- Seed Contract Review',
-            str_repeat('-', 70),
+            $this->commentDivider('-'),
         ];
 
         if ($review['errors']->isNotEmpty()) {
@@ -573,7 +660,7 @@ class AnonymizationJobScriptService
             }
         }
 
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
         $lines[] = '';
 
         return $lines;
@@ -583,7 +670,7 @@ class AnonymizationJobScriptService
     {
         $mode = $column->seed_contract_mode;
 
-        // Explicit overrides still win.
+        // Treat explicit seed modes as authoritative, regardless of method flags.
         if ($mode === SeedContractMode::SOURCE || $mode === SeedContractMode::COMPOSITE || $mode === SeedContractMode::EXTERNAL) {
             return true;
         }
@@ -595,12 +682,12 @@ class AnonymizationJobScriptService
     {
         $mode = $column->seed_contract_mode;
 
-        // Explicit overrides still win.
+        // Treat explicit seed modes as authoritative, regardless of method flags.
         if ($mode === SeedContractMode::CONSUMER || $mode === SeedContractMode::COMPOSITE) {
             return true;
         }
 
-        // Prefer method SQL as the source of truth for whether a seed is actually consumed.
+        // Use method SQL placeholders as the source of truth for whether a seed is actually consumed.
         return (bool) ($method?->requires_seed) && $this->methodUsesSeedPlaceholders($method);
     }
 
@@ -617,10 +704,10 @@ class AnonymizationJobScriptService
         $emittersByTable = $seedEmitters
             ->groupBy(fn(AnonymousSiebelColumn $c) => (int) ($c->table_id ?? 0));
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($columns as $column) {
             $method = $this->resolveMethodForColumn($column);
-            $provider = $this->seedProviderForColumn($column, $method, $emittersByTable, $seedEmitters);
+            $provider = $this->seedProviderForColumn($column, $method, $columns, $emittersByTable, $seedEmitters);
 
             $providers[$column->id] = [
                 'provider' => $provider,
@@ -634,6 +721,7 @@ class AnonymizationJobScriptService
     protected function seedProviderForColumn(
         AnonymousSiebelColumn $column,
         ?AnonymizationMethods $method,
+        Collection $selectedColumns,
         Collection $emittersByTable,
         Collection $seedEmitters
     ): ?AnonymousSiebelColumn {
@@ -641,18 +729,22 @@ class AnonymizationJobScriptService
             return $this->columnProvidesSeed($column, $method) ? $column : null;
         }
 
-        // 1) Prefer explicit parent dependencies that provide a seed.
+        // Prefer an explicitly selected parent column as the seed provider.
         $parents = $column->getRelationValue('parentColumns') ?? collect();
 
-        foreach ($parents as $parent) {
-            $parentMethod = $this->resolveMethodForColumn($parent);
+        $selectedById = $selectedColumns->keyBy('id');
 
-            if ($this->columnProvidesSeed($parent, $parentMethod)) {
-                return $parent;
+        foreach ($parents as $parent) {
+            $selectedParent = $selectedById->get($parent->id);
+            if (! $selectedParent) {
+                continue;
             }
+
+            // Use the explicitly selected parent; validation can still warn if it isn't a seed provider.
+            return $selectedParent;
         }
 
-        // 2) Fallback: seed emitter in the same table (if any).
+        // Fall back to another seed emitter in the same table when no explicit parent is selected.
         $tableId = (int) ($column->table_id ?? 0);
         $sameTable = ($emittersByTable->get($tableId) ?? collect())
             ->filter(fn(AnonymousSiebelColumn $c) => $c->id !== $column->id)
@@ -663,11 +755,11 @@ class AnonymizationJobScriptService
         }
 
         if ($sameTable->count() > 1) {
-            // Deterministic but conservative: pick the first alphabetically.
+            // If multiple emitters exist, pick the first by column name for determinism.
             return $sameTable->sortBy('column_name')->first();
         }
 
-        // 3) Fallback: if exactly one other seed emitter exists in the job, use it.
+        // If still unresolved, fall back to the single remaining seed emitter in the job.
         $global = $seedEmitters
             ->filter(fn(AnonymousSiebelColumn $c) => $c->id !== $column->id)
             ->values();
@@ -676,14 +768,11 @@ class AnonymizationJobScriptService
             return $global->first();
         }
 
-        // Unknown/ambiguous provider; let validation report missing_parent when appropriate.
+        // If no safe provider can be chosen, return null and let validation enforce explicit parents.
         return null;
     }
 
-    /**
-     * Used by resolveSeedProviders() to compute {{SEED_EXPR}}.
-     * Prefers explicit seed_contract_expression, otherwise defaults to tgt.<column>.
-     */
+    // Resolve {{SEED_EXPR}} for a seed provider (explicit expression, else default to tgt.<column>).
     protected function seedExpressionForProvider(AnonymousSiebelColumn $provider): string
     {
         $expression = trim((string) ($provider->seed_contract_expression ?? ''));
@@ -783,7 +872,7 @@ class AnonymizationJobScriptService
     {
         $output = [];
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($columns as $column) {
             $rendered = $this->applyPlaceholders($template, $column, $seedProviders[$column->id] ?? null, $rewriteContext, $seedMapContext);
 
@@ -814,7 +903,7 @@ class AnonymizationJobScriptService
         $renderTableName = $mapped['target_table'] ?? ($table?->table_name ?? '');
 
         $qualifiedTable = collect([
-            // Intentionally omit database name when rewriting for job execution.
+            // Omit database prefix when rewriting so SQL runs in the target schema.
             $mapped ? null : $database?->database_name,
             $renderSchemaName,
             $renderTableName,
@@ -836,12 +925,20 @@ class AnonymizationJobScriptService
         $jobSeed = $rewriteContext['job_seed'] ?? '';
         $jobSeedLiteral = $rewriteContext['job_seed_literal'] ?? "''";
 
+        $columnMaxLength = $this->oracleColumnMaxLength($column);
+        $columnName = $column->column_name ?? '';
+        $columnMaxLengthExpr = ($columnMaxLength > 0 && $columnMaxLength < 4000)
+            ? (string) $columnMaxLength
+            : ($columnName !== '' ? ('length(tgt.' . $columnName . ')') : '4000');
+
         $replacements = [
             '{{TABLE}}' => $qualifiedTable ?: ($renderTableName ?: ($table?->table_name ?? '{{TABLE}}')),
             '{{TABLE_NAME}}' => $renderTableName,
             '{{SCHEMA}}' => $renderSchemaName,
             '{{DATABASE}}' => $mapped ? '' : ($database?->database_name ?? ''),
             '{{COLUMN}}' => $column->column_name ?? '',
+            '{{COLUMN_MAX_LEN}}' => (string) $columnMaxLength,
+            '{{COLUMN_MAX_LEN_EXPR}}' => $columnMaxLengthExpr,
             '{{ALIAS}}' => 'tgt',
             '{{SEED_COLUMN}}' => $seedColumnName,
             '{{SEED_SOURCE}}' => $seedSourceLabel,
@@ -867,6 +964,7 @@ class AnonymizationJobScriptService
     {
         $targetSchema = $this->targetSchemaForJob($job);
         $tablePrefix = $this->tablePrefixForJob($job);
+        $targetTableMode = $this->normalizeJobOption($job?->target_table_mode) ?: 'prefixed';
 
         if (! $targetSchema || ! $tablePrefix) {
             return [];
@@ -874,7 +972,7 @@ class AnonymizationJobScriptService
 
         $tables = collect();
 
-        // Full jobs clone the entire selected schema(s).
+        // For FULL jobs, clone every table in the selected schema scope.
         if ($job && $job->job_type === AnonymizationJobs::TYPE_FULL) {
             $schemaIds = $this->schemaIdsForJobOrSelection($job, $columns);
 
@@ -888,7 +986,7 @@ class AnonymizationJobScriptService
             }
         }
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($columns as $column) {
             $table = $column->getRelationValue('table');
             if ($table) {
@@ -922,7 +1020,8 @@ class AnonymizationJobScriptService
                 continue;
             }
 
-            $targetTable = $this->oracleIdentifier($tablePrefix . '_' . $sourceTable);
+            $targetTableName = $this->targetTableNameForSourceTable($sourceTable, $tablePrefix, $targetTableMode);
+            $targetTable = $this->oracleIdentifier($targetTableName);
             $targetQualified = $targetSchema . '.' . $targetTable;
             $sourceQualified = $sourceSchema . '.' . $sourceTable;
 
@@ -935,7 +1034,7 @@ class AnonymizationJobScriptService
                 'target_qualified' => $targetQualified,
             ];
 
-            // Rewrite common patterns that may appear in user SQL blocks.
+            // Rewrite qualified source names to their target working-copy equivalents.
             $rawReplace[$sourceQualified] = $targetQualified;
 
             if ($database?->database_name) {
@@ -943,7 +1042,7 @@ class AnonymizationJobScriptService
             }
         }
 
-        // Apply longer matches first to reduce accidental partial rewrites.
+        // Sort longer matches first to reduce accidental partial rewrites.
         if ($rawReplace !== []) {
             uksort($rawReplace, fn($a, $b) => strlen($b) <=> strlen($a));
         }
@@ -951,6 +1050,7 @@ class AnonymizationJobScriptService
         return [
             'target_schema' => $targetSchema,
             'table_prefix' => $tablePrefix,
+            'target_table_mode' => $targetTableMode,
             'tables_by_id' => $tablesById,
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
@@ -960,6 +1060,27 @@ class AnonymizationJobScriptService
             'job_seed' => (string) ($job?->job_seed ?? ''),
             'job_seed_literal' => $this->oracleStringLiteral($job?->job_seed),
         ];
+    }
+
+    protected function targetTableNameForSourceTable(string $sourceTable, string $tablePrefix, string $mode): string
+    {
+        $mode = $this->normalizeJobOption($mode);
+
+        if ($mode === 'anon') {
+            // In anon mode, write into ANON_* tables (including INITIAL_* -> ANON_*).
+            if (Str::startsWith($sourceTable, 'ANON_')) {
+                return $sourceTable;
+            }
+
+            if (Str::startsWith($sourceTable, 'INITIAL_')) {
+                return 'ANON_' . Str::after($sourceTable, 'INITIAL_');
+            }
+
+            return 'ANON_' . $sourceTable;
+        }
+
+        // In prefixed mode, write into <prefix>_<source_table> working copies.
+        return $tablePrefix . '_' . $sourceTable;
     }
 
     protected function renderSeedMapHygieneSection(array $seedMapContext, ?AnonymizationJobs $job): array
@@ -999,11 +1120,11 @@ class AnonymizationJobScriptService
         $prefix = $commented ? '-- ' : '';
 
         $lines = [
-            str_repeat('=', 70),
+            $this->commentDivider('='),
             '-- Seed Map Hygiene (Oracle MGMT_DM_TT analogue)',
             '-- Seed maps store old→new value mappings and should be removed before exporting/cloning to less-secure environments.',
             '-- Mode: ' . ($commented ? 'commented' : 'execute'),
-            str_repeat('=', 70),
+            $this->commentDivider('='),
             '',
         ];
 
@@ -1019,7 +1140,7 @@ class AnonymizationJobScriptService
             $lines[] = '';
         }
 
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
         $lines[] = '';
 
         return $lines;
@@ -1033,11 +1154,11 @@ class AnonymizationJobScriptService
         array $seedMapContext
     ): array {
         $lines = [
-            str_repeat('=', 70),
+            $this->commentDivider('='),
             '-- Impact Report (heuristics)',
             '-- This section mirrors Oracle-style preflight guidance using metadata + method templates only.',
             '-- It does not inspect real data or constraints; treat warnings as prompts for review.',
-            str_repeat('=', 70),
+            $this->commentDivider('='),
             '',
         ];
 
@@ -1048,7 +1169,7 @@ class AnonymizationJobScriptService
             $warnings[] = 'Persistent seed maps are enabled: ensure the seed store schema is access-controlled and dropped before distributing masked datasets.';
         }
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($columns as $column) {
             $method = $this->resolveMethodForColumn($column);
             $sqlBlock = strtolower(trim((string) ($method?->sql_block ?? '')));
@@ -1104,7 +1225,7 @@ class AnonymizationJobScriptService
         if ($warnings === []) {
             $lines[] = '-- No heuristic warnings generated.';
             $lines[] = '';
-            $lines[] = str_repeat('=', 70);
+            $lines[] = $this->commentDivider('=');
             $lines[] = '';
             return $lines;
         }
@@ -1114,7 +1235,7 @@ class AnonymizationJobScriptService
         }
 
         $lines[] = '';
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
         $lines[] = '';
 
         return $lines;
@@ -1185,6 +1306,13 @@ class AnonymizationJobScriptService
 
     protected function targetSchemaForJob(?AnonymizationJobs $job): ?string
     {
+        $override = trim((string) ($job?->target_schema ?? ''));
+
+        if ($override !== '') {
+            // Sanitize the schema override into a safe Oracle identifier.
+            return $this->oracleIdentifier(Str::upper($override));
+        }
+
         $type = $job?->job_type;
 
         return match ($type) {
@@ -1211,7 +1339,7 @@ class AnonymizationJobScriptService
 
         $parts = array_map(fn($part) => Str::studly($part), $parts);
 
-        // "Camel case using _ instead of spaces" => Studly segments joined by underscores.
+        // Convert the job name into a safe prefix like Foo_Bar (Studly parts joined by _).
         return implode('_', $parts);
     }
 
@@ -1322,7 +1450,7 @@ class AnonymizationJobScriptService
 
         $providerIds = [];
 
-        /** @var AnonymousSiebelColumn $column */
+        // @var AnonymousSiebelColumn $column
         foreach ($columns as $column) {
             $method = $this->resolveMethodForColumn($column);
             if (! $this->columnRequiresSeed($column, $method)) {
@@ -1336,7 +1464,7 @@ class AnonymizationJobScriptService
         }
 
         foreach (array_keys($providerIds) as $providerId) {
-            /** @var AnonymousSiebelColumn|null $provider */
+            // @var AnonymousSiebelColumn|null $provider
             $provider = $columns->firstWhere('id', $providerId);
             if (! $provider) {
                 continue;
@@ -1355,18 +1483,21 @@ class AnonymizationJobScriptService
                     . '_SEEDMAP_' . ($mapped['source_table'] ?? 'T') . '_' . ($provider->column_name ?? 'C')
             );
 
-            // Ensure dataType is available for stable DDL generation.
+            // Load dataType so DDL uses the canonical Oracle column type.
             if (! $provider->relationLoaded('dataType')) {
                 $provider->loadMissing('dataType');
             }
 
             $columnType = $this->oracleColumnTypeForColumn($provider);
 
+            $seedExpr = $this->seedExpressionForProvider($provider);
+            $seedExpr = $this->renderSeedExpressionPlaceholders($seedExpr, $rewriteContext);
+
             $providers[(int) $providerId] = [
                 'provider_id' => (int) $providerId,
                 'provider_column' => $provider->column_name,
                 'provider_table' => $mapped['target_qualified'],
-                'seed_expression' => $this->seedExpressionForProvider($provider),
+                'seed_expression' => $seedExpr,
                 'seed_map_table' => ($isPersistent ? $seedStoreSchema : $targetSchema) . '.' . $seedMapName,
                 'seed_map_persistence' => $isPersistent ? 'persistent' : 'temporary',
                 'old_value_type' => $columnType,
@@ -1377,6 +1508,18 @@ class AnonymizationJobScriptService
         return [
             'providers' => $providers,
         ];
+    }
+
+    protected function renderSeedExpressionPlaceholders(string $expression, array $rewriteContext): string
+    {
+        $jobSeedLiteral = $rewriteContext['job_seed_literal'] ?? "''";
+        $jobSeed = $rewriteContext['job_seed'] ?? '';
+
+        return str_replace(
+            ['{{JOB_SEED_LITERAL}}', '{{JOB_SEED}}'],
+            [is_string($jobSeedLiteral) ? $jobSeedLiteral : "''", is_string($jobSeed) ? $jobSeed : ''],
+            $expression
+        );
     }
 
     protected function renderSeedMapTables(array $seedMapContext): array
@@ -1501,7 +1644,7 @@ class AnonymizationJobScriptService
     protected function buildHeaderLines(array $jobMeta, array $rewriteContext = []): array
     {
         $lines = [
-            str_repeat('=', 70),
+            $this->commentDivider('='),
             '-- ' . $jobMeta['title'],
             '-- Generated: ' . now()->toDateTimeString(),
         ];
@@ -1514,7 +1657,7 @@ class AnonymizationJobScriptService
             $lines[] = '-- Output Format: ' . $jobMeta['output'];
         }
 
-        $lines[] = str_repeat('=', 70);
+        $lines[] = $this->commentDivider('=');
         $lines[] = '';
 
         $targetSchema = $rewriteContext['target_schema'] ?? null;
@@ -1525,6 +1668,11 @@ class AnonymizationJobScriptService
         }
 
         return $lines;
+    }
+
+    protected function commentDivider(string $char = '=', int $length = 70): string
+    {
+        return '-- ' . str_repeat($char, $length);
     }
 
     protected function methodHeading(?AnonymizationMethods $method): string
@@ -1547,7 +1695,7 @@ class AnonymizationJobScriptService
     {
         $idPosition = array_flip($orderedIds);
 
-        /** @var Collection<int, AnonymousSiebelColumn> $columns */
+        // @var Collection<int, AnonymousSiebelColumn> $columns
         $columns = $columns->sortBy(fn(AnonymousSiebelColumn $column) => $idPosition[$column->id] ?? PHP_INT_MAX);
 
         $lines = ['-- Columns:'];
@@ -1601,8 +1749,15 @@ class AnonymizationJobScriptService
         $methodId = $column->pivot->anonymization_method_id ?? null;
 
         if ($methodId) {
-            return $column->anonymizationMethods->firstWhere('id', $methodId)
-                ?: $column->anonymizationMethods->first();
+            // Prefer the job-selected anonymization method from the pivot when present.
+            // Fall back to the column's global method list when no pivot match is loaded.
+            $resolved = $column->anonymizationMethods->firstWhere('id', $methodId);
+
+            if ($resolved) {
+                return $resolved;
+            }
+
+            return AnonymizationMethods::withTrashed()->find($methodId);
         }
 
         return $column->anonymizationMethods->first();
@@ -1610,7 +1765,7 @@ class AnonymizationJobScriptService
 
     protected function topologicallySortColumns(Collection $columns): Collection
     {
-        /** @var Collection<int, AnonymousSiebelColumn> $columns */
+        // @var Collection<int, AnonymousSiebelColumn> $columns
         $columns = $columns->keyBy(fn(AnonymousSiebelColumn $column) => $column->id);
         $graph = [];
 
