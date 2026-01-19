@@ -4,6 +4,7 @@ namespace App\Models\Anonymizer;
 
 use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
+use App\Models\Anonymizer\AnonymizationColumnTag;
 use App\Models\Anonymizer\AnonymizationMethods;
 use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -148,6 +149,18 @@ class AnonymousSiebelColumn extends Model
         return $this->belongsTo(AnonymousSiebelTable::class, 'table_id')->withTrashed();
     }
 
+    public function schema()
+    {
+        return $this->hasOneThrough(
+            AnonymousSiebelSchema::class,
+            AnonymousSiebelTable::class,
+            'id', // fk on AnonymousSiebelTable
+            'id', // fk on AnonymousSiebelSchema
+            'table_id',
+            'schema_id'
+        )->withTrashed();
+    }
+
     public function dataType()
     {
         return $this->belongsTo(AnonymousSiebelDataType::class, 'data_type_id')->withTrashed();
@@ -186,6 +199,16 @@ class AnonymousSiebelColumn extends Model
             'job_id'
         )->withPivot('anonymization_method_id')
             ->withTimestamps();
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationColumnTag::class,
+            'anonymization_column_tag_column',
+            'column_id',
+            'tag_id'
+        )->withTimestamps();
     }
 
     private function resolveQualifiedTableName(): ?string

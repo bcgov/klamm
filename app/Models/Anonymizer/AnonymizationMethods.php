@@ -49,30 +49,10 @@ class AnonymizationMethods extends Model
     public const CATEGORY_COMPOUND_MASKING = 'Compound Masking';
     public const CATEGORY_DETERMINISTIC_MASKING = 'Deterministic Masking';
 
-    /**
-     * Automatically load the column usage counts to keep metrics consistent.
-     *
-     * @var array<int, string>
-     */
     protected $withCount = ['columns'];
-
-    /**
-     * Expose an easy-to-read usage metric for API/Filament resources.
-     *
-     * @var array<int, string>
-     */
     protected $appends = ['usage_count', 'seed_capability_summary'];
-
-    /**
-     * Hide the raw relation-derived count since we surface usage_count instead.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = ['columns_count'];
 
-    /**
-     * @var array<int, string>
-     */
     protected $fillable = [
         'name',
         'category',
@@ -87,9 +67,6 @@ class AnonymizationMethods extends Model
         'seed_notes',
     ];
 
-    /**
-     * @var array<string, string>
-     */
     protected $casts = [
         'id' => 'integer',
         'categories' => 'array',
@@ -117,9 +94,6 @@ class AnonymizationMethods extends Model
         return $this->belongsTo(self::class, 'supersedes_id');
     }
 
-    /**
-     * Canonical masking categories used across the method library.
-     */
     public static function categoryOptions(): array
     {
         return [
@@ -133,11 +107,6 @@ class AnonymizationMethods extends Model
         ];
     }
 
-    /**
-     * Merge canonical categories with any existing values in the database.
-     *
-     * PostgreSQL cannot DISTINCT over JSON columns, so we gather and de-dup in PHP.
-     */
     public static function categoryOptionsWithExisting(): array
     {
         $existingLegacy = self::query()
@@ -171,9 +140,6 @@ class AnonymizationMethods extends Model
         return array_values(array_unique(array_merge(self::categoryOptions(), $existingLegacy, $existingTagged)));
     }
 
-    /**
-     * Backwards-compatible category label used by older UI blocks.
-     */
     public function categorySummary(): ?string
     {
         $categories = $this->getAttribute('categories');
@@ -286,9 +252,7 @@ class AnonymizationMethods extends Model
                 'version_root_id' => $rootId,
             ])->save();
 
-            /** @var self $new */
             $new = $this->replicate([
-                // These are eager-loaded counts / computed attributes, not real columns.
                 'columns_count',
                 'packages_count',
                 'usage_count',
@@ -299,14 +263,13 @@ class AnonymizationMethods extends Model
             $new->version = $nextVersion;
             $new->is_current = true;
 
-            // `name` is unique in the DB + Filament form validation. Suffix the new version
-            // so we can store multiple versions without dropping that constraint.
+            // Suffix the new version so we can store multiple versions without dropping uniqueness constraint.
             $baseName = (string) $this->name;
             $new->name = mb_strimwidth($baseName . ' (v' . $nextVersion . ')', 0, 255, '');
 
             $new->save();
 
-            // Copy package dependencies (safe: affects only the new method version).
+            // Copy package dependencies
             $packageIds = $this->packages()->pluck('anonymization_packages.id')->all();
             if ($packageIds !== []) {
                 $new->packages()->sync($packageIds);

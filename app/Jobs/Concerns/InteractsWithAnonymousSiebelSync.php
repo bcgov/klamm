@@ -12,10 +12,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
+use App\Constants\Fodig\Anonymizer\SiebelMetadata;
 
-/**
- * Shared utilities for Siebel anonymization synchronization jobs.
- */
+// Shared utilities for Siebel anonymization synchronization jobs.
 trait InteractsWithAnonymousSiebelSync
 {
     protected const STAGING_TABLE = 'anonymous_siebel_stagings';
@@ -29,44 +28,24 @@ trait InteractsWithAnonymousSiebelSync
 
     protected const CSV_VALIDATION_ERROR_CAP = 200;
 
-    protected const CANONICAL_REQUIRED_HEADER_COLUMNS = [
-        'DATABASE_NAME',
-        'SCHEMA_NAME',
-        'OBJECT_TYPE',
-        'TABLE_NAME',
-        'COLUMN_NAME',
-        'COLUMN_ID',
-        'DATA_TYPE',
-    ];
+    protected const CANONICAL_REQUIRED_HEADER_COLUMNS = SiebelMetadata::REQUIRED_HEADER_COLUMNS;
 
-    protected const CANONICAL_OPTIONAL_HEADER_COLUMNS = [
-        'DATA_LENGTH',
-        'DATA_PRECISION',
-        'DATA_SCALE',
-        'NULLABLE',
-        'CHAR_LENGTH',
-        'TABLE_COMMENT',
-        'COLUMN_COMMENT',
-        'RELATED_COLUMNS',
-    ];
+    protected const CANONICAL_OPTIONAL_HEADER_COLUMNS = SiebelMetadata::OPTIONAL_HEADER_COLUMNS;
 
-    /**
-     * Clears previous staging records and streams CSV rows into staging storage.
-     */
+
+    // Clears previous staging records and streams CSV rows into staging storage.
     protected function ingestToStaging(AnonymousUpload $upload, ?callable $progressReporter = null): int
     {
         DB::table(self::STAGING_TABLE)
             ->where('upload_id', $upload->id)
             ->delete();
 
-        // Clear any prior error report for this upload.
         try {
             $errorPath = $this->csvErrorReportPath($upload);
             if ($errorPath && Storage::disk($upload->file_disk)->exists($errorPath)) {
                 Storage::disk($upload->file_disk)->delete($errorPath);
             }
         } catch (\Throwable) {
-            // Non-fatal; continue with ingestion.
         }
 
         $stream = Storage::disk($upload->file_disk)->readStream($upload->path);
@@ -209,9 +188,6 @@ trait InteractsWithAnonymousSiebelSync
             }
         }
 
-        // Use associative array keyed by unique constraint to deduplicate within each batch
-        // For cross-batch duplicates, PostgreSQL's ON CONFLICT DO UPDATE handles it
-        // Last occurrence in CSV wins due to the UPSERT update behavior
         $batch = [];
         $now = now();
         $count = 0;
@@ -281,28 +257,24 @@ trait InteractsWithAnonymousSiebelSync
                     $assoc[$key] = $row[$i] ?? null;
                 }
             } elseif ($isSiebelColumnsHeader) {
-                // Map Siebel column export to canonical column keys expected downstream
                 $assoc = $this->mapSiebelColumnsRowToCanonicalAssoc($row, $siebelIndexMap);
-                // Skip rows missing required table/column
                 if (($assoc['TABLE_NAME'] ?? '') === '' || ($assoc['COLUMN_NAME'] ?? '') === '') {
                     continue;
                 }
                 // Apply upload-provided scope (database/schema/table) with resolved context to ensure both names present
                 // Use sensible defaults when no scope is provided or resolved
-                $assoc['DATABASE_NAME'] = $resolvedScope['database_name'] ?: ($assoc['DATABASE_NAME'] ?: 'Siebel');
-                $assoc['SCHEMA_NAME'] = $resolvedScope['schema_name'] ?: ($assoc['SCHEMA_NAME'] ?: 'Siebel');
+                $assoc['DATABASE_NAME'] = $resolvedScope['database_name'] ?: ($assoc['DATABASE_NAME'] ?: SiebelMetadata::DEFAULT_DATABASE);
+                $assoc['SCHEMA_NAME'] = $resolvedScope['schema_name'] ?: ($assoc['SCHEMA_NAME'] ?: SiebelMetadata::DEFAULT_SCHEMA);
                 if ($resolvedScope['table_name']) {
-                    // Filter to selected table name
                     if ($this->norm((string) $assoc['TABLE_NAME']) !== $this->norm($resolvedScope['table_name'])) {
-                        continue; // skip this row
+                        continue;
                     }
                 }
             } else {
-                // Unknown format; skip row
                 continue;
             }
 
-            // Normalize values for validation (trim + empty => null).
+            // Normalize values for validation.
             $normalized = [];
             foreach ($assoc as $k => $v) {
                 if ($v === null) {
@@ -348,12 +320,10 @@ trait InteractsWithAnonymousSiebelSync
                     }
                 }
 
-                // Once errors exist, skip staging work to keep the job predictable.
                 continue;
             }
 
             if ($hasValidationErrors) {
-                // We already have errors; do not stage additional rows.
                 continue;
             }
 
@@ -375,7 +345,7 @@ trait InteractsWithAnonymousSiebelSync
                 'table_comment' => $this->toNullOrString($normalized['TABLE_COMMENT'] ?? null),
             ];
 
-            // Calculate content hash before adding relationship fields (avoids Arr::except memory overhead)
+            // Calculate content hash before adding relationship fields
             $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
             // Add relationship fields after hash calculation
@@ -508,9 +478,6 @@ trait InteractsWithAnonymousSiebelSync
         Storage::disk($upload->file_disk)->put($path, $json);
     }
 
-    /**
-     * Maps a Siebel-column CSV row to canonical assoc keys used by staging.
-     */
     protected function mapSiebelColumnsRowToCanonicalAssoc(array $row, array $idx): array
     {
         $get = function (string $key) use ($row, $idx) {
@@ -1956,7 +1923,7 @@ trait InteractsWithAnonymousSiebelSync
 
         // Normalize "descriptor"-only items into structured triplets using row context.
         // Heuristic: treat descriptor as a table name in the same schema; default target column to ROW_ID; OUTBOUND edge.
-        $schemaName = isset($row->schema_name) ? (string) $row->schema_name : 'Siebel';
+        $schemaName = isset($row->schema_name) ? (string) $row->schema_name : SiebelMetadata::DEFAULT_SCHEMA;
         $normalized = [];
         foreach ($relationships as $rel) {
             if (isset($rel['schema'], $rel['table'], $rel['column'])) {

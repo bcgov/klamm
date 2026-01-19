@@ -2,13 +2,14 @@
 
 namespace App\Filament\Fodig\Resources;
 
+use App\Helpers\StringHelper;
 use App\Filament\Fodig\Resources\AnonymousUploadResource\Pages;
 use App\Models\Anonymizer\AnonymousUpload;
 use App\Jobs\SyncAnonymousSiebelColumnsJob;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Infolists\Components\Grid as InfolistGrid;
-use Filament\Infolists\Components\Section as InfolistSection;
+use Filament\Infolists\Components\Grid;
+use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
@@ -282,9 +283,9 @@ class AnonymousUploadResource extends Resource
     {
         return $infolist
             ->schema([
-                InfolistSection::make('Upload Details')
+                Section::make('Upload Details')
                     ->schema([
-                        InfolistGrid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 TextEntry::make('original_name')
                                     ->label('Original File Name'),
@@ -296,9 +297,9 @@ class AnonymousUploadResource extends Resource
                                     ->label('Disk'),
                             ]),
                     ]),
-                InfolistSection::make('Import Configuration')
+                Section::make('Import Configuration')
                     ->schema([
-                        InfolistGrid::make(2)
+                        Grid::make(2)
                             ->schema([
                                 TextEntry::make('import_type')
                                     ->label('Import Type')
@@ -319,14 +320,19 @@ class AnonymousUploadResource extends Resource
                                         'queued' => 'warning',
                                         default => 'gray',
                                     }),
+                                TextEntry::make('create_change_tickets')
+                                    ->label('Create Change Tickets')
+                                    ->badge()
+                                    ->formatStateUsing(fn($state): string => ($state === false) ? 'No' : 'Yes')
+                                    ->color(fn($state): string => ($state === false) ? 'gray' : 'success'),
                                 TextEntry::make('status_detail')
                                     ->label('Status Detail')
                                     ->columnSpanFull(),
                             ]),
                     ]),
-                InfolistSection::make('Processing Metrics')
+                Section::make('Processing Metrics')
                     ->schema([
-                        InfolistGrid::make(4)
+                        Grid::make(4)
                             ->schema([
                                 TextEntry::make('inserted')
                                     ->label('Inserted')
@@ -341,22 +347,22 @@ class AnonymousUploadResource extends Resource
                                     ->label('Processed Rows')
                                     ->numeric(),
                             ]),
-                        InfolistGrid::make(3)
+                        Grid::make(3)
                             ->schema([
                                 TextEntry::make('progress_percent')
                                     ->label('Progress')
                                     ->formatStateUsing(fn(?int $state): string => $state !== null ? "{$state}%" : '—'),
                                 TextEntry::make('processed_bytes')
                                     ->label('Processed Bytes')
-                                    ->formatStateUsing(fn(?int $state): string => $state !== null ? self::formatFileSize($state) : '—'),
+                                    ->formatStateUsing(fn(?int $state): string => $state !== null ? StringHelper::formatFileSize($state) : '—'),
                                 TextEntry::make('total_bytes')
                                     ->label('Total Bytes')
-                                    ->formatStateUsing(fn(?int $state): string => $state !== null ? self::formatFileSize($state) : '—'),
+                                    ->formatStateUsing(fn(?int $state): string => $state !== null ? StringHelper::formatFileSize($state) : '—'),
                             ]),
                     ]),
-                InfolistSection::make('Timestamps')
+                Section::make('Timestamps')
                     ->schema([
-                        InfolistGrid::make(3)
+                        Grid::make(3)
                             ->schema([
                                 TextEntry::make('created_at')
                                     ->label('Queued At')
@@ -368,7 +374,7 @@ class AnonymousUploadResource extends Resource
                                     ->label('Progress Updated At')
                                     ->dateTime(),
                             ]),
-                        InfolistGrid::make(3)
+                        Grid::make(3)
                             ->schema([
                                 TextEntry::make('retention_until')
                                     ->label('Retain Until')
@@ -381,7 +387,7 @@ class AnonymousUploadResource extends Resource
                                     ->formatStateUsing(fn(?string $state): string => $state ?: '—'),
                             ]),
                     ]),
-                InfolistSection::make('Error Information')
+                Section::make('Error Information')
                     ->schema([
                         TextEntry::make('error')
                             ->label('Error Message')
@@ -405,17 +411,5 @@ class AnonymousUploadResource extends Resource
             'import' => Pages\ImportSiebelMetadata::route('/import'),
             'view' => Pages\ViewAnonymousUpload::route('/{record}'),
         ];
-    }
-
-    private static function formatFileSize(?int $bytes): string
-    {
-        if ($bytes === null || $bytes <= 0) {
-            return '0 B';
-        }
-
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $power = min((int) floor(log($bytes, 1024)), count($units) - 1);
-
-        return number_format($bytes / (1024 ** $power), 2) . ' ' . $units[$power];
     }
 }

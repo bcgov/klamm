@@ -8,7 +8,6 @@ use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymizationMethods;
 use App\Traits\LogsAnonymizerActivity;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -53,14 +52,13 @@ class AnonymizationJobs extends Model
     public const OUTPUT_SQL = 'sql';
     public const OUTPUT_PARQUET = 'parquet';
 
-    /**
-     * @var array<int, string>
-     */
     protected $fillable = [
         'name',
         'job_type',
         'status',
         'output_format',
+        'target_schema',
+        'target_table_mode',
         'seed_store_mode',
         'seed_store_schema',
         'seed_store_prefix',
@@ -73,32 +71,14 @@ class AnonymizationJobs extends Model
         'sql_script',
     ];
 
-    /**
-     * @var array<string, string>
-     */
     protected $casts = [
         'id' => 'integer',
         'last_run_at' => 'datetime',
         'duration_seconds' => 'integer',
     ];
 
-    /**
-     * @var array<string, mixed>
-     */
-    protected $attributes = [
-        'status' => self::STATUS_DRAFT,
-    ];
-
-    /**
-     * Track the methods used in the job to support quick UI summaries.
-     *
-     * @var array<int, string>
-     */
+    protected $attributes = ['status' => self::STATUS_DRAFT];
     protected $with = ['methods'];
-
-    /**
-     * @var array<int, string>
-     */
     protected $appends = ['duration_human'];
 
     public function databases(): BelongsToMany

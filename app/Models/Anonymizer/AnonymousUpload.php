@@ -41,9 +41,6 @@ class AnonymousUpload extends Model
         };
     }
 
-    /**
-     * Allow mass assignment for upload bookkeeping fields.
-     */
     protected $fillable = [
         'file_disk',
         'file_name',
@@ -57,6 +54,7 @@ class AnonymousUpload extends Model
         'checkpoint',
         'failed_phase',
         'import_type',
+        'create_change_tickets',
         'inserted',
         'updated',
         'deleted',
@@ -76,6 +74,7 @@ class AnonymousUpload extends Model
     protected $casts = [
         'scope_type' => 'string',
         'scope_name' => 'string',
+        'create_change_tickets' => 'boolean',
         'inserted' => 'integer',
         'updated' => 'integer',
         'deleted' => 'integer',
@@ -95,12 +94,19 @@ class AnonymousUpload extends Model
 
     ];
 
+    // When upload `completed` generate change tickets.
     protected static function booted(): void
     {
         static::updated(function (self $upload) {
-            // Dispatch ticket generation when an upload transitions to completed
             if ($upload->wasChanged('status') && $upload->status === 'completed') {
-                GenerateChangeTicketsFromUpload::dispatch($upload->id);
+                $shouldCreateTickets = $upload->create_change_tickets;
+                if ($shouldCreateTickets === null) {
+                    $shouldCreateTickets = true;
+                }
+
+                if ($shouldCreateTickets) {
+                    GenerateChangeTicketsFromUpload::dispatch($upload->id);
+                }
             }
         });
     }

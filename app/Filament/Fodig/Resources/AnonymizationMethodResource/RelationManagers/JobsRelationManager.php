@@ -26,10 +26,6 @@ class JobsRelationManager extends RelationManager
             ->description('Jobs that include this anonymization method in their column scope.')
             ->modifyQueryUsing(function (Builder $query) {
                 $methodId = $this->getOwnerRecord()?->getKey();
-
-                // Anonymization jobs can contain multiple entries per job, so project to a distinct job list and include a per-job usage count.
-                $query->getQuery()->distinct = false;
-
                 if (! $methodId) {
                     return $query;
                 }
@@ -44,7 +40,7 @@ class JobsRelationManager extends RelationManager
                         'anonymization_jobs.last_run_at',
                         'anonymization_jobs.updated_at',
                     ])
-                    ->distinct('anonymization_jobs.id')
+                    ->distinct()
                     ->selectSub(
                         DB::table('anonymization_job_columns')
                             ->selectRaw('COUNT(*)')
@@ -74,8 +70,7 @@ class JobsRelationManager extends RelationManager
                     ->color('gray'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn(string $state) => Str::headline($state))
-                    ->color(fn(string $state) => AnonymizationJobResource::statusColor($state)),
+                    ->formatStateUsing(fn(string $state) => Str::headline($state)),
                 Tables\Columns\TextColumn::make('columns_affected_count')
                     ->label('Columns')
                     ->sortable()

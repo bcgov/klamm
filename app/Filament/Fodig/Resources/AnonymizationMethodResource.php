@@ -5,12 +5,13 @@ namespace App\Filament\Fodig\Resources;
 use App\Filament\Concerns\HasMonacoSql;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\Pages;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\ColumnsRelationManager;
+use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\JobsRelationManager;
+use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationMethods;
 use Filament\Forms;
 use Filament\Forms\Form;
-use Filament\Forms\Get;
 use Filament\Infolists\Components\Grid;
-use Filament\Infolists\Components\Section as InfolistSection;
+use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
@@ -19,7 +20,7 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Checkbox;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\DB;
 
 class AnonymizationMethodResource extends Resource
 {
@@ -123,9 +124,6 @@ class AnonymizationMethodResource extends Resource
                     ->columns(1),
                 Forms\Components\Section::make('Preview & Guidance')
                     ->schema([
-                        Forms\Components\Placeholder::make('sql_preview')
-                            ->label('SQL preview')
-                            ->content(fn(Get $get) => self::renderSqlPreview($get('sql_block'))),
                         Forms\Components\Placeholder::make('usage_hint')
                             ->label('Column usage')
                             ->content(function (?AnonymizationMethods $record) {
@@ -158,6 +156,18 @@ class AnonymizationMethodResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query
+                    ->with(['packages:id,name'])
+                    ->addSelect('anonymization_methods.*')
+                    ->selectSub(
+                        DB::table('anonymization_job_columns')
+                            ->selectRaw('COUNT(DISTINCT job_id)')
+                            ->whereColumn('anonymization_job_columns.anonymization_method_id', 'anonymization_methods.id')
+                            ->whereNotNull('anonymization_job_columns.anonymization_method_id'),
+                        'jobs_distinct_count'
+                    );
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->sortable()
@@ -199,11 +209,20 @@ class AnonymizationMethodResource extends Resource
                 Tables\Columns\TextColumn::make('usage_count')
                     ->label('Columns')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('jobs_distinct_count')
+                    ->label('Jobs')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('packages_count')
                     ->label('Packages')
                     ->counts('packages')
                     ->sortable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('packages.name')
+                    ->label('Package list')
+                    ->badge()
+                    ->separator(' • ')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\IconColumn::make('has_sql')
                     ->label('SQL')
                     ->boolean()
@@ -217,6 +236,36 @@ class AnonymizationMethodResource extends Resource
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\SelectFilter::make('packages')
+                    ->label('Package')
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->relationship('packages', 'name'),
+                Tables\Filters\SelectFilter::make('jobs')
+                    ->label('Job')
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->options(fn() => AnonymizationJobs::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->query(function (Builder $query, array $data) {
+                        $values = $data['values'] ?? null;
+
+                        if (! is_array($values) || $values === []) {
+                            return $query;
+                        }
+
+                        $jobIds = array_values(array_filter(array_map(
+                            fn($value) => is_numeric($value) ? (int) $value : null,
+                            $values
+                        )));
+
+                        if ($jobIds === []) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('jobs', fn(Builder $builder) => $builder->whereIn('anonymization_jobs.id', $jobIds));
+                    }),
                 Tables\Filters\SelectFilter::make('categories')
                     ->label('Category')
                     ->multiple()
@@ -361,7 +410,7 @@ class AnonymizationMethodResource extends Resource
     {
         return $infolist
             ->schema([
-                InfolistSection::make('Summary')
+                Section::make('Summary')
                     ->schema([
                         Grid::make(2)
                             ->schema([
@@ -377,7 +426,7 @@ class AnonymizationMethodResource extends Resource
                             ->columnSpanFull()
                             ->placeholder('No description provided.'),
                     ]),
-                InfolistSection::make('How It Works')
+                Section::make('How It Works')
                     ->schema([
                         TextEntry::make('what_it_does')
                             ->label('What it does')
@@ -392,7 +441,7 @@ class AnonymizationMethodResource extends Resource
                     ])
                     ->collapsed()
                     ->collapsible(),
-                InfolistSection::make('SQL Reference')
+                Section::make('SQL Reference')
                     ->schema([
                         self::sqlViewer(
                             field: 'sql_block',
@@ -402,7 +451,7 @@ class AnonymizationMethodResource extends Resource
                         ),
                     ])
                     ->hidden(fn($record) => blank($record?->sql_block)),
-                InfolistSection::make('Usage Metrics')
+                Section::make('Usage Metrics')
                     ->schema([
                         TextEntry::make('seed_capability_summary')
                             ->label('Seed contract')
@@ -427,7 +476,7 @@ class AnonymizationMethodResource extends Resource
                             ->label('Updated'),
                     ])
                     ->columns(3),
-                InfolistSection::make('Columns in Scope')
+                Section::make('Columns in Scope')
                     ->schema([
                         TextEntry::make('columns_preview')
                             ->label('Examples')
@@ -453,22 +502,16 @@ class AnonymizationMethodResource extends Resource
     {
         return [
             ColumnsRelationManager::class,
+            JobsRelationManager::class,
             \App\Filament\Fodig\RelationManagers\ActivityLogRelationManager::class,
         ];
     }
 
-    /**
-     * Returns the canonical category list used by tags + table filters.
-     * Keeping this centralized prevents the UI from drifting between components.
-     */
     protected static function categoryOptions(): array
     {
         return AnonymizationMethods::categoryOptionsWithExisting();
     }
 
-    /**
-     * Filament SelectFilter expects a keyed map of value => label.
-     */
     protected static function categoryOptionsForSelect(): array
     {
         $options = self::categoryOptions();
@@ -496,23 +539,9 @@ class AnonymizationMethodResource extends Resource
         return $labels !== [] ? implode(' • ', $labels) : '—';
     }
 
-    protected static function renderSqlPreview(?string $sql): HtmlString
-    {
-        // Placeholder previews accept HTML; escape the user input to avoid
-        // rendering arbitrary HTML while still providing a readable preformatted preview.
-        if (blank($sql)) {
-            return new HtmlString('<p class="text-sm text-gray-500">Add SQL to preview how it will appear in job exports.</p>');
-        }
-
-        $escaped = e($sql);
-
-        return new HtmlString('<pre class="rounded-lg bg-slate-950/5 p-4 font-mono text-sm leading-relaxed">' . $escaped . '</pre>');
-    }
 
     protected static function columnsPreview(AnonymizationMethods $record): string
     {
-        // This preview is meant to be a fast, representative sample for the infolist.
-        // Keep it bounded (limit) and eager-load relationships to avoid N+1 queries.
         $columns = $record->columns()
             ->with(['table.schema:id,schema_name', 'table:id,table_name,schema_id'])
             ->orderBy('column_name')

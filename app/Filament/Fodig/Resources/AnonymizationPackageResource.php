@@ -8,8 +8,8 @@ use App\Models\Anonymizer\AnonymizationPackage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Checkbox;
-use Filament\Infolists\Components\Grid as InfolistGrid;
-use Filament\Infolists\Components\Section as InfolistSection;
+use Filament\Infolists\Components\Grid;
+use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
@@ -53,18 +53,18 @@ class AnonymizationPackageResource extends Resource
                             ->label('Display name')
                             ->required()
                             ->maxLength(255)
-                            ->helperText('Example: ADPOC Toolkit'),
+                            ->helperText('Example: Deterministic Toolkit'),
                         Forms\Components\TextInput::make('handle')
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->alphaDash()
                             ->maxLength(255)
-                            ->placeholder('adpoc-toolkit')
+                            ->placeholder('deterministic-toolkit')
                             ->helperText('Used internally to reference the package in automation scripts.'),
                         Forms\Components\TextInput::make('package_name')
                             ->label('Database package name')
                             ->maxLength(255)
-                            ->placeholder('ADPOC')
+                            ->placeholder('MY_PACKAGE')
                             ->helperText('Optional: Name of the database package (e.g. Oracle PL/SQL package).'),
                         Forms\Components\Select::make('database_platform')
                             ->label('Platform')
@@ -272,9 +272,9 @@ class AnonymizationPackageResource extends Resource
     {
         return $infolist
             ->schema([
-                InfolistSection::make('Summary')
+                Section::make('Summary')
                     ->schema([
-                        InfolistGrid::make([
+                        Grid::make([
                             'default' => 1,
                             'md' => 2,
                         ])->schema([
@@ -294,7 +294,7 @@ class AnonymizationPackageResource extends Resource
                             ->columnSpanFull()
                             ->placeholder('No summary provided.'),
                     ]),
-                InfolistSection::make('SQL Blocks')
+                Section::make('SQL Blocks')
                     ->schema([
                         self::sqlViewer(field: 'install_sql', label: 'Setup SQL', height: '250px'),
                         self::sqlViewer(field: 'package_spec_sql', label: 'Package spec', height: '300px'),
@@ -307,7 +307,7 @@ class AnonymizationPackageResource extends Resource
     public static function getRelations(): array
     {
         return [
-
+            \App\Filament\Fodig\Resources\AnonymizationPackageResource\RelationManagers\MethodsRelationManager::class,
             \App\Filament\Fodig\RelationManagers\ActivityLogRelationManager::class,
         ];
     }
@@ -339,7 +339,6 @@ class AnonymizationPackageResource extends Resource
             return 'This package is not currently required by any methods used in jobs/columns.';
         }
 
-        // Keep this intentionally high-level to avoid expensive, detailed counting queries.
         return 'This package is attached to methods that are already used by jobs/columns. Changes here can impact generated anonymization SQL. Consider using “New version” to preserve existing behavior.';
     }
 }

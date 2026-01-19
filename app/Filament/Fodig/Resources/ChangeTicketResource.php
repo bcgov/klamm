@@ -16,7 +16,7 @@ use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelDatabase;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Forms\Components\Section as FormSection;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -99,7 +99,7 @@ class ChangeTicketResource extends Resource
     {
         return $form
             ->schema([
-                FormSection::make('Ticket')
+                Section::make('Ticket')
                     ->schema([
                         TextInput::make('title')->required()->maxLength(255),
                         ToggleButtons::make('status')

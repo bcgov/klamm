@@ -114,6 +114,8 @@ class AnonymizationPackage extends Model
 
     public function createNewVersion(): self
     {
+        // Create a new version record while preserving the old one.
+        // No automatic copying of methods or other relationships.
         return DB::transaction(function () {
             $rootId = $this->version_root_id ?: $this->getKey();
 
@@ -144,8 +146,6 @@ class AnonymizationPackage extends Model
             $new->name = mb_strimwidth($baseName . ' (v' . $nextVersion . ')', 0, 255, '');
 
             $new->save();
-
-            // Intentionally do NOT attach the new version to any methods.
 
             return $new;
         });
