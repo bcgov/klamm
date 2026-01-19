@@ -103,12 +103,12 @@
 
         <div
             x-ref="element"
-            style="height: {{ $getHeight() }}; width: 100%; border: 1px solid #e5e7eb; border-radius: 6px;"
+            :style="{ height: '{{ $getHeight() }}', width: '100%', border: '1px solid #e5e7eb', borderRadius: '6px' }"
             x-show="isInitialized">
         </div>
 
         <!-- Loading indicator -->
-        <div x-show="!isInitialized" class="flex items-center justify-center bg-gray-50 border border-gray-200 rounded-md" style="height: {{ $getHeight() }};">
+        <div x-show="!isInitialized" class="flex items-center justify-center bg-gray-50 border border-gray-200 rounded-md" :style="{ height: '{{ $getHeight() }}' }">
             <div class="text-gray-500 text-sm">Loading Monaco Editor...</div>
         </div>
     </div>

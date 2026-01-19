@@ -39,6 +39,9 @@ COPY composer.json composer.lock ./
 # Install Composer dependencies first (better caching)
 RUN composer install --optimize-autoloader --no-scripts
 
+# Copy PHP upload config
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+
 # Copy .env.example to .env
 COPY .env.example .env
 

@@ -17,7 +17,7 @@ spec:
       containers:
         - name: queue-worker
           image: "{{ .Values.image.tag }}"
-          command: ["php", "/var/www/artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=3600"]
+          command: ["php", "/var/www/artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=3600", "--memory=896"]
           envFrom:
             - secretRef:
                 name: app-secrets

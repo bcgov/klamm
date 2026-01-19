@@ -18,9 +18,11 @@ sail artisan test --coverage
 tests/
 ├── Unit/                             # Model and business logic tests
 │   ├── UserModelTest.php             # User CRUD, roles, permissions
-│   ├── UserValidationTest.php        # Validation rules and data integrity  
+│   ├── UserValidationTest.php        # Validation rules and data integrity
 │   └── UserRelationshipsTest.php     # Eloquent relationships
 ├── Feature/                          # Integration and workflow tests
+|   ├── Anonymizer/
+|   |   └── AnonymousUpload.php       # Anonymous data upload and processing
 │   └── Auth/
 │       ├── AuthenticationTest.php    # Login/logout, password reset
 │       └── RoleAuthorizationTest.php # Role-based access control
@@ -31,6 +33,7 @@ tests/
 ## Test Helpers Available
 
 **TestCase Methods:**
+
 ```php
 $this->createUserWithRole('admin');
 $this->loginAsUserWithRole(['fodig', 'forms']);
@@ -38,6 +41,7 @@ $this->createRoles();
 ```
 
 **Global Functions:**
+
 ```php
 createUserWithRole('admin');
 loginAsAdmin();
@@ -45,6 +49,7 @@ loginAsUser();
 ```
 
 **Factory States:**
+
 ```php
 User::factory()->admin()->create();
 User::factory()->fodig()->create();
@@ -53,12 +58,12 @@ User::factory()->unverified()->create();
 
 ## Supported Roles
 
-- `admin` - Full access
-- `fodig` - FODIG resources (full access)
-- `forms` - Forms resources (full access)
-- `bre` - BRE resources (full access)
-- `user` - Read-only access to all resources
-- `form-developer` - Form development
+-   `admin` - Full access
+-   `fodig` - FODIG resources (full access)
+-   `forms` - Forms resources (full access)
+-   `bre` - BRE resources (full access)
+-   `user` - Read-only access to all resources
+-   `form-developer` - Form development
 
 ## How-To Guide
 
