@@ -10,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms;
 use App\Livewire\FormElementTreeBuilder as Builder;
@@ -398,9 +399,31 @@ class GeneralTabHelper
         } else {
             // For create and view modes
             $elementTypeField = $isCreate
-                ? Select::make('elementable_type')
-                    ->label('Element Type')
+                ? ToggleButtons::make('elementable_type')
+                    ->label(function (?string $state): string {
+                        $elementType = $state ? FormElement::getElementTypeName($state) : '';
+                        if ($elementType) {
+                            return "Element Type: {$elementType}";
+                        } else {
+                            return 'Element Type';
+                        }
+
+                    })
                     ->options(FormElement::getAvailableElementTypes())
+                    ->inline()
+                    ->icons([
+                        'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
+                        'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
+                        'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-list-bullet',
+                        'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
+                        'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
+                        'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
+                        'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
+                        'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
+                        'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
+                        'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
+                        'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
+                    ])
                     ->required()
                     ->live()
                     ->disabled($disabled || ($disabledCallback && $disabledCallback()))
