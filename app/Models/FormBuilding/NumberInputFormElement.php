@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
+use Filament\Forms\Components\ToggleButtons;
 
 class NumberInputFormElement extends Model
 {
@@ -24,21 +24,21 @@ class NumberInputFormElement extends Model
         'max',
         'step',
         'defaultValue',
-        'formatStyle',
+        'maskType',
     ];
 
     protected $casts = [
         'hideLabel' => 'boolean',
         'min' => 'integer',
         'max' => 'integer',
-        'step' => 'integer',
-        'defaultValue' => 'decimal:2',
+        'step' => 'float',
+        'defaultValue' => 'float',
     ];
 
     protected $attributes = [
         'hideLabel' => false,
         'step' => 1,
-        'formatStyle' => 'integer',
+        'maskType' => 'integer',
     ];
 
     /**
@@ -52,41 +52,47 @@ class NumberInputFormElement extends Model
                 Fieldset::make('Value')
                     ->schema([
                         SchemaHelper::getPlaceholderTextField($disabled),
-                    TextInput::make('elementable_data.min')
-                        ->label('Minimum Value')
-                        ->numeric()
-                        ->integer()
-                        ->step(1)
-                        ->disabled($disabled),
-                    TextInput::make('elementable_data.max')
-                        ->label('Maximum Value')
-                        ->numeric()
-                        ->integer()
-                        ->step(1)
-                        ->disabled($disabled),
-                    TextInput::make('elementable_data.step')
-                        ->label('Step Size')
-                        ->numeric()
-                        ->integer()
-                        ->step(1)
-                        ->default(1)
-                        ->minValue(0)
-                        ->disabled($disabled),
-                    TextInput::make('elementable_data.defaultValue')
-                        ->label('Default Value')
-                        ->numeric()
-                        ->step(1)
-                        ->disabled($disabled),
-                    Select::make('elementable_data.formatStyle')
-                        ->label('Format Style')
-                        ->options([
-                            'decimal' => 'Decimal',
-                            'currency' => 'Currency',
-                            'integer' => 'Integer',
-                        ])
-                        ->default('decimal')
-                        ->live()
-                        ->disabled($disabled),
+                        TextInput::make('elementable_data.defaultValue')
+                            ->label('Default Value')
+                            ->numeric()
+                            ->step(1)
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.min')
+                            ->label('Minimum Value')
+                            ->numeric()
+                            ->integer()
+                            ->step(1)
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.max')
+                            ->label('Maximum Value')
+                            ->numeric()
+                            ->integer()
+                            ->step(1)
+                            ->disabled($disabled),
+                        ToggleButtons::make('elementable_data.maskType')
+                            ->label('Input Mask Type')
+                            ->options([
+                                'integer' => 'Integer',
+                                'decimal' => 'Decimal',
+                            ])
+                            ->inline()
+                            ->default('integer')
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                // auto-set step based on maskType
+                                $stepValues = [
+                                    'integer' => 1,
+                                    'decimal' => 0.01,
+                                ];
+                                $set('elementable_data.step', $stepValues[$state] ?? 1);
+                            }),
+                        TextInput::make('elementable_data.step')
+                            ->label('Step Size')
+                            ->numeric()
+                            ->step(0.01)
+                            ->default(1)
+                            ->minValue(0)
+                            ->disabled($disabled),
                     ])
                     ->columns(1),
             ]
@@ -115,7 +121,7 @@ class NumberInputFormElement extends Model
             'max' => $this->max,
             'step' => $this->step,
             'defaultValue' => $this->defaultValue,
-            'formatStyle' => $this->formatStyle,
+            'maskType' => $this->maskType,
         ];
     }
 
@@ -133,7 +139,7 @@ class NumberInputFormElement extends Model
             'max' => null,
             'step' => 1,
             'defaultValue' => null,
-            'formatStyle' => 'integer',
+            'maskType' => 'integer',
         ];
     }
 }

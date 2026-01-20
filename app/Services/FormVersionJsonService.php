@@ -1149,7 +1149,7 @@ class FormVersionJsonService
             case 'min':
             case 'step':
                 if (is_numeric($value)) {
-                    return [$key, (int)round($value)];
+                    return [$key, (float)$value];
                 }
                 return [$key, $value];
             case 'dateFormat':
