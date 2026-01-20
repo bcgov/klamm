@@ -7,10 +7,12 @@ use App\Models\FormBuilding\FormElement;
 use Illuminate\Support\Str;
 use App\Models\FormBuilding\DateSelectInputFormElement;
 use App\Models\FormMetadata\FormInterface;
+use Carbon\CarbonInterface;
+
 
 class FormVersionJsonService
 {
-    public function generateJson(FormVersion $formVersion): array
+    public function generateJson(FormVersion $formVersion, ?CarbonInterface $exportedAt = null): array
     {
         // Load the form version with necessary relationships
         $formVersion->load([
@@ -37,7 +39,7 @@ class FormVersionJsonService
             'version_date' => $formVersion->version_date ?? '',
             'version_date_format' => $formVersion->version_date_format ?? '',
             'status' => $formVersion->status,
-            'data' => $this->getFormVersionData($formVersion),
+            'data' => $this->getFormVersionData($formVersion, $exportedAt),
             'ministry_id' => $formVersion->form->ministry_id ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'interface' => $this->getFormInterfaces($formVersion),
@@ -105,14 +107,14 @@ class FormVersionJsonService
         return $preMigrationData;
     }
 
-    protected function getFormVersionData(FormVersion $formVersion): array
+    protected function getFormVersionData(FormVersion $formVersion, ?CarbonInterface $exportedAt = null): array
     {
         return [
             'form_id' => $formVersion->form_id,
             'form_developer' => $formVersion->formDeveloper() ?? null,
             'comments' => $formVersion->comments,
             'created_at' => $formVersion->created_at?->toISOString(),
-            'updated_at' => $formVersion->updated_at?->toISOString(),
+            'updated_at' => ($exportedAt ?? $formVersion->updated_at)?->toISOString(),
         ];
     }
 
