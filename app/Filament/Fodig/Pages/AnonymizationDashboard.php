@@ -5,6 +5,7 @@ namespace App\Filament\Fodig\Pages;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Pages\Dashboard\Concerns\HasFiltersAction;
+use App\Filament\Fodig\Resources\ChangeTicketResource;
 use App\Filament\Fodig\Widgets\AnonymizationActivityWidget;
 
 class AnonymizationDashboard extends BaseDashboard
@@ -13,14 +14,18 @@ class AnonymizationDashboard extends BaseDashboard
     use HasFiltersAction;
 
     protected static ?string $navigationIcon = 'heroicon-o-home';
-    protected static ?string $title = 'Anonymization Overview';
+    protected static ?string $title = 'FODIG';
     protected static ?string $navigationLabel = 'Dashboard';
 
     public function getWidgets(): array
     {
-        return [
-            AnonymizationActivityWidget::class,
-        ];
+        $widgets = [];
+
+        if (ChangeTicketResource::canViewAny()) {
+            $widgets[] = AnonymizationActivityWidget::class;
+        }
+
+        return $widgets;
     }
 
     public function getColumns(): int | string | array
