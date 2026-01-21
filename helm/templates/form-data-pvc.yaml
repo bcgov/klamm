@@ -9,4 +9,9 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage: {{ .Values.pvc.formData.storage }} 
+      storage:
+        {
+          {
+            include "klamm.pvcRequestedStorageNoShrink" (list . "klamm-form-data-pvc" .Values.pvc.formData.storage),
+          },
+        }
