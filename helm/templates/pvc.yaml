@@ -9,4 +9,9 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage: {{- $existing := (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "klamm-app-shared-pvc") -}}{{- if $existing -}}{{- (get (get (get (get $existing "spec") "resources") "requests") "storage") | default .Values.pvc.storage -}}{{- else -}}{{- .Values.pvc.storage -}}{{- end -}}
+      {{- $storage := .Values.pvc.storage -}}
+      {{- $existing := (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "klamm-app-shared-pvc") -}}
+      {{- if $existing -}}
+      {{- $storage = ((get (get (get (get $existing "spec") "resources") "requests") "storage") | default $storage) -}}
+      {{- end -}}
+      storage: {{ $storage | quote }}
