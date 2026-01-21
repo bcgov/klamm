@@ -1,7 +1,14 @@
+{{- $pvcName := "klamm-form-data-pvc" -}}
+{{- $storage := .Values.pvc.formData.storage -}}
+{{- $existing := (lookup "v1" "PersistentVolumeClaim" .Release.Namespace $pvcName) -}}
+{{- if $existing -}}
+{{- $storage = ((get (get (get (get $existing "spec") "resources") "requests") "storage") | default $storage) -}}
+{{- end -}}
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: klamm-form-data-pvc
+  name: {{ $pvcName }}
   labels:
     app.kubernetes.io/name: klamm-app
 spec:
@@ -9,9 +16,4 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      {{- $storage := .Values.pvc.formData.storage -}}
-      {{- $existing := (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "klamm-form-data-pvc") -}}
-      {{- if $existing -}}
-      {{- $storage = ((get (get (get (get $existing "spec") "resources") "requests") "storage") | default $storage) -}}
-      {{- end -}}
       storage: {{ $storage | quote }}
