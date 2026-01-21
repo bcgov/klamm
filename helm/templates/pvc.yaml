@@ -9,9 +9,4 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage:
-        {
-          {
-            include "klamm.pvcRequestedStorageNoShrink" (list . "klamm-app-shared-pvc" .Values.pvc.storage),
-          },
-        }
+      storage: {{- $existing := (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "klamm-app-shared-pvc") -}}{{- if $existing -}}{{- (get (get (get (get $existing "spec") "resources") "requests") "storage") | default .Values.pvc.storage -}}{{- else -}}{{- .Values.pvc.storage -}}{{- end -}}
