@@ -12,7 +12,7 @@
 {{- $q := (default "" . | toString | trim) -}}
 {{- $numStr := (regexFind "^[0-9]+(\\.[0-9]+)?" $q) | default "0" -}}
 {{- $unit := (regexFind "[a-zA-Z]+$" $q) | default "" -}}
-{{- $num := ($numStr | toFloat) -}}
+{{- $num := ($numStr | float64) -}}
 
 {{- /* Common Kubernetes units for resource quantities (binary + decimal). */ -}}
 {{- $factors := dict
@@ -37,7 +37,7 @@
 {{- /* Unknown unit: return 0 so caller can decide a safe fallback. */ -}}
 0
 {{- else -}}
-{{- mul $num ($factor | toFloat) -}}
+{{- mul $num ($factor | float64) -}}
 {{- end -}}
 {{- end -}}
 
@@ -56,8 +56,8 @@
 {{- else if eq $desired "" -}}
 {{- $existingQty -}}
 {{- else -}}
-{{- $existingBytes := (include "klamm.quantityToBytes" $existingQty | toFloat) -}}
-{{- $desiredBytes := (include "klamm.quantityToBytes" $desired | toFloat) -}}
+{{- $existingBytes := (include "klamm.quantityToBytes" $existingQty | float64) -}}
+{{- $desiredBytes := (include "klamm.quantityToBytes" $desired | float64) -}}
 
 {{- /*
   If parsing fails (bytes=0), prefer the existing value to avoid attempting a shrink.
