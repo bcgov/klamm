@@ -1028,7 +1028,7 @@ class FormVersionJsonService
                 'endpoint' => $formDataSource->endpoint,
                 'description' => $formDataSource->description,
                 'params' => $this->decodeJsonField($formDataSource->params),
-                'body' => $formDataSource->body,
+                'body' => $this->decodeJsonField($formDataSource->body),
                 'headers' => $this->decodeJsonField($formDataSource->headers),
                 'host' => $formDataSource->host,
                 'order' => $formDataSource->pivot->order ?? 0,
