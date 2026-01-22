@@ -36,6 +36,7 @@ class GenerateFormVersionJsonJob implements ShouldQueue
                     $morphTo->morphWith([
                         \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
                         \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                        \App\Models\FormBuilding\CheckboxGroupFormElement::class => ['options'],
                     ]);
                 },
                 'formElements.dataBindings.formDataSource',

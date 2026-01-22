@@ -407,6 +407,7 @@ class FormElement extends Model
             TextInfoFormElement::class => 'Text Display',
             DateSelectInputFormElement::class => 'Date Select',
             CheckboxInputFormElement::class => 'Checkbox',
+            CheckboxGroupFormElement::class => 'Checkbox Group',
             SelectInputFormElement::class => 'Dropdown',
             RadioInputFormElement::class => 'Radio',
             NumberInputFormElement::class => 'Number Input',
@@ -540,6 +541,29 @@ class FormElement extends Model
         $elementData['elementable_id'] = $checkbox->id;
 
         return self::create($elementData);
+    }
+
+    /**
+     * Create a checkbox group form element
+     */
+    public static function createCheckboxGroup(array $elementData, array $checkboxGroupData = [], array $options = []): self
+    {
+        $checkboxGroup = CheckboxGroupFormElement::create($checkboxGroupData);
+
+        $elementData['elementable_type'] = CheckboxGroupFormElement::class;
+        $elementData['elementable_id'] = $checkboxGroup->id;
+
+        $element = self::create($elementData);
+
+        // Add options if provided
+        foreach ($options as $index => $optionData) {
+            if (!isset($optionData['order'])) {
+                $optionData['order'] = $index + 1;
+            }
+            SelectOptionFormElement::createForCheckboxGroup($checkboxGroup, $optionData);
+        }
+
+        return $element;
     }
 
     /**
