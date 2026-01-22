@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 
 class TextInputFormElement extends Model
 {
@@ -19,6 +20,7 @@ class TextInputFormElement extends Model
         'labelText',
         'hideLabel',
         'enableVarSub',
+        'maskType',
         'mask',
         'maxCount',
         'defaultValue',
@@ -31,6 +33,7 @@ class TextInputFormElement extends Model
 
     protected $attributes = [
         'hideLabel' => false,
+        'maskType' => 'custom',
     ];
 
     /**
@@ -44,16 +47,36 @@ class TextInputFormElement extends Model
                 Fieldset::make('Value')
                     ->schema([
                         SchemaHelper::getPlaceholderTextField($disabled),
-                        TextInput::make('elementable_data.mask')
-                            ->label('Input Mask')
-                            ->autocomplete(false)
+                        TextInput::make('elementable_data.defaultValue')
+                            ->label('Default Value')
                             ->disabled($disabled),
                         TextInput::make('elementable_data.maxCount')
                             ->label('Maximum Character Count')
                             ->numeric()
                             ->disabled($disabled),
-                        TextInput::make('elementable_data.defaultValue')
-                            ->label('Default Value')
+                        ToggleButtons::make('elementable_data.maskType')
+                            ->label('Input Mask Type')
+                            ->options([
+                                'currency' => 'Currency',
+                                'email' => 'Email',
+                                'phone'=> 'Phone',
+                                'custom' => 'Custom',
+                            ])
+                            ->inline()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                $maskPatterns = [
+                                    'currency' => '$0.99',
+                                    'email' => '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+                                    'phone' => '### ###-####',
+                                    'custom' => '',
+                                ];
+                                $set('elementable_data.mask', $maskPatterns[$state] ?? '');
+                            }),
+                        TextInput::make('elementable_data.mask')
+                            ->label('Input Mask')
+                            ->autocomplete(false)
+                            ->hint('Supports Maska syntax, regular expressions, or character classes like "a-zA-Z0-9"')
                             ->disabled($disabled),
                     ])
                     ->columns(1),

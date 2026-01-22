@@ -573,7 +573,9 @@ class BuildFormVersion extends Page implements HasForms
             case 1:
                 return $jsonService->generatePreMigrationJson($formVersion);
             case 2:
-                return $jsonService->generateJson($formVersion);
+                // update updated_at when copy the JSON
+                $exportedAt = now('UTC');
+                return $jsonService->generateJson($formVersion, $exportedAt);
             default:
                 throw new \Exception("Unsupported format version: {$version}");
         }
