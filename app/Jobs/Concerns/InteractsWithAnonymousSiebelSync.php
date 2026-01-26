@@ -1306,6 +1306,11 @@ trait InteractsWithAnonymousSiebelSync
                         $rowForUpsert['changed_fields'] = $hasChanges ? json_encode($diff, JSON_UNESCAPED_UNICODE) : $existing->changed_fields;
                         $rowForUpsert['last_synced_at'] = $runAt;
                         $rowForUpsert['created_at'] = $existing->created_at;
+                        $rowForUpsert['anonymization_requirement_reviewed'] = $existing->anonymization_requirement_reviewed;
+
+                        if ($diff !== []) {
+                            $rowForUpsert['anonymization_requirement_reviewed'] = false;
+                        }
 
                         if ($hasChanges) {
                             if ($wasDeleted) {
@@ -1333,6 +1338,7 @@ trait InteractsWithAnonymousSiebelSync
                         $rowForUpsert['created_at'] = $runAt;
                         $rowForUpsert['changed_at'] = null;
                         $rowForUpsert['changed_fields'] = null;
+                        $rowForUpsert['anonymization_requirement_reviewed'] = null;
 
                         $logCreated[] = [
                             'table_id' => $tableEntry['id'],
@@ -1384,6 +1390,7 @@ trait InteractsWithAnonymousSiebelSync
                             'last_synced_at',
                             'changed_at',
                             'changed_fields',
+                            'anonymization_requirement_reviewed',
                             'deleted_at',
                             'updated_at',
                         ]
@@ -1818,6 +1825,7 @@ trait InteractsWithAnonymousSiebelSync
             if ($diff !== []) {
                 $updates['changed_at'] = $now;
                 $updates['changed_fields'] = json_encode($diff, JSON_UNESCAPED_UNICODE);
+                $updates['anonymization_requirement_reviewed'] = false;
             }
 
             DB::table(self::COLUMNS_TABLE)
