@@ -102,6 +102,11 @@ class FormVersionResource extends Resource
                                             ->options(DateSelectInputFormElement::getDateFormats())
                                             ->default('YYYY/MM/DD'),
                                     ]),
+                                Select::make('security_classification_id')
+                                    ->label('Security Classification')
+                                    ->relationship('securityClassification', 'name')
+                                    ->searchable()
+                                    ->preload(),
                                 Repeater::make('formVersionFormDataSources')
                                     ->label('Form Data Sources')
                                     ->relationship()
