@@ -13,7 +13,18 @@ class SecurityClassificationSeeder extends Seeder
      */
     public function run(): void
     {
-        SecurityClassification::create(['name' => 'Low Sensitivity']);
-        SecurityClassification::create(['name' => 'High Sensitivity']);
+        $classifications = [
+            'Public',
+            'Low Sensitivity',
+            'Personal',
+            'Medium Sensitivity',
+            'High Sensitivity',
+            'Protected B',
+            'Cabinet Confidential',
+        ];
+
+        foreach ($classifications as $name) {
+            SecurityClassification::firstOrCreate(['name' => $name]);
+        }
     }
 }
