@@ -15,12 +15,9 @@ class SecurityClassificationSeeder extends Seeder
     {
         $classifications = [
             'Public',
-            'Low Sensitivity',
-            'Personal',
-            'Medium Sensitivity',
-            'High Sensitivity',
+            'Protected A',
             'Protected B',
-            'Cabinet Confidential',
+            'Protected C',
         ];
 
         foreach ($classifications as $name) {
