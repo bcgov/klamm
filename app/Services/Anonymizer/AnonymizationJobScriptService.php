@@ -378,42 +378,46 @@ class AnonymizationJobScriptService
             $lines[] = '';
         }
 
-        $groups = [];
-        $groupOrder = [];
+        // Process columns in topological order to maintain dependency cascades.
+        // Parent/seed-providing columns must be masked before their dependents.
+        // This ensures FK relationships remain intact when both parent and child columns are anonymized.
+
+        $lines[] = $this->commentDivider('=');
+        $lines[] = '-- Column Masking (dependency-ordered)';
+        $lines[] = '-- Columns are processed in topological order: parents before children.';
+        $lines[] = $this->commentDivider('=');
+        $lines[] = '';
+
+        $orderedIds = $ordered->pluck('id')->all();
+        $lastMethodId = null;
 
         // @var AnonymousSiebelColumn $column
         foreach ($ordered as $column) {
             $method = $this->resolveMethodForColumn($column);
-            $key = $method?->id ?? 'none';
+            $methodId = $method?->id ?? 'none';
 
-            if (! isset($groups[$key])) {
-                $groups[$key] = [
-                    'method' => $method,
-                    'columns' => [],
-                ];
-                $groupOrder[] = $key;
+            // Emit a method heading when transitioning between methods (for readability).
+            if ($methodId !== $lastMethodId) {
+                $lines[] = $this->commentDivider('-');
+                $lines[] = $this->methodHeading($method);
+                $lastMethodId = $methodId;
             }
 
-            $groups[$key]['columns'][] = $column;
-        }
-
-        foreach ($groupOrder as $key) {
-            $group = $groups[$key];
-            // @var AnonymizationMethods|null $method
-            $method = $group['method'];
-            // @var Collection<int, AnonymousSiebelColumn> $columnsInGroup
-            $columnsInGroup = collect($group['columns']);
-
-            $lines[] = $this->commentDivider('-');
-            $lines[] = $this->methodHeading($method);
-            $lines[] = $this->columnsListing($columnsInGroup, $ordered->pluck('id')->all());
-
             $sqlBlock = trim((string) ($method?->sql_block ?? ''));
+
+            // Annotate each column with its dependencies.
+            $dependencies = $this->dependencyNames($column, $orderedIds);
+            $depNote = $dependencies !== []
+                ? ' (depends on: ' . implode(', ', $dependencies) . ')'
+                : '';
+
+            $lines[] = '-- Column: ' . $this->describeColumn($column) . $depNote;
 
             if ($sqlBlock === '') {
                 $lines[] = '-- No SQL block defined for this method.';
             } else {
-                foreach ($this->renderSqlBlocksForColumns($sqlBlock, $columnsInGroup, $seedProviders, $rewriteContext, $seedMapContext) as $renderedBlock) {
+                // Render SQL for this single column, preserving dependency order.
+                foreach ($this->renderSqlBlocksForColumns($sqlBlock, collect([$column]), $seedProviders, $rewriteContext, $seedMapContext) as $renderedBlock) {
                     $lines[] = $renderedBlock;
                 }
             }
