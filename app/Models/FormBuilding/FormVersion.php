@@ -24,6 +24,7 @@ use App\Models\FormBuilding\FormVersionFormDataSource;
 use App\Models\FormBuilding\FormVersionFormInterface;
 use Spatie\Activitylog\Models\Activity;
 use App\Models\FormMetadata\FormInterface;
+use App\Models\SecurityClassification;
 
 class FormVersion extends Model
 {
@@ -34,6 +35,7 @@ class FormVersion extends Model
         'version_number',
         'version_date',
         'version_date_format',
+        'security_classification_id',
         'status',
         'form_developer_id',
         'comments',
@@ -220,6 +222,11 @@ class FormVersion extends Model
     public function formDeveloper(): BelongsTo
     {
         return $this->belongsTo(User::class, 'form_developer_id');
+    }
+
+    public function securityClassification(): BelongsTo
+    {
+        return $this->belongsTo(SecurityClassification::class);
     }
 
 

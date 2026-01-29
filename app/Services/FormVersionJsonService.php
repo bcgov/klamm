@@ -28,7 +28,8 @@ class FormVersionJsonService
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
-            'pdfFormScript'
+            'pdfFormScript',
+            'securityClassification'
         ]);
 
         $formVersionData = [
@@ -38,6 +39,7 @@ class FormVersionJsonService
             'version' => $formVersion->version_number,
             'version_date' => $formVersion->version_date ?? '',
             'version_date_format' => $formVersion->version_date_format ?? '',
+            'security_classification' => $formVersion->securityClassification?->name ?? null,
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion, $exportedAt),
             'ministry_id' => $formVersion->form->ministry_id ?? null,
@@ -80,7 +82,8 @@ class FormVersionJsonService
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
-            'pdfFormScript'
+            'pdfFormScript',
+            'securityClassification'
         ]);
 
         $preMigrationData = [
@@ -91,6 +94,7 @@ class FormVersionJsonService
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => '',
             'ministry_id' => $formVersion->form->ministry_id ?? null,
+            'security_classification' => $formVersion->securityClassification?->name ?? null,
             'dataSources' => $this->getDataSources($formVersion),
             'interface' => $this->getFormInterfaces($formVersion),
             'data' => [
