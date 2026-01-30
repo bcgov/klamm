@@ -618,9 +618,21 @@ class AnonymousSiebelColumnResource extends Resource
                     ),
                 Tables\Filters\TernaryFilter::make('anonymization_required')
                     ->label('Anonymization required')
-                    ->nullable(),
+                    ->nullable()
+                    ->queries(
+                        true: fn(Builder $query) => $query->where('anonymization_required', true),
+                        false: fn(Builder $query) => $query->where('anonymization_required', false),
+                    ),
+                Tables\Filters\TernaryFilter::make('anonymization_requirement_reviewed')
+                    ->label('Requirement reviewed')
+                    ->nullable()
+                    ->queries(
+                        true: fn(Builder $query) => $query->where('anonymization_requirement_reviewed', true),
+                        false: fn(Builder $query) => $query->where('anonymization_requirement_reviewed', false),
+                    ),
                 Tables\Filters\TrashedFilter::make(),
             ])
+            ->persistFiltersInSession()
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),

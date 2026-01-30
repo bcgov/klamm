@@ -9,15 +9,15 @@ use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
-/**
- * Builds deterministic Oracle anonymization scripts using a double-seeded approach.
- *
- * The double-seeded strategy ensures:
- * 1. Reproducibility: Same job seed + original values produce identical masked results.
- * 2. Referential integrity: FK relationships are preserved via seed maps populated before dependents.
- * 3. Dependency ordering: Parent/seed-providing columns are masked before their consumers.
- */
+use function Symfony\Component\Clock\now;
+
+// Builds deterministic Oracle anonymization scripts using a double-seeded approach.
+// The double-seeded strategy ensures:
+// 1. Reproducibility: Same job seed + original values produce identical masked results.
+// 2. Referential integrity: FK relationships are preserved via seed maps populated before dependents.
+// 3. Dependency ordering: Parent/seed-providing columns are masked before their consumers.
 trait BuildsDoubleSeededDeterministicOracleScripts
 {
     public function buildDoubleSeededDeterministicFromColumns(Collection $columns, AnonymizationJobs $job): string
@@ -27,13 +27,20 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         }
 
         if (method_exists($columns, 'loadMissing')) {
+            // Load core relations first
             $columns->loadMissing([
-                'anonymizationMethods.packages',
+                'anonymizationMethods',
                 'table.schema.database',
                 'dataType',
-                'parentColumns.table.schema.database',
-                'childColumns.table.schema.database',
+                'parentColumns',
+                'childColumns',
             ]);
+
+            // Load packages on the already-loaded methods collection
+            $methods = $columns->pluck('anonymizationMethods')->flatten()->filter()->unique('id');
+            if ($methods->isNotEmpty()) {
+                $methods->loadMissing('packages');
+            }
         }
 
         $ordered = $this->topologicallySortColumns($columns);
@@ -79,7 +86,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         // === Header ===
         $lines[] = $this->commentDivider('=');
         $lines[] = '-- Anonymization Job: ' . $job->name;
-        $lines[] = '-- Generated: ' . now()->toDateString();
+        $lines[] = '-- Generated: ' . now()->format('Y-m-d H:i:s');
         $lines[] = '-- Job Type: Deterministic (Double-Seeded)';
         $lines[] = '-- Target DB: Oracle';
         $lines[] = '-- Columns: ' . $ordered->count();
@@ -141,6 +148,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                 fn($p) => ($p['source_table'] ?? '') === ($mapping['source_table'] ?? '')
             );
 
+            // Preserve original values so dependents can map back deterministically.
             foreach ($tableProviders as $provider) {
                 $originalCol = 'ORIGINAL_' . Str::upper($provider['column_name']);
                 $columnType = $provider['column_type'] ?? 'VARCHAR2(4000)';
@@ -212,6 +220,24 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             ));
         }
 
+        $pkStatements = $this->renderDeterministicPrimaryKeys($tableMappings);
+        if ($pkStatements !== []) {
+            $lines[] = $this->commentDivider('-');
+            $lines[] = '-- PRIMARY KEYS';
+            $lines[] = '-- Add ROW_ID primary keys so foreign keys can be recreated.';
+            $lines[] = $this->commentDivider('-');
+            $lines = array_merge($lines, $pkStatements);
+        }
+
+        $fkStatements = $this->renderDeterministicForeignKeys($tableMappings);
+        if ($fkStatements !== []) {
+            $lines[] = $this->commentDivider('-');
+            $lines[] = '-- FOREIGN KEYS';
+            $lines[] = '-- Recreate parent/child relationships within the target schema.';
+            $lines[] = $this->commentDivider('-');
+            $lines = array_merge($lines, $fkStatements);
+        }
+
         // === Finalization ===
         $lines[] = $this->commentDivider('-');
         $lines[] = '-- END OF JOB';
@@ -222,9 +248,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return trim(implode(PHP_EOL, $lines));
     }
 
-    /**
-     * Identify columns that act as seed providers (have dependents that are also selected).
-     */
+    // Identify columns that act as seed providers (have dependents that are also selected).
     protected function identifySeedProviderColumns(Collection $columns, array $seedMapContext): Collection
     {
         $providers = collect();
@@ -258,9 +282,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return $providers;
     }
 
-    /**
-     * Build seed map definitions for cross-table FK preservation.
-     */
+    // Build seed map definitions for cross-table FK preservation.
     protected function buildDoubleSeededSeedMaps(Collection $seedProviderColumns, Collection $tableMappings, string $seedStoreSchema, string $seedPrefix): Collection
     {
         return $seedProviderColumns->map(function ($provider) use ($tableMappings, $seedStoreSchema, $seedPrefix) {
@@ -286,9 +308,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         })->filter()->values();
     }
 
-    /**
-     * Render DDL for job seed table.
-     */
+    // Render DDL for job seed table.
     protected function renderJobSeedTableDDL(string $jobSeedTable, string $jobKeyName, string $jobSeedLiteral): array
     {
         return [
@@ -324,9 +344,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         ];
     }
 
-    /**
-     * Render DDL for a seed map table and populate it from original values.
-     */
+    // Render DDL for a seed map table and populate it from original values.
     protected function renderSeedMapDDLAndPopulate(array $seedMap, string $jobSeedTable, string $jobKeyName): array
     {
         $seedMapTable = $seedMap['seed_map_table'];
@@ -372,9 +390,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         ];
     }
 
-    /**
-     * Render column masking statements for double-seeded approach.
-     */
+    // Render column masking statements for double-seeded approach.
     protected function renderDoubleSeededColumnMasking(
         Collection $columns,
         Collection $seedMaps,
@@ -461,9 +477,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return $lines;
     }
 
-    /**
-     * Find a parent's seed map that this column should use for FK preservation.
-     */
+    // Find a parent's seed map that this column should use for FK preservation.
     protected function findParentSeedMapForColumn(AnonymousSiebelColumn $column, Collection $seedMapsByColumnId): ?array
     {
         $parents = $column->getRelationValue('parentColumns') ?? collect();
@@ -478,9 +492,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return null;
     }
 
-    /**
-     * Render a single column UPDATE statement using the method's SQL block.
-     */
+    // Render a single column UPDATE statement using the method's SQL block.
     protected function renderSingleColumnUpdate(
         AnonymousSiebelColumn $column,
         string $targetTable,
@@ -491,7 +503,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
     ): string {
         $columnName = $this->oracleIdentifier($column->column_name);
 
-        // Find ORIGINAL_<col> reference if this column has a seed provider ancestor.
+        // Prefer ORIGINAL_<col> when a seed provider is involved to keep determinism.
         $originalRef = null;
         if ($seedProviderColumns->has($column->id)) {
             $originalRef = 'ORIGINAL_' . Str::upper($column->column_name);
@@ -558,9 +570,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             ->values();
     }
 
-    /**
-     * @param Collection<int, AnonymousSiebelTable> $tables
-     */
+    // @param Collection<int, AnonymousSiebelTable> $tables
     protected function buildStableDemoTableMappings(Collection $tables, string $targetSchema, string $seedPrefix): array
     {
         $mappings = [];
@@ -580,6 +590,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             $targetQualified = $targetSchema . '.' . $targetTable;
 
             $mappings[] = [
+                'table_id' => (int) $table->getKey(),
                 'source_schema' => $sourceSchema,
                 'source_table' => $sourceTable,
                 'source_qualified' => $sourceQualified,
@@ -623,7 +634,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
     {
         return [
             'BEGIN',
-            "  EXECUTE IMMEDIATE 'DROP TABLE {$qualifiedTarget} PURGE';",
+            "  EXECUTE IMMEDIATE 'DROP TABLE {$qualifiedTarget} CASCADE CONSTRAINTS PURGE';",
             'EXCEPTION',
             '  WHEN OTHERS THEN',
             '    IF SQLCODE != -942 THEN RAISE; END IF;',
@@ -634,6 +645,217 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             'SELECT * FROM ' . $qualifiedSource . ';',
             '',
         ];
+    }
+
+    protected function renderDeterministicForeignKeys(array $tableMappings): array
+    {
+        if ($tableMappings === []) {
+            return [];
+        }
+
+        $tableMapById = [];
+        foreach ($tableMappings as $mapping) {
+            $tableId = (int) ($mapping['table_id'] ?? 0);
+            if ($tableId > 0) {
+                $tableMapById[$tableId] = $mapping;
+            }
+        }
+
+        if ($tableMapById === []) {
+            return [];
+        }
+
+        $tableIds = array_keys($tableMapById);
+
+        $columns = AnonymousSiebelColumn::query()
+            ->with(['dataType', 'table.schema'])
+            ->whereIn('table_id', $tableIds)
+            ->get();
+
+        if ($columns->isEmpty()) {
+            return [];
+        }
+
+        $tablesByIdentity = [];
+        foreach ($tableMapById as $tableId => $mapping) {
+            $schema = strtoupper(trim((string) ($mapping['source_schema'] ?? '')));
+            $table = strtoupper(trim((string) ($mapping['source_table'] ?? '')));
+            if ($schema !== '' && $table !== '') {
+                $tablesByIdentity[$schema . '|' . $table] = (int) $tableId;
+            }
+        }
+
+        $columnsByTable = $columns->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+        $lines = [];
+        $seen = [];
+
+        foreach ($columns as $column) {
+            $childTableId = (int) ($column->table_id ?? 0);
+            if ($childTableId <= 0) {
+                continue;
+            }
+
+            $childMap = $tableMapById[$childTableId] ?? null;
+            if (! is_array($childMap)) {
+                continue;
+            }
+
+            $childColumn = trim((string) ($column->column_name ?? ''));
+            if ($childColumn === '' || $this->isLongColumn($column)) {
+                continue;
+            }
+
+            $relationships = $this->resolveDeterministicForeignKeyRelationships($column);
+            if ($relationships === []) {
+                continue;
+            }
+
+            foreach ($relationships as $relationship) {
+                $direction = strtoupper((string) ($relationship['direction'] ?? 'OUTBOUND'));
+                if ($direction === 'INBOUND') {
+                    continue;
+                }
+
+                $schema = strtoupper(trim((string) ($relationship['schema'] ?? '')));
+                $table = strtoupper(trim((string) ($relationship['table'] ?? '')));
+                $parentColumn = trim((string) ($relationship['column'] ?? 'ROW_ID'));
+
+                if ($schema === '' || $table === '' || $parentColumn === '') {
+                    continue;
+                }
+
+                if (strtoupper($parentColumn) !== 'ROW_ID') {
+                    continue;
+                }
+
+                $parentTableId = $tablesByIdentity[$schema . '|' . $table] ?? null;
+                if (! $parentTableId) {
+                    continue;
+                }
+
+                $parentMap = $tableMapById[$parentTableId] ?? null;
+                if (! is_array($parentMap)) {
+                    continue;
+                }
+
+                $parentColumns = $columnsByTable->get((int) $parentTableId, collect());
+                $parentModel = $parentColumns
+                    ->first(fn(AnonymousSiebelColumn $col) => strtoupper((string) ($col->column_name ?? '')) === strtoupper($parentColumn));
+
+                if (! $parentModel || $this->isLongColumn($parentModel)) {
+                    continue;
+                }
+
+                if (! $this->columnsAreCompatible($column, $parentModel)) {
+                    continue;
+                }
+
+                $childTarget = $childMap['target_qualified'] ?? null;
+                $parentTarget = $parentMap['target_qualified'] ?? null;
+
+                if (! $childTarget || ! $parentTarget) {
+                    continue;
+                }
+
+                $fingerprint = strtoupper($childTarget . '|' . $childColumn . '|' . $parentTarget . '|' . $parentColumn);
+                if (isset($seen[$fingerprint])) {
+                    continue;
+                }
+                $seen[$fingerprint] = true;
+
+                $hash = substr(md5($fingerprint), 0, 8);
+                $constraintName = $this->oracleIdentifier('FK_' . ($childMap['target_table'] ?? 'CHILD') . '_' . $hash);
+
+                $lines[] = 'ALTER TABLE ' . $childTarget;
+                $lines[] = 'ADD CONSTRAINT ' . $constraintName;
+                $lines[] = 'FOREIGN KEY (' . $childColumn . ')';
+                $lines[] = 'REFERENCES ' . $parentTarget . ' (' . $parentColumn . ')';
+                $lines[] = 'ENABLE NOVALIDATE;';
+                $lines[] = '';
+            }
+        }
+
+        return $lines;
+    }
+
+    protected function renderDeterministicPrimaryKeys(array $tableMappings): array
+    {
+        if ($tableMappings === []) {
+            return [];
+        }
+
+        $tableMapById = [];
+        foreach ($tableMappings as $mapping) {
+            $tableId = (int) ($mapping['table_id'] ?? 0);
+            if ($tableId > 0) {
+                $tableMapById[$tableId] = $mapping;
+            }
+        }
+
+        if ($tableMapById === []) {
+            return [];
+        }
+
+        $tableIds = array_keys($tableMapById);
+        $columnsByTable = AnonymousSiebelColumn::query()
+            ->with(['dataType'])
+            ->whereIn('table_id', $tableIds)
+            ->get()
+            ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+        $lines = [];
+        $seen = [];
+
+        foreach ($tableMapById as $tableId => $mapping) {
+            $target = $mapping['target_qualified'] ?? null;
+            if (! $target) {
+                continue;
+            }
+
+            $columns = $columnsByTable->get((int) $tableId, collect());
+            $rowId = $columns->first(fn(AnonymousSiebelColumn $column) => strtoupper((string) ($column->column_name ?? '')) === 'ROW_ID');
+            if (! $rowId || $this->isLongColumn($rowId)) {
+                continue;
+            }
+
+            $fingerprint = strtoupper($target . '|ROW_ID');
+            if (isset($seen[$fingerprint])) {
+                continue;
+            }
+            $seen[$fingerprint] = true;
+
+            $constraintName = $this->oracleIdentifier('PK_' . ($mapping['target_table'] ?? ('TABLE_' . $tableId)));
+            $lines[] = 'ALTER TABLE ' . $target;
+            $lines[] = 'ADD CONSTRAINT ' . $constraintName;
+            $lines[] = 'PRIMARY KEY (ROW_ID);';
+            $lines[] = '';
+        }
+
+        return $lines;
+    }
+
+    protected function resolveDeterministicForeignKeyRelationships(AnonymousSiebelColumn $column): array
+    {
+        $relationships = [];
+
+        $related = $column->related_columns;
+        if (is_array($related) && $related !== []) {
+            foreach ($related as $rel) {
+                if (is_array($rel)) {
+                    $relationships[] = $rel;
+                }
+            }
+        }
+
+        if ($relationships === []) {
+            $raw = trim((string) ($column->related_columns_raw ?? ''));
+            if ($raw !== '') {
+                $relationships = $this->parseRelatedColumnsRaw($raw, $column);
+            }
+        }
+
+        return $relationships;
     }
 
     protected function findTargetQualifiedForSourceTable(array $mappings, string $sourceTable): ?string

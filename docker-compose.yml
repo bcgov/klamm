@@ -61,6 +61,87 @@ services:
             - pgsql
             - redis
 
+    queue-default:
+        build:
+            context: .
+            dockerfile: Dockerfile.worker
+        container_name: queue_default_worker
+        volumes:
+            - .:/var/www
+            - vendor:/var/www/vendor
+            - node_modules:/var/www/node_modules
+        environment:
+            - APP_ENV=local
+            - APP_DEBUG=true
+            - DB_CONNECTION=pgsql
+            - DB_HOST=pgsql
+            - DB_PORT=5432
+            - DB_DATABASE=laravel
+            - DB_USERNAME=laravel
+            - DB_PASSWORD=secret
+            - CACHE_STORE=redis
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
+        networks:
+            - sail
+        depends_on:
+            - pgsql
+            - redis
+        command:
+            [
+                "php",
+                "artisan",
+                "queue:work",
+                "--queue=default",
+                "--sleep=3",
+                "--tries=3",
+                "--memory=256",
+            ]
+        restart: unless-stopped
+
+    queue-anonymization:
+        build:
+            context: .
+            dockerfile: Dockerfile.worker
+        container_name: queue_anonymization_worker
+        volumes:
+            - .:/var/www
+            - vendor:/var/www/vendor
+            - node_modules:/var/www/node_modules
+        environment:
+            - APP_ENV=local
+            - APP_DEBUG=true
+            - DB_CONNECTION=pgsql
+            - DB_HOST=pgsql
+            - DB_PORT=5432
+            - DB_DATABASE=laravel
+            - DB_USERNAME=laravel
+            - DB_PASSWORD=secret
+            - CACHE_STORE=redis
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
+            - PHP_MEMORY_LIMIT=1024M
+        networks:
+            - sail
+        depends_on:
+            - pgsql
+            - redis
+        # Dedicated worker for long-running anonymization jobs with higher memory/timeout
+        command:
+            [
+                "php",
+                "-d",
+                "memory_limit=1024M",
+                "artisan",
+                "queue:work",
+                "--queue=anonymization",
+                "--sleep=3",
+                "--tries=1",
+                "--timeout=3600",
+                "--memory=1024",
+            ]
+        restart: unless-stopped
+
     mailhog:
         image: mailhog/mailhog:latest
         container_name: mailhog

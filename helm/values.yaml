@@ -25,6 +25,17 @@ queueWorker:
       cpu: "25m"
       memory: "64Mi"
 
+# Dedicated worker for long-running anonymization jobs
+queueAnonymizationWorker:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "50m"
+      memory: "1024Mi"
+    requests:
+      cpu: "25m"
+      memory: "256Mi"
+
 reverbWorker:
   replicaCount: 1
   resources:

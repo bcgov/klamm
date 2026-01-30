@@ -26,6 +26,8 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
     public function __construct($uploadId)
     {
         $this->uploadId = $uploadId;
+        // Use dedicated queue for anonymization work
+        $this->onQueue('anonymization');
     }
 
     public function handle()
