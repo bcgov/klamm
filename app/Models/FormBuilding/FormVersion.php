@@ -44,6 +44,7 @@ class FormVersion extends Model
         'pdf_template_version',
         'pdf_template_parameters',
         'uses_pets_template',
+        'barcode'
     ];
 
     protected $casts = [
