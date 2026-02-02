@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Services\Anonymizer\AnonymizationJobScriptService;
+use App\Jobs\GenerateAnonymizationJobSql;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -12,6 +13,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class GenerateAnonymizationJobConstraintsSql implements ShouldQueue
@@ -45,6 +47,7 @@ class GenerateAnonymizationJobConstraintsSql implements ShouldQueue
             Log::warning('GenerateAnonymizationJobConstraintsSql: no constraints generated', [
                 'job_id' => $this->jobId,
             ]);
+            Cache::forget(GenerateAnonymizationJobSql::regenerationCacheKey($this->jobId));
             return;
         }
 
@@ -75,6 +78,8 @@ class GenerateAnonymizationJobConstraintsSql implements ShouldQueue
                 'updated_at' => now(),
             ]);
 
+        Cache::forget(GenerateAnonymizationJobSql::regenerationCacheKey($this->jobId));
+
         Log::info('GenerateAnonymizationJobConstraintsSql: completed', [
             'job_id' => $this->jobId,
             'constraints_length' => strlen($constraintsSql),
@@ -87,5 +92,7 @@ class GenerateAnonymizationJobConstraintsSql implements ShouldQueue
             'job_id' => $this->jobId,
             'error' => $exception?->getMessage(),
         ]);
+
+        Cache::forget(GenerateAnonymizationJobSql::regenerationCacheKey($this->jobId));
     }
 }

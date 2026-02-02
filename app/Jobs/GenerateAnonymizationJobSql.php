@@ -41,10 +41,17 @@ class GenerateAnonymizationJobSql implements ShouldQueue
     // Chunk size for batched masking generation.
     private const MASKING_CHUNK_SIZE = 500;
 
+    private const REGENERATION_CACHE_PREFIX = 'anonymization:job-sql:regenerating:';
+
     public function __construct(public int $jobId)
     {
         // Use dedicated queue for long-running anonymization work
         $this->onQueue('anonymization');
+    }
+
+    public static function regenerationCacheKey(int $jobId): string
+    {
+        return self::REGENERATION_CACHE_PREFIX . $jobId;
     }
 
     public function handle(AnonymizationJobScriptService $scriptService): void
@@ -123,6 +130,8 @@ class GenerateAnonymizationJobSql implements ShouldQueue
                         'updated_at' => now(),
                     ]);
 
+                $this->clearRegenerationCache();
+
                 Log::warning('GenerateAnonymizationJobSql: halted due to contract review errors', [
                     'job_id' => $this->jobId,
                 ]);
@@ -139,6 +148,8 @@ class GenerateAnonymizationJobSql implements ShouldQueue
                         'sql_script' => $sql,
                         'updated_at' => now(),
                     ]);
+
+                $this->clearRegenerationCache();
                 return;
             }
 
@@ -238,6 +249,8 @@ class GenerateAnonymizationJobSql implements ShouldQueue
                 'updated_at' => now(),
             ]);
 
+        $this->clearRegenerationCache();
+
         Log::info('GenerateAnonymizationJobSql: completed', [
             'job_id' => $this->jobId,
             'job_name' => $job->name,
@@ -260,6 +273,13 @@ class GenerateAnonymizationJobSql implements ShouldQueue
                 'sql_script' => '-- SQL generation failed: ' . ($exception?->getMessage() ?? 'Unknown error'),
                 'updated_at' => now(),
             ]);
+
+        $this->clearRegenerationCache();
+    }
+
+    protected function clearRegenerationCache(): void
+    {
+        Cache::forget(self::regenerationCacheKey($this->jobId));
     }
 
     // Resolve catalog columns based on job scope (databases/schemas/tables).

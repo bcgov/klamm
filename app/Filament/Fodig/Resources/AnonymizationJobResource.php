@@ -48,7 +48,7 @@ class AnonymizationJobResource extends Resource
     protected const COLUMN_MODE_MISSING = 'missing';
     protected const COLUMN_MODE_ENTIRE_SCOPE = 'all';
 
-    protected const PACKAGE_DEPENDENCY_RELATION = '__packageDependencies';
+    protected static array $packageDependencyCache = [];
 
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
 
@@ -291,6 +291,22 @@ class AnonymizationJobResource extends Resource
                     ->columns(2),
                 Forms\Components\Section::make('Generated Script')
                     ->schema([
+                        Forms\Components\Placeholder::make('sql_generation_status')
+                            ->label('Generation status')
+                            ->content(function ($livewire) {
+                                if (! $livewire instanceof Pages\ViewAnonymizationJob) {
+                                    return '';
+                                }
+
+                                return new HtmlString(
+                                    '<span class="text-sm text-warning-600">Regenerating SQL…</span>'
+                                );
+                            })
+                            ->visible(fn($livewire) => $livewire instanceof Pages\ViewAnonymizationJob && $livewire->isSqlRegenerating)
+                            ->extraAttributes(fn($livewire) => $livewire instanceof Pages\ViewAnonymizationJob && $livewire->isSqlRegenerating
+                                ? ['wire:poll.5s' => 'refreshSqlPreview']
+                                : [])
+                            ->dehydrated(false),
                         Forms\Components\Hidden::make('sql_script')
                             ->default(fn(?AnonymizationJobs $record) => $record?->sql_script),
                         self::sqlEditor(
@@ -611,6 +627,17 @@ class AnonymizationJobResource extends Resource
                     ->visible(fn(AnonymizationJobs $record) => self::packagesForJob($record)->isNotEmpty()),
                 Section::make('Generated SQL Script')
                     ->schema([
+                        TextEntry::make('sql_generation_status')
+                            ->label('Generation status')
+                            ->state(fn($livewire) => $livewire instanceof Pages\ViewAnonymizationJob && $livewire->isSqlRegenerating
+                                ? 'Regenerating SQL…'
+                                : null)
+                            ->color('warning')
+                            ->visible(fn($livewire) => $livewire instanceof Pages\ViewAnonymizationJob && $livewire->isSqlRegenerating)
+                            ->extraEntryWrapperAttributes(fn($livewire) => $livewire instanceof Pages\ViewAnonymizationJob && $livewire->isSqlRegenerating
+                                ? ['wire:poll.3s' => 'refreshSqlPreview']
+                                : [])
+                            ->columnSpanFull(),
                         self::sqlViewer(
                             field: 'sql_script',
                             label: 'Generated SQL',
@@ -1073,8 +1100,10 @@ class AnonymizationJobResource extends Resource
 
     protected static function packagesForJob(AnonymizationJobs $job)
     {
-        if ($job->relationLoaded(self::PACKAGE_DEPENDENCY_RELATION)) {
-            return $job->getRelation(self::PACKAGE_DEPENDENCY_RELATION);
+        $jobId = (int) $job->getKey();
+
+        if (array_key_exists($jobId, self::$packageDependencyCache)) {
+            return self::$packageDependencyCache[$jobId];
         }
 
         $packages = AnonymizationPackage::query()
@@ -1087,9 +1116,9 @@ class AnonymizationJobResource extends Resource
             ->orderBy('anonymization_packages.name')
             ->get();
 
-        $job->setRelation(self::PACKAGE_DEPENDENCY_RELATION, $packages);
+        self::$packageDependencyCache[$jobId] = $packages;
 
-        return $packages;
+        return self::$packageDependencyCache[$jobId];
     }
 
     protected static function formatColumnLabel(AnonymousSiebelColumn $column): string
