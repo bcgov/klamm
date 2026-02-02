@@ -40,7 +40,9 @@ class FormVersionJsonService
             'version_date' => $formVersion->version_date ?? '',
             'version_date_format' => $formVersion->version_date_format ?? '',
             'security_classification' => $formVersion->securityClassification?->name ?? null,
-            'barcode' => $formVersion->barcode,
+            'barcode' => [
+                "content" => $formVersion->barcode,
+            ],
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion, $exportedAt),
             'ministry_id' => $formVersion->form->ministry_id ?? null,
