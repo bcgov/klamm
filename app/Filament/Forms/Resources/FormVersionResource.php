@@ -107,6 +107,9 @@ class FormVersionResource extends Resource
                                     ->relationship('securityClassification', 'name')
                                     ->searchable()
                                     ->preload(),
+                                TextInput::make('barcode')
+                                    ->label('Barcode')
+                                    ->helperText('Supports {{variableSubstitution}} for dynamic values'),
                                 Repeater::make('formVersionFormDataSources')
                                     ->label('Form Data Sources')
                                     ->relationship()
@@ -291,6 +294,16 @@ class FormVersionResource extends Resource
                     ->badge()
                     ->color(fn($state) => FormVersion::getStatusColour($state))
                     ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
+                TextColumn::make('version_date')
+                    ->label('Footer Date')
+                    ->date()
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('barcode')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
