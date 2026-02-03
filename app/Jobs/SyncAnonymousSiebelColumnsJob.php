@@ -15,18 +15,20 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
-/**
- * Job that stages anonymized Siebel metadata and reconciles canonical tables in bulk.
- */
+// Job that stages anonymized Siebel metadata and reconciles canonical tables in bulk.
 class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
     use InteractsWithAnonymousSiebelSync;
 
-    public function __construct(public int $uploadId, public bool $forceRestart = false) {}
-
     // Allow the queue worker to manage timeouts (set via worker flag) without a hard 10-minute cap here.
     public int $timeout = 0;
+
+    public function __construct(public int $uploadId, public bool $forceRestart = false)
+    {
+        // Use dedicated queue for long-running anonymization work
+        $this->onQueue('anonymization');
+    }
 
     public function handle(): void
     {
@@ -42,6 +44,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             $this->persistProgress($upload->id, $attributes);
         };
 
+        // Resume only when the prior run failed after staging work we can reuse.
         $runPhase = (string) ($upload->run_phase ?? '');
         $canResume = ! $this->forceRestart
             && $upload->status === 'failed'
@@ -171,6 +174,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 ],
             ]);
 
+            // Full imports allow deletion reconciliation; partial imports do not.
             $isFullImport = ($upload->import_type ?? 'partial') === 'full';
 
             if ($isFullImport) {
@@ -192,6 +196,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 $result['totals']['deleted'] = $result['totals']['deleted'] ?? 0;
             }
 
+            // Relationship rebuild can fail independently; record warnings but continue.
             if (! empty($result['touchedColumnIdsTempTable'])) {
                 $persist([
                     'status_detail' => 'Reconciling relationships',
@@ -216,7 +221,7 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 }
             }
 
-            // Clean up temporary tables
+            // Clean up temporary tables used during reconciliation.
             if (isset($result['touchedColumnIdsTempTable'])) {
                 DB::statement("DROP TABLE IF EXISTS {$result['touchedColumnIdsTempTable']}");
             }

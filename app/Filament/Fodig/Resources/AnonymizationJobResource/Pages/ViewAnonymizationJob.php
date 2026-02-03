@@ -7,12 +7,24 @@ use App\Jobs\GenerateAnonymizationJobSql;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ViewAnonymizationJob extends ViewRecord
 {
     protected static string $resource = AnonymizationJobResource::class;
+
+    public bool $isSqlRegenerating = false;
+
+    protected ?string $lastSqlScriptHash = null;
+
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+
+        $this->syncSqlRegenerationState();
+    }
 
     protected function getHeaderActions(): array
     {
@@ -33,11 +45,16 @@ class ViewAnonymizationJob extends ViewRecord
                 ->outlined()
                 ->requiresConfirmation()
                 ->action(function () {
+                    $cacheKey = GenerateAnonymizationJobSql::regenerationCacheKey((int) $this->record->getKey());
+                    Cache::put($cacheKey, now()->toIso8601String(), now()->addHours(2));
+                    $this->isSqlRegenerating = true;
+                    $this->lastSqlScriptHash = md5((string) ($this->record->sql_script ?? ''));
+
                     GenerateAnonymizationJobSql::dispatch($this->record->getKey());
                     Notification::make()
                         ->success()
                         ->title('SQL regeneration queued')
-                        ->body('The anonymization script will refresh shortly.')
+                        ->body('The anonymization script will refresh automatically once complete.')
                         ->send();
                 }),
             Actions\Action::make('viewSelection')
@@ -48,6 +65,42 @@ class ViewAnonymizationJob extends ViewRecord
                 ->url(fn() => AnonymizationJobResource::getUrl('selection', ['record' => $this->record])),
             Actions\EditAction::make(),
         ];
+    }
+
+    public function refreshSqlPreview(): void
+    {
+        $cacheKey = GenerateAnonymizationJobSql::regenerationCacheKey((int) $this->record->getKey());
+        $wasRegenerating = $this->isSqlRegenerating;
+
+        $this->record->refresh();
+
+        $this->isSqlRegenerating = Cache::has($cacheKey);
+        $currentHash = md5((string) ($this->record->sql_script ?? ''));
+
+        if (! $this->hasInfolist()) {
+            $this->refreshFormData(['sql_script']);
+            $this->form->fill([
+                ...$this->form->getState(),
+                'sql_script_preview' => $this->record->sql_script,
+            ]);
+        }
+
+        if ($wasRegenerating && ! $this->isSqlRegenerating && $currentHash !== $this->lastSqlScriptHash) {
+            Notification::make()
+                ->success()
+                ->title('SQL regeneration complete')
+                ->body('The SQL preview has been refreshed.')
+                ->send();
+        }
+
+        $this->lastSqlScriptHash = $currentHash;
+    }
+
+    protected function syncSqlRegenerationState(): void
+    {
+        $cacheKey = GenerateAnonymizationJobSql::regenerationCacheKey((int) $this->record->getKey());
+        $this->isSqlRegenerating = Cache::has($cacheKey);
+        $this->lastSqlScriptHash = md5((string) ($this->record->sql_script ?? ''));
     }
 
     protected function downloadSqlScript(): ?StreamedResponse

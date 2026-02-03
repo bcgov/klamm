@@ -1,33 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: klamm-queue-worker
+  name: klamm-queue-anonymization-worker
   labels:
-    app.kubernetes.io/name: klamm-queue-worker
+    app.kubernetes.io/name: klamm-queue-anonymization-worker
 spec:
-  replicas: {{ .Values.queueWorker.replicaCount }}
+  replicas: {{ .Values.queueAnonymizationWorker.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: klamm-queue-worker
+      app.kubernetes.io/name: klamm-queue-anonymization-worker
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: klamm-queue-worker
+        app.kubernetes.io/name: klamm-queue-anonymization-worker
     spec:
       containers:
-        - name: queue-worker
+        - name: queue-anonymization-worker
           image: "{{ .Values.image.tag }}"
-          # Default queue worker
+          # Dedicated worker for long-running anonymization jobs
           command:
             [
               "php",
               "/var/www/artisan",
               "queue:work",
-              "--queue=default",
+              "--queue=anonymization",
               "--sleep=3",
-              "--tries=3",
-              "--timeout=300",
-              "--memory=256",
+              "--tries=1",
+              "--timeout=900",
+              "--memory=1024",
             ]
           envFrom:
             - secretRef:
@@ -83,11 +83,14 @@ spec:
               mountPath: /var/www/storage
           resources:
             limits:
-              cpu: {{ .Values.queueWorker.resources.limits.cpu }}
-              memory: {{ .Values.queueWorker.resources.limits.memory }}
+              cpu: {{ .Values.queueAnonymizationWorker.resources.limits.cpu }}
+              memory:
+                {{ .Values.queueAnonymizationWorker.resources.limits.memory }}
             requests:
-              cpu: {{ .Values.queueWorker.resources.requests.cpu }}
-              memory: {{ .Values.queueWorker.resources.requests.memory }}
+              cpu:
+                {{ .Values.queueAnonymizationWorker.resources.requests.cpu }}
+              memory:
+                {{ .Values.queueAnonymizationWorker.resources.requests.memory }}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           imagePullPolicy: {{ .Values.image.pullPolicy }}

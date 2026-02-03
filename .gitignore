@@ -8,6 +8,7 @@
 .env
 .env.backup
 .env.production
+.env.testing
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
@@ -67,3 +68,7 @@ yarn-error.log
 /public/css/westacks/
 /public/css/rmsramos/
 /public/js/solution-forest/
+
+
+# Script installation files
+scripts/oracle/__pycache__/

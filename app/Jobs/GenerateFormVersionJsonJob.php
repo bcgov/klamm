@@ -36,6 +36,7 @@ class GenerateFormVersionJsonJob implements ShouldQueue
                     $morphTo->morphWith([
                         \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
                         \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
+                        \App\Models\FormBuilding\CheckboxGroupFormElement::class => ['options'],
                     ]);
                 },
                 'formElements.dataBindings.formDataSource',
@@ -48,12 +49,16 @@ class GenerateFormVersionJsonJob implements ShouldQueue
                 'pdfFormScript'
             ])->find($this->formVersion->id);
 
+
+
             switch ($this->version) {
                 case 1:
                     $jsonData = $jsonService->generatePreMigrationJson($formVersion);
                     break;
                 case 2:
-                    $jsonData = $jsonService->generateJson($formVersion);
+                    // update updated_at when downloading JSON
+                    $exportedAt = now('UTC');
+                    $jsonData = $jsonService->generateJson($formVersion, $exportedAt);
                     break;
                 default:
                     throw new \Exception("Unsupported format version: {$this->version}");

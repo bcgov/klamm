@@ -3,7 +3,8 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "test": "./vendor/bin/sail artisan test && ./vendor/bin/sail artisan test --filter=ExampleTest"
     },
     "devDependencies": {
         "axios": "^1.8.2",
