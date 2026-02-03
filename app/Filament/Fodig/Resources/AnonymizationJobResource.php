@@ -50,6 +50,7 @@ class AnonymizationJobResource extends Resource
 
     protected static array $packageDependencyCache = [];
 
+
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
 
     protected static ?string $navigationGroup = 'Anonymizer';
@@ -63,7 +64,8 @@ class AnonymizationJobResource extends Resource
         return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ]);
+            ])
+            ->without(['methods']);
     }
 
     public static function form(Form $form): Form
@@ -580,24 +582,25 @@ class AnonymizationJobResource extends Resource
                     ->columns(1),
                 Section::make('Methods in Use')
                     ->schema([
-                        RepeatableEntry::make('methods')
+                        RepeatableEntry::make('methods_list')
+                            ->label('Methods')
+                            ->getStateUsing(fn(AnonymizationJobs $record) => self::methodsForJob($record))
                             ->schema([
                                 TextEntry::make('name')
                                     ->label('Method')
-                                    ->weight('medium'),
+                                    ->weight('medium')
+                                    ->getStateUsing(fn(?AnonymizationMethods $record) => $record?->name ?? '—'),
                                 TextEntry::make('categories')
                                     ->label('Category')
-                                    ->formatStateUsing(fn($state, $record) => method_exists($record, 'categorySummary')
-                                        ? ($record->categorySummary() ?? '—')
-                                        : '—')
+                                    ->getStateUsing(fn(?AnonymizationMethods $record) => $record?->categorySummary() ?? '—')
                                     ->placeholder('—'),
                             ])
                             ->columns(2)
 
-                            ->visible(fn(AnonymizationJobs $record) => $record->methods->isNotEmpty()),
+                            ->visible(fn(AnonymizationJobs $record) => self::methodsForJob($record)->isNotEmpty()),
                     ])
                     ->collapsible()
-                    ->visible(fn(AnonymizationJobs $record) => $record->methods->isNotEmpty()),
+                    ->visible(fn(AnonymizationJobs $record) => self::methodsForJob($record)->isNotEmpty()),
                 Section::make('Package Dependencies')
                     ->schema([
                         RepeatableEntry::make('packages')
@@ -1096,6 +1099,42 @@ class AnonymizationJobResource extends Resource
             Str::plural('package', $packages->count()),
             implode(', ', $labels)
         );
+    }
+
+    protected static function methodsForJob(AnonymizationJobs $job): Collection
+    {
+        $methodIds = DB::table('anonymization_job_columns')
+            ->where('job_id', $job->getKey())
+            ->whereNotNull('anonymization_method_id')
+            ->distinct()
+            ->pluck('anonymization_method_id')
+            ->map(fn($id) => (int) $id)
+            ->filter();
+
+        if ($methodIds->isEmpty()) {
+            return collect();
+        }
+
+        return AnonymizationMethods::query()
+            ->whereIn('id', $methodIds->all())
+            ->orderBy('name')
+            ->get();
+    }
+
+    protected static function normalizeMethodKey(?string $name, ?string $categories): string
+    {
+        $normalize = static function (?string $value): string {
+            if ($value === null) {
+                return '';
+            }
+
+            $value = str_replace("\u{00A0}", ' ', $value);
+            $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+
+            return mb_strtolower(trim($value));
+        };
+
+        return $normalize($name) . '|' . $normalize($categories);
     }
 
     protected static function packagesForJob(AnonymizationJobs $job)

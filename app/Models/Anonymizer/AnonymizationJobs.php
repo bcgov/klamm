@@ -130,7 +130,8 @@ class AnonymizationJobs extends Model
             'anonymization_job_columns',
             'job_id',
             'anonymization_method_id'
-        )->withPivot('column_id')
+        )
+            ->withPivot('column_id')
             ->withTimestamps()
             ->wherePivotNotNull('anonymization_method_id')
             ->orderBy('anonymization_methods.name');
