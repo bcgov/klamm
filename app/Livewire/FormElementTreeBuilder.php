@@ -276,6 +276,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             'TextInputFormElement' => 'heroicon-o-pencil-square',
             'TextareaInputFormElement' => 'heroicon-o-document-text',
             'NumberInputFormElement' => 'heroicon-o-calculator',
+            'CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
             'SelectInputFormElement' => 'heroicon-o-queue-list',
             'RadioInputFormElement' => 'heroicon-o-radio',
             'CheckboxInputFormElement' => 'heroicon-o-check-circle',

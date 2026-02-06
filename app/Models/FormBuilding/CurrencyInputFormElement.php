@@ -11,7 +11,7 @@ use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ToggleButtons;
 
-class NumberInputFormElement extends Model
+class CurrencyInputFormElement extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -22,23 +22,18 @@ class NumberInputFormElement extends Model
         'enableVarSub',
         'min',
         'max',
-        'step',
         'defaultValue',
-        'maskType',
     ];
 
     protected $casts = [
         'hideLabel' => 'boolean',
         'min' => 'integer',
         'max' => 'integer',
-        'step' => 'float',
         'defaultValue' => 'float',
     ];
 
     protected $attributes = [
         'hideLabel' => false,
-        'step' => 1,
-        'maskType' => 'integer',
     ];
 
     /**
@@ -52,49 +47,21 @@ class NumberInputFormElement extends Model
                 Fieldset::make('Value')
                     ->schema([
                         SchemaHelper::getPlaceholderTextField($disabled)
-                            ->columnSpan(6),
+                            ->columnSpan(3),
                         TextInput::make('elementable_data.defaultValue')
                             ->label('Default Value')
                             ->numeric()
-                            ->step(fn ($get) => $get('elementable_data.step') ?? 1)
-                            ->columnSpan(2)
+                            ->step(.01)
                             ->disabled($disabled),
                         TextInput::make('elementable_data.min')
                             ->label('Minimum Value')
                             ->numeric()
-                            ->step(fn ($get) => $get('elementable_data.step') ?? 1)
-                            ->columnSpan(2)
+                            ->step(.01)
                             ->disabled($disabled),
                         TextInput::make('elementable_data.max')
                             ->label('Maximum Value')
                             ->numeric()
-                            ->step(fn ($get) => $get('elementable_data.step') ?? 1)
-                            ->columnSpan(2)
-                            ->disabled($disabled),
-                        ToggleButtons::make('elementable_data.maskType')
-                            ->label('Input Mask Type')
-                            ->options([
-                                'integer' => 'Integer',
-                                'decimal' => 'Decimal',
-                            ])
-                            ->inline()
-                            ->default('integer')
-                            ->live()
-                            ->columnSpan(2)
-                            ->afterStateUpdated(function ($state, callable $set) {
-                                $stepValues = [
-                                    'integer' => 1,
-                                    'decimal' => 0.01,
-                                ];
-                                $set('elementable_data.step', $stepValues[$state] ?? 1);
-                            }),
-                        TextInput::make('elementable_data.step')
-                            ->label('Step Size')
-                            ->numeric()
-                            ->default(1)
-                            ->minValue(0)
-                            ->live()
-                            ->columnSpan(4)
+                            ->step(.01)
                             ->disabled($disabled),
                     ])
                     ->columns(3),
@@ -103,7 +70,7 @@ class NumberInputFormElement extends Model
     }
 
     /**
-     * Get the form element that owns this number input element.
+     * Get the form element that owns this currency input element.
      */
     public function formElement(): MorphOne
     {
@@ -122,9 +89,7 @@ class NumberInputFormElement extends Model
             'enableVarSub' => $this->enableVarSub,
             'min' => $this->min,
             'max' => $this->max,
-            'step' => $this->step,
             'defaultValue' => $this->defaultValue,
-            'maskType' => $this->maskType,
         ];
     }
 
@@ -140,9 +105,7 @@ class NumberInputFormElement extends Model
             'enableVarSub' => false,
             'min' => null,
             'max' => null,
-            'step' => 1,
             'defaultValue' => null,
-            'maskType' => 'integer',
         ];
     }
 }
