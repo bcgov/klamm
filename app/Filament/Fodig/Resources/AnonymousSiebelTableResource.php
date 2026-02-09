@@ -48,6 +48,15 @@ class AnonymousSiebelTableResource extends Resource
                         Forms\Components\TextInput::make('object_type')
                             ->maxLength(255)
                             ->disabled(fn(?AnonymousSiebelTable $record) => (bool) $record?->exists),
+                        Forms\Components\Select::make('target_relation_kind')
+                            ->label('Target creation')
+                            ->options([
+                                'table' => 'Create table (w/ masking updates)',
+                                'view' => 'Create view (read-only w/ masking updates)',
+                            ])
+                            ->nullable()
+                            ->placeholder('Inherit (job default: tables)')
+                            ->helperText('Leave blank to inherit the job default. Set a value to override this table only.'),
                         Forms\Components\Textarea::make('table_comment')
                             ->rows(3)
                             ->columnSpanFull()
@@ -86,6 +95,10 @@ class AnonymousSiebelTableResource extends Resource
                 Tables\Columns\TextColumn::make('object_type')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('target_relation_kind')
+                    ->label('Target creation')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('columns_count')
                     ->counts('columns')
                     ->label('Columns')

@@ -88,6 +88,13 @@ class AnonymizationJobScriptService
         return strtolower(trim((string) $value));
     }
 
+    protected function normalizeRelationKind(?string $value): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return $value === 'view' ? 'view' : 'table';
+    }
+
     protected function methodUsesSeedPlaceholders(?AnonymizationMethods $method): bool
     {
         $sqlBlock = trim((string) ($method?->sql_block ?? ''));
@@ -1062,6 +1069,7 @@ class AnonymizationJobScriptService
         $targetSchema = $this->targetSchemaForJob($job);
         $tablePrefix = $this->tablePrefixForJob($job);
         $targetTableMode = $this->normalizeJobOption($job?->target_table_mode) ?: 'prefixed';
+        $defaultRelationKind = $this->normalizeRelationKind($job?->target_relation_kind ?? 'table');
 
         if (! $targetSchema || ! $tablePrefix) {
             return [];
@@ -1100,6 +1108,7 @@ class AnonymizationJobScriptService
             $targetTable = $this->oracleIdentifier($targetTableName);
             $targetQualified = $targetSchema . '.' . $targetTable;
             $sourceQualified = $sourceSchema . '.' . $sourceTable;
+            $relationKind = $this->normalizeRelationKind($table->target_relation_kind ?? $defaultRelationKind);
 
             $tablesById[$tableId] = [
                 'source_schema' => $sourceSchema,
@@ -1110,6 +1119,7 @@ class AnonymizationJobScriptService
                 'target_qualified' => $targetQualified,
                 'select_list' => $selectList,
                 'long_columns' => $longColumns,
+                'target_relation_kind' => $relationKind,
             ];
 
             $rawReplace[$sourceQualified] = $targetQualified;
@@ -1127,6 +1137,7 @@ class AnonymizationJobScriptService
             'target_schema' => $targetSchema,
             'table_prefix' => $tablePrefix,
             'target_table_mode' => $targetTableMode,
+            'target_relation_kind' => $defaultRelationKind,
             'tables_by_id' => $tablesById,
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
@@ -1856,6 +1867,7 @@ class AnonymizationJobScriptService
         $targetSchema = $this->targetSchemaForJob($job);
         $tablePrefix = $this->tablePrefixForJob($job);
         $targetTableMode = $this->normalizeJobOption($job?->target_table_mode) ?: 'prefixed';
+        $defaultRelationKind = $this->normalizeRelationKind($job?->target_relation_kind ?? 'table');
 
         if (! $targetSchema || ! $tablePrefix) {
             return [];
@@ -1926,6 +1938,7 @@ class AnonymizationJobScriptService
             $targetTable = $this->oracleIdentifier($targetTableName);
             $targetQualified = $targetSchema . '.' . $targetTable;
             $sourceQualified = $sourceSchema . '.' . $sourceTable;
+            $relationKind = $this->normalizeRelationKind($table->target_relation_kind ?? $defaultRelationKind);
 
             $tablesById[$tableId] = [
                 'source_schema' => $sourceSchema,
@@ -1936,6 +1949,7 @@ class AnonymizationJobScriptService
                 'target_qualified' => $targetQualified,
                 'select_list' => $selectList,
                 'long_columns' => $longColumns,
+                'target_relation_kind' => $relationKind,
             ];
 
             // Rewrite qualified source names to their target working-copy equivalents.
@@ -1955,6 +1969,7 @@ class AnonymizationJobScriptService
             'target_schema' => $targetSchema,
             'table_prefix' => $tablePrefix,
             'target_table_mode' => $targetTableMode,
+            'target_relation_kind' => $defaultRelationKind,
             'tables_by_id' => $tablesById,
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
@@ -2265,6 +2280,34 @@ class AnonymizationJobScriptService
 
             $selectList = $mapping['select_list'] ?? '*';
             $longColumns = $mapping['long_columns'] ?? [];
+            $relationKind = $this->normalizeRelationKind($mapping['target_relation_kind'] ?? ($rewriteContext['target_relation_kind'] ?? 'table'));
+
+            if ($relationKind === 'view') {
+                $lines[] = $this->commentDivider('=');
+                $lines[] = '-- Create anonymized view';
+                $lines[] = '-- NOTE:';
+                $lines[] = '--  * Uses SELECT * to avoid invalid identifier failures';
+                $lines[] = '--  * Copies only columns visible to this user';
+                if (is_array($longColumns) && $longColumns !== []) {
+                    $lines[] = '--  * LONG columns are omitted to avoid ORA-00997';
+                }
+                $lines[] = $this->commentDivider('=');
+
+                if (! is_string($selectList) || trim($selectList) === '') {
+                    $lines[] = '-- Skipped: no non-LONG columns available for view.';
+                } elseif (trim($selectList) === '*' && (empty($longColumns))) {
+                    $lines[] = 'CREATE OR REPLACE VIEW ' . $target . ' AS';
+                    $lines[] = 'SELECT *';
+                    $lines[] = 'FROM   ' . $source . ';';
+                } else {
+                    $lines[] = 'CREATE OR REPLACE VIEW ' . $target . ' AS';
+                    $lines[] = 'SELECT ' . $selectList;
+                    $lines[] = 'FROM   ' . $source . ';';
+                }
+                $lines[] = $this->commentDivider('=');
+                $lines[] = '';
+                continue;
+            }
 
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Drop target table if it exists';
@@ -2406,6 +2449,9 @@ class AnonymizationJobScriptService
 
         $tablesByIdentity = [];
         foreach ($tablesById as $tableId => $mapping) {
+            if (($mapping['target_relation_kind'] ?? 'table') === 'view') {
+                continue;
+            }
             $schema = strtoupper(trim((string) ($mapping['source_schema'] ?? '')));
             $table = strtoupper(trim((string) ($mapping['source_table'] ?? '')));
             if ($schema !== '' && $table !== '') {
@@ -2426,6 +2472,10 @@ class AnonymizationJobScriptService
 
             $childMap = $tablesById[$childTableId] ?? null;
             if (! is_array($childMap)) {
+                continue;
+            }
+
+            if (($childMap['target_relation_kind'] ?? 'table') === 'view') {
                 continue;
             }
 
@@ -2468,6 +2518,10 @@ class AnonymizationJobScriptService
 
                 $parentMap = $tablesById[$parentTableId] ?? null;
                 if (! is_array($parentMap)) {
+                    continue;
+                }
+
+                if (($parentMap['target_relation_kind'] ?? 'table') === 'view') {
                     continue;
                 }
 
@@ -2538,6 +2592,9 @@ class AnonymizationJobScriptService
         $seen = [];
 
         foreach ($tablesById as $tableId => $mapping) {
+            if (($mapping['target_relation_kind'] ?? 'table') === 'view') {
+                continue;
+            }
             $target = $mapping['target_qualified'] ?? null;
             if (! $target) {
                 continue;
