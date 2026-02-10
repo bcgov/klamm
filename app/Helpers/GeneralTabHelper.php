@@ -420,6 +420,7 @@ class GeneralTabHelper
                         'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
                         'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
                         'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
+                        'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
                         'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
                         'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
                         'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
