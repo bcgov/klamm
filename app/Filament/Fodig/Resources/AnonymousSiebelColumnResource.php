@@ -213,6 +213,42 @@ class AnonymousSiebelColumnResource extends Resource
                     ]),
                 Forms\Components\Section::make('Anonymization Settings')
                     ->schema([
+                        Forms\Components\Select::make('table_target_relation_kind')
+                            ->label('Target creation (table default)')
+                            ->options([
+                                'table' => 'Create table (CTAS + masking updates)',
+                                'view' => 'Create view (read-only projection)',
+                            ])
+                            ->nullable()
+                            ->placeholder('Inherit (job default: tables)')
+                            ->dehydrated(false)
+                            ->visibleOn(['edit', 'view'])
+                            ->helperText('Updates the parent table default for how anonymized targets are generated.')
+                            ->afterStateHydrated(function (Forms\Components\Select $component, $state, Get $get, ?AnonymousSiebelColumn $record): void {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId ? AnonymousSiebelTable::query()->withTrashed()->find($tableId) : null;
+                                }
+
+                                $component->state($table?->target_relation_kind);
+                            })
+                            ->afterStateUpdated(function ($state, Get $get, ?AnonymousSiebelColumn $record): void {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId ? AnonymousSiebelTable::query()->withTrashed()->find($tableId) : null;
+                                }
+
+                                if (! $table) {
+                                    return;
+                                }
+
+                                $table->target_relation_kind = $state ?: null;
+                                $table->save();
+                            }),
                         Forms\Components\Textarea::make('metadata_comment')
                             ->label('Metadata comment')
                             ->rows(3)

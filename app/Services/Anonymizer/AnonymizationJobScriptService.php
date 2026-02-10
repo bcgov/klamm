@@ -88,6 +88,13 @@ class AnonymizationJobScriptService
         return strtolower(trim((string) $value));
     }
 
+    protected function normalizeRelationKind(?string $value): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return $value === 'view' ? 'view' : 'table';
+    }
+
     protected function methodUsesSeedPlaceholders(?AnonymizationMethods $method): bool
     {
         $sqlBlock = trim((string) ($method?->sql_block ?? ''));
@@ -217,7 +224,7 @@ class AnonymizationJobScriptService
         if ($preMaskSql !== '') {
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Pre-mask SQL';
-            $lines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
+            $lines[] = '-- Runs after target tables/views are created, before seed maps are created.';
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $preMaskSql) ?: []);
@@ -230,7 +237,7 @@ class AnonymizationJobScriptService
         if ($postMaskSql !== '') {
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Post-mask SQL';
-            $lines[] = '-- Runs after masking updates and seed maps are applied.';
+            $lines[] = '-- Runs after seed maps are created.';
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $postMaskSql) ?: []);
@@ -536,7 +543,8 @@ class AnonymizationJobScriptService
 
         if ($columnIds === []) {
             return [
-                'ordered_ids' => [],
+                'ordered_table_ids' => [],
+                'selected_column_ids' => [],
                 'prefix_sql' => '',
                 'suffix_sql' => '',
                 'seed_provider_map' => [],
@@ -596,7 +604,8 @@ class AnonymizationJobScriptService
         $ordered = $this->topologicallySortColumns($columns);
         if ($ordered->isEmpty()) {
             return [
-                'ordered_ids' => [],
+                'ordered_table_ids' => [],
+                'selected_column_ids' => [],
                 'prefix_sql' => '',
                 'suffix_sql' => '',
                 'seed_provider_map' => [],
@@ -619,6 +628,8 @@ class AnonymizationJobScriptService
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]);
         $rewriteContext = $this->buildJobTableRewriteContext($ordered, $job, true);
+        $rewriteContext['masking_mode'] = 'inline';
+        $rewriteContext['source_alias'] = 'src';
         $seedMapContext = $this->jobUsesSeedMapPlaceholders($ordered)
             ? $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext, $job)
             : [];
@@ -640,7 +651,8 @@ class AnonymizationJobScriptService
                 $prefixLines[] = '-- SQL generation halted due to blocking seed contract violations.';
 
                 return [
-                    'ordered_ids' => [],
+                    'ordered_table_ids' => [],
+                    'selected_column_ids' => [],
                     'prefix_sql' => trim(implode(PHP_EOL, $prefixLines)),
                     'suffix_sql' => '',
                     'seed_provider_map' => [],
@@ -677,49 +689,45 @@ class AnonymizationJobScriptService
             $prefixLines[] = '';
         }
 
-        $tableCloneStatements = $this->renderJobTableClones($rewriteContext);
-        if ($tableCloneStatements !== []) {
-            $prefixLines = array_merge($prefixLines, $tableCloneStatements);
+        $seedProviderMap = [];
+        foreach ($seedProviders as $columnId => $provider) {
+            $seedProviderMap[(int) $columnId] = [
+                'provider_id' => isset($provider['provider']) ? (int) ($provider['provider']?->id ?? 0) : 0,
+                'expression' => $provider['expression'] ?? null,
+            ];
         }
 
+        $suffixLines = [];
         $preMaskSql = trim((string) ($job?->pre_mask_sql ?? ''));
         if ($preMaskSql !== '') {
-            $prefixLines[] = $this->commentDivider('=');
-            $prefixLines[] = '-- Pre-mask SQL';
-            $prefixLines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
-            $prefixLines[] = $this->commentDivider('=');
-            $prefixLines[] = '';
-            $prefixLines = array_merge($prefixLines, preg_split('/\R/', $preMaskSql) ?: []);
-            $prefixLines[] = '';
-            $prefixLines[] = $this->commentDivider('=');
-            $prefixLines[] = '';
+            $suffixLines[] = $this->commentDivider('=');
+            $suffixLines[] = '-- Pre-mask SQL';
+            $suffixLines[] = '-- Runs after target tables/views are created, before seed maps are created.';
+            $suffixLines[] = $this->commentDivider('=');
+            $suffixLines[] = '';
+            $suffixLines = array_merge($suffixLines, preg_split('/\R/', $preMaskSql) ?: []);
+            $suffixLines[] = '';
+            $suffixLines[] = $this->commentDivider('=');
+            $suffixLines[] = '';
         }
 
         $seedMapStatements = $this->renderSeedMapTables($seedMapContext);
         if ($seedMapStatements !== []) {
-            $prefixLines[] = $this->commentDivider('=');
-            $prefixLines[] = '-- Seed Maps (relationship preservation)';
-            $prefixLines[] = '-- Lookup tables keep dependent keys aligned with seed providers.';
-            $prefixLines[] = $this->commentDivider('=');
-            $prefixLines[] = '';
-            $prefixLines = array_merge($prefixLines, $seedMapStatements);
-            $prefixLines[] = $this->commentDivider('=');
-            $prefixLines[] = '';
+            $suffixLines[] = $this->commentDivider('=');
+            $suffixLines[] = '-- Seed Maps (relationship preservation)';
+            $suffixLines[] = '-- Lookup tables keep dependent keys aligned with seed providers.';
+            $suffixLines[] = $this->commentDivider('=');
+            $suffixLines[] = '';
+            $suffixLines = array_merge($suffixLines, $seedMapStatements);
+            $suffixLines[] = $this->commentDivider('=');
+            $suffixLines[] = '';
         }
-
-        $prefixLines[] = $this->commentDivider('=');
-        $prefixLines[] = '-- Column Masking (dependency-ordered)';
-        $prefixLines[] = '-- Columns are processed in topological order: parents before children.';
-        $prefixLines[] = $this->commentDivider('=');
-        $prefixLines[] = '';
-
-        $suffixLines = [];
         $skipConstraints = count($columnIds) > 2000;
         $postMaskSql = trim((string) ($job?->post_mask_sql ?? ''));
         if ($postMaskSql !== '') {
             $suffixLines[] = $this->commentDivider('=');
             $suffixLines[] = '-- Post-mask SQL';
-            $suffixLines[] = '-- Runs after masking updates complete.';
+            $suffixLines[] = '-- Runs after seed maps are created.';
             $suffixLines[] = $this->commentDivider('=');
             $suffixLines[] = '';
             $suffixLines = array_merge($suffixLines, preg_split('/\R/', $postMaskSql) ?: []);
@@ -772,13 +780,8 @@ class AnonymizationJobScriptService
         $suffixLines[] = $this->commentDivider('=');
         $suffixLines[] = '';
 
-        $seedProviderMap = [];
-        foreach ($seedProviders as $columnId => $provider) {
-            $seedProviderMap[(int) $columnId] = [
-                'provider_id' => isset($provider['provider']) ? (int) ($provider['provider']?->id ?? 0) : 0,
-                'expression' => $provider['expression'] ?? null,
-            ];
-        }
+        $orderedTableIds = $this->orderTableIdsByDependencies($ordered);
+        $selectedColumnIds = $ordered->pluck('id')->map(fn($id) => (int) $id)->all();
 
         Log::info('AnonymizationJobScriptService: chunked context prepared', [
             'job_id' => $job?->id,
@@ -789,7 +792,8 @@ class AnonymizationJobScriptService
         ]);
 
         return [
-            'ordered_ids' => $ordered->pluck('id')->map(fn($id) => (int) $id)->all(),
+            'ordered_table_ids' => $orderedTableIds,
+            'selected_column_ids' => $selectedColumnIds,
             'prefix_sql' => trim(implode(PHP_EOL, $prefixLines)),
             'suffix_sql' => trim(implode(PHP_EOL, $suffixLines)),
             'seed_provider_map' => $seedProviderMap,
@@ -911,6 +915,47 @@ class AnonymizationJobScriptService
 
             $lines[] = '';
         }
+
+        return trim(implode(PHP_EOL, $lines));
+    }
+
+    public function buildInlineTableChunk(
+        array $tableIds,
+        array $rewriteContext,
+        array $seedProviderMap,
+        array $seedMapContext,
+        array $selectedColumnIds,
+        ?AnonymizationJobs $job = null
+    ): string {
+        $tableIds = array_values(array_unique(array_filter(array_map('intval', $tableIds))));
+        if ($tableIds === []) {
+            return '';
+        }
+        $sourceAlias = (string) ($rewriteContext['source_alias'] ?? 'src');
+        $warnings = $this->applyInlineMaskedSelectListsForTables(
+            $tableIds,
+            $selectedColumnIds,
+            $seedProviderMap,
+            $rewriteContext,
+            $seedMapContext,
+            $job,
+            $sourceAlias
+        );
+
+        $lines = [];
+        if ($warnings !== []) {
+            $lines[] = $this->commentDivider('=');
+            $lines[] = '-- Inline Masking Notes';
+            $lines[] = '-- Some methods could not be converted to inline expressions; those columns pass through unchanged.';
+            $lines[] = $this->commentDivider('=');
+            foreach ($warnings as $warning) {
+                $lines[] = '-- ' . $warning;
+            }
+            $lines[] = $this->commentDivider('=');
+            $lines[] = '';
+        }
+
+        $lines = array_merge($lines, $this->renderJobTableClonesForTables($rewriteContext, $tableIds));
 
         return trim(implode(PHP_EOL, $lines));
     }
@@ -1062,6 +1107,7 @@ class AnonymizationJobScriptService
         $targetSchema = $this->targetSchemaForJob($job);
         $tablePrefix = $this->tablePrefixForJob($job);
         $targetTableMode = $this->normalizeJobOption($job?->target_table_mode) ?: 'prefixed';
+        $defaultRelationKind = $this->normalizeRelationKind($job?->target_relation_kind ?? 'table');
 
         if (! $targetSchema || ! $tablePrefix) {
             return [];
@@ -1100,6 +1146,7 @@ class AnonymizationJobScriptService
             $targetTable = $this->oracleIdentifier($targetTableName);
             $targetQualified = $targetSchema . '.' . $targetTable;
             $sourceQualified = $sourceSchema . '.' . $sourceTable;
+            $relationKind = $this->normalizeRelationKind($table->target_relation_kind ?? $defaultRelationKind);
 
             $tablesById[$tableId] = [
                 'source_schema' => $sourceSchema,
@@ -1110,6 +1157,7 @@ class AnonymizationJobScriptService
                 'target_qualified' => $targetQualified,
                 'select_list' => $selectList,
                 'long_columns' => $longColumns,
+                'target_relation_kind' => $relationKind,
             ];
 
             $rawReplace[$sourceQualified] = $targetQualified;
@@ -1127,6 +1175,7 @@ class AnonymizationJobScriptService
             'target_schema' => $targetSchema,
             'table_prefix' => $tablePrefix,
             'target_table_mode' => $targetTableMode,
+            'target_relation_kind' => $defaultRelationKind,
             'tables_by_id' => $tablesById,
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
@@ -1177,6 +1226,8 @@ class AnonymizationJobScriptService
         $seedProviders = $this->resolveSeedProviders($ordered);
 
         $rewriteContext = $this->buildJobTableRewriteContext($ordered, $job);
+        $rewriteContext['masking_mode'] = 'inline';
+        $rewriteContext['source_alias'] = 'src';
         $seedMapContext = $this->jobUsesSeedMapPlaceholders($ordered)
             ? $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext, $job)
             : [];
@@ -1221,6 +1272,36 @@ class AnonymizationJobScriptService
             $lines[] = '';
         }
 
+        $seedProviderMap = [];
+        foreach ($seedProviders as $columnId => $provider) {
+            $seedProviderMap[(int) $columnId] = [
+                'provider_id' => isset($provider['provider']) ? (int) ($provider['provider']?->id ?? 0) : 0,
+                'expression' => $provider['expression'] ?? null,
+            ];
+        }
+
+        $tableIds = array_values(array_filter(array_map('intval', array_keys($rewriteContext['tables_by_id'] ?? []))));
+        $inlineWarnings = $this->applyInlineMaskedSelectListsForTables(
+            $tableIds,
+            $ordered->pluck('id')->map(fn($id) => (int) $id)->all(),
+            $seedProviderMap,
+            $rewriteContext,
+            $seedMapContext,
+            $job,
+            (string) ($rewriteContext['source_alias'] ?? 'src')
+        );
+        if ($inlineWarnings !== []) {
+            $lines[] = $this->commentDivider('=');
+            $lines[] = '-- Inline Masking Notes';
+            $lines[] = '-- Some methods could not be converted to inline expressions; those columns pass through unchanged.';
+            $lines[] = $this->commentDivider('=');
+            foreach ($inlineWarnings as $warning) {
+                $lines[] = '-- ' . $warning;
+            }
+            $lines[] = $this->commentDivider('=');
+            $lines[] = '';
+        }
+
         $tableCloneStatements = $this->renderJobTableClones($rewriteContext);
         if ($tableCloneStatements !== []) {
             $lines = array_merge($lines, $tableCloneStatements);
@@ -1230,7 +1311,7 @@ class AnonymizationJobScriptService
         if ($preMaskSql !== '') {
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Pre-mask SQL';
-            $lines[] = '-- Runs after target table clones are created, before seed maps and masking updates.';
+            $lines[] = '-- Runs after target tables/views are created, before seed maps are created.';
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $preMaskSql) ?: []);
@@ -1251,58 +1332,11 @@ class AnonymizationJobScriptService
             $lines[] = '';
         }
 
-        // Process columns in topological order to maintain dependency cascades.
-        // Parent/seed-providing columns must be masked before their dependents.
-        // This ensures FK relationships remain intact when both parent and child columns are anonymized.
-
-        $lines[] = $this->commentDivider('=');
-        $lines[] = '-- Column Masking (dependency-ordered)';
-        $lines[] = '-- Columns are processed in topological order: parents before children.';
-        $lines[] = $this->commentDivider('=');
-        $lines[] = '';
-
-        $orderedIds = $ordered->pluck('id')->map(fn($id) => (int) $id)->all();
-        $lastMethodId = null;
-
-        // @var AnonymousSiebelColumn $column
-        foreach ($ordered as $column) {
-            $method = $this->resolveMethodForColumn($column);
-            $methodId = $method?->id ?? 'none';
-
-            // Emit a method heading when transitioning between methods (for readability).
-            if ($methodId !== $lastMethodId) {
-                $lines[] = $this->commentDivider('-');
-                $lines[] = $this->methodHeading($method);
-                $lastMethodId = $methodId;
-            }
-
-            $sqlBlock = trim((string) ($method?->sql_block ?? ''));
-
-            // Annotate each column with its dependencies.
-            $dependencies = $this->dependencyNames($column, $orderedIds);
-            $depNote = $dependencies !== []
-                ? ' (depends on: ' . implode(', ', $dependencies) . ')'
-                : '';
-
-            $lines[] = '-- Column: ' . $this->describeColumn($column) . $depNote;
-
-            if ($sqlBlock === '') {
-                $lines[] = '-- No SQL block defined for this method.';
-            } else {
-                // Render SQL for this single column, preserving dependency order.
-                foreach ($this->renderSqlBlocksForColumns($sqlBlock, collect([$column]), $seedProviders, $rewriteContext, $seedMapContext) as $renderedBlock) {
-                    $lines[] = $renderedBlock;
-                }
-            }
-
-            $lines[] = '';
-        }
-
         $postMaskSql = trim((string) ($job?->post_mask_sql ?? ''));
         if ($postMaskSql !== '') {
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Post-mask SQL';
-            $lines[] = '-- Runs after masking updates complete.';
+            $lines[] = '-- Runs after seed maps are created.';
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
             $lines = array_merge($lines, preg_split('/\R/', $postMaskSql) ?: []);
@@ -1340,7 +1374,7 @@ class AnonymizationJobScriptService
             $lines = array_merge($lines, $hygiene);
         }
 
-        // Commit final DML so masking updates persist.
+        // Commit final DML so generated tables/views and seed maps are persisted.
         $lines[] = $this->commentDivider('=');
         $lines[] = '-- Finalize';
         $lines[] = 'COMMIT;';
@@ -1780,7 +1814,9 @@ class AnonymizationJobScriptService
         AnonymousSiebelColumn $column,
         ?array $seedProvider = null,
         array $rewriteContext = [],
-        array $seedMapContext = []
+        array $seedMapContext = [],
+        string $alias = 'tgt',
+        bool $useSourceTable = false
     ): string {
         $table = $column->getRelationValue('table');
         $schema = $table?->getRelationValue('schema');
@@ -1790,8 +1826,12 @@ class AnonymizationJobScriptService
         $tableMap = $rewriteContext['tables_by_id'] ?? [];
         $mapped = $tableId > 0 ? ($tableMap[$tableId] ?? null) : null;
 
-        $renderSchemaName = $mapped['target_schema'] ?? ($schema?->schema_name ?? '');
-        $renderTableName = $mapped['target_table'] ?? ($table?->table_name ?? '');
+        $renderSchemaName = $useSourceTable
+            ? ($mapped['source_schema'] ?? ($schema?->schema_name ?? ''))
+            : ($mapped['target_schema'] ?? ($schema?->schema_name ?? ''));
+        $renderTableName = $useSourceTable
+            ? ($mapped['source_table'] ?? ($table?->table_name ?? ''))
+            : ($mapped['target_table'] ?? ($table?->table_name ?? ''));
 
         $qualifiedTable = collect([
             // Omit database prefix when rewriting so SQL runs in the target schema.
@@ -1805,12 +1845,15 @@ class AnonymizationJobScriptService
             ? $this->describeColumn($seedProvider['provider'])
             : $this->describeColumn($column);
         $seedQualified = $this->seedQualifiedReference($column, $seedProvider['provider'] ?? null, $qualifiedTable, $rewriteContext);
-        $seedExpression = $seedProvider['expression'] ?? ('tgt.' . $seedColumnName);
+        $seedExpression = $seedProvider['expression'] ?? ($alias . '.' . $seedColumnName);
+        if ($alias !== 'tgt' && is_string($seedExpression)) {
+            $seedExpression = str_replace('tgt.', $alias . '.', $seedExpression);
+        }
 
         $seedMap = $this->seedMapForColumn($seedProvider['provider'] ?? null, $seedMapContext);
         $seedMapTable = $seedMap['seed_map_table'] ?? '';
         $seedMapLookup = $seedMapTable !== ''
-            ? '(SELECT sm.new_value FROM ' . $seedMapTable . ' sm WHERE sm.old_value = tgt.' . ($column->column_name ?? '') . ' AND ROWNUM = 1)'
+            ? '(SELECT sm.new_value FROM ' . $seedMapTable . ' sm WHERE sm.old_value = ' . $alias . '.' . ($column->column_name ?? '') . ' AND ROWNUM = 1)'
             : '';
 
         $jobSeed = $rewriteContext['job_seed'] ?? '';
@@ -1820,7 +1863,7 @@ class AnonymizationJobScriptService
         $columnName = $column->column_name ?? '';
         $columnMaxLengthExpr = ($columnMaxLength > 0 && $columnMaxLength < 4000)
             ? (string) $columnMaxLength
-            : ($columnName !== '' ? ('length(tgt.' . $columnName . ')') : '4000');
+            : ($columnName !== '' ? ('length(' . $alias . '.' . $columnName . ')') : '4000');
 
         $replacements = [
             '{{TABLE}}' => $qualifiedTable ?: ($renderTableName ?: ($table?->table_name ?? '{{TABLE}}')),
@@ -1830,7 +1873,7 @@ class AnonymizationJobScriptService
             '{{COLUMN}}' => $column->column_name ?? '',
             '{{COLUMN_MAX_LEN}}' => (string) $columnMaxLength,
             '{{COLUMN_MAX_LEN_EXPR}}' => $columnMaxLengthExpr,
-            '{{ALIAS}}' => 'tgt',
+            '{{ALIAS}}' => $alias,
             '{{SEED_COLUMN}}' => $seedColumnName,
             '{{SEED_SOURCE}}' => $seedSourceLabel,
             '{{SEED_SOURCE_QUALIFIED}}' => $seedQualified,
@@ -1843,12 +1886,216 @@ class AnonymizationJobScriptService
 
         $rendered = str_replace(array_keys($replacements), array_values($replacements), $template);
 
+        if ($alias !== 'tgt') {
+            $rendered = str_replace('tgt.', $alias . '.', $rendered);
+        }
+
         $rawReplace = $rewriteContext['raw_replace'] ?? [];
-        if ($rawReplace !== []) {
+        if (! $useSourceTable && $rawReplace !== []) {
             $rendered = str_replace(array_keys($rawReplace), array_values($rawReplace), $rendered);
         }
 
         return $rendered;
+    }
+
+    protected function extractUpdateExpression(string $renderedSql, string $columnName): ?string
+    {
+        $columnName = trim($columnName);
+
+        if ($columnName === '') {
+            return null;
+        }
+
+        $pattern = '/\bset\s+(?:[A-Za-z0-9_]+\.)?' . preg_quote($columnName, '/') . '\s*=\s*(.+?)(?:\s+where\b|;)/is';
+
+        if (! preg_match($pattern, $renderedSql, $matches)) {
+            return null;
+        }
+
+        $expression = trim((string) ($matches[1] ?? ''));
+        $expression = rtrim($expression, ';');
+
+        return $expression === '' ? null : $expression;
+    }
+
+    protected function inlineMaskedExpressionForColumn(
+        AnonymousSiebelColumn $column,
+        ?AnonymizationMethods $method,
+        array $seedProviders,
+        array $rewriteContext,
+        array $seedMapContext,
+        string $sourceAlias = 'src'
+    ): ?string {
+        if (! $method) {
+            return null;
+        }
+
+        $sqlBlock = trim((string) ($method->sql_block ?? ''));
+        if ($sqlBlock === '') {
+            return null;
+        }
+
+        $expressionTemplate = $this->extractUpdateExpressionFromTemplate($sqlBlock);
+        if (! $expressionTemplate) {
+            return null;
+        }
+
+        return $this->applyPlaceholders(
+            $expressionTemplate,
+            $column,
+            $seedProviders[$column->id] ?? null,
+            $rewriteContext,
+            $seedMapContext,
+            $sourceAlias,
+            true
+        );
+    }
+
+    protected function extractUpdateExpressionFromTemplate(string $template): ?string
+    {
+        $pattern = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)\s*where\s+\{\{COLUMN\}\}\s+is\s+not\s+null\b\s*;?/is';
+
+        if (! preg_match($pattern, $template, $matches)) {
+            return null;
+        }
+
+        $expression = trim((string) ($matches[1] ?? ''));
+
+        return $expression === '' ? null : $expression;
+    }
+
+    protected function applyInlineMaskedSelectListsForTables(
+        array $tableIds,
+        array $selectedColumnIds,
+        array $seedProviderMap,
+        array &$rewriteContext,
+        array $seedMapContext,
+        ?AnonymizationJobs $job = null,
+        string $sourceAlias = 'src'
+    ): array {
+        $tableIds = array_values(array_unique(array_filter(array_map('intval', $tableIds))));
+        if ($tableIds === []) {
+            return [];
+        }
+
+        $selectedLookup = array_flip(array_values(array_unique(array_filter(array_map('intval', $selectedColumnIds)))));
+
+        $columns = AnonymousSiebelColumn::query()
+            ->with([
+                'anonymizationMethods',
+                'table.schema.database',
+                'dataType',
+                'parentColumns',
+            ])
+            ->whereIn('table_id', $tableIds)
+            ->orderBy('column_name')
+            ->get();
+
+        if ($columns->isEmpty()) {
+            return [];
+        }
+
+        if ($job?->id) {
+            $jobPivotRows = DB::table('anonymization_job_columns')
+                ->where('job_id', $job->id)
+                ->whereIn('column_id', $columns->pluck('id'))
+                ->select(['column_id', 'anonymization_method_id'])
+                ->get();
+
+            foreach ($jobPivotRows as $row) {
+                $colId = (int) ($row->column_id ?? 0);
+                $column = $columns->firstWhere('id', $colId);
+                if (! $column) {
+                    continue;
+                }
+                $column->setRelation('pivot', (object) [
+                    'anonymization_method_id' => (int) ($row->anonymization_method_id ?? 0),
+                ]);
+            }
+        }
+
+        $providerIds = [];
+        foreach ($columns as $column) {
+            if (! isset($selectedLookup[(int) $column->id])) {
+                continue;
+            }
+            $providerId = (int) ($seedProviderMap[$column->id]['provider_id'] ?? 0);
+            if ($providerId > 0) {
+                $providerIds[$providerId] = true;
+            }
+        }
+
+        $providerModels = collect();
+        if ($providerIds !== []) {
+            $providerModels = AnonymousSiebelColumn::query()
+                ->with(['table.schema.database', 'dataType'])
+                ->whereIn('id', array_keys($providerIds))
+                ->get()
+                ->keyBy('id');
+        }
+
+        $seedProviders = [];
+        foreach ($seedProviderMap as $columnId => $provider) {
+            $columnId = (int) $columnId;
+            if (! isset($selectedLookup[$columnId])) {
+                continue;
+            }
+            $providerId = (int) ($provider['provider_id'] ?? 0);
+            $seedProviders[$columnId] = [
+                'provider' => $providerId > 0 ? $providerModels->get($providerId) : null,
+                'expression' => $provider['expression'] ?? null,
+            ];
+        }
+
+        $warnings = [];
+        $columnsByTable = $columns->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+        foreach ($tableIds as $tableId) {
+            $tableColumns = $columnsByTable->get((int) $tableId, collect());
+            if ($tableColumns->isEmpty()) {
+                continue;
+            }
+
+            $selectParts = [];
+            foreach ($tableColumns as $column) {
+                if ($this->isLongColumn($column)) {
+                    continue;
+                }
+
+                $isSelected = isset($selectedLookup[(int) $column->id]);
+                $method = $isSelected ? $this->resolveMethodForColumn($column) : null;
+
+                $expression = $this->inlineMaskedExpressionForColumn(
+                    $column,
+                    $method,
+                    $seedProviders,
+                    $rewriteContext,
+                    $seedMapContext,
+                    $sourceAlias
+                );
+
+                if (! $expression) {
+                    if ($method) {
+                        $warnings[] = $this->describeColumn($column)
+                            . ': method SQL could not be inlined; column will pass through unchanged.';
+                    }
+                    $expression = $sourceAlias . '.' . ($column->column_name ?? '');
+                }
+
+                $columnName = $column->column_name ?? '';
+                if ($columnName === '') {
+                    continue;
+                }
+
+                $selectParts[] = $expression . ' ' . $columnName;
+            }
+
+            $rewriteContext['tables_by_id'][$tableId]['select_list'] = $selectParts === []
+                ? ''
+                : "\n    " . implode(",\n    ", $selectParts);
+        }
+
+        return $warnings;
     }
 
     protected function buildJobTableRewriteContext(Collection $columns, ?AnonymizationJobs $job, bool $skipLongDetection = false): array
@@ -1856,6 +2103,7 @@ class AnonymizationJobScriptService
         $targetSchema = $this->targetSchemaForJob($job);
         $tablePrefix = $this->tablePrefixForJob($job);
         $targetTableMode = $this->normalizeJobOption($job?->target_table_mode) ?: 'prefixed';
+        $defaultRelationKind = $this->normalizeRelationKind($job?->target_relation_kind ?? 'table');
 
         if (! $targetSchema || ! $tablePrefix) {
             return [];
@@ -1926,6 +2174,7 @@ class AnonymizationJobScriptService
             $targetTable = $this->oracleIdentifier($targetTableName);
             $targetQualified = $targetSchema . '.' . $targetTable;
             $sourceQualified = $sourceSchema . '.' . $sourceTable;
+            $relationKind = $this->normalizeRelationKind($table->target_relation_kind ?? $defaultRelationKind);
 
             $tablesById[$tableId] = [
                 'source_schema' => $sourceSchema,
@@ -1936,6 +2185,7 @@ class AnonymizationJobScriptService
                 'target_qualified' => $targetQualified,
                 'select_list' => $selectList,
                 'long_columns' => $longColumns,
+                'target_relation_kind' => $relationKind,
             ];
 
             // Rewrite qualified source names to their target working-copy equivalents.
@@ -1955,6 +2205,7 @@ class AnonymizationJobScriptService
             'target_schema' => $targetSchema,
             'table_prefix' => $tablePrefix,
             'target_table_mode' => $targetTableMode,
+            'target_relation_kind' => $defaultRelationKind,
             'tables_by_id' => $tablesById,
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
@@ -2265,6 +2516,60 @@ class AnonymizationJobScriptService
 
             $selectList = $mapping['select_list'] ?? '*';
             $longColumns = $mapping['long_columns'] ?? [];
+            $relationKind = $this->normalizeRelationKind($mapping['target_relation_kind'] ?? ($rewriteContext['target_relation_kind'] ?? 'table'));
+            $inlineMasking = ($rewriteContext['masking_mode'] ?? '') === 'inline';
+            $sourceAlias = $inlineMasking ? ($rewriteContext['source_alias'] ?? 'src') : null;
+
+            if ($relationKind === 'view') {
+                $lines[] = $this->commentDivider('=');
+                $lines[] = '-- Drop target view/table if it exists';
+                $lines[] = $this->commentDivider('=');
+                $lines[] = 'BEGIN';
+                $lines[] = "  EXECUTE IMMEDIATE 'DROP VIEW {$target}';";
+                $lines[] = 'EXCEPTION';
+                $lines[] = '  WHEN OTHERS THEN';
+                $lines[] = '    IF SQLCODE != -942 THEN';
+                $lines[] = '      RAISE;';
+                $lines[] = '    END IF;';
+                $lines[] = 'END;';
+                $lines[] = '/';
+                $lines[] = 'BEGIN';
+                $lines[] = "  EXECUTE IMMEDIATE 'DROP TABLE {$target} CASCADE CONSTRAINTS PURGE';";
+                $lines[] = 'EXCEPTION';
+                $lines[] = '  WHEN OTHERS THEN';
+                $lines[] = '    IF SQLCODE != -942 THEN';
+                $lines[] = '      RAISE;';
+                $lines[] = '    END IF;';
+                $lines[] = 'END;';
+                $lines[] = '/';
+                $lines[] = $this->commentDivider('=');
+                $lines[] = '';
+
+                $lines[] = $this->commentDivider('=');
+                $lines[] = '-- Create anonymized view';
+                $lines[] = '-- NOTE:';
+                $lines[] = '--  * Uses SELECT * to avoid invalid identifier failures';
+                $lines[] = '--  * Copies only columns visible to this user';
+                if (is_array($longColumns) && $longColumns !== []) {
+                    $lines[] = '--  * LONG columns are omitted to avoid ORA-00997';
+                }
+                $lines[] = $this->commentDivider('=');
+
+                if (! is_string($selectList) || trim($selectList) === '') {
+                    $lines[] = '-- Skipped: no non-LONG columns available for view.';
+                } elseif (trim($selectList) === '*' && (empty($longColumns))) {
+                    $lines[] = 'CREATE OR REPLACE VIEW ' . $target . ' AS';
+                    $lines[] = 'SELECT *';
+                    $lines[] = 'FROM   ' . $source . ($sourceAlias ? (' ' . $sourceAlias) : '') . ';';
+                } else {
+                    $lines[] = 'CREATE OR REPLACE VIEW ' . $target . ' AS';
+                    $lines[] = 'SELECT ' . $selectList;
+                    $lines[] = 'FROM   ' . $source . ($sourceAlias ? (' ' . $sourceAlias) : '') . ';';
+                }
+                $lines[] = $this->commentDivider('=');
+                $lines[] = '';
+                continue;
+            }
 
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Drop target table if it exists';
@@ -2297,17 +2602,116 @@ class AnonymizationJobScriptService
             } elseif (trim($selectList) === '*' && (empty($longColumns))) {
                 $lines[] = 'CREATE TABLE ' . $target . ' AS';
                 $lines[] = 'SELECT *';
-                $lines[] = 'FROM   ' . $source . ';';
+                $lines[] = 'FROM   ' . $source . ($sourceAlias ? (' ' . $sourceAlias) : '') . ';';
             } else {
                 $lines[] = 'CREATE TABLE ' . $target . ' AS';
                 $lines[] = 'SELECT ' . $selectList;
-                $lines[] = 'FROM   ' . $source . ';';
+                $lines[] = 'FROM   ' . $source . ($sourceAlias ? (' ' . $sourceAlias) : '') . ';';
             }
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
         }
 
         return $lines;
+    }
+
+    protected function renderJobTableClonesForTables(array $rewriteContext, array $tableIds): array
+    {
+        $tablesById = $rewriteContext['tables_by_id'] ?? [];
+
+        if (! is_array($tablesById) || $tablesById === [] || $tableIds === []) {
+            return [];
+        }
+
+        $subset = [];
+        foreach ($tableIds as $tableId) {
+            $tableId = (int) $tableId;
+            if ($tableId <= 0) {
+                continue;
+            }
+            if (isset($tablesById[$tableId])) {
+                $subset[$tableId] = $tablesById[$tableId];
+            }
+        }
+
+        if ($subset === []) {
+            return [];
+        }
+
+        $context = $rewriteContext;
+        $context['tables_by_id'] = $subset;
+
+        return $this->renderJobTableClones($context);
+    }
+
+    protected function orderTableIdsByDependencies(Collection $columns): array
+    {
+        $tableIds = [];
+        $edges = [];
+        $inDegree = [];
+
+        foreach ($columns as $column) {
+            $tableId = (int) ($column->table_id ?? 0);
+            if ($tableId > 0) {
+                $tableIds[$tableId] = true;
+            }
+
+            $parents = $column->getRelationValue('parentColumns') ?? collect();
+            foreach ($parents as $parent) {
+                $parentTableId = (int) ($parent->table_id ?? 0);
+                if ($parentTableId > 0) {
+                    $tableIds[$parentTableId] = true;
+                }
+
+                if ($tableId > 0 && $parentTableId > 0 && $tableId !== $parentTableId) {
+                    $edges[$parentTableId][$tableId] = true;
+                }
+            }
+        }
+
+        $tableIds = array_keys($tableIds);
+        sort($tableIds);
+
+        foreach ($tableIds as $id) {
+            $inDegree[$id] = 0;
+        }
+
+        foreach ($edges as $from => $targets) {
+            foreach (array_keys($targets) as $to) {
+                if (! array_key_exists($to, $inDegree)) {
+                    $inDegree[$to] = 0;
+                }
+                $inDegree[$to]++;
+            }
+        }
+
+        $queue = [];
+        foreach ($inDegree as $id => $count) {
+            if ($count === 0) {
+                $queue[] = $id;
+            }
+        }
+
+        $ordered = [];
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            $ordered[] = $current;
+
+            foreach (array_keys($edges[$current] ?? []) as $to) {
+                $inDegree[$to]--;
+                if ($inDegree[$to] === 0) {
+                    $queue[] = $to;
+                }
+            }
+        }
+
+        if (count($ordered) < count($tableIds)) {
+            $remaining = array_diff($tableIds, $ordered);
+            sort($remaining);
+            $ordered = array_merge($ordered, $remaining);
+        }
+
+        return $ordered;
     }
 
     protected function columnsByTableWithTypes(Collection $tables): array
@@ -2406,6 +2810,9 @@ class AnonymizationJobScriptService
 
         $tablesByIdentity = [];
         foreach ($tablesById as $tableId => $mapping) {
+            if (($mapping['target_relation_kind'] ?? 'table') === 'view') {
+                continue;
+            }
             $schema = strtoupper(trim((string) ($mapping['source_schema'] ?? '')));
             $table = strtoupper(trim((string) ($mapping['source_table'] ?? '')));
             if ($schema !== '' && $table !== '') {
@@ -2426,6 +2833,10 @@ class AnonymizationJobScriptService
 
             $childMap = $tablesById[$childTableId] ?? null;
             if (! is_array($childMap)) {
+                continue;
+            }
+
+            if (($childMap['target_relation_kind'] ?? 'table') === 'view') {
                 continue;
             }
 
@@ -2468,6 +2879,10 @@ class AnonymizationJobScriptService
 
                 $parentMap = $tablesById[$parentTableId] ?? null;
                 if (! is_array($parentMap)) {
+                    continue;
+                }
+
+                if (($parentMap['target_relation_kind'] ?? 'table') === 'view') {
                     continue;
                 }
 
@@ -2538,6 +2953,9 @@ class AnonymizationJobScriptService
         $seen = [];
 
         foreach ($tablesById as $tableId => $mapping) {
+            if (($mapping['target_relation_kind'] ?? 'table') === 'view') {
+                continue;
+            }
             $target = $mapping['target_qualified'] ?? null;
             if (! $target) {
                 continue;
@@ -2727,6 +3145,9 @@ class AnonymizationJobScriptService
         $seedStoreSchema = trim((string) ($job?->seed_store_schema ?? ($rewriteContext['seed_store_schema'] ?? '')));
         $seedStorePrefix = trim((string) ($job?->seed_store_prefix ?? ($rewriteContext['seed_store_prefix'] ?? '')));
 
+        $inlineMasking = ($rewriteContext['masking_mode'] ?? '') === 'inline';
+        $sourceAlias = $inlineMasking ? 'src' : 'tgt';
+
         $isPersistent = $seedStoreMode === 'persistent';
         if ($seedStoreSchema === '') {
             $seedStoreSchema = (string) $targetSchema;
@@ -2788,16 +3209,20 @@ class AnonymizationJobScriptService
 
             $seedExpr = $this->seedExpressionForProvider($provider);
             $seedExpr = $this->renderSeedExpressionPlaceholders($seedExpr, $rewriteContext);
+            if ($inlineMasking) {
+                $seedExpr = str_replace('tgt.', $sourceAlias . '.', $seedExpr);
+            }
 
             $providers[(int) $providerId] = [
                 'provider_id' => (int) $providerId,
                 'provider_column' => $provider->column_name,
-                'provider_table' => $mapped['target_qualified'],
+                'provider_table' => $inlineMasking ? $mapped['source_qualified'] : $mapped['target_qualified'],
                 'seed_expression' => $seedExpr,
                 'seed_map_table' => ($isPersistent ? $seedStoreSchema : $targetSchema) . '.' . $seedMapName,
                 'seed_map_persistence' => $isPersistent ? 'persistent' : 'temporary',
                 'old_value_type' => $columnType,
                 'new_value_type' => $columnType,
+                'source_alias' => $sourceAlias,
             ];
         }
 
@@ -2834,6 +3259,7 @@ class AnonymizationJobScriptService
             $persistence = $provider['seed_map_persistence'] ?? 'temporary';
             $oldValueType = $provider['old_value_type'] ?? 'VARCHAR2(4000)';
             $newValueType = $provider['new_value_type'] ?? 'VARCHAR2(4000)';
+            $sourceAlias = $provider['source_alias'] ?? 'tgt';
 
             if (! $seedMapTable || ! $providerTable || ! $providerColumn || ! $seedExpr) {
                 continue;
@@ -2853,9 +3279,9 @@ class AnonymizationJobScriptService
                 $lines[] = 'MERGE INTO ' . $seedMapTable . ' sm';
                 $lines[] = 'USING (';
                 $lines[] = '  SELECT DISTINCT';
-                $lines[] = '    tgt.' . $providerColumn . ' AS old_value,';
+                $lines[] = '    ' . $sourceAlias . '.' . $providerColumn . ' AS old_value,';
                 $lines[] = '    ' . $seedExpr . ' AS new_value';
-                $lines[] = '  FROM ' . $providerTable . ' tgt';
+                $lines[] = '  FROM ' . $providerTable . ' ' . $sourceAlias;
                 $lines[] = ') src';
                 $lines[] = 'ON (sm.old_value = src.old_value)';
                 $lines[] = 'WHEN NOT MATCHED THEN';
@@ -2871,9 +3297,9 @@ class AnonymizationJobScriptService
                 $lines[] = '/';
                 $lines[] = 'CREATE TABLE ' . $seedMapTable . ' AS';
                 $lines[] = 'SELECT';
-                $lines[] = '  tgt.' . $providerColumn . ' AS old_value,';
+                $lines[] = '  ' . $sourceAlias . '.' . $providerColumn . ' AS old_value,';
                 $lines[] = '  ' . $seedExpr . ' AS new_value';
-                $lines[] = 'FROM ' . $providerTable . ' tgt;';
+                $lines[] = 'FROM ' . $providerTable . ' ' . $sourceAlias . ';';
                 $lines[] = '';
             }
         }
@@ -2906,7 +3332,10 @@ class AnonymizationJobScriptService
         $tableId = (int) ($subjectTable?->getKey() ?? $subject->table_id ?? 0);
         $mapped = ($rewriteContext['tables_by_id'] ?? [])[$tableId] ?? null;
 
-        $qualified = $mapped['target_qualified'] ?? null;
+        $inlineMasking = ($rewriteContext['masking_mode'] ?? '') === 'inline';
+        $qualified = $inlineMasking
+            ? ($mapped['source_qualified'] ?? null)
+            : ($mapped['target_qualified'] ?? null);
         if ($qualified) {
             return $qualified . '.' . ($subject->column_name ?? '');
         }

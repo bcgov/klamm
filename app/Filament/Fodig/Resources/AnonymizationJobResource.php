@@ -108,6 +108,15 @@ class AnonymizationJobResource extends Resource
                             ])
                             ->default('prefixed')
                             ->helperText('Controls where the clone + masking updates are applied. Use ANON_* mode when you want the job to produce anonymized copies in your ANON_ tables.'),
+                        Select::make('target_relation_kind')
+                            ->label('Target creation')
+                            ->options([
+                                'table' => 'Create table (w/ masking updates)',
+                                'view' => 'Create view (read-only w/ masking updates)',
+                            ])
+                            ->nullable()
+                            ->placeholder('Default (tables)')
+                            ->helperText('Leave blank to use the default table behavior. Table-level overrides can change this per table.'),
                         Select::make('seed_store_mode')
                             ->label('Seed map persistence')
                             ->options([
