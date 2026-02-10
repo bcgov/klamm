@@ -126,8 +126,8 @@ class FormVersionBuilder
             return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
                 // Map type to model and field names
                 $modelClass = $type === 'script'
-                    ? \App\Models\FormBuilding\FormScript::class
-                    : \App\Models\FormBuilding\StyleSheet::class;
+                    ? FormScript::class
+                    : StyleSheet::class;
                 $idField = $type === 'script'
                     ? 'selectedFormScriptId'
                     : 'selectedStyleSheetId';
@@ -237,7 +237,7 @@ class FormVersionBuilder
                 $content = '';
                 if ($state) {
                     if ($isScript) {
-                        $script = \App\Models\FormBuilding\FormScript::find($state);
+                        $script = FormScript::find($state);
                         if ($script) {
                             $content = $script->getJsContent() ?? '';
                             $description = $script->description ?? '';
@@ -266,7 +266,7 @@ class FormVersionBuilder
                             $set('target_selections', $targetSelections);
                         }
                     } else {
-                        $sheet = \App\Models\FormBuilding\StyleSheet::find($state);
+                        $sheet = StyleSheet::find($state);
                         if ($sheet) {
                             $description = $sheet->description ?? '';
                             $content = $sheet->getCssContent() ?? '';
@@ -411,6 +411,209 @@ class FormVersionBuilder
                             })
                             ->columnSpanFull(),
                     ]),
+                Tab::make('Scripts')
+                    ->icon('heroicon-o-code-bracket-square')
+                    ->schema([
+                        Grid::make()
+                            ->columns(6)
+                            ->schema([
+                                Hidden::make('selectedFormScriptName'),
+                                AutocompleteBadgeList::make($autocompleteOptionsScript, 'script', 'Form Elements')
+                                    ->columnSpan(1),
+                                Tabs::make('form_script_type')
+                                    ->contained(false)
+                                    ->tabs([
+                                        Tab::make('web_form_script')
+                                            ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
+                                            ->icon('heroicon-o-globe-alt')
+                                            ->schema([
+                                                Select::make('attached_form_script_ids')
+                                                    ->label('Attach Scripts')
+                                                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
+                                                    ->hintIcon('heroicon-o-information-circle')
+                                                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
+                                                    ->options($templateScripts)
+                                                    ->multiple()
+                                                    ->preload()
+                                                    ->searchable()
+                                                    ->dehydrated(false)
+                                                    ->default(function ($livewire) {
+                                                        $record = $livewire->getRecord();
+                                                        return $record
+                                                            ? $record->formScripts()
+                                                            ->where('type', 'template')
+                                                            ->pluck('form_scripts.id')
+                                                            ->map(fn($id) => (string) $id)
+                                                            ->toArray()
+                                                            : [];
+                                                    })
+                                                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
+                                                        if (!empty($state)) return;
+                                                        $record = $livewire->getRecord();
+                                                        $ids = $record
+                                                            ? $record->formScripts()
+                                                            ->where('type', 'template')
+                                                            ->pluck('form_scripts.id')
+                                                            ->map(fn($id) => (string) $id)
+                                                            ->toArray()
+                                                            : [];
+                                                        $set('attached_form_script_ids', $ids);
+                                                    })
+                                                    ->afterStateUpdated(function ($state, callable $set, $livewire) {
+                                                        $record = $livewire->getRecord();
+                                                        if ($record) {
+                                                            $record->formScripts()->sync($state ?? []);
+                                                        }
+                                                    }),
+                                                Actions::make([
+                                                    Action::make('import_js_content_web')
+                                                        ->label('Insert JavaScript')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                                                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
+                                                    Action::make('save_scripts_web')
+                                                        ->label('Save Scripts')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $jsContentWeb = $get('js_content_web') ?? '';
+                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                            // Fire update event for scripts
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_scripts' => $jsContentWeb],
+                                                                'scripts',
+                                                                false
+                                                            );
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Scripts Saved')
+                                                                ->body('JavaScript form scripts have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                ])->alignment(Alignment::Center),
+                                                CustomMonacoEditor::make('js_content_web')
+                                                    ->label(false)
+                                                    ->language('javascript')
+                                                    ->theme('vs-dark')
+                                                    ->live()
+                                                    ->autocomplete($autocompleteOptionsScript)
+                                                    ->reactive()
+                                                    ->height('475px')
+                                                    ->disabled(!$editable),
+                                            ]),
+                                        Tab::make('pdf_form_script')
+                                            ->label('PDF')
+                                            ->icon('heroicon-o-document-text')
+                                            ->visible(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
+                                            ->schema([
+                                                Actions::make([
+                                                    Action::make('import_js_content_pdf')
+                                                        ->label('Insert JavaScript')
+                                                        ->icon('heroicon-o-document-arrow-down')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
+                                                        ->action($importContentAction('js_content_pdf', $formScriptOptions)),
+                                                    Action::make('save_scripts_pdf')
+                                                        ->label('Save Scripts')
+                                                        ->icon('heroicon-o-check')
+                                                        ->color('success')
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            $jsContentWeb = $get('js_content_web') ?? '';
+                                                            $jsContentPdf = $get('js_content_pdf') ?? '';
+
+                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                                                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                                                            // Fire update event for scripts
+                                                            FormVersionUpdateEvent::dispatch(
+                                                                $record->id,
+                                                                $record->form_id,
+                                                                $record->version_number,
+                                                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
+                                                                'scripts',
+                                                                false
+                                                            );
+
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Scripts Saved')
+                                                                ->body('JavaScript form scripts have been saved successfully.')
+                                                                ->send();
+                                                        }),
+                                                    Action::make('migrate_pdf_scripts_to_web')
+                                                        ->label('Migrate to Web')
+                                                        ->icon('heroicon-o-arrow-right-circle')
+                                                        ->color('warning')
+                                                        ->requiresConfirmation()
+                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                                        ->action(function (callable $get, callable $set, $livewire) {
+                                                            $record = $livewire->getRecord();
+                                                            if (!$record) {
+                                                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
+                                                                return;
+                                                            }
+                                                            $pdf = FormScript::where('form_version_id', $record->id)->where('type', 'pdf')->first();
+                                                            if (!$pdf) {
+                                                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF script found.')->send();
+                                                                return;
+                                                            }
+
+                                                            $pdfContent = $pdf->getJsContent() ?? '';
+                                                            $web = FormScript::where('form_version_id', $record->id)->where('type', 'web')->first();
+                                                            $webContent = $web?->getJsContent() ?? '';
+
+                                                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
+                                                            $newWebContent = trim(rtrim($webContent) . "\n\n" . $banner . $pdfContent);
+
+                                                            if ($web) {
+                                                                $web->saveJsContent($newWebContent);
+                                                            } else {
+                                                                FormScript::createFormScript($record, $newWebContent, 'web');
+                                                            }
+
+                                                            // Clear PDF file content (optional) then delete PDF record
+                                                            $pdf->saveJsContent('');
+                                                            try {
+                                                                $pdf->delete();
+                                                            } catch (\Exception $e) {
+                                                                Log::warning('Failed to delete PDF script during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
+                                                            }
+
+                                                            // Update form state
+                                                            $set('js_content_web', $newWebContent);
+                                                            $set('js_content_pdf', '');
+
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Scripts Migrated')
+                                                                ->body('PDF scripts migrated to Web and PDF removed.')
+                                                                ->send();
+                                                        }),
+                                                ])
+                                                    ->alignment(Alignment::Center),
+
+                                                CustomMonacoEditor::make('js_content_pdf')
+                                                    ->label(false)
+                                                    ->language('javascript')
+                                                    ->theme('vs-dark')
+                                                    ->reactive()
+                                                    ->height('475px')
+                                                    ->live()
+                                                    ->autocomplete($autocompleteOptionsScript)
+                                                    ->disabled(!$editable),
+                                            ]),
+                                    ])
+                                    ->columnSpan(5),
+                            ]),
+                    ]),
                 Tab::make('Style')
                     ->icon('heroicon-o-paint-brush')
                     ->schema([
@@ -428,7 +631,7 @@ class FormVersionBuilder
                                     ->columnSpan(5)
                                     ->tabs([
                                         Tab::make('web_style_sheet')
-                                            ->label(fn($livewire) => \App\Models\FormBuilding\StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
+                                            ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
                                             ->icon('heroicon-o-globe-alt')
                                             ->schema([
                                                 // Updated: ensure attached template styles show as selected on load
@@ -515,7 +718,7 @@ class FormVersionBuilder
                                         Tab::make('pdf_style_sheet')
                                             ->label('PDF')
                                             ->icon('heroicon-o-document-text')
-                                            ->visible(fn($livewire) => \App\Models\FormBuilding\StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
+                                            ->visible(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
                                             ->schema([
                                                 Actions::make([
                                                     Action::make('import_css_content_pdf')
@@ -562,14 +765,14 @@ class FormVersionBuilder
                                                                 \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
                                                                 return;
                                                             }
-                                                            $pdf = \App\Models\FormBuilding\StyleSheet::where('form_version_id', $record->id)->where('type', 'pdf')->first();
+                                                            $pdf = StyleSheet::where('form_version_id', $record->id)->where('type', 'pdf')->first();
                                                             if (!$pdf) {
                                                                 \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF stylesheet found.')->send();
                                                                 return;
                                                             }
 
                                                             $pdfContent = $pdf->getCssContent() ?? '';
-                                                            $web = \App\Models\FormBuilding\StyleSheet::where('form_version_id', $record->id)->where('type', 'web')->first();
+                                                            $web = StyleSheet::where('form_version_id', $record->id)->where('type', 'web')->first();
                                                             $webContent = $web?->getCssContent() ?? '';
 
                                                             $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
@@ -581,7 +784,7 @@ class FormVersionBuilder
                                                             if ($web) {
                                                                 $web->saveCssContent($newWebContent);
                                                             } else {
-                                                                \App\Models\FormBuilding\StyleSheet::createStyleSheet($record, $newWebContent, 'web');
+                                                                StyleSheet::createStyleSheet($record, $newWebContent, 'web');
                                                             }
 
                                                             // Clear PDF file content (optional) then delete PDF record
@@ -615,209 +818,6 @@ class FormVersionBuilder
                                                     ->disabled(!$editable),
                                             ]),
                                     ])
-                            ]),
-                    ]),
-                Tab::make('Scripts')
-                    ->icon('heroicon-o-code-bracket-square')
-                    ->schema([
-                        Grid::make()
-                            ->columns(6)
-                            ->schema([
-                                Hidden::make('selectedFormScriptName'),
-                                AutocompleteBadgeList::make($autocompleteOptionsScript, 'script', 'Form Elements')
-                                    ->columnSpan(1),
-                                Tabs::make('form_script_type')
-                                    ->contained(false)
-                                    ->tabs([
-                                        Tab::make('web_form_script')
-                                            ->label(fn($livewire) => \App\Models\FormBuilding\FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
-                                            ->icon('heroicon-o-globe-alt')
-                                            ->schema([
-                                                Select::make('attached_form_script_ids')
-                                                    ->label('Attach Scripts')
-                                                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
-                                                    ->hintIcon('heroicon-o-information-circle')
-                                                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
-                                                    ->options($templateScripts)
-                                                    ->multiple()
-                                                    ->preload()
-                                                    ->searchable()
-                                                    ->dehydrated(false)
-                                                    ->default(function ($livewire) {
-                                                        $record = $livewire->getRecord();
-                                                        return $record
-                                                            ? $record->formScripts()
-                                                            ->where('type', 'template')
-                                                            ->pluck('form_scripts.id')
-                                                            ->map(fn($id) => (string) $id)
-                                                            ->toArray()
-                                                            : [];
-                                                    })
-                                                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                                                        if (!empty($state)) return;
-                                                        $record = $livewire->getRecord();
-                                                        $ids = $record
-                                                            ? $record->formScripts()
-                                                            ->where('type', 'template')
-                                                            ->pluck('form_scripts.id')
-                                                            ->map(fn($id) => (string) $id)
-                                                            ->toArray()
-                                                            : [];
-                                                        $set('attached_form_script_ids', $ids);
-                                                    })
-                                                    ->afterStateUpdated(function ($state, callable $set, $livewire) {
-                                                        $record = $livewire->getRecord();
-                                                        if ($record) {
-                                                            $record->formScripts()->sync($state ?? []);
-                                                        }
-                                                    }),
-                                                Actions::make([
-                                                    Action::make('import_js_content_web')
-                                                        ->label('Insert JavaScript')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
-                                                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
-                                                    Action::make('save_scripts_web')
-                                                        ->label('Save Scripts')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $jsContentWeb = $get('js_content_web') ?? '';
-                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                                                            // Fire update event for scripts
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_scripts' => $jsContentWeb],
-                                                                'scripts',
-                                                                false
-                                                            );
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Saved')
-                                                                ->body('JavaScript form scripts have been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                ])->alignment(Alignment::Center),
-                                                CustomMonacoEditor::make('js_content_web')
-                                                    ->label(false)
-                                                    ->language('javascript')
-                                                    ->theme('vs-dark')
-                                                    ->live()
-                                                    ->autocomplete($autocompleteOptionsScript)
-                                                    ->reactive()
-                                                    ->height('475px')
-                                                    ->disabled(!$editable),
-                                            ]),
-                                        Tab::make('pdf_form_script')
-                                            ->label('PDF')
-                                            ->icon('heroicon-o-document-text')
-                                            ->visible(fn($livewire) => \App\Models\FormBuilding\FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
-                                            ->schema([
-                                                Actions::make([
-                                                    Action::make('import_js_content_pdf')
-                                                        ->label('Insert JavaScript')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
-                                                        ->action($importContentAction('js_content_pdf', $formScriptOptions)),
-                                                    Action::make('save_scripts_pdf')
-                                                        ->label('Save Scripts')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $jsContentWeb = $get('js_content_web') ?? '';
-                                                            $jsContentPdf = $get('js_content_pdf') ?? '';
-
-                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                                                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
-
-                                                            // Fire update event for scripts
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
-                                                                'scripts',
-                                                                false
-                                                            );
-
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Saved')
-                                                                ->body('JavaScript form scripts have been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                    Action::make('migrate_pdf_scripts_to_web')
-                                                        ->label('Migrate to Web')
-                                                        ->icon('heroicon-o-arrow-right-circle')
-                                                        ->color('warning')
-                                                        ->requiresConfirmation()
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, callable $set, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            if (!$record) {
-                                                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
-                                                                return;
-                                                            }
-                                                            $pdf = \App\Models\FormBuilding\FormScript::where('form_version_id', $record->id)->where('type', 'pdf')->first();
-                                                            if (!$pdf) {
-                                                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF script found.')->send();
-                                                                return;
-                                                            }
-
-                                                            $pdfContent = $pdf->getJsContent() ?? '';
-                                                            $web = \App\Models\FormBuilding\FormScript::where('form_version_id', $record->id)->where('type', 'web')->first();
-                                                            $webContent = $web?->getJsContent() ?? '';
-
-                                                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
-                                                            $newWebContent = trim(rtrim($webContent) . "\n\n" . $banner . $pdfContent);
-
-                                                            if ($web) {
-                                                                $web->saveJsContent($newWebContent);
-                                                            } else {
-                                                                \App\Models\FormBuilding\FormScript::createFormScript($record, $newWebContent, 'web');
-                                                            }
-
-                                                            // Clear PDF file content (optional) then delete PDF record
-                                                            $pdf->saveJsContent('');
-                                                            try {
-                                                                $pdf->delete();
-                                                            } catch (\Exception $e) {
-                                                                Log::warning('Failed to delete PDF script during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
-                                                            }
-
-                                                            // Update form state
-                                                            $set('js_content_web', $newWebContent);
-                                                            $set('js_content_pdf', '');
-
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Migrated')
-                                                                ->body('PDF scripts migrated to Web and PDF removed.')
-                                                                ->send();
-                                                        }),
-                                                ])
-                                                    ->alignment(Alignment::Center),
-
-                                                CustomMonacoEditor::make('js_content_pdf')
-                                                    ->label(false)
-                                                    ->language('javascript')
-                                                    ->theme('vs-dark')
-                                                    ->reactive()
-                                                    ->height('475px')
-                                                    ->live()
-                                                    ->autocomplete($autocompleteOptionsScript)
-                                                    ->disabled(!$editable),
-                                            ]),
-                                    ])
-                                    ->columnSpan(5),
                             ]),
                     ]),
             ]);
