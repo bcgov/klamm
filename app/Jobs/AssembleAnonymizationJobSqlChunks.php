@@ -105,7 +105,8 @@ class AssembleAnonymizationJobSqlChunks implements ShouldQueue
         Cache::forget($this->cacheKey . ':rewrite');
         Cache::forget($this->cacheKey . ':seed_map');
         Cache::forget($this->cacheKey . ':seed_providers');
-        Cache::forget($this->cacheKey . ':ordered_ids');
+        Cache::forget($this->cacheKey . ':selected_column_ids');
+        Cache::forget($this->cacheKey . ':ordered_table_ids');
 
         for ($i = 0; $i < $this->chunkCount; $i++) {
             Cache::forget($this->cacheKey . ':chunk:' . $i);
