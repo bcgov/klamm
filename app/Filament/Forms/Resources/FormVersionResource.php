@@ -26,9 +26,9 @@ use Filament\Forms\Components\Repeater;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
-use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\RestoreAction;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Fieldset;
 use Illuminate\Database\Eloquent\Builder;
@@ -314,6 +314,14 @@ class FormVersionResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('status')
+                ->options([
+                    'draft' => 'Draft',
+                    'under_review' => 'Under Review',
+                    'approved' => 'Approved',
+                    'published' => 'Published',
+                    'archived' => 'Archived',
+                ]),
                 TrashedFilter::make()
                     ->visible(fn() => Gate::allows('admin')),
             ])
