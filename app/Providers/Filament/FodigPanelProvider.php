@@ -20,6 +20,8 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use App\Http\Middleware\CheckRole;
 use Filament\Navigation\MenuItem;
 use Filament\Navigation\NavigationGroup;
+use Rmsramos\Activitylog\ActivitylogPlugin;
+use App\Filament\Plugins\ActivityLog\CustomActivitylogResource;
 
 class FodigPanelProvider extends PanelProvider
 {
@@ -64,6 +66,15 @@ class FodigPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Fodig/Widgets'), for: 'App\\Filament\\Fodig\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
+            ])
+            ->plugins([
+                ActivitylogPlugin::make()
+                    ->navigationItem(false)
+                    ->isResourceActionHidden(true)
+                    ->isRestoreModelActionHidden(true)
+                    ->isRestoreActionHidden(false)
+                    ->resource(CustomActivitylogResource::class)
+                    ->authorize(fn() => CheckRole::hasRole(request(), 'fodig') || CheckRole::hasRole(request(), 'admin')),
             ])
             ->middleware([
                 EncryptCookies::class,

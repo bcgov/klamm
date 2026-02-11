@@ -140,6 +140,7 @@ return [
             app_path('Models'),
             app_path('Models/FormBuilding'),
             app_path('Models/FormMetadata'),
+            app_path('Models/Anonymizer'),
         ],
 
         /*

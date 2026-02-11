@@ -57,7 +57,6 @@ class TextInputFormElement extends Model
                         ToggleButtons::make('elementable_data.maskType')
                             ->label('Input Mask Type')
                             ->options([
-                                'currency' => 'Currency',
                                 'email' => 'Email',
                                 'phone'=> 'Phone',
                                 'custom' => 'Custom',
@@ -66,7 +65,6 @@ class TextInputFormElement extends Model
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
                                 $maskPatterns = [
-                                    'currency' => '$0.99',
                                     'email' => '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
                                     'phone' => '### ###-####',
                                     'custom' => '',

@@ -1,0 +1,84 @@
+<?php
+
+namespace App\Models\Anonymizer;
+
+use App\Traits\LogsAnonymizerActivity;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class AnonymousSiebelSchema extends Model
+{
+    use SoftDeletes, HasFactory, LogsAnonymizerActivity;
+
+    protected $table = 'anonymous_siebel_schemas';
+    protected $fillable = [
+        'schema_name',
+        'description',
+        'type',
+        'content_hash',
+        'last_synced_at',
+        'changed_at',
+        'changed_fields',
+        'database_id',
+    ];
+    protected $casts = [
+        'last_synced_at' => 'datetime',
+        'changed_at' => 'datetime',
+        'changed_fields' => 'array',
+    ];
+
+    protected static function activityLogNameOverride(): ?string
+    {
+        return 'anonymous_siebel_schemas';
+    }
+
+    protected static function activityLogAttributesOverride(): ?array
+    {
+        return [
+            'database_id',
+            'schema_name',
+            'description',
+            'type',
+            'content_hash',
+            'last_synced_at',
+            'changed_at',
+        ];
+    }
+
+    protected function activityLogSubjectIdentifier(): ?string
+    {
+        return $this->schema_name;
+    }
+
+    protected function describeActivityEvent(string $eventName, array $context = []): string
+    {
+        $database = $this->getRelationValue('database');
+
+        if (! $database) {
+            $database = $this->database()->withTrashed()->first();
+        }
+
+        $databaseName = $database?->database_name;
+        $schema = $this->schema_name ?? ('#' . $this->getKey());
+        $qualified = $databaseName ? $databaseName . '.' . $schema : $schema;
+
+        return match ($eventName) {
+            'created' => "Schema {$qualified} created",
+            'deleted' => "Schema {$qualified} deleted",
+            'restored' => "Schema {$qualified} restored",
+            'updated' => "Schema {$qualified} updated",
+            default => $this->defaultActivityDescription($eventName, $context),
+        };
+    }
+
+    public function database()
+    {
+        return $this->belongsTo(AnonymousSiebelDatabase::class, 'database_id')->withTrashed();
+    }
+
+    public function tables()
+    {
+        return $this->hasMany(AnonymousSiebelTable::class, 'schema_id')->withTrashed();
+    }
+}

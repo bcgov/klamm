@@ -51,23 +51,25 @@ class NumberInputFormElement extends Model
             [
                 Fieldset::make('Value')
                     ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled),
+                        SchemaHelper::getPlaceholderTextField($disabled)
+                            ->columnSpan(6),
                         TextInput::make('elementable_data.defaultValue')
                             ->label('Default Value')
                             ->numeric()
-                            ->step(1)
+                            ->step(fn ($get) => $get('elementable_data.step') ?? 1)
+                            ->columnSpan(2)
                             ->disabled($disabled),
                         TextInput::make('elementable_data.min')
                             ->label('Minimum Value')
                             ->numeric()
-                            ->integer()
-                            ->step(1)
+                            ->step(fn ($get) => $get('elementable_data.step') ?? 1)
+                            ->columnSpan(2)
                             ->disabled($disabled),
                         TextInput::make('elementable_data.max')
                             ->label('Maximum Value')
                             ->numeric()
-                            ->integer()
-                            ->step(1)
+                            ->step(fn ($get) => $get('elementable_data.step') ?? 1)
+                            ->columnSpan(2)
                             ->disabled($disabled),
                         ToggleButtons::make('elementable_data.maskType')
                             ->label('Input Mask Type')
@@ -78,8 +80,8 @@ class NumberInputFormElement extends Model
                             ->inline()
                             ->default('integer')
                             ->live()
+                            ->columnSpan(2)
                             ->afterStateUpdated(function ($state, callable $set) {
-                                // auto-set step based on maskType
                                 $stepValues = [
                                     'integer' => 1,
                                     'decimal' => 0.01,
@@ -89,12 +91,13 @@ class NumberInputFormElement extends Model
                         TextInput::make('elementable_data.step')
                             ->label('Step Size')
                             ->numeric()
-                            ->step(0.01)
                             ->default(1)
                             ->minValue(0)
+                            ->live()
+                            ->columnSpan(4)
                             ->disabled($disabled),
                     ])
-                    ->columns(1),
+                    ->columns(3),
             ]
         );
     }

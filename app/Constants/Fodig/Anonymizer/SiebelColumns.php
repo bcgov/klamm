@@ -1,0 +1,60 @@
+<?php
+
+namespace App\Constants\Fodig\Anonymizer;
+
+final class SiebelColumns
+{
+    // Known Siebel column export header candidates. Kept as a constant so they can be reused across import/validation code.
+    public const SIEBEL_COLUMNS_HEADER_CANDIDATES = [
+        'NAME',
+        'CHANGED',
+        'PARENT TABLE',
+        'PROJECT',
+        'REPOSITORY NAME',
+        'USER NAME',
+        'ALIAS',
+        'TYPE',
+        'PRIMARY KEY',
+        'USER KEY SEQUENCE',
+        'NULLABLE',
+        'TRANSLATE',
+        'TRANSLATION TABLE NAME',
+        'REQUIRED',
+        'FOREIGN KEY TABLE',
+        'USE FUNCTION KEY',
+        'PHYSICAL TYPE',
+        'LENGTH',
+        'PRECISION',
+        'SCALE',
+        'DEFAULT',
+        'LOV TYPE',
+        'LOV BOUNDED',
+        'SEQUENCE OBJECT',
+        'FORCE CASE',
+        'CASCADE CLEAR',
+        'PRIMARY CHILD COLUMN',
+        'PRIMARY INTER TABLE',
+        'TRANSACTION LOG CODE',
+        'VALID CONDITION',
+        'DENORMALIZATION PATH',
+        'PRIMARY CHILD TABLE',
+        'PRIMARY CHILD COLUMN',
+        'STATUS',
+        'PRIMARY CHILD JOIN COLUMN',
+        'PRIMARY JOIN COLUMN',
+        'EIM PROCESSING COLUMN FLAG',
+        'FK COLUMN 1:M REL NAME',
+        'FK COLUMN M:1 REL NAME',
+        'SEQUENCE',
+        'ASCII ONLY',
+        'INACTIVE',
+        'COMMENTS',
+        'NO MATCH VALUE',
+        'SYSTEM FIELD MAPPING',
+        'PARTITION SEQUENCE NUMBER',
+        'DEFAULT INSENSITIVITY',
+        'COMPUTATION EXPRESSION',
+        'ENCRYPT KEY SPECIFIER',
+        'MODULE'
+    ];
+}

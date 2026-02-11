@@ -15,6 +15,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->softDeletes(); // adds deleted_at
+        });
+
         DB::transaction(function () {
             // Create the user role if it doesn't exist yet
             $userRole = Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
@@ -65,6 +70,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropSoftDeletes();
+        });
+
+
         DB::transaction(function () {
             $viewOnlyRoles = ['fodig-view-only', 'forms-view-only', 'bre-view-only'];
 

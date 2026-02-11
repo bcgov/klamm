@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->softDeletes();
+        Schema::table('anonymous_siebel_columns', function (Blueprint $table) {
+            $table->boolean('anonymization_requirement_reviewed')->nullable()->default(null);
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropSoftDeletes();
+        Schema::table('anonymous_siebel_columns', function (Blueprint $table) {
+            $table->dropColumn('anonymization_requirement_reviewed');
         });
     }
 };

@@ -132,7 +132,9 @@ class GeneralTabHelper
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     // Auto-generate reference_id if it's empty and we have a name
                     if (!empty($state) && empty($get('reference_id'))) {
-                        $slug = \Illuminate\Support\Str::slug($state, '-');
+                        // Replace slashes and backslashes with dashes before slugifying
+                        $preparedState = preg_replace('/[\/\\\\]/', '-', $state);
+                        $slug = \Illuminate\Support\Str::slug($preparedState, '-');
                         $set('reference_id', $slug);
                     }
                 });
@@ -420,6 +422,7 @@ class GeneralTabHelper
                         'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
                         'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
                         'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
+                        'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
                         'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
                         'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
                         'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',

@@ -67,6 +67,9 @@ COPY ports.conf /etc/apache2/ports.conf
 COPY apache2.conf /etc/apache2/apache2.conf
 COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
+# Copy PHP upload config
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+
 # Generate APP_KEY
 RUN echo "APP_KEY=" > .env
 RUN php artisan key:generate
