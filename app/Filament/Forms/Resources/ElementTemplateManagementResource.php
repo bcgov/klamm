@@ -13,6 +13,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+
 class ElementTemplateManagementResource extends Resource
 {
     protected static ?string $model = FormElement::class;
@@ -78,14 +79,13 @@ class ElementTemplateManagementResource extends Resource
                 Tables\Columns\IconColumn::make('save_on_submit')->label('Save on Submit')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 // Tables\Columns\IconColumn::make('is_template')->label('Is template')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('source_element_id')->label('Source element ID')->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('custom_visibility')->label('Custom Visibility')->wrap()->toggleable(isToggledHiddenByDefault: true)->searchable(),
                 Tables\Columns\TextColumn::make('custom_read_only')->label('Custom Read Only')->wrap()->toggleable(isToggledHiddenByDefault: true)->searchable(),
             ])
             ->filters([
                 SelectFilter::make('elementable_type')->label('Element type')->options(function () {
                     // Canonical label map from the model
                     $labels = FormElement::getAvailableElementTypes(); // [FQCN => 'Text Input', ...]
-        
+
                     // Only show types that are present among templates
                     $typesInDb = FormElement::query()
                         ->where('is_template', true)

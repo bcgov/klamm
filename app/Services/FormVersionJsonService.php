@@ -356,7 +356,6 @@ class FormVersionJsonService
             'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
-            'custom_visibility' => $element->custom_visibility,
             'is_read_only' => $element->is_read_only && $element->custom_read_only ? $element->custom_read_only : $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
@@ -941,14 +940,6 @@ class FormVersionJsonService
             $conditions[] = [
                 'type' => 'readOnly',
                 'value' => $element->is_read_only ? '{return true}' : '{return false}'
-            ];
-        }
-
-        // Only include visibility condition if custom_visibility is set and not empty
-        if (!empty($element->custom_visibility)) {
-            $conditions[] = [
-                'type' => 'visibility',
-                'value' => $element->custom_visibility
             ];
         }
 

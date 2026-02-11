@@ -799,7 +799,6 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'custom_read_only' => $attributes['is_read_only'] ? true : false,
                     'is_required' => $attributes['is_required'] ?? false,
                     'save_on_submit' => $attributes['save_on_submit'] ?? true,
-                    'custom_visibility' => $attributes['custom_visibility'] ?? '',
                 ];
 
                 $elementData['properties'] = [

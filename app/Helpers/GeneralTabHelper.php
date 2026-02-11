@@ -90,7 +90,7 @@ class GeneralTabHelper
                     $set('visible_web', $template->visible_web);
                     $set('visible_pdf', $template->visible_pdf);
                     $set('is_template', false); // New element should not be a template by default
-    
+
                     // Prefill tags
                     if ($template->tags->isNotEmpty()) {
                         $set('tags', $template->tags->pluck('id')->toArray());
@@ -219,8 +219,8 @@ class GeneralTabHelper
                         ->tooltip(fn($get) => $get('reference_id_locked')
                             ? ''
                             : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings.')->action(function ($set, $get) {
-                                $set('reference_id_locked', true);
-                            })
+                            $set('reference_id_locked', true);
+                        })
                 )
                 ->disabled(fn($get) => !$get('reference_id_locked'))
                 ->suffix(function ($get) {
@@ -328,7 +328,7 @@ class GeneralTabHelper
                             $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
 
                             $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
-                            $label = addslashes($label); 
+                            $label = addslashes($label);
                             $snippet = "'{$base}' /* {$label} */";
 
                             $livewire->dispatch('copy-to-clipboard', text: $snippet);
@@ -402,51 +402,50 @@ class GeneralTabHelper
             // For create and view modes
             $elementTypeField = $isCreate
                 ? ToggleButtons::make('elementable_type')
-                    ->label(function (?string $state): string {
-                        $elementType = $state ? FormElement::getElementTypeName($state) : '';
-                        if ($elementType) {
-                            return "Element Type: {$elementType}";
-                        } else {
-                            return 'Element Type';
+                ->label(function (?string $state): string {
+                    $elementType = $state ? FormElement::getElementTypeName($state) : '';
+                    if ($elementType) {
+                        return "Element Type: {$elementType}";
+                    } else {
+                        return 'Element Type';
+                    }
+                })
+                ->options(FormElement::getAvailableElementTypes())
+                ->inline()
+                ->icons([
+                    'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
+                    'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
+                    'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
+                    'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
+                    'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
+                    'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
+                    'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
+                    'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
+                    'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
+                    'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
+                    'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
+                    'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
+                    'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
+                ])
+                ->required()
+                ->live()
+                ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                ->afterStateUpdated(function ($state, callable $set) {
+                    // Clear existing elementable data when type changes
+                    $set('elementable_data', []);
+
+                    // Populate with defaults from the new element type
+                    if ($state && class_exists($state)) {
+                        $defaults = self::getElementTypeDefaults($state);
+
+                        if (!empty($defaults)) {
+                            $set('elementable_data', $defaults);
                         }
-
-                    })
-                    ->options(FormElement::getAvailableElementTypes())
-                    ->inline()
-                    ->icons([
-                        'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
-                        'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
-                        'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
-                        'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
-                        'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
-                        'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
-                        'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
-                        'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
-                        'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
-                        'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
-                        'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
-                        'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
-                        'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
-                    ])
-                    ->required()
-                    ->live()
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                    ->afterStateUpdated(function ($state, callable $set) {
-                        // Clear existing elementable data when type changes
-                        $set('elementable_data', []);
-
-                        // Populate with defaults from the new element type
-                        if ($state && class_exists($state)) {
-                            $defaults = self::getElementTypeDefaults($state);
-
-                            if (!empty($defaults)) {
-                                $set('elementable_data', $defaults);
-                            }
-                        }
-                    })
+                    }
+                })
                 : TextInput::make('elementable_type')
-                    ->label('Element Type')
-                    ->disabled(true);
+                ->label('Element Type')
+                ->disabled(true);
         }
 
         // Add tooltip if callback is provided
@@ -489,21 +488,6 @@ class GeneralTabHelper
                     ->label('Visible on PDF')
                     ->default(true)
                     ->disabled($disabled || ($disabledCallback && $disabledCallback())),
-            ]);
-        $customVisibilityField = TextArea::make('custom_visibility')
-            ->label('Custom Visibility Script')
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $customVisibilityField = $customVisibilityField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom visibility script to control when this element is shown. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.');
-            });
-        }
-
-        $schema[] = Grid::make(1)
-            ->schema([
-                $customVisibilityField,
             ]);
 
         // Required and Template toggles
