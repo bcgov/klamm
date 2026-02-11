@@ -36,7 +36,6 @@ class FormElement extends Model
         'save_on_submit',
         'visible_web',
         'visible_pdf',
-        'custom_visibility',
         'is_template',
         'source_element_id',
     ];
