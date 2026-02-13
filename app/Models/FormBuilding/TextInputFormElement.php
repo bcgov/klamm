@@ -22,6 +22,7 @@ class TextInputFormElement extends Model
         'enableVarSub',
         'maskType',
         'mask',
+        'maskErrorMessage',
         'maxCount',
         'defaultValue',
     ];
@@ -76,6 +77,12 @@ class TextInputFormElement extends Model
                             ->autocomplete(false)
                             ->hint('Supports Maska syntax, regular expressions, or character classes like "a-zA-Z0-9"')
                             ->disabled($disabled),
+                        TextInput::make('elementable_data.maskErrorMessage')
+                            ->label('Validation Message')
+                            ->placeholder('e.g. Only letters and spaces are allowed')
+                            ->hint('Displayed when input doesn\'t match the mask')
+                            ->visible(fn ($get) => $get('elementable_data.maskType') === 'custom')
+                            ->disabled($disabled),
                     ])
                     ->columns(1),
             ]
@@ -101,6 +108,7 @@ class TextInputFormElement extends Model
             'hideLabel' => $this->hideLabel,
             'enableVarSub' => $this->enableVarSub,
             'mask' => $this->mask,
+            'maskErrorMessage' => $this->maskErrorMessage,
             'maxCount' => $this->maxCount,
             'defaultValue' => $this->defaultValue,
         ];
@@ -117,6 +125,7 @@ class TextInputFormElement extends Model
             'hideLabel' => false,
             'enableVarSub' => false,
             'mask' => '',
+            'maskErrorMessage' => '',
             'maxCount' => null,
             'defaultValue' => '',
         ];
