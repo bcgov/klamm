@@ -8,6 +8,7 @@ use App\Filament\Fodig\Resources\AnonymizationMethodResource;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
 use App\Filament\Fodig\RelationManagers\ActivityLogRelationManager;
+use App\Jobs\PrepareCsvExportWithProgress;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymizationColumnTag;
@@ -823,11 +824,13 @@ class AnonymousSiebelColumnResource extends Resource
                     ExportAction::make('export_temp_format')
                         ->label('Export Temp Format')
                         ->exporter(AnonymousSiebelColumnExporter::class)
+                        ->job(PrepareCsvExportWithProgress::class)
                         ->formats([ExportFormat::Csv])
                         ->fileName(fn(Export $export): string => "Siebel-Columns-Temp-{$export->getKey()}"),
                     ExportAction::make('export_legacy_format')
                         ->label('Export Legacy Format')
                         ->exporter(AnonymousSiebelColumnLegacyExporter::class)
+                        ->job(PrepareCsvExportWithProgress::class)
                         ->formats([ExportFormat::Csv])
                         ->fileName(fn(Export $export): string => "Siebel-Columns-Legacy-{$export->getKey()}"),
                 ])
@@ -841,10 +844,12 @@ class AnonymousSiebelColumnResource extends Resource
                     ExportBulkAction::make('export_selected_temp_format')
                         ->label('Export selected (Temp)')
                         ->formats([ExportFormat::Csv])
+                        ->job(PrepareCsvExportWithProgress::class)
                         ->exporter(AnonymousSiebelColumnExporter::class),
                     ExportBulkAction::make('export_selected_legacy_format')
                         ->label('Export selected (Legacy)')
                         ->formats([ExportFormat::Csv])
+                        ->job(PrepareCsvExportWithProgress::class)
                         ->exporter(AnonymousSiebelColumnLegacyExporter::class),
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
