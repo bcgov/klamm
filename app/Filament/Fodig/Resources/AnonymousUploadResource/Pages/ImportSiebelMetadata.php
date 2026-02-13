@@ -22,6 +22,7 @@ use Illuminate\Support\Js;
 use Illuminate\Support\Str;
 use App\Constants\Fodig\Anonymizer\SiebelColumns;
 use App\Constants\Fodig\Anonymizer\SiebelMetadata;
+use App\Http\Middleware\CheckRole;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -84,6 +85,11 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->label('Create change tickets after import')
                                 ->helperText('When enabled, Klamm will create change tickets based on catalog differences detected by this upload.')
                                 ->default(true),
+                            Toggle::make('override_anonymization_rules')
+                                ->label('Override anonymization rules from CSV')
+                                ->helperText('Admin only. When enabled, blank ANON_RULE / ANON_NOTE values clear existing anonymization required/method mappings for matched columns.')
+                                ->default(false)
+                                ->visible(fn(): bool => CheckRole::hasRole(request(), 'admin')),
                         ]),
                     Wizard\Step::make('Partial Scope')
                         ->disabled(fn(Get $get) => ($get('import_type') ?? 'partial') === 'full')
@@ -266,6 +272,7 @@ class ImportSiebelMetadata extends Page implements HasForms
             $file = $this->resolveUploadedFile($data['csv_file'] ?? null);
             $importType = $data['import_type'] ?? 'partial';
             $createChangeTickets = (bool) ($data['create_change_tickets'] ?? true);
+            $overrideAnonymizationRules = (bool) ($data['override_anonymization_rules'] ?? false);
             $isSiebelColumns = (bool) ($data['is_siebel_columns_format'] ?? false);
             $scopeType = $data['partial_scope'] ?? null;
             $scopeName = ($data['scope_select_mode'] ?? 'select') === 'select'
@@ -316,6 +323,7 @@ class ImportSiebelMetadata extends Page implements HasForms
                 'original_name' => $file->getClientOriginalName(),
                 'import_type' => $importType,
                 'create_change_tickets' => $createChangeTickets,
+                'override_anonymization_rules' => $overrideAnonymizationRules,
                 'scope_type' => $scopeType,
                 'scope_name' => $scopeName,
                 'status' => 'queued',
