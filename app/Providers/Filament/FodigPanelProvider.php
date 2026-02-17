@@ -36,6 +36,8 @@ class FodigPanelProvider extends PanelProvider
             ->sidebarWidth('15rem')
             ->login()
             ->passwordReset()
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('10s')
             ->colors([
                 'primary' => Color::Blue,
             ])

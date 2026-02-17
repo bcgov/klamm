@@ -2,19 +2,27 @@
 
 namespace App\Filament\Fodig\Resources;
 
+use App\Filament\Exports\AnonymousSiebelColumnExporter;
+use App\Filament\Exports\AnonymousSiebelColumnLegacyExporter;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
 use App\Filament\Fodig\RelationManagers\ActivityLogRelationManager;
+use App\Jobs\PrepareCsvExportWithProgress;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymizationColumnTag;
 use App\Models\Anonymizer\AnonymizationMethods;
+use Filament\Actions\Exports\Enums\ExportFormat;
+use Filament\Actions\Exports\Models\Export;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\ExportAction;
+use Filament\Tables\Actions\ExportBulkAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -28,6 +36,11 @@ class AnonymousSiebelColumnResource extends Resource
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Columns';
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -35,6 +48,8 @@ class AnonymousSiebelColumnResource extends Resource
                 SoftDeletingScope::class,
             ])
             ->with([
+                'table.schema.database',
+                'dataType',
                 'tags',
                 'anonymizationMethods',
             ]);
@@ -46,6 +61,22 @@ class AnonymousSiebelColumnResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Details')
                     ->schema([
+                        Forms\Components\Placeholder::make('database_display')
+                            ->label('Database')
+                            ->content(function (Get $get, ?AnonymousSiebelColumn $record): string {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId
+                                        ? AnonymousSiebelTable::query()->withTrashed()->with('schema.database')->find($tableId)
+                                        : null;
+                                } else {
+                                    $table->loadMissing('schema.database');
+                                }
+
+                                return $table?->schema?->database?->database_name ?: '—';
+                            }),
                         Forms\Components\Placeholder::make('schema_display')
                             ->label('Schema')
                             ->content(function (Get $get, ?AnonymousSiebelColumn $record): string {
@@ -62,6 +93,20 @@ class AnonymousSiebelColumnResource extends Resource
 
                                 return $table?->schema?->schema_name ?: '—';
                             }),
+                        Forms\Components\Placeholder::make('table_display')
+                            ->label('Table')
+                            ->content(function (Get $get, ?AnonymousSiebelColumn $record): string {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId
+                                        ? AnonymousSiebelTable::query()->withTrashed()->find($tableId)
+                                        : null;
+                                }
+
+                                return $table?->table_name ?: '—';
+                            }),
                         Forms\Components\Select::make('table_id')
                             ->label('Table')
                             ->relationship('table', 'table_name')
@@ -69,13 +114,18 @@ class AnonymousSiebelColumnResource extends Resource
                             ->live()
                             ->preload()
                             ->required()
+                            ->hiddenOn('view')
                             ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\Placeholder::make('data_type_display')
+                            ->label('Data type')
+                            ->content(fn(?AnonymousSiebelColumn $record): string => $record?->dataType?->data_type_name ?: '—'),
                         Forms\Components\Select::make('data_type_id')
                             ->label('Data type')
                             ->relationship('dataType', 'data_type_name')
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->hiddenOn('view')
                             ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('column_name')
                             ->required()
@@ -89,6 +139,43 @@ class AnonymousSiebelColumnResource extends Resource
                             ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                     ])
                     ->columns(2),
+                Forms\Components\Section::make('Imported source metadata')
+                    ->schema([
+                        Forms\Components\TextInput::make('qualfield')
+                            ->label('QUALFIELD')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('pr_key')
+                            ->label('PR_KEY')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('ref_tab_name')
+                            ->label('REF_TAB_NAME')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_distinct')
+                            ->label('NUM_DISTINCT')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_not_null')
+                            ->label('NUM_NOT_NULL')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_nulls')
+                            ->label('NUM_NULLS')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_rows')
+                            ->label('NUM_ROWS')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('sbl_user_name')
+                            ->label('SBL_USER_NAME')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\Textarea::make('sbl_desc_text')
+                            ->label('SBL_DESC_TEXT')
+                            ->rows(3)
+                            ->columnSpanFull()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                    ])
+                    ->columns(3),
                 Forms\Components\Section::make('Dimensions')
                     ->schema([
                         Forms\Components\TextInput::make('data_length')
@@ -213,6 +300,42 @@ class AnonymousSiebelColumnResource extends Resource
                     ]),
                 Forms\Components\Section::make('Anonymization Settings')
                     ->schema([
+                        Forms\Components\Select::make('table_target_relation_kind')
+                            ->label('Target creation (table default)')
+                            ->options([
+                                'table' => 'Create table (CTAS + masking updates)',
+                                'view' => 'Create view (read-only projection)',
+                            ])
+                            ->nullable()
+                            ->placeholder('Inherit (job default: tables)')
+                            ->dehydrated(false)
+                            ->visibleOn(['edit', 'view'])
+                            ->helperText('Updates the parent table default for how anonymized targets are generated.')
+                            ->afterStateHydrated(function (Forms\Components\Select $component, $state, Get $get, ?AnonymousSiebelColumn $record): void {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId ? AnonymousSiebelTable::query()->withTrashed()->find($tableId) : null;
+                                }
+
+                                $component->state($table?->target_relation_kind);
+                            })
+                            ->afterStateUpdated(function ($state, Get $get, ?AnonymousSiebelColumn $record): void {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId ? AnonymousSiebelTable::query()->withTrashed()->find($tableId) : null;
+                                }
+
+                                if (! $table) {
+                                    return;
+                                }
+
+                                $table->target_relation_kind = $state ?: null;
+                                $table->save();
+                            }),
                         Forms\Components\Textarea::make('metadata_comment')
                             ->label('Metadata comment')
                             ->rows(3)
@@ -321,6 +444,11 @@ class AnonymousSiebelColumnResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('table.schema.database.database_name')
+                    ->label('Database')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('column_name')
                     ->label('Column')
                     ->sortable()
@@ -337,6 +465,35 @@ class AnonymousSiebelColumnResource extends Resource
                     ->label('Data type')
                     ->sortable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('qualfield')
+                    ->label('QUALFIELD')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('column_id')
+                    ->label('COLUMN_ID')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('pr_key')
+                    ->label('PR_KEY')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('ref_tab_name')
+                    ->label('REF_TAB_NAME')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_distinct')
+                    ->label('NUM_DISTINCT')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_not_null')
+                    ->label('NUM_NOT_NULL')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_nulls')
+                    ->label('NUM_NULLS')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_rows')
+                    ->label('NUM_ROWS')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('anonymizationMethods.name')
                     ->label('Anonymization methods')
                     ->html()
@@ -491,6 +648,30 @@ class AnonymousSiebelColumnResource extends Resource
                 Tables\Columns\TextColumn::make('data_length')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('data_precision')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('data_scale')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('char_length')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('sbl_user_name')
+                    ->label('SBL_USER_NAME')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('sbl_desc_text')
+                    ->label('SBL_DESC_TEXT')
+                    ->limit(80)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('column_comment')
+                    ->label('COMMENTS')
+                    ->limit(80)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('table_comment')
+                    ->label('TABLE_COMMENT')
+                    ->limit(80)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('last_synced_at')
                     ->dateTime()
                     ->sortable(),
@@ -632,13 +813,44 @@ class AnonymousSiebelColumnResource extends Resource
                     ),
                 Tables\Filters\TrashedFilter::make(),
             ])
+            ->paginated([10, 25, 50])
             ->persistFiltersInSession()
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
+            ->headerActions([
+                ActionGroup::make([
+                    ExportAction::make('export_temp_format')
+                        ->label('Export Temp Format')
+                        ->exporter(AnonymousSiebelColumnExporter::class)
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->formats([ExportFormat::Csv])
+                        ->fileName(fn(Export $export): string => "Siebel-Columns-Temp-{$export->getKey()}"),
+                    ExportAction::make('export_legacy_format')
+                        ->label('Export Legacy Format')
+                        ->exporter(AnonymousSiebelColumnLegacyExporter::class)
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->formats([ExportFormat::Csv])
+                        ->fileName(fn(Export $export): string => "Siebel-Columns-Legacy-{$export->getKey()}"),
+                ])
+                    ->button()
+                    ->label('Export')
+                    ->icon('heroicon-m-arrow-down-tray')
+                    ->color('primary'),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    ExportBulkAction::make('export_selected_temp_format')
+                        ->label('Export selected (Temp)')
+                        ->formats([ExportFormat::Csv])
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->exporter(AnonymousSiebelColumnExporter::class),
+                    ExportBulkAction::make('export_selected_legacy_format')
+                        ->label('Export selected (Legacy)')
+                        ->formats([ExportFormat::Csv])
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->exporter(AnonymousSiebelColumnLegacyExporter::class),
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
@@ -658,7 +870,6 @@ class AnonymousSiebelColumnResource extends Resource
     {
         return [
             'index' => Pages\ListAnonymousSiebelColumns::route('/'),
-            'create' => Pages\CreateAnonymousSiebelColumn::route('/create'),
             'view' => Pages\ViewAnonymousSiebelColumn::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelColumn::route('/{record}/edit'),
         ];

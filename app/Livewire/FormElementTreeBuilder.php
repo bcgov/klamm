@@ -276,6 +276,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             'TextInputFormElement' => 'heroicon-o-pencil-square',
             'TextareaInputFormElement' => 'heroicon-o-document-text',
             'NumberInputFormElement' => 'heroicon-o-calculator',
+            'CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
             'SelectInputFormElement' => 'heroicon-o-queue-list',
             'RadioInputFormElement' => 'heroicon-o-radio',
             'CheckboxInputFormElement' => 'heroicon-o-check-circle',
@@ -335,7 +336,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             ? '<span class="mr-1">🔴</span>'
             : '';
 
-        $elementTypeName = \App\Models\FormBuilding\FormElement::getElementTypeName($record->elementable_type);
+        $elementTypeName = FormElement::getElementTypeName($record->elementable_type);
         $html = $bindingIndicator
             . $needsFix
             . '<span class="text-gray-400">[' . e($elementTypeName) . ']</span> '
@@ -387,7 +388,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
 
         // Filter out null values from elementable data to let model defaults apply
         // But convert null values to empty strings for text fields that the user might want to clear
-        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'content', 'legend', 'repeater_item_label'];
+        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'maskErrorMessage', 'content', 'legend', 'repeater_item_label'];
         $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
         $nullableFields = ['level'];
 
@@ -495,14 +496,14 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             }
 
             // Show success notification
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->success()
                 ->title('Element Updated')
                 ->body("The form element '{$record->name}' has been updated successfully.")
                 ->send();
         } catch (\InvalidArgumentException $e) {
             // Handle our custom validation exceptions
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->danger()
                 ->title('Cannot Update Element')
                 ->body($e->getMessage())
@@ -513,7 +514,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             throw $e;
         } catch (\Exception $e) {
             // Handle any other exceptions
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->danger()
                 ->title('Update Failed')
                 ->body('An unexpected error occurred while updating the element: ' . $e->getMessage())
@@ -538,7 +539,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             $parent = FormElement::find($data['parent_id']);
             if ($parent && !$parent->canHaveChildren()) {
                 // Send a user-friendly notification
-                \Filament\Notifications\Notification::make()
+                Notification::make()
                     ->danger()
                     ->title('Cannot Add Here')
                     ->body("Only container elements can have children. '{$parent->name}' (type: {$parent->element_type}) cannot contain child elements.")
@@ -556,7 +557,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
 
         // Filter out null values from elementable data to let model defaults apply
         // But convert null values to empty strings for text fields that the user might want to clear
-        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'content', 'legend', 'repeater_item_label'];
+        $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'maskErrorMessage', 'content', 'legend', 'repeater_item_label'];
         $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
         $nullableFields = ['level'];
 
@@ -642,7 +643,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             }
 
             // Show success notification
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->success()
                 ->title('Element Created')
                 ->body("The form element '{$formElement->name}' has been created successfully.")
@@ -733,7 +734,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             return $result;
         } catch (\InvalidArgumentException $e) {
             // Handle model validation exceptions with user-friendly notification
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->danger()
                 ->title('Cannot Update Tree')
                 ->body('Only container elements can have children. The tree structure has been reverted.')
@@ -744,7 +745,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
             return $this->refreshTreeData();
         } catch (\Exception $e) {
             // Handle any other exceptions
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->danger()
                 ->title('Update Failed')
                 ->body('An unexpected error occurred while updating the tree structure.')
@@ -787,7 +788,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
 
                 if ($parent && $child && !$parent->canHaveChildren()) {
                     // Show user-friendly notification
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->danger()
                         ->title('Cannot Move Element')
                         ->body("'{$child->name}' cannot be moved into '{$parent->name}' (type: {$parent->element_type}). Only Container elements can have children. The tree has been reverted to its previous state.")

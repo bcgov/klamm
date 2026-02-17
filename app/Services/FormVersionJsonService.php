@@ -28,7 +28,8 @@ class FormVersionJsonService
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
-            'pdfFormScript'
+            'pdfFormScript',
+            'securityClassification'
         ]);
 
         $formVersionData = [
@@ -38,6 +39,10 @@ class FormVersionJsonService
             'version' => $formVersion->version_number,
             'version_date' => $formVersion->version_date ?? '',
             'version_date_format' => $formVersion->version_date_format ?? '',
+            'security_classification' => $formVersion->securityClassification?->name ?? null,
+            'barcode' => $formVersion->barcode ? [
+                "content" => $formVersion->barcode,
+            ] : null,
             'status' => $formVersion->status,
             'data' => $this->getFormVersionData($formVersion, $exportedAt),
             'ministry_id' => $formVersion->form->ministry_id ?? null,
@@ -80,7 +85,8 @@ class FormVersionJsonService
             'webStyleSheet',
             'pdfStyleSheet',
             'webFormScript',
-            'pdfFormScript'
+            'pdfFormScript',
+            'securityClassification'
         ]);
 
         $preMigrationData = [
@@ -91,6 +97,8 @@ class FormVersionJsonService
             'form_id' => $formVersion->form->form_id ?? '',
             'deployed_to' => '',
             'ministry_id' => $formVersion->form->ministry_id ?? null,
+            'security_classification' => $formVersion->securityClassification?->name ?? null,
+            'barcode' => $formVersion->barcode,
             'dataSources' => $this->getDataSources($formVersion),
             'interface' => $this->getFormInterfaces($formVersion),
             'data' => [
@@ -348,7 +356,6 @@ class FormVersionJsonService
             'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
-            'custom_visibility' => $element->custom_visibility,
             'is_read_only' => $element->is_read_only && $element->custom_read_only ? $element->custom_read_only : $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
@@ -933,14 +940,6 @@ class FormVersionJsonService
             $conditions[] = [
                 'type' => 'readOnly',
                 'value' => $element->is_read_only ? '{return true}' : '{return false}'
-            ];
-        }
-
-        // Only include visibility condition if custom_visibility is set and not empty
-        if (!empty($element->custom_visibility)) {
-            $conditions[] = [
-                'type' => 'visibility',
-                'value' => $element->custom_visibility
             ];
         }
 

@@ -20,6 +20,11 @@ class AnonymousSiebelTableResource extends Resource
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Tables';
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -48,6 +53,15 @@ class AnonymousSiebelTableResource extends Resource
                         Forms\Components\TextInput::make('object_type')
                             ->maxLength(255)
                             ->disabled(fn(?AnonymousSiebelTable $record) => (bool) $record?->exists),
+                        Forms\Components\Select::make('target_relation_kind')
+                            ->label('Target creation')
+                            ->options([
+                                'table' => 'Create table (w/ masking updates)',
+                                'view' => 'Create view (read-only w/ masking updates)',
+                            ])
+                            ->nullable()
+                            ->placeholder('Inherit (job default: tables)')
+                            ->helperText('Leave blank to inherit the job default. Set a value to override this table only.'),
                         Forms\Components\Textarea::make('table_comment')
                             ->rows(3)
                             ->columnSpanFull()
@@ -86,6 +100,10 @@ class AnonymousSiebelTableResource extends Resource
                 Tables\Columns\TextColumn::make('object_type')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('target_relation_kind')
+                    ->label('Target creation')
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('columns_count')
                     ->counts('columns')
                     ->label('Columns')
@@ -103,6 +121,7 @@ class AnonymousSiebelTableResource extends Resource
                     ->relationship('schema', 'schema_name'),
                 Tables\Filters\TrashedFilter::make(),
             ])
+
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
@@ -112,6 +131,7 @@ class AnonymousSiebelTableResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
+            ->paginated([10, 25, 50])
             ->defaultSort('table_name');
     }
 
@@ -126,7 +146,6 @@ class AnonymousSiebelTableResource extends Resource
     {
         return [
             'index' => Pages\ListAnonymousSiebelTables::route('/'),
-            'create' => Pages\CreateAnonymousSiebelTable::route('/create'),
             'view' => Pages\ViewAnonymousSiebelTable::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelTable::route('/{record}/edit'),
         ];

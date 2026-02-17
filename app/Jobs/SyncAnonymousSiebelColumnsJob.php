@@ -161,6 +161,13 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             );
 
             $persist([
+                'status_detail' => 'Applying anonymization rules',
+                'run_phase' => 'applying_anonymization_rules',
+            ]);
+
+            $this->synchronizeAnonymizationRulesFromStaging($upload, $runAt);
+
+            $persist([
                 'processed_rows' => $result['processedRows'],
                 'processed_bytes' => $result['processedBytes'],
                 'inserted' => $result['totals']['inserted'],
@@ -253,14 +260,16 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             // Only clean up staging after a successful run so failed uploads can be resumed.
             $this->cleanupStaging($upload->id);
         } catch (Throwable $exception) {
+            $exceptionMessage = $this->sanitizeUtf8Value($exception->getMessage());
+
             $upload->update([
                 'status' => 'failed',
                 'status_detail' => 'Failed',
                 'failed_phase' => $currentPhase,
-                'error' => $exception->getMessage(),
+                'error' => is_string($exceptionMessage) ? $exceptionMessage : 'Import failed',
                 'error_context' => [
                     'phase' => $currentPhase,
-                    'message' => $exception->getMessage(),
+                    'message' => $exceptionMessage,
                     'class' => get_class($exception),
                     'at' => CarbonImmutable::now()->toIso8601String(),
                 ],
@@ -274,9 +283,50 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
     protected function persistProgress(int $uploadId, array $attributes): void
     {
+        $attributes = $this->sanitizeUtf8Value($attributes);
         $attributes['progress_updated_at'] = $attributes['progress_updated_at'] ?? CarbonImmutable::now();
 
         AnonymousUpload::whereKey($uploadId)->update($attributes);
+    }
+
+    /**
+     * Ensure values persisted to JSON-cast columns are UTF-8 safe.
+     */
+    protected function sanitizeUtf8Value(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = $this->sanitizeUtf8Value($item);
+            }
+
+            return $value;
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        if (preg_match('//u', $value) === 1) {
+            return $value;
+        }
+
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+
+            if ($converted !== false && preg_match('//u', $converted) === 1) {
+                return $converted;
+            }
+        }
+
+        if (function_exists('mb_convert_encoding')) {
+            $converted = mb_convert_encoding($value, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+
+            if (is_string($converted) && preg_match('//u', $converted) === 1) {
+                return $converted;
+            }
+        }
+
+        return preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', '', $value) ?? 'Invalid text encoding';
     }
 
     protected function determineUploadSize(AnonymousUpload $upload): ?int

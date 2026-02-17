@@ -41,6 +41,9 @@ class GenerateAnonymizationJobSql implements ShouldQueue
     // Chunk size for batched masking generation.
     private const MASKING_CHUNK_SIZE = 500;
 
+    // Chunk size for table/view creation when using inline masking.
+    private const TABLE_CHUNK_SIZE = 50;
+
     private const REGENERATION_CACHE_PREFIX = 'anonymization:job-sql:regenerating:';
 
     public function __construct(public int $jobId)
@@ -113,7 +116,9 @@ class GenerateAnonymizationJobSql implements ShouldQueue
         $this->ensureSeedContractModesForColumns($maskingColumnIds);
 
         // Choose processing strategy based on column count to avoid memory spikes.
-        if ($maskingColumnIds !== [] && $columnCount >= self::CHUNKED_PROCESSING_THRESHOLD) {
+        $useChunkedProcessing = $maskingColumnIds !== [] && $columnCount >= self::CHUNKED_PROCESSING_THRESHOLD;
+
+        if ($useChunkedProcessing) {
             Log::info('GenerateAnonymizationJobSql: preparing batched generation for large column set', [
                 'job_id' => $this->jobId,
                 'column_count' => $columnCount,
@@ -139,8 +144,8 @@ class GenerateAnonymizationJobSql implements ShouldQueue
                 return;
             }
 
-            $orderedIds = $context['ordered_ids'] ?? [];
-            if ($orderedIds === []) {
+            $orderedTableIds = $context['ordered_table_ids'] ?? [];
+            if ($orderedTableIds === []) {
                 $sql = '-- No SQL generated: no ordered columns available.';
                 DB::table('anonymization_jobs')
                     ->where('id', $this->jobId)
@@ -160,10 +165,11 @@ class GenerateAnonymizationJobSql implements ShouldQueue
             Cache::put($cacheKey . ':rewrite', $context['rewrite_context'] ?? [], now()->addHours(4));
             Cache::put($cacheKey . ':seed_map', $context['seed_map_context'] ?? [], now()->addHours(4));
             Cache::put($cacheKey . ':seed_providers', $context['seed_provider_map'] ?? [], now()->addHours(4));
-            Cache::put($cacheKey . ':ordered_ids', $orderedIds, now()->addHours(4));
+            Cache::put($cacheKey . ':selected_column_ids', $context['selected_column_ids'] ?? [], now()->addHours(4));
+            Cache::put($cacheKey . ':ordered_table_ids', $orderedTableIds, now()->addHours(4));
 
-            // Split ordered IDs into work chunks and dispatch a batch.
-            $chunks = array_chunk($orderedIds, self::MASKING_CHUNK_SIZE);
+            // Split ordered table IDs into work chunks and dispatch a batch.
+            $chunks = array_chunk($orderedTableIds, self::TABLE_CHUNK_SIZE);
             $chunkCount = count($chunks);
             $jobs = [];
 

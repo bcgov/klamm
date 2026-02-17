@@ -81,6 +81,9 @@ class AnonymousUploadResource extends Resource
                                 'failed' => 'Failed',
                             ])
                             ->disabled(),
+                        Forms\Components\Toggle::make('override_anonymization_rules')
+                            ->label('Override anonymization rules')
+                            ->disabled(),
                         Forms\Components\Textarea::make('status_detail')
                             ->label('Status Detail')
                             ->disabled()
@@ -325,6 +328,11 @@ class AnonymousUploadResource extends Resource
                                     ->badge()
                                     ->formatStateUsing(fn($state): string => ($state === false) ? 'No' : 'Yes')
                                     ->color(fn($state): string => ($state === false) ? 'gray' : 'success'),
+                                TextEntry::make('override_anonymization_rules')
+                                    ->label('Override Anonymization Rules')
+                                    ->badge()
+                                    ->formatStateUsing(fn($state): string => ($state === true) ? 'Yes' : 'No')
+                                    ->color(fn($state): string => ($state === true) ? 'warning' : 'gray'),
                                 TextEntry::make('status_detail')
                                     ->label('Status Detail')
                                     ->columnSpanFull(),

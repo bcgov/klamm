@@ -15,6 +15,7 @@ class AnonymousSiebelTable extends Model
 
     protected $fillable = [
         'object_type',
+        'target_relation_kind',
         'table_name',
         'table_comment',
         'content_hash',
@@ -40,6 +41,7 @@ class AnonymousSiebelTable extends Model
         return [
             'schema_id',
             'object_type',
+            'target_relation_kind',
             'table_name',
             'table_comment',
             'content_hash',

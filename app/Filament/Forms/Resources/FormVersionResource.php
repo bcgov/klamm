@@ -26,9 +26,9 @@ use Filament\Forms\Components\Repeater;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\ViewAction;
-use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\RestoreAction;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Fieldset;
 use Illuminate\Database\Eloquent\Builder;
@@ -102,6 +102,14 @@ class FormVersionResource extends Resource
                                             ->options(DateSelectInputFormElement::getDateFormats())
                                             ->default('YYYY/MM/DD'),
                                     ]),
+                                Select::make('security_classification_id')
+                                    ->label('Security Classification')
+                                    ->relationship('securityClassification', 'name')
+                                    ->searchable()
+                                    ->preload(),
+                                TextInput::make('barcode')
+                                    ->label('Barcode')
+                                    ->helperText('Supports {{variableSubstitution}} for dynamic values'),
                                 Repeater::make('formVersionFormDataSources')
                                     ->label('Form Data Sources')
                                     ->relationship()
@@ -286,6 +294,16 @@ class FormVersionResource extends Resource
                     ->badge()
                     ->color(fn($state) => FormVersion::getStatusColour($state))
                     ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
+                TextColumn::make('version_date')
+                    ->label('Footer Date')
+                    ->date()
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('barcode')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -296,6 +314,14 @@ class FormVersionResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('status')
+                ->options([
+                    'draft' => 'Draft',
+                    'under_review' => 'Under Review',
+                    'approved' => 'Approved',
+                    'published' => 'Published',
+                    'archived' => 'Archived',
+                ]),
                 TrashedFilter::make()
                     ->visible(fn() => Gate::allows('admin')),
             ])

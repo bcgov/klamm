@@ -57,6 +57,7 @@ class AnonymizationJobs extends Model
         'job_type',
         'status',
         'output_format',
+        'target_relation_kind',
         'target_schema',
         'target_table_mode',
         'seed_store_mode',

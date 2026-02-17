@@ -36,7 +36,6 @@ class FormElement extends Model
         'save_on_submit',
         'visible_web',
         'visible_pdf',
-        'custom_visibility',
         'is_template',
         'source_element_id',
     ];
@@ -411,6 +410,7 @@ class FormElement extends Model
             SelectInputFormElement::class => 'Dropdown',
             RadioInputFormElement::class => 'Radio',
             NumberInputFormElement::class => 'Number Input',
+            CurrencyInputFormElement::class => 'Currency',
             ButtonInputFormElement::class => 'Button',
             HTMLFormElement::class => 'HTML',
         ];
@@ -490,6 +490,18 @@ class FormElement extends Model
 
         return self::create($elementData);
     }
+
+/**
+     * Create a currency input form element
+     */
+    public static function createCurrency(array $elementData, array $currencyData): self
+    {
+        $currency = CurrencyInputFormElement::create($currencyData);
+        $elementData['elementable_type'] = CurrencyInputFormElement::class;
+        $elementData['elementable_id'] = $currency->id;
+
+        return self::create($elementData);
+    }    
 
     /**
      * Create a date select input form element
