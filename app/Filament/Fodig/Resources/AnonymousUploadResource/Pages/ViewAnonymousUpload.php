@@ -4,6 +4,7 @@ namespace App\Filament\Fodig\Resources\AnonymousUploadResource\Pages;
 
 use App\Filament\Fodig\Resources\AnonymousUploadResource;
 use Filament\Actions;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -15,6 +16,28 @@ class ViewAnonymousUpload extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('cancel_import')
+                ->label('Cancel Upload')
+                ->icon('heroicon-o-stop')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->visible(fn() => in_array($this->record->status, ['queued', 'processing'], true))
+                ->action(function (): void {
+                    $this->record->update([
+                        'status' => 'failed',
+                        'status_detail' => 'Cancellation requested by user',
+                        'run_phase' => 'cancelled',
+                        'progress_updated_at' => now(),
+                    ]);
+
+                    $this->record->refresh();
+
+                    Notification::make()
+                        ->success()
+                        ->title('Cancellation Requested')
+                        ->body('The upload will stop shortly.')
+                        ->send();
+                }),
             Actions\Action::make('download')
                 ->label('Download CSV')
                 ->icon('heroicon-o-arrow-down-tray')

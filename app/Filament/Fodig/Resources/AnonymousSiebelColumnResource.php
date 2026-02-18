@@ -822,13 +822,14 @@ class AnonymousSiebelColumnResource extends Resource
             ->headerActions([
                 ActionGroup::make([
                     ExportAction::make('export_temp_format')
-                        ->label('Export Temp Format')
+                        ->label('Export currently filtered set')
                         ->exporter(AnonymousSiebelColumnExporter::class)
                         ->job(PrepareCsvExportWithProgress::class)
                         ->formats([ExportFormat::Csv])
-                        ->fileName(fn(Export $export): string => "Siebel-Columns-Temp-{$export->getKey()}"),
+                        ->fileName(fn(Export $export): string => "Siebel-Columns-{$export->getKey()}"),
                     ExportAction::make('export_legacy_format')
                         ->label('Export Legacy Format')
+                        ->hidden(true) // hide from actions, but keep functionality during development
                         ->exporter(AnonymousSiebelColumnLegacyExporter::class)
                         ->job(PrepareCsvExportWithProgress::class)
                         ->formats([ExportFormat::Csv])
@@ -842,13 +843,14 @@ class AnonymousSiebelColumnResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     ExportBulkAction::make('export_selected_temp_format')
-                        ->label('Export selected (Temp)')
+                        ->label('Export selected')
                         ->formats([ExportFormat::Csv])
                         ->job(PrepareCsvExportWithProgress::class)
                         ->exporter(AnonymousSiebelColumnExporter::class),
                     ExportBulkAction::make('export_selected_legacy_format')
                         ->label('Export selected (Legacy)')
                         ->formats([ExportFormat::Csv])
+                        ->hidden(true)
                         ->job(PrepareCsvExportWithProgress::class)
                         ->exporter(AnonymousSiebelColumnLegacyExporter::class),
                     Tables\Actions\DeleteBulkAction::make(),
