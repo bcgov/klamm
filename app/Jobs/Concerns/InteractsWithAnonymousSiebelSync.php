@@ -3,6 +3,7 @@
 namespace App\Jobs\Concerns;
 
 use App\Models\Anonymizer\AnonymousUpload;
+use App\Models\Anonymizer\ChangeTicket;
 use App\Models\Anonymizer\AnonymizationMethods;
 use App\Jobs\Exceptions\AnonymousSiebelCsvValidationException;
 use App\Services\Anonymizer\AnonymizerActivityLogger;
@@ -238,6 +239,7 @@ trait InteractsWithAnonymousSiebelSync
         $validationErrors = [];
         $validationErrorCount = 0;
         $hasValidationErrors = false;
+        $hasValidRows = false;
         $format = $detectedFormat;
 
         $rules = [
@@ -318,6 +320,15 @@ trait InteractsWithAnonymousSiebelSync
                 if (($assoc['TABLE_NAME'] ?? '') === '' || ($assoc['COLUMN_NAME'] ?? '') === '') {
                     continue;
                 }
+
+                // Apply upload-provided scope (database/schema/table) with resolved context to ensure catalog matches.
+                $assoc['DATABASE_NAME'] = $resolvedScope['database_name'] ?: ($assoc['DATABASE_NAME'] ?: SiebelMetadata::DEFAULT_DATABASE);
+                $assoc['SCHEMA_NAME'] = $resolvedScope['schema_name'] ?: ($assoc['SCHEMA_NAME'] ?: SiebelMetadata::DEFAULT_SCHEMA);
+                if ($resolvedScope['table_name']) {
+                    if ($this->norm((string) $assoc['TABLE_NAME']) !== $this->norm($resolvedScope['table_name'])) {
+                        continue;
+                    }
+                }
             } elseif ($isSiebelColumnsHeader) {
                 $assoc = $this->mapSiebelColumnsRowToCanonicalAssoc($row, $siebelIndexMap);
                 if (($assoc['TABLE_NAME'] ?? '') === '' || ($assoc['COLUMN_NAME'] ?? '') === '') {
@@ -387,10 +398,6 @@ trait InteractsWithAnonymousSiebelSync
                 continue;
             }
 
-            if ($hasValidationErrors) {
-                continue;
-            }
-
             // Build core payload for hash calculation (excludes relationship fields)
             $payload = [
                 'database_name' => trim((string) ($normalized['DATABASE_NAME'] ?? '')),
@@ -455,6 +462,7 @@ trait InteractsWithAnonymousSiebelSync
             ]);
 
             $batch[$uniqueKey] = $payload;
+            $hasValidRows = true;
 
             if (count($batch) >= 1000) {
                 $count += $this->upsertStagingBatch(array_values($batch));
@@ -499,6 +507,7 @@ trait InteractsWithAnonymousSiebelSync
         fclose($stream);
 
         if ($hasValidationErrors) {
+            $errorReportPath = $this->csvErrorReportPath($upload);
             $report = [
                 'upload_id' => $upload->id,
                 'format' => $format,
@@ -513,10 +522,47 @@ trait InteractsWithAnonymousSiebelSync
             ];
             $this->writeCsvErrorReport($upload, $report);
 
-            throw new AnonymousSiebelCsvValidationException(
-                'CSV validation failed: ' . $validationErrorCount . ' row error(s). Download the error report for details.',
-                $report
-            );
+            $warnings = array_values(array_filter((array) ($upload->warnings ?? []), static fn($warning) => is_array($warning)));
+            $warnings[] = [
+                'phase' => 'staging',
+                'message' => 'CSV row validation reported ' . $validationErrorCount . ' error(s). Invalid rows were skipped.',
+                'error_count' => $validationErrorCount,
+                'error_report_path' => $errorReportPath,
+                'at' => CarbonImmutable::now()->toIso8601String(),
+            ];
+
+            $upload->forceFill([
+                'warnings_count' => count($warnings),
+                'warnings' => $warnings,
+                'status_detail' => 'CSV contained validation errors; invalid rows skipped',
+            ])->save();
+
+            $ticketTitle = 'Upload validation warnings: ' . ($upload->original_name ?: ('Upload #' . $upload->id));
+            $existingTicket = ChangeTicket::query()
+                ->where('upload_id', $upload->id)
+                ->where('scope_type', 'upload')
+                ->where('title', $ticketTitle)
+                ->whereIn('status', ['open', 'in_progress'])
+                ->exists();
+
+            if (! $existingTicket) {
+                ChangeTicket::create([
+                    'title' => $ticketTitle,
+                    'status' => 'open',
+                    'priority' => 'high',
+                    'severity' => 'high',
+                    'scope_type' => 'upload',
+                    'scope_name' => (string) ($upload->original_name ?: $upload->id),
+                    'impact_summary' => 'CSV validation detected ' . $validationErrorCount . ' row-level issue(s). Import continued and invalid rows were skipped.',
+                    'diff_payload' => json_encode([
+                        'error_count' => $validationErrorCount,
+                        'error_report_path' => $errorReportPath,
+                        'format' => $format,
+                        'capped' => $validationErrorCount >= self::CSV_VALIDATION_ERROR_CAP,
+                    ]),
+                    'upload_id' => $upload->id,
+                ]);
+            }
         }
 
         if ($batch !== []) {
@@ -1804,23 +1850,14 @@ trait InteractsWithAnonymousSiebelSync
         DB::table($tempTableName)->insertOrIgnore(array_values($batch));
     }
 
-    protected function synchronizeAnonymizationRulesFromStaging(AnonymousUpload $upload, CarbonImmutable $runAt): void
+    protected function synchronizeAnonymizationRulesFromStaging(AnonymousUpload $upload, CarbonImmutable $runAt, ?callable $progressReporter = null): array
     {
         $override = (bool) ($upload->override_anonymization_rules ?? false);
 
         if (! $override) {
-            $hasRuleInputs = DB::table(self::STAGING_TABLE . ' as s')
-                ->where('s.upload_id', $upload->id)
-                ->where(function ($query) {
-                    $query
-                        ->whereRaw("NULLIF(BTRIM(COALESCE(s.anon_rule, '')), '') IS NOT NULL")
-                        ->orWhereRaw("NULLIF(BTRIM(COALESCE(s.anon_note, '')), '') IS NOT NULL");
-                })
-                ->exists();
-
-            if (! $hasRuleInputs) {
-                return;
-            }
+            return [
+                'changed_columns' => 0,
+            ];
         }
 
         $methodIdsByName = AnonymizationMethods::query()
@@ -1829,7 +1866,7 @@ trait InteractsWithAnonymousSiebelSync
             ->mapWithKeys(fn(AnonymizationMethods $method) => [$this->norm((string) $method->name) => (int) $method->id])
             ->all();
 
-        $query = DB::table(self::STAGING_TABLE . ' as s')
+        $baseQuery = DB::table(self::STAGING_TABLE . ' as s')
             ->join(self::DATABASES_TABLE . ' as d', DB::raw('UPPER(TRIM(d.database_name))'), '=', DB::raw('UPPER(TRIM(s.database_name))'))
             ->join(self::SCHEMAS_TABLE . ' as sc', function ($join) {
                 $join->on('sc.database_id', '=', 'd.id')
@@ -1843,29 +1880,134 @@ trait InteractsWithAnonymousSiebelSync
                 $join->on('c.table_id', '=', 't.id')
                     ->whereRaw('UPPER(TRIM(c.column_name)) = UPPER(TRIM(s.column_name))');
             })
-            ->where('s.upload_id', $upload->id)
-            ->select('s.id as staging_id', 'c.id as column_id', 's.anon_rule', 's.anon_note')
-            ->orderBy('s.id');
+            ->where('s.upload_id', $upload->id);
 
-        if (! $override) {
-            $query->where(function ($builder) {
-                $builder
-                    ->whereRaw("NULLIF(BTRIM(COALESCE(s.anon_rule, '')), '') IS NOT NULL")
-                    ->orWhereRaw("NULLIF(BTRIM(COALESCE(s.anon_note, '')), '') IS NOT NULL");
-            });
+        $totalRuleRows = (int) (clone $baseQuery)->count();
+        $processedRuleRows = 0;
+        $metrics = [
+            'rows_with_rule_input' => 0,
+            'required_updates' => 0,
+            'method_mapping_updates' => 0,
+            'method_links_inserted' => 0,
+            'method_links_deleted' => 0,
+            'unknown_method_names' => 0,
+            'rows_noop' => 0,
+            'rows_invalid_column' => 0,
+        ];
+        $changedColumns = [];
+        $unknownMethods = [];
+
+        if ($progressReporter) {
+            $initialStatus = $totalRuleRows > 0
+                ? sprintf('Applying anonymization rules (0/%d)', $totalRuleRows)
+                : 'Applying anonymization rules (no matching rows)';
+
+            $progressReporter([
+                'status_detail' => $initialStatus,
+                'run_phase' => 'applying_anonymization_rules',
+                'processed_rows' => 0,
+                'checkpoint' => [
+                    'anonymization_rules_total_rows' => $totalRuleRows,
+                    'anonymization_rules_processed_rows' => 0,
+                    'anonymization_rules_changed_columns' => 0,
+                    'anonymization_rules_rows_with_rule_input' => 0,
+                    'anonymization_rules_required_updates' => 0,
+                    'anonymization_rules_method_mapping_updates' => 0,
+                    'anonymization_rules_method_links_inserted' => 0,
+                    'anonymization_rules_method_links_deleted' => 0,
+                    'anonymization_rules_unknown_method_names' => 0,
+                    'anonymization_rules_rows_noop' => 0,
+                    'anonymization_rules_rows_invalid_column' => 0,
+                ],
+                'progress_updated_at' => CarbonImmutable::now(),
+            ]);
         }
 
-        $query->chunkById(1000, function ($rows) use ($override, $runAt, $methodIdsByName): void {
-            $columnIds = $rows->pluck('column_id')->map(fn($id) => (int) $id)->filter()->unique()->values()->all();
+        $query = $baseQuery
+            ->select('s.id as staging_id', 'c.id as column_id', 's.database_name', 's.schema_name', 's.table_name', 's.column_name', 's.anon_rule', 's.anon_note')
+            ->orderBy('s.id');
+
+        $query->chunkById(1000, function ($rows) use ($override, $runAt, $methodIdsByName, &$processedRuleRows, $totalRuleRows, $progressReporter, &$metrics, &$changedColumns, &$unknownMethods): void {
+            $effectiveRowsByColumn = [];
+            foreach ($rows as $row) {
+                $columnId = (int) $row->column_id;
+                if ($columnId <= 0) {
+                    $metrics['rows_invalid_column']++;
+                    continue;
+                }
+
+                // Last row wins for duplicate staged entries of the same column within this chunk.
+                $effectiveRowsByColumn[$columnId] = $row;
+            }
+
+            $columnIds = array_keys($effectiveRowsByColumn);
+            $effectiveRows = array_values($effectiveRowsByColumn);
+
+            $processedRuleRows += $rows->count();
+
+            if ($progressReporter) {
+                $changedColumnCount = count($changedColumns);
+                $status = $totalRuleRows > 0
+                    ? sprintf(
+                        'Applying anonymization rules (%d/%d) · cols:%d req:%d map:%d links:+%d/-%d unknown:%d noop:%d',
+                        min($processedRuleRows, $totalRuleRows),
+                        $totalRuleRows,
+                        $changedColumnCount,
+                        $metrics['required_updates'],
+                        $metrics['method_mapping_updates'],
+                        $metrics['method_links_inserted'],
+                        $metrics['method_links_deleted'],
+                        $metrics['unknown_method_names'],
+                        $metrics['rows_noop']
+                    )
+                    : sprintf(
+                        'Applying anonymization rules (%d) · cols:%d req:%d map:%d links:+%d/-%d unknown:%d noop:%d',
+                        $processedRuleRows,
+                        $changedColumnCount,
+                        $metrics['required_updates'],
+                        $metrics['method_mapping_updates'],
+                        $metrics['method_links_inserted'],
+                        $metrics['method_links_deleted'],
+                        $metrics['unknown_method_names'],
+                        $metrics['rows_noop']
+                    );
+
+                $progressReporter([
+                    'status_detail' => $status,
+                    'run_phase' => 'applying_anonymization_rules',
+                    'processed_rows' => $processedRuleRows,
+                    'checkpoint' => [
+                        'anonymization_rules_total_rows' => $totalRuleRows,
+                        'anonymization_rules_processed_rows' => $processedRuleRows,
+                        'anonymization_rules_changed_columns' => $changedColumnCount,
+                        'anonymization_rules_rows_with_rule_input' => $metrics['rows_with_rule_input'],
+                        'anonymization_rules_required_updates' => $metrics['required_updates'],
+                        'anonymization_rules_method_mapping_updates' => $metrics['method_mapping_updates'],
+                        'anonymization_rules_method_links_inserted' => $metrics['method_links_inserted'],
+                        'anonymization_rules_method_links_deleted' => $metrics['method_links_deleted'],
+                        'anonymization_rules_unknown_method_names' => $metrics['unknown_method_names'],
+                        'anonymization_rules_rows_noop' => $metrics['rows_noop'],
+                        'anonymization_rules_rows_invalid_column' => $metrics['rows_invalid_column'],
+                    ],
+                    'progress_updated_at' => CarbonImmutable::now(),
+                ]);
+            }
 
             if ($columnIds === []) {
                 return;
             }
 
-            $existingRequiredByColumn = DB::table(self::COLUMNS_TABLE)
+            $existingColumns = DB::table(self::COLUMNS_TABLE)
                 ->whereIn('id', $columnIds)
-                ->pluck('anonymization_required', 'id')
-                ->all();
+                ->select('id', 'anonymization_required', 'changed_fields')
+                ->get();
+
+            $existingRequiredByColumn = [];
+            $existingChangedFieldsByColumn = [];
+            foreach ($existingColumns as $existingColumn) {
+                $existingRequiredByColumn[(int) $existingColumn->id] = $existingColumn->anonymization_required;
+                $existingChangedFieldsByColumn[(int) $existingColumn->id] = $this->normalizeChangedFieldsPayload($existingColumn->changed_fields);
+            }
 
             $existingMethodRows = DB::table('anonymization_method_column')
                 ->whereIn('column_id', $columnIds)
@@ -1878,14 +2020,17 @@ trait InteractsWithAnonymousSiebelSync
                 $existingMethodIdsByColumn[(int) $methodRow->column_id][] = (int) $methodRow->method_id;
             }
 
-            foreach ($rows as $row) {
+            foreach ($effectiveRows as $row) {
                 $columnId = (int) $row->column_id;
-                if ($columnId <= 0) {
-                    continue;
-                }
+                $rowChanged = false;
+                $requiredUpdated = false;
 
                 $anonRule = $this->toNullOrString($row->anon_rule);
                 $anonNote = $this->toNullOrString($row->anon_note);
+
+                if ($anonRule !== null || $anonNote !== null) {
+                    $metrics['rows_with_rule_input']++;
+                }
 
                 if ($override || $anonRule !== null) {
                     $required = $this->parseAnonRuleRequiredFlag($anonRule);
@@ -1894,20 +2039,36 @@ trait InteractsWithAnonymousSiebelSync
                         $currentRequired = $existingRequiredByColumn[$columnId] ?? null;
 
                         if ($this->valuesDiffer($currentRequired, $required)) {
+                            $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
+                            $changedFields['anonymization_required'] = [
+                                'old' => $currentRequired,
+                                'new' => $required,
+                            ];
+
                             DB::table(self::COLUMNS_TABLE)
                                 ->where('id', $columnId)
                                 ->update([
                                     'anonymization_required' => $required,
                                     'anonymization_requirement_reviewed' => false,
+                                    'changed_at' => $runAt,
+                                    'changed_fields' => json_encode($changedFields, JSON_UNESCAPED_UNICODE),
                                     'updated_at' => $runAt,
                                 ]);
 
                             $existingRequiredByColumn[$columnId] = $required;
+                            $existingChangedFieldsByColumn[$columnId] = $changedFields;
+                            $metrics['required_updates']++;
+                            $rowChanged = true;
+                            $requiredUpdated = true;
+                            $changedColumns[$columnId] = true;
                         }
                     }
                 }
 
                 if (! $override && $anonNote === null) {
+                    if (! $rowChanged) {
+                        $metrics['rows_noop']++;
+                    }
                     continue;
                 }
 
@@ -1917,6 +2078,29 @@ trait InteractsWithAnonymousSiebelSync
                     $methodId = $methodIdsByName[$this->norm($methodName)] ?? null;
                     if ($methodId) {
                         $requestedMethodIds[] = $methodId;
+                    } else {
+                        $metrics['unknown_method_names']++;
+
+                        $methodKey = $this->norm($methodName);
+                        $columnRef = implode('.', array_filter([
+                            trim((string) ($row->database_name ?? '')),
+                            trim((string) ($row->schema_name ?? '')),
+                            trim((string) ($row->table_name ?? '')),
+                            trim((string) ($row->column_name ?? '')),
+                        ], fn($part) => $part !== ''));
+
+                        if (! isset($unknownMethods[$methodKey])) {
+                            $unknownMethods[$methodKey] = [
+                                'method_name' => $methodName,
+                                'count' => 0,
+                                'examples' => [],
+                            ];
+                        }
+
+                        $unknownMethods[$methodKey]['count']++;
+                        if ($columnRef !== '' && count($unknownMethods[$methodKey]['examples']) < 5) {
+                            $unknownMethods[$methodKey]['examples'][$columnRef] = true;
+                        }
                     }
                 }
 
@@ -1925,23 +2109,41 @@ trait InteractsWithAnonymousSiebelSync
 
                 // Non-override imports are non-destructive when note contains unknown names only.
                 if (! $override && $anonNote !== null && $requestedMethodNames !== [] && $requestedMethodIds === []) {
+                    if (! $rowChanged) {
+                        $metrics['rows_noop']++;
+                    }
                     continue;
                 }
 
                 $currentMethodIds = $existingMethodIdsByColumn[$columnId] ?? [];
                 sort($currentMethodIds);
 
-                if ($requestedMethodIds === $currentMethodIds) {
+                $methodIdsToDelete = array_values(array_diff($currentMethodIds, $requestedMethodIds));
+                $methodIdsToInsert = array_values(array_diff($requestedMethodIds, $currentMethodIds));
+
+                if ($methodIdsToDelete === [] && $methodIdsToInsert === []) {
+                    if (! $rowChanged) {
+                        $metrics['rows_noop']++;
+                    }
                     continue;
                 }
 
-                DB::table('anonymization_method_column')
-                    ->where('column_id', $columnId)
-                    ->delete();
+                if ($methodIdsToDelete !== []) {
+                    DB::table('anonymization_method_column')
+                        ->where('column_id', $columnId)
+                        ->whereIn('method_id', $methodIdsToDelete)
+                        ->delete();
 
-                if ($requestedMethodIds !== []) {
+                    $metrics['method_links_deleted'] += count($methodIdsToDelete);
+                }
+
+                $metrics['method_mapping_updates']++;
+                $rowChanged = true;
+                $changedColumns[$columnId] = true;
+
+                if ($methodIdsToInsert !== []) {
                     $methodRows = [];
-                    foreach ($requestedMethodIds as $methodId) {
+                    foreach ($methodIdsToInsert as $methodId) {
                         $methodRows[] = [
                             'column_id' => $columnId,
                             'method_id' => $methodId,
@@ -1951,18 +2153,110 @@ trait InteractsWithAnonymousSiebelSync
                     }
 
                     DB::table('anonymization_method_column')->insert($methodRows);
+                    $metrics['method_links_inserted'] += count($methodIdsToInsert);
                 }
 
-                DB::table(self::COLUMNS_TABLE)
-                    ->where('id', $columnId)
-                    ->update([
-                        'anonymization_requirement_reviewed' => false,
-                        'updated_at' => $runAt,
-                    ]);
+                if (! $requiredUpdated) {
+                    $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
+                    $changedFields['anonymization_methods'] = [
+                        'old' => array_values($currentMethodIds),
+                        'new' => array_values($requestedMethodIds),
+                    ];
+
+                    DB::table(self::COLUMNS_TABLE)
+                        ->where('id', $columnId)
+                        ->update([
+                            'anonymization_requirement_reviewed' => false,
+                            'changed_at' => $runAt,
+                            'changed_fields' => json_encode($changedFields, JSON_UNESCAPED_UNICODE),
+                            'updated_at' => $runAt,
+                        ]);
+
+                    $existingChangedFieldsByColumn[$columnId] = $changedFields;
+                } else {
+                    $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
+                    $changedFields['anonymization_methods'] = [
+                        'old' => array_values($currentMethodIds),
+                        'new' => array_values($requestedMethodIds),
+                    ];
+
+                    DB::table(self::COLUMNS_TABLE)
+                        ->where('id', $columnId)
+                        ->update([
+                            'changed_at' => $runAt,
+                            'changed_fields' => json_encode($changedFields, JSON_UNESCAPED_UNICODE),
+                            'updated_at' => $runAt,
+                        ]);
+
+                    $existingChangedFieldsByColumn[$columnId] = $changedFields;
+                }
 
                 $existingMethodIdsByColumn[$columnId] = $requestedMethodIds;
             }
         }, 's.id', 'staging_id');
+
+        foreach ($unknownMethods as $entry) {
+            $methodName = (string) ($entry['method_name'] ?? '');
+            if ($methodName === '') {
+                continue;
+            }
+
+            $title = 'Missing anonymization method from CSV: ' . $methodName;
+            $exists = ChangeTicket::query()
+                ->where('upload_id', $upload->id)
+                ->where('scope_type', 'upload')
+                ->where('title', $title)
+                ->whereIn('status', ['open', 'in_progress'])
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $examples = array_keys((array) ($entry['examples'] ?? []));
+            $comment = 'CSV requested anonymization method "' . $methodName . '" but no matching method exists in the method library. Create this method and map its SQL behavior, then re-run/import to apply it.';
+
+            if ($examples !== []) {
+                $comment .= ' Example columns: ' . implode(', ', array_slice($examples, 0, 5)) . '.';
+            }
+
+            ChangeTicket::create([
+                'title' => $title,
+                'status' => 'open',
+                'priority' => 'high',
+                'severity' => 'medium',
+                'scope_type' => 'upload',
+                'scope_name' => (string) ($upload->original_name ?: $upload->id),
+                'impact_summary' => $comment,
+                'diff_payload' => json_encode([
+                    'requested_method' => $methodName,
+                    'requested_count' => (int) ($entry['count'] ?? 0),
+                    'example_columns' => $examples,
+                ]),
+                'upload_id' => $upload->id,
+            ]);
+        }
+
+        return [
+            'changed_columns' => count($changedColumns),
+            'required_updates' => (int) $metrics['required_updates'],
+            'method_mapping_updates' => (int) $metrics['method_mapping_updates'],
+        ];
+    }
+
+    protected function normalizeChangedFieldsPayload(mixed $payload): array
+    {
+        if (is_array($payload)) {
+            return $payload;
+        }
+
+        if (! is_string($payload) || trim($payload) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($payload, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     protected function parseAnonRuleRequiredFlag(?string $value): ?bool

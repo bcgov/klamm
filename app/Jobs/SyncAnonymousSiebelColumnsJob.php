@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\InteractsWithAnonymousSiebelSync;
+use App\Jobs\Exceptions\AnonymousUploadCancelledException;
 use App\Models\Anonymizer\AnonymousUpload;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,9 +35,15 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
     {
         $upload = AnonymousUpload::findOrFail($this->uploadId);
 
+        if ($this->isCancellationRequested($upload)) {
+            return;
+        }
+
         $currentPhase = (string) ($upload->run_phase ?? '');
 
         $persist = function (array $attributes) use ($upload, &$currentPhase): void {
+            $this->throwIfCancellationRequested($upload->id, $currentPhase);
+
             if (array_key_exists('run_phase', $attributes)) {
                 $currentPhase = (string) ($attributes['run_phase'] ?? '');
             }
@@ -160,12 +167,22 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                 }
             );
 
-            $persist([
-                'status_detail' => 'Applying anonymization rules',
-                'run_phase' => 'applying_anonymization_rules',
-            ]);
+            if ((bool) ($upload->override_anonymization_rules ?? false)) {
+                $persist([
+                    'status_detail' => 'Applying anonymization rules',
+                    'run_phase' => 'applying_anonymization_rules',
+                ]);
 
-            $this->synchronizeAnonymizationRulesFromStaging($upload, $runAt);
+                $ruleSync = $this->synchronizeAnonymizationRulesFromStaging(
+                    $upload,
+                    $runAt,
+                    function (array $progress) use ($upload) {
+                        $this->persistProgress($upload->id, $progress);
+                    }
+                );
+
+                $result['totals']['updated'] = (int) ($result['totals']['updated'] ?? 0) + (int) ($ruleSync['changed_columns'] ?? 0);
+            }
 
             $persist([
                 'processed_rows' => $result['processedRows'],
@@ -259,6 +276,21 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
             // Only clean up staging after a successful run so failed uploads can be resumed.
             $this->cleanupStaging($upload->id);
+        } catch (AnonymousUploadCancelledException $exception) {
+            $upload->refresh();
+
+            $upload->update([
+                'status' => 'failed',
+                'status_detail' => 'Cancelled by user',
+                'run_phase' => 'cancelled',
+                'failed_phase' => $currentPhase,
+                'error' => null,
+                'error_context' => null,
+                'progress_updated_at' => CarbonImmutable::now(),
+                'retention_until' => CarbonImmutable::now()->addDays(max(1, (int) config('anonymizer.upload_retention_days', 30))),
+            ]);
+
+            return;
         } catch (Throwable $exception) {
             $exceptionMessage = $this->sanitizeUtf8Value($exception->getMessage());
 
@@ -283,10 +315,32 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
     protected function persistProgress(int $uploadId, array $attributes): void
     {
+        $this->throwIfCancellationRequested($uploadId, (string) ($attributes['run_phase'] ?? 'processing'));
+
         $attributes = $this->sanitizeUtf8Value($attributes);
         $attributes['progress_updated_at'] = $attributes['progress_updated_at'] ?? CarbonImmutable::now();
 
         AnonymousUpload::whereKey($uploadId)->update($attributes);
+    }
+
+    protected function throwIfCancellationRequested(int $uploadId, string $phase = ''): void
+    {
+        $upload = AnonymousUpload::query()->whereKey($uploadId)->first(['status', 'run_phase']);
+
+        if ($upload && $this->isCancellationRequested($upload)) {
+            $message = 'Upload cancelled by user';
+            if ($phase !== '') {
+                $message .= " during {$phase}";
+            }
+
+            throw new AnonymousUploadCancelledException($message);
+        }
+    }
+
+    protected function isCancellationRequested(AnonymousUpload $upload): bool
+    {
+        return (string) ($upload->run_phase ?? '') === 'cancelled'
+            || (string) ($upload->status ?? '') === 'cancelled';
     }
 
     /**
