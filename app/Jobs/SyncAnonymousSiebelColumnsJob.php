@@ -82,6 +82,20 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         $currentPhase = 'preparing';
 
         try {
+            $persist([
+                'status_detail' => 'Pruning temporary staging',
+                'run_phase' => 'pruning_staging',
+            ]);
+
+            $prunedStagingRows = $this->purgeTemporaryStagingBeforeRun($upload->id);
+
+            $persist([
+                'status_detail' => $prunedStagingRows > 0
+                    ? ('Pruned ' . number_format($prunedStagingRows) . ' stale staging row(s)')
+                    : 'No stale staging rows to prune',
+                'run_phase' => 'preparing',
+            ]);
+
             if ($this->forceRestart) {
                 $persist([
                     'status_detail' => 'Restarting import (clearing staging)',
@@ -390,5 +404,22 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         } catch (Throwable) {
             return null;
         }
+    }
+
+    protected function purgeTemporaryStagingBeforeRun(int $currentUploadId): int
+    {
+        $activeUploadIds = AnonymousUpload::query()
+            ->whereIn('status', ['queued', 'processing'])
+            ->pluck('id')
+            ->all();
+
+        $query = DB::table(self::STAGING_TABLE)
+            ->where('upload_id', '!=', $currentUploadId);
+
+        if ($activeUploadIds !== []) {
+            $query->whereNotIn('upload_id', $activeUploadIds);
+        }
+
+        return (int) $query->delete();
     }
 }

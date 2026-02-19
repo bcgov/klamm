@@ -5,20 +5,24 @@ namespace App\Console\Commands;
 use App\Models\Anonymizer\AnonymousUpload;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class PurgeAnonymizationUploads extends Command
 {
-    protected $signature = 'anonymization:purge-uploads {--dry-run : Report what would be deleted without deleting files} {--limit=500 : Max records to process per run}';
+    protected $signature = 'anonymization:purge-uploads {--dry-run : Report what would be deleted without deleting files} {--limit=500 : Max records to process per run} {--staging-limit=1000 : Max uploads to scan for staging pruning per run}';
 
-    protected $description = 'Deletes stored anonymization CSV uploads after their retention period has elapsed.';
+    protected $description = 'Deletes retained anonymization upload files and prunes stale staging rows.';
 
     public function handle(): int
     {
         $now = CarbonImmutable::now();
         $dryRun = (bool) $this->option('dry-run');
         $limit = (int) $this->option('limit');
+        $stagingLimit = max(1, (int) $this->option('staging-limit'));
+        $stagingRetentionDays = max(1, (int) config('anonymizer.staging_retention_days', 7));
+        $stagingCutoff = $now->subDays($stagingRetentionDays);
 
         $query = AnonymousUpload::query()
             ->whereNotNull('path')
@@ -30,57 +34,93 @@ class PurgeAnonymizationUploads extends Command
 
         $uploads = $query->get();
 
-        if ($uploads->isEmpty()) {
-            $this->info('No expired uploads to purge.');
-            return self::SUCCESS;
-        }
-
         $purged = 0;
         $missing = 0;
         $failed = 0;
 
-        foreach ($uploads as $upload) {
-            $disk = $upload->file_disk ?: config('filesystems.default', 'local');
-            $path = $upload->path;
+        if ($uploads->isNotEmpty()) {
+            foreach ($uploads as $upload) {
+                $disk = $upload->file_disk ?: config('filesystems.default', 'local');
+                $path = $upload->path;
 
-            if (! $path) {
-                continue;
-            }
-
-            $storage = Storage::disk($disk);
-
-            try {
-                $exists = $storage->exists($path);
-
-                if ($dryRun) {
-                    $this->line(sprintf('[dry-run] %s:%s (%s)', $disk, $path, $exists ? 'exists' : 'missing'));
+                if (! $path) {
                     continue;
                 }
 
-                if ($exists) {
-                    $storage->delete($path);
-                    $purged++;
-                } else {
-                    $missing++;
-                }
+                $storage = Storage::disk($disk);
 
-                $upload->forceFill([
-                    'file_deleted_at' => $now,
-                    'file_deleted_reason' => 'retention',
-                ])->save();
-            } catch (Throwable $exception) {
-                $failed++;
-                report($exception);
-                $this->error(sprintf('Failed to purge upload #%d (%s:%s): %s', $upload->id, $disk, $path, $exception->getMessage()));
+                try {
+                    $exists = $storage->exists($path);
+
+                    if ($dryRun) {
+                        $this->line(sprintf('[dry-run] %s:%s (%s)', $disk, $path, $exists ? 'exists' : 'missing'));
+                        continue;
+                    }
+
+                    if ($exists) {
+                        $storage->delete($path);
+                        $purged++;
+                    } else {
+                        $missing++;
+                    }
+
+                    $upload->forceFill([
+                        'file_deleted_at' => $now,
+                        'file_deleted_reason' => 'retention',
+                    ])->save();
+                } catch (Throwable $exception) {
+                    $failed++;
+                    report($exception);
+                    $this->error(sprintf('Failed to purge upload #%d (%s:%s): %s', $upload->id, $disk, $path, $exception->getMessage()));
+                }
+            }
+        }
+
+        $stagingUploadIds = AnonymousUpload::query()
+            ->whereIn('status', ['completed', 'failed'])
+            ->where('updated_at', '<=', $stagingCutoff)
+            ->orderBy('id')
+            ->limit($stagingLimit)
+            ->pluck('id')
+            ->all();
+
+        $stagingRows = 0;
+        $stagingUploads = count($stagingUploadIds);
+
+        if ($stagingUploadIds !== []) {
+            if ($dryRun) {
+                $stagingRows = (int) DB::table('anonymous_siebel_stagings')
+                    ->whereIn('upload_id', $stagingUploadIds)
+                    ->count();
+            } else {
+                foreach (array_chunk($stagingUploadIds, 200) as $idChunk) {
+                    $stagingRows += (int) DB::table('anonymous_siebel_stagings')
+                        ->whereIn('upload_id', $idChunk)
+                        ->delete();
+                }
             }
         }
 
         if ($dryRun) {
-            $this->info(sprintf('Dry run complete. Candidates: %d', $uploads->count()));
+            $this->info(sprintf(
+                'Dry run complete. File candidates: %d. Staging candidates: %d uploads, %d rows (older than %d days).',
+                $uploads->count(),
+                $stagingUploads,
+                $stagingRows,
+                $stagingRetentionDays
+            ));
             return self::SUCCESS;
         }
 
-        $this->info(sprintf('Purged: %d, missing: %d, failed: %d', $purged, $missing, $failed));
+        $this->info(sprintf(
+            'Purged files: %d, missing files: %d, failed file purges: %d, pruned staging uploads: %d, pruned staging rows: %d (older than %d days)',
+            $purged,
+            $missing,
+            $failed,
+            $stagingUploads,
+            $stagingRows,
+            $stagingRetentionDays
+        ));
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }

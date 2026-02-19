@@ -237,6 +237,7 @@ trait InteractsWithAnonymousSiebelSync
             $dataStart = null;
         }
         $validationErrors = [];
+        $skippedRowsByNumber = [];
         $validationErrorCount = 0;
         $hasValidationErrors = false;
         $hasValidRows = false;
@@ -374,6 +375,33 @@ trait InteractsWithAnonymousSiebelSync
                 $hasValidationErrors = true;
                 $errorArrays = $validator->errors()->toArray();
 
+                if (! isset($skippedRowsByNumber[$rowNumber])) {
+                    $databaseName = (string) ($normalized['DATABASE_NAME'] ?? '');
+                    $schemaName = (string) ($normalized['SCHEMA_NAME'] ?? '');
+                    $tableName = (string) ($normalized['TABLE_NAME'] ?? '');
+                    $columnName = (string) ($normalized['COLUMN_NAME'] ?? '');
+
+                    $entry = trim(implode('.', array_filter([
+                        $databaseName,
+                        $schemaName,
+                        $tableName,
+                    ], static fn($part) => is_string($part) && trim($part) !== '')));
+
+                    if ($columnName !== '') {
+                        $entry = $entry !== '' ? ($entry . '.' . $columnName) : $columnName;
+                    }
+
+                    $skippedRowsByNumber[$rowNumber] = [
+                        'row' => $rowNumber,
+                        'entry' => $entry !== '' ? $entry : null,
+                        'database_name' => $databaseName !== '' ? $databaseName : null,
+                        'schema_name' => $schemaName !== '' ? $schemaName : null,
+                        'table_name' => $tableName !== '' ? $tableName : null,
+                        'column_name' => $columnName !== '' ? $columnName : null,
+                        'errors' => [],
+                    ];
+                }
+
                 foreach ($errorArrays as $field => $messages) {
                     foreach ($messages as $message) {
                         if ($validationErrorCount >= self::CSV_VALIDATION_ERROR_CAP) {
@@ -391,6 +419,13 @@ trait InteractsWithAnonymousSiebelSync
                             'message' => $message,
                             'value' => $value,
                         ];
+
+                        $skippedRowsByNumber[$rowNumber]['errors'][] = [
+                            'field' => $field,
+                            'message' => $message,
+                            'value' => $value,
+                        ];
+
                         $validationErrorCount++;
                     }
                 }
@@ -546,6 +581,9 @@ trait InteractsWithAnonymousSiebelSync
                 ->exists();
 
             if (! $existingTicket) {
+                $skippedRows = array_values($skippedRowsByNumber);
+                usort($skippedRows, static fn(array $a, array $b): int => (int) ($a['row'] ?? 0) <=> (int) ($b['row'] ?? 0));
+
                 ChangeTicket::create([
                     'title' => $ticketTitle,
                     'status' => 'open',
@@ -553,12 +591,14 @@ trait InteractsWithAnonymousSiebelSync
                     'severity' => 'high',
                     'scope_type' => 'upload',
                     'scope_name' => (string) ($upload->original_name ?: $upload->id),
-                    'impact_summary' => 'CSV validation detected ' . $validationErrorCount . ' row-level issue(s). Import continued and invalid rows were skipped.',
+                    'impact_summary' => 'CSV validation detected ' . $validationErrorCount . ' issue(s) across ' . count($skippedRows) . ' skipped row(s). Import continued and invalid rows were skipped.',
                     'diff_payload' => json_encode([
                         'error_count' => $validationErrorCount,
                         'error_report_path' => $errorReportPath,
                         'format' => $format,
                         'capped' => $validationErrorCount >= self::CSV_VALIDATION_ERROR_CAP,
+                        'skipped_row_count' => count($skippedRows),
+                        'skipped_rows' => $skippedRows,
                     ]),
                     'upload_id' => $upload->id,
                 ]);
