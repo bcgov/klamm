@@ -11,7 +11,7 @@ use Throwable;
 
 class PurgeAnonymizationUploads extends Command
 {
-    protected $signature = 'anonymization:purge-uploads {--dry-run : Report what would be deleted without deleting files} {--limit=500 : Max records to process per run} {--staging-limit=1000 : Max uploads to scan for staging pruning per run}';
+    protected $signature = 'anonymization:purge-uploads {--dry-run : Report what would be deleted without deleting files} {--limit=500 : Max records to process per run} {--staging-limit=1000 : Max uploads to scan for staging pruning per run} {--staging-upload-chunk=200 : Upload IDs per staging delete pass} {--row-chunk=5000 : Staging row IDs deleted per statement}';
 
     protected $description = 'Deletes retained anonymization upload files and prunes stale staging rows.';
 
@@ -21,6 +21,8 @@ class PurgeAnonymizationUploads extends Command
         $dryRun = (bool) $this->option('dry-run');
         $limit = (int) $this->option('limit');
         $stagingLimit = max(1, (int) $this->option('staging-limit'));
+        $stagingUploadChunk = max(1, (int) $this->option('staging-upload-chunk'));
+        $rowChunk = max(100, (int) $this->option('row-chunk'));
         $stagingRetentionDays = max(1, (int) config('anonymizer.staging_retention_days', 7));
         $stagingCutoff = $now->subDays($stagingRetentionDays);
 
@@ -93,10 +95,23 @@ class PurgeAnonymizationUploads extends Command
                     ->whereIn('upload_id', $stagingUploadIds)
                     ->count();
             } else {
-                foreach (array_chunk($stagingUploadIds, 200) as $idChunk) {
-                    $stagingRows += (int) DB::table('anonymous_siebel_stagings')
-                        ->whereIn('upload_id', $idChunk)
-                        ->delete();
+                foreach (array_chunk($stagingUploadIds, $stagingUploadChunk) as $idChunk) {
+                    do {
+                        $rowIds = DB::table('anonymous_siebel_stagings')
+                            ->whereIn('upload_id', $idChunk)
+                            ->orderBy('id')
+                            ->limit($rowChunk)
+                            ->pluck('id')
+                            ->all();
+
+                        if ($rowIds === []) {
+                            break;
+                        }
+
+                        $stagingRows += (int) DB::table('anonymous_siebel_stagings')
+                            ->whereIn('id', $rowIds)
+                            ->delete();
+                    } while (count($rowIds) === $rowChunk);
                 }
             }
         }
