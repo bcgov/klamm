@@ -14,8 +14,7 @@ Schedule::command(SendEmailReminders::class)
     ->at('7:00')
     ->withoutOverlapping();
 
-Schedule::command(PurgeAnonymizationUploads::class)
-    ->daily()
+Schedule::command('anonymization:purge-uploads --limit=200 --staging-limit=300 --staging-upload-chunk=50 --row-chunk=2000')
+    ->everyThirtyMinutes()
     ->timezone('America/Vancouver')
-    ->at('2:15')
     ->withoutOverlapping();

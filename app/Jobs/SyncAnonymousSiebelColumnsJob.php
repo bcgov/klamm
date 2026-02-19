@@ -413,13 +413,36 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
             ->pluck('id')
             ->all();
 
-        $query = DB::table(self::STAGING_TABLE)
+        $baseQuery = DB::table(self::STAGING_TABLE)
             ->where('upload_id', '!=', $currentUploadId);
 
         if ($activeUploadIds !== []) {
-            $query->whereNotIn('upload_id', $activeUploadIds);
+            $baseQuery->whereNotIn('upload_id', $activeUploadIds);
         }
 
-        return (int) $query->delete();
+        $deleted = 0;
+        $lastId = 0;
+        $rowChunk = 5000;
+
+        do {
+            $ids = (clone $baseQuery)
+                ->where('id', '>', $lastId)
+                ->orderBy('id')
+                ->limit($rowChunk)
+                ->pluck('id')
+                ->all();
+
+            if ($ids === []) {
+                break;
+            }
+
+            $deleted += (int) DB::table(self::STAGING_TABLE)
+                ->whereIn('id', $ids)
+                ->delete();
+
+            $lastId = (int) end($ids);
+        } while (count($ids) === $rowChunk);
+
+        return $deleted;
     }
 }
