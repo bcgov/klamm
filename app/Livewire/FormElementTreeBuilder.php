@@ -390,7 +390,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
         // But convert null values to empty strings for text fields that the user might want to clear
         $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'maskErrorMessage', 'content', 'legend', 'repeater_item_label'];
         $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
-        $nullableFields = ['level'];
+        $nullableFields = ['level', 'minDate', 'maxDate'];
 
         $filteredElementableData = [];
         foreach ($elementableData as $key => $value) {
@@ -559,7 +559,7 @@ class FormElementTreeBuilder extends BaseWidget implements HasForms
         // But convert null values to empty strings for text fields that the user might want to clear
         $textFields = ['labelText', 'placeholder', 'helperText', 'mask', 'maskErrorMessage', 'content', 'legend', 'repeater_item_label'];
         $numericFields = ['min', 'max', 'step', 'defaultValue', 'maxCount', 'rows', 'cols', 'order'];
-        $nullableFields = ['level'];
+        $nullableFields = ['level', 'minDate', 'maxDate'];
 
         $filteredElementableData = [];
         foreach ($elementableData as $key => $value) {
