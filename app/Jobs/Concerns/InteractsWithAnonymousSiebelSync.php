@@ -1892,9 +1892,7 @@ trait InteractsWithAnonymousSiebelSync
 
     protected function synchronizeAnonymizationRulesFromStaging(AnonymousUpload $upload, CarbonImmutable $runAt, ?callable $progressReporter = null): array
     {
-        $override = (bool) ($upload->override_anonymization_rules ?? false);
-
-        if (! $override) {
+        if (! (bool) ($upload->override_anonymization_rules ?? false)) {
             return [
                 'changed_columns' => 0,
             ];
@@ -1967,7 +1965,7 @@ trait InteractsWithAnonymousSiebelSync
             ->select('s.id as staging_id', 'c.id as column_id', 's.database_name', 's.schema_name', 's.table_name', 's.column_name', 's.anon_rule', 's.anon_note')
             ->orderBy('s.id');
 
-        $query->chunkById(1000, function ($rows) use ($override, $runAt, $methodIdsByName, &$processedRuleRows, $totalRuleRows, $progressReporter, &$metrics, &$changedColumns, &$unknownMethods): void {
+        $query->chunkById(1000, function ($rows) use ($runAt, $methodIdsByName, &$processedRuleRows, $totalRuleRows, $progressReporter, &$metrics, &$changedColumns, &$unknownMethods): void {
             $effectiveRowsByColumn = [];
             foreach ($rows as $row) {
                 $columnId = (int) $row->column_id;
@@ -2039,13 +2037,17 @@ trait InteractsWithAnonymousSiebelSync
 
             $existingColumns = DB::table(self::COLUMNS_TABLE)
                 ->whereIn('id', $columnIds)
-                ->select('id', 'anonymization_required', 'changed_fields')
+                ->select('id', 'anonymization_required', 'anonymization_requirement_reviewed', 'metadata_comment', 'changed_fields')
                 ->get();
 
             $existingRequiredByColumn = [];
+            $existingReviewedByColumn = [];
+            $existingMetadataCommentByColumn = [];
             $existingChangedFieldsByColumn = [];
             foreach ($existingColumns as $existingColumn) {
                 $existingRequiredByColumn[(int) $existingColumn->id] = $existingColumn->anonymization_required;
+                $existingReviewedByColumn[(int) $existingColumn->id] = $existingColumn->anonymization_requirement_reviewed;
+                $existingMetadataCommentByColumn[(int) $existingColumn->id] = $this->toNullOrString($existingColumn->metadata_comment);
                 $existingChangedFieldsByColumn[(int) $existingColumn->id] = $this->normalizeChangedFieldsPayload($existingColumn->changed_fields);
             }
 
@@ -2063,56 +2065,30 @@ trait InteractsWithAnonymousSiebelSync
             foreach ($effectiveRows as $row) {
                 $columnId = (int) $row->column_id;
                 $rowChanged = false;
-                $requiredUpdated = false;
 
                 $anonRule = $this->toNullOrString($row->anon_rule);
                 $anonNote = $this->toNullOrString($row->anon_note);
+                $normalizedRule = $anonRule !== null ? $this->norm($anonRule) : null;
 
                 if ($anonRule !== null || $anonNote !== null) {
                     $metrics['rows_with_rule_input']++;
                 }
 
-                if ($override || $anonRule !== null) {
-                    $required = $this->parseAnonRuleRequiredFlag($anonRule);
+                $desiredRequired = false;
+                $desiredReviewed = false;
+                $requestedMethodNames = [];
 
-                    if ($override || $required !== null) {
-                        $currentRequired = $existingRequiredByColumn[$columnId] ?? null;
-
-                        if ($this->valuesDiffer($currentRequired, $required)) {
-                            $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
-                            $changedFields['anonymization_required'] = [
-                                'old' => $currentRequired,
-                                'new' => $required,
-                            ];
-
-                            DB::table(self::COLUMNS_TABLE)
-                                ->where('id', $columnId)
-                                ->update([
-                                    'anonymization_required' => $required,
-                                    'anonymization_requirement_reviewed' => false,
-                                    'changed_at' => $runAt,
-                                    'changed_fields' => json_encode($changedFields, JSON_UNESCAPED_UNICODE),
-                                    'updated_at' => $runAt,
-                                ]);
-
-                            $existingRequiredByColumn[$columnId] = $required;
-                            $existingChangedFieldsByColumn[$columnId] = $changedFields;
-                            $metrics['required_updates']++;
-                            $rowChanged = true;
-                            $requiredUpdated = true;
-                            $changedColumns[$columnId] = true;
-                        }
+                if ($anonRule !== null) {
+                    if ($normalizedRule === 'NO_CHANGE') {
+                        $desiredRequired = false;
+                        $desiredReviewed = true;
+                    } else {
+                        $desiredRequired = true;
+                        $desiredReviewed = true;
+                        $requestedMethodNames[] = $anonRule;
                     }
                 }
 
-                if (! $override && $anonNote === null) {
-                    if (! $rowChanged) {
-                        $metrics['rows_noop']++;
-                    }
-                    continue;
-                }
-
-                $requestedMethodNames = $this->parseAnonMethodNames($anonNote);
                 $requestedMethodIds = [];
                 foreach ($requestedMethodNames as $methodName) {
                     $methodId = $methodIdsByName[$this->norm($methodName)] ?? null;
@@ -2147,13 +2123,9 @@ trait InteractsWithAnonymousSiebelSync
                 $requestedMethodIds = array_values(array_unique($requestedMethodIds));
                 sort($requestedMethodIds);
 
-                // Non-override imports are non-destructive when note contains unknown names only.
-                if (! $override && $anonNote !== null && $requestedMethodNames !== [] && $requestedMethodIds === []) {
-                    if (! $rowChanged) {
-                        $metrics['rows_noop']++;
-                    }
-                    continue;
-                }
+                $currentRequired = $existingRequiredByColumn[$columnId] ?? null;
+                $currentReviewed = $existingReviewedByColumn[$columnId] ?? null;
+                $currentMetadataComment = $existingMetadataCommentByColumn[$columnId] ?? null;
 
                 $currentMethodIds = $existingMethodIdsByColumn[$columnId] ?? [];
                 sort($currentMethodIds);
@@ -2161,77 +2133,93 @@ trait InteractsWithAnonymousSiebelSync
                 $methodIdsToDelete = array_values(array_diff($currentMethodIds, $requestedMethodIds));
                 $methodIdsToInsert = array_values(array_diff($requestedMethodIds, $currentMethodIds));
 
-                if ($methodIdsToDelete === [] && $methodIdsToInsert === []) {
-                    if (! $rowChanged) {
-                        $metrics['rows_noop']++;
-                    }
-                    continue;
+                $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
+                $columnUpdates = [
+                    'updated_at' => $runAt,
+                ];
+
+                if ($this->valuesDiffer($currentRequired, $desiredRequired)) {
+                    $changedFields['anonymization_required'] = [
+                        'old' => $currentRequired,
+                        'new' => $desiredRequired,
+                    ];
+
+                    $columnUpdates['anonymization_required'] = $desiredRequired;
+                    $existingRequiredByColumn[$columnId] = $desiredRequired;
+                    $metrics['required_updates']++;
+                    $rowChanged = true;
                 }
 
-                if ($methodIdsToDelete !== []) {
-                    DB::table('anonymization_method_column')
-                        ->where('column_id', $columnId)
-                        ->whereIn('method_id', $methodIdsToDelete)
-                        ->delete();
+                if ($this->valuesDiffer($currentReviewed, $desiredReviewed)) {
+                    $changedFields['anonymization_requirement_reviewed'] = [
+                        'old' => $currentReviewed,
+                        'new' => $desiredReviewed,
+                    ];
 
-                    $metrics['method_links_deleted'] += count($methodIdsToDelete);
+                    $columnUpdates['anonymization_requirement_reviewed'] = $desiredReviewed;
+                    $existingReviewedByColumn[$columnId] = $desiredReviewed;
+                    $rowChanged = true;
                 }
 
-                $metrics['method_mapping_updates']++;
-                $rowChanged = true;
-                $changedColumns[$columnId] = true;
+                if ($this->valuesDiffer($currentMetadataComment, $anonNote)) {
+                    $changedFields['metadata_comment'] = [
+                        'old' => $currentMetadataComment,
+                        'new' => $anonNote,
+                    ];
 
-                if ($methodIdsToInsert !== []) {
-                    $methodRows = [];
-                    foreach ($methodIdsToInsert as $methodId) {
-                        $methodRows[] = [
-                            'column_id' => $columnId,
-                            'method_id' => $methodId,
-                            'created_at' => $runAt,
-                            'updated_at' => $runAt,
-                        ];
-                    }
-
-                    DB::table('anonymization_method_column')->insert($methodRows);
-                    $metrics['method_links_inserted'] += count($methodIdsToInsert);
+                    $columnUpdates['metadata_comment'] = $anonNote;
+                    $existingMetadataCommentByColumn[$columnId] = $anonNote;
+                    $rowChanged = true;
                 }
 
-                if (! $requiredUpdated) {
-                    $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
+                if ($methodIdsToDelete !== [] || $methodIdsToInsert !== []) {
                     $changedFields['anonymization_methods'] = [
                         'old' => array_values($currentMethodIds),
                         'new' => array_values($requestedMethodIds),
                     ];
 
+                    if ($methodIdsToDelete !== []) {
+                        DB::table('anonymization_method_column')
+                            ->where('column_id', $columnId)
+                            ->whereIn('method_id', $methodIdsToDelete)
+                            ->delete();
+
+                        $metrics['method_links_deleted'] += count($methodIdsToDelete);
+                    }
+
+                    if ($methodIdsToInsert !== []) {
+                        $methodRows = [];
+                        foreach ($methodIdsToInsert as $methodId) {
+                            $methodRows[] = [
+                                'column_id' => $columnId,
+                                'method_id' => $methodId,
+                                'created_at' => $runAt,
+                                'updated_at' => $runAt,
+                            ];
+                        }
+
+                        DB::table('anonymization_method_column')->insert($methodRows);
+                        $metrics['method_links_inserted'] += count($methodIdsToInsert);
+                    }
+
+                    $existingMethodIdsByColumn[$columnId] = $requestedMethodIds;
+                    $metrics['method_mapping_updates']++;
+                    $rowChanged = true;
+                }
+
+                if ($rowChanged) {
+                    $columnUpdates['changed_at'] = $runAt;
+                    $columnUpdates['changed_fields'] = json_encode($changedFields, JSON_UNESCAPED_UNICODE);
+
                     DB::table(self::COLUMNS_TABLE)
                         ->where('id', $columnId)
-                        ->update([
-                            'anonymization_requirement_reviewed' => false,
-                            'changed_at' => $runAt,
-                            'changed_fields' => json_encode($changedFields, JSON_UNESCAPED_UNICODE),
-                            'updated_at' => $runAt,
-                        ]);
+                        ->update($columnUpdates);
 
                     $existingChangedFieldsByColumn[$columnId] = $changedFields;
+                    $changedColumns[$columnId] = true;
                 } else {
-                    $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
-                    $changedFields['anonymization_methods'] = [
-                        'old' => array_values($currentMethodIds),
-                        'new' => array_values($requestedMethodIds),
-                    ];
-
-                    DB::table(self::COLUMNS_TABLE)
-                        ->where('id', $columnId)
-                        ->update([
-                            'changed_at' => $runAt,
-                            'changed_fields' => json_encode($changedFields, JSON_UNESCAPED_UNICODE),
-                            'updated_at' => $runAt,
-                        ]);
-
-                    $existingChangedFieldsByColumn[$columnId] = $changedFields;
+                    $metrics['rows_noop']++;
                 }
-
-                $existingMethodIdsByColumn[$columnId] = $requestedMethodIds;
             }
         }, 's.id', 'staging_id');
 
@@ -2241,7 +2229,7 @@ trait InteractsWithAnonymousSiebelSync
                 continue;
             }
 
-            $title = 'Missing anonymization method from CSV: ' . $methodName;
+            $title = 'Missing anonymization method from ANON_RULE: ' . $methodName;
             $exists = ChangeTicket::query()
                 ->where('upload_id', $upload->id)
                 ->where('scope_type', 'upload')
@@ -2254,7 +2242,7 @@ trait InteractsWithAnonymousSiebelSync
             }
 
             $examples = array_keys((array) ($entry['examples'] ?? []));
-            $comment = 'CSV requested anonymization method "' . $methodName . '" but no matching method exists in the method library. Create this method and map its SQL behavior, then re-run/import to apply it.';
+            $comment = 'ANON_RULE requested anonymization method "' . $methodName . '" but no matching method exists in the method library. Create this method and map its SQL behavior, then re-run/import to apply it.';
 
             if ($examples !== []) {
                 $comment .= ' Example columns: ' . implode(', ', array_slice($examples, 0, 5)) . '.';
@@ -2297,51 +2285,6 @@ trait InteractsWithAnonymousSiebelSync
         $decoded = json_decode($payload, true);
 
         return is_array($decoded) ? $decoded : [];
-    }
-
-    protected function parseAnonRuleRequiredFlag(?string $value): ?bool
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        $normalized = $this->norm($value);
-
-        if (in_array($normalized, ['Y', 'YES', 'TRUE', '1', 'REQUIRED'], true)) {
-            return true;
-        }
-
-        if (in_array($normalized, ['N', 'NO', 'FALSE', '0', 'NOT REQUIRED', 'NOT_REQUIRED'], true)) {
-            return false;
-        }
-
-        return null;
-    }
-
-    protected function parseAnonMethodNames(?string $value): array
-    {
-        if ($value === null) {
-            return [];
-        }
-
-        $trimmed = trim($value);
-        if ($trimmed === '') {
-            return [];
-        }
-
-        $parts = preg_split('/\s*(?:;|,|\||\r\n|\n)\s*/', $trimmed, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        $names = [];
-        foreach ($parts as $part) {
-            $name = trim($part);
-            if ($name === '') {
-                continue;
-            }
-
-            $names[$this->norm($name)] = $name;
-        }
-
-        return array_values($names);
     }
 
     protected function cleanupStaging(int $uploadId): void

@@ -93,11 +93,15 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->default(false)
                                 ->visible(fn(): bool => CheckRole::hasRole(request(), 'admin')),
                         ]),
-                    Wizard\Step::make('Upload CSV')
+                    Wizard\Step::make('Upload File')
                         ->schema([
                             FileUpload::make('csv_file')
-                                ->label('Siebel Metadata CSV')
-                                ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv'])
+                                ->label('Siebel Metadata File')
+                                ->acceptedFileTypes([
+                                    'text/csv',
+                                    'text/plain',
+                                    'application/csv',
+                                ])
                                 ->maxSize(500 * 1024)
                                 ->storeFiles(false)
                                 ->required()
@@ -298,9 +302,15 @@ class ImportSiebelMetadata extends Page implements HasForms
             if ($isSiebelColumns || $looksSiebelColumns) {
                 $csvTransformed = $this->transformSiebelColumnsCsv($file, null, null);
                 $storedPath = $directory . '/' . $filename;
-                Storage::disk($disk)->put($storedPath, $csvTransformed);
+                $stored = Storage::disk($disk)->put($storedPath, $csvTransformed);
+                if ($stored === false) {
+                    throw new RuntimeException('Unable to store transformed import file.');
+                }
             } else {
                 $storedPath = $file->storeAs($directory, $filename, $disk);
+                if (! is_string($storedPath) || $storedPath === '') {
+                    throw new RuntimeException('Unable to store uploaded import file.');
+                }
             }
 
             if (method_exists($file, 'delete')) {
@@ -355,9 +365,11 @@ class ImportSiebelMetadata extends Page implements HasForms
             Notification::make()
                 ->success()
                 ->title('Import Queued')
-                ->body('The CSV has been queued for processing. Use refresh to monitor progress.')
+                ->body('The file has been queued for processing. Use refresh to monitor progress.')
                 ->send();
         } catch (Throwable $exception) {
+            report($exception);
+
             Notification::make()
                 ->danger()
                 ->title('Import Failed')
@@ -569,11 +581,31 @@ class ImportSiebelMetadata extends Page implements HasForms
             return $state;
         }
 
+        if ($state instanceof UploadedFile) {
+            return $state;
+        }
+
         if (is_string($state) && Str::isJson($state)) {
             $state = json_decode($state, true);
         }
 
         if (is_array($state)) {
+            if (isset($state[0]) && $state[0] instanceof TemporaryUploadedFile) {
+                return $state[0];
+            }
+
+            if (isset($state[0]) && $state[0] instanceof UploadedFile) {
+                return $state[0];
+            }
+
+            if (isset($state[0]) && is_string($state[0]) && $state[0] !== '') {
+                try {
+                    return TemporaryUploadedFile::createFromLivewire($state[0]);
+                } catch (Throwable $exception) {
+                    throw new RuntimeException('Unable to hydrate uploaded file from Livewire array payload.', 0, $exception);
+                }
+            }
+
             if (isset($state[0]) && is_array($state[0])) {
                 $state = $state[0];
             }
@@ -612,7 +644,7 @@ class ImportSiebelMetadata extends Page implements HasForms
             }
         }
 
-        throw new RuntimeException('No CSV file was provided.');
+        throw new RuntimeException('No import file was provided.');
     }
 
     // Destructive. Intended for local/dev use only. Deletes all anonymized Siebel metadata, plus any stored upload files.
