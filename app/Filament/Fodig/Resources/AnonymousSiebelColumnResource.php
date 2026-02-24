@@ -825,14 +825,14 @@ class AnonymousSiebelColumnResource extends Resource
                         ->label('Export currently filtered set')
                         ->exporter(AnonymousSiebelColumnExporter::class)
                         ->job(PrepareCsvExportWithProgress::class)
-                        ->formats([ExportFormat::Csv])
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
                         ->fileName(fn(Export $export): string => "Siebel-Columns-{$export->getKey()}"),
                     ExportAction::make('export_legacy_format')
                         ->label('Export Legacy Format')
                         ->hidden(true) // hide from actions, but keep functionality during development
                         ->exporter(AnonymousSiebelColumnLegacyExporter::class)
                         ->job(PrepareCsvExportWithProgress::class)
-                        ->formats([ExportFormat::Csv])
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
                         ->fileName(fn(Export $export): string => "Siebel-Columns-Legacy-{$export->getKey()}"),
                 ])
                     ->button()
@@ -844,12 +844,12 @@ class AnonymousSiebelColumnResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     ExportBulkAction::make('export_selected_temp_format')
                         ->label('Export selected')
-                        ->formats([ExportFormat::Csv])
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
                         ->job(PrepareCsvExportWithProgress::class)
                         ->exporter(AnonymousSiebelColumnExporter::class),
                     ExportBulkAction::make('export_selected_legacy_format')
                         ->label('Export selected (Legacy)')
-                        ->formats([ExportFormat::Csv])
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
                         ->hidden(true)
                         ->job(PrepareCsvExportWithProgress::class)
                         ->exporter(AnonymousSiebelColumnLegacyExporter::class),

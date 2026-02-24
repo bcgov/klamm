@@ -159,15 +159,10 @@ class AnonymousSiebelColumnLegacyExporter extends AnonymousSiebelColumnExporter
                 ->state(fn() => null),
             ExportColumn::make('anonymization_required')
                 ->label('ANON_RULE')
-                ->formatStateUsing(fn($state) => self::formatNullableBooleanToYn($state)),
+                ->state(fn(AnonymousSiebelColumn $record) => self::exportAnonRuleValue($record)),
             ExportColumn::make('anonymizationMethods')
                 ->label('ANON_NOTE')
-                ->state(fn(AnonymousSiebelColumn $record) => $record->anonymizationMethods
-                    ->sortBy('name')
-                    ->pluck('name')
-                    ->values()
-                    ->all())
-                ->formatStateUsing(fn($state) => self::joinList($state)),
+                ->state(fn(AnonymousSiebelColumn $record) => $record->metadata_comment),
         ];
     }
 }

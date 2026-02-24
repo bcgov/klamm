@@ -61,15 +61,10 @@ class AnonymousSiebelColumnExporter extends Exporter
                 ->label('COLUMN_NAME'),
             ExportColumn::make('anonymization_required')
                 ->label('ANON_RULE')
-                ->formatStateUsing(fn($state) => self::formatNullableBooleanToYn($state)),
+                ->state(fn(AnonymousSiebelColumn $record) => self::exportAnonRuleValue($record)),
             ExportColumn::make('anonymizationMethods')
                 ->label('ANON_NOTE')
-                ->state(fn(AnonymousSiebelColumn $record) => $record->anonymizationMethods
-                    ->sortBy('name')
-                    ->pluck('name')
-                    ->values()
-                    ->all())
-                ->formatStateUsing(fn($state) => self::joinList($state)),
+                ->state(fn(AnonymousSiebelColumn $record) => $record->metadata_comment),
             ExportColumn::make('pr_key')
                 ->label('PR_KEY'),
             ExportColumn::make('ref_tab_name')
@@ -154,6 +149,36 @@ class AnonymousSiebelColumnExporter extends Exporter
         }
 
         return (bool) $state ? 'Y' : 'N';
+    }
+
+    protected static function exportAnonRuleValue(AnonymousSiebelColumn $record): ?string
+    {
+        $required = (bool) ($record->anonymization_required ?? false);
+        $reviewed = (bool) ($record->anonymization_requirement_reviewed ?? false);
+
+        if ($required) {
+            return self::exportPrimaryAnonymizationMethodName($record);
+        }
+
+        if (! $reviewed) {
+            return null;
+        }
+
+        if ($reviewed && ! $required) {
+            return 'no_change';
+        }
+
+        return null;
+    }
+
+    protected static function exportPrimaryAnonymizationMethodName(AnonymousSiebelColumn $record): ?string
+    {
+        return $record->anonymizationMethods
+            ->sortBy('name')
+            ->pluck('name')
+            ->map(fn($name) => trim((string) $name))
+            ->filter()
+            ->first();
     }
 
     protected static function formatRelatedColumns($raw, $fallbackRaw = null): ?string
