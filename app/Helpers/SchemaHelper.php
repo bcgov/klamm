@@ -54,7 +54,6 @@ class SchemaHelper
             ->label('Placeholder Text')
             ->autocomplete(false)
             ->disabled($disabled);
-
     }
 
     public static function getLabelTextField(bool $disabled = false)
@@ -94,7 +93,7 @@ class SchemaHelper
     public static function getEnableVariableSubstitutionToggle(bool $disabled = false)
     {
         return Toggle::make('elementable_data.enableVarSub')
-            ->label('Enable Variable Subsitution')
+            ->label('Enable Variable Substitution')
             ->helperText('Use {{variableName}} syntax in the label to dynamically insert values from other form fields. 
                 Make sure you also insert the Moustache library in the Scripts tab and register the variable.')
             ->default(false)
