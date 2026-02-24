@@ -69,7 +69,7 @@ class TextInputFormElement extends Model
                                 $maskPatterns = [
                                     'email' => '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
                                     'phone' => '### ###-####',
-                                    'postal' => '^[A-Z]\d[A-Z]\s\d[A-Z]\d$',
+                                    'postal' => '@#@ #@#',
                                     'custom' => '',
                                 ];
                                 $set('elementable_data.mask', $maskPatterns[$state] ?? '');
