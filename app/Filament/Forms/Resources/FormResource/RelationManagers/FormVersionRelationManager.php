@@ -86,6 +86,7 @@ class FormVersionRelationManager extends RelationManager
                 Tables\Actions\EditAction::make()
                     ->url(fn(FormVersion $record) => FormVersionResource::getUrl('edit', ['record' => $record]))
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
+                // Duplicate form version currently disabled due to ADO bugs 3302 and 3303
                 // Action::make('duplicate')
                 //     ->label('Duplicate')
                 //     ->icon('heroicon-o-document-duplicate')
