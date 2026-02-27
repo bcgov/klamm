@@ -17,9 +17,14 @@ class ViewAnonymizationJobSelection extends Page
 
     public AnonymizationJobs $record;
 
-    public function mount(AnonymizationJobs $record): void
+    public function mount(int|string $record): void
     {
-        $this->record = $record->load([
+        // Resolve the record through the resource's getEloquentQuery() which
+        // excludes the potentially 50+ MB sql_script column.
+        $this->record = AnonymizationJobResource::getEloquentQuery()
+            ->findOrFail($record);
+
+        $this->record->load([
             'databases.schemas',
             'schemas' => fn($query) => $query->with(['database', 'tables']),
             'tables' => fn($query) => $query

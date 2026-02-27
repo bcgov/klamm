@@ -30,6 +30,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             // Load core relations first
             $columns->loadMissing([
                 'anonymizationMethods',
+                'anonymizationRule.methods',
                 'table.schema.database',
                 'dataType',
                 'parentColumns',
@@ -667,15 +668,6 @@ trait BuildsDoubleSeededDeterministicOracleScripts
 
         $tableIds = array_keys($tableMapById);
 
-        $columns = AnonymousSiebelColumn::query()
-            ->with(['dataType', 'table.schema'])
-            ->whereIn('table_id', $tableIds)
-            ->get();
-
-        if ($columns->isEmpty()) {
-            return [];
-        }
-
         $tablesByIdentity = [];
         foreach ($tableMapById as $tableId => $mapping) {
             $schema = strtoupper(trim((string) ($mapping['source_schema'] ?? '')));
@@ -685,95 +677,121 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             }
         }
 
-        $columnsByTable = $columns->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+        // Pre-load only ROW_ID columns for parent verification (tiny: ≤1 per table).
+        $rowIdByTable = [];
+        foreach (array_chunk($tableIds, 500) as $chunk) {
+            $loaded = AnonymousSiebelColumn::query()
+                ->with(['dataType'])
+                ->whereIn('table_id', $chunk)
+                ->whereRaw('UPPER(column_name) = ?', ['ROW_ID'])
+                ->get();
+
+            foreach ($loaded as $col) {
+                $rowIdByTable[(int) $col->table_id] = $col;
+            }
+        }
 
         $lines = [];
         $seen = [];
 
-        foreach ($columns as $column) {
-            $childTableId = (int) ($column->table_id ?? 0);
-            if ($childTableId <= 0) {
+        // Process tables in chunks to keep memory bounded on large schema jobs.
+        foreach (array_chunk($tableIds, 100) as $tableChunk) {
+            $columns = AnonymousSiebelColumn::query()
+                ->with(['dataType', 'table.schema'])
+                ->whereIn('table_id', $tableChunk)
+                ->get();
+
+            if ($columns->isEmpty()) {
                 continue;
             }
 
-            $childMap = $tableMapById[$childTableId] ?? null;
-            if (! is_array($childMap)) {
-                continue;
+            foreach ($columns as $column) {
+                $childTableId = (int) ($column->table_id ?? 0);
+                if ($childTableId <= 0) {
+                    continue;
+                }
+
+                $childMap = $tableMapById[$childTableId] ?? null;
+                if (! is_array($childMap)) {
+                    continue;
+                }
+
+                $childColumn = trim((string) ($column->column_name ?? ''));
+                if ($childColumn === '' || $this->isLongColumn($column)) {
+                    continue;
+                }
+
+                $relationships = $this->resolveDeterministicForeignKeyRelationships($column);
+                if ($relationships === []) {
+                    continue;
+                }
+
+                foreach ($relationships as $relationship) {
+                    $direction = strtoupper((string) ($relationship['direction'] ?? 'OUTBOUND'));
+                    if ($direction === 'INBOUND') {
+                        continue;
+                    }
+
+                    $schema = strtoupper(trim((string) ($relationship['schema'] ?? '')));
+                    $table = strtoupper(trim((string) ($relationship['table'] ?? '')));
+                    $parentColumn = trim((string) ($relationship['column'] ?? 'ROW_ID'));
+
+                    if ($schema === '' || $table === '' || $parentColumn === '') {
+                        continue;
+                    }
+
+                    if (strtoupper($parentColumn) !== 'ROW_ID') {
+                        continue;
+                    }
+
+                    $parentTableId = $tablesByIdentity[$schema . '|' . $table] ?? null;
+                    if (! $parentTableId) {
+                        continue;
+                    }
+
+                    $parentMap = $tableMapById[$parentTableId] ?? null;
+                    if (! is_array($parentMap)) {
+                        continue;
+                    }
+
+                    // Use pre-loaded ROW_ID map for parent verification.
+                    $parentModel = $rowIdByTable[$parentTableId] ?? null;
+
+                    if (! $parentModel || $this->isLongColumn($parentModel)) {
+                        continue;
+                    }
+
+                    if (! $this->columnsAreCompatible($column, $parentModel)) {
+                        continue;
+                    }
+
+                    $childTarget = $childMap['target_qualified'] ?? null;
+                    $parentTarget = $parentMap['target_qualified'] ?? null;
+
+                    if (! $childTarget || ! $parentTarget) {
+                        continue;
+                    }
+
+                    $fingerprint = strtoupper($childTarget . '|' . $childColumn . '|' . $parentTarget . '|' . $parentColumn);
+                    if (isset($seen[$fingerprint])) {
+                        continue;
+                    }
+                    $seen[$fingerprint] = true;
+
+                    $hash = substr(md5($fingerprint), 0, 8);
+                    $constraintName = $this->oracleIdentifier('FK_' . ($childMap['target_table'] ?? 'CHILD') . '_' . $hash);
+
+                    $lines[] = 'ALTER TABLE ' . $childTarget;
+                    $lines[] = 'ADD CONSTRAINT ' . $constraintName;
+                    $lines[] = 'FOREIGN KEY (' . $childColumn . ')';
+                    $lines[] = 'REFERENCES ' . $parentTarget . ' (' . $parentColumn . ')';
+                    $lines[] = 'ENABLE NOVALIDATE;';
+                    $lines[] = '';
+                }
             }
 
-            $childColumn = trim((string) ($column->column_name ?? ''));
-            if ($childColumn === '' || $this->isLongColumn($column)) {
-                continue;
-            }
-
-            $relationships = $this->resolveDeterministicForeignKeyRelationships($column);
-            if ($relationships === []) {
-                continue;
-            }
-
-            foreach ($relationships as $relationship) {
-                $direction = strtoupper((string) ($relationship['direction'] ?? 'OUTBOUND'));
-                if ($direction === 'INBOUND') {
-                    continue;
-                }
-
-                $schema = strtoupper(trim((string) ($relationship['schema'] ?? '')));
-                $table = strtoupper(trim((string) ($relationship['table'] ?? '')));
-                $parentColumn = trim((string) ($relationship['column'] ?? 'ROW_ID'));
-
-                if ($schema === '' || $table === '' || $parentColumn === '') {
-                    continue;
-                }
-
-                if (strtoupper($parentColumn) !== 'ROW_ID') {
-                    continue;
-                }
-
-                $parentTableId = $tablesByIdentity[$schema . '|' . $table] ?? null;
-                if (! $parentTableId) {
-                    continue;
-                }
-
-                $parentMap = $tableMapById[$parentTableId] ?? null;
-                if (! is_array($parentMap)) {
-                    continue;
-                }
-
-                $parentColumns = $columnsByTable->get((int) $parentTableId, collect());
-                $parentModel = $parentColumns
-                    ->first(fn(AnonymousSiebelColumn $col) => strtoupper((string) ($col->column_name ?? '')) === strtoupper($parentColumn));
-
-                if (! $parentModel || $this->isLongColumn($parentModel)) {
-                    continue;
-                }
-
-                if (! $this->columnsAreCompatible($column, $parentModel)) {
-                    continue;
-                }
-
-                $childTarget = $childMap['target_qualified'] ?? null;
-                $parentTarget = $parentMap['target_qualified'] ?? null;
-
-                if (! $childTarget || ! $parentTarget) {
-                    continue;
-                }
-
-                $fingerprint = strtoupper($childTarget . '|' . $childColumn . '|' . $parentTarget . '|' . $parentColumn);
-                if (isset($seen[$fingerprint])) {
-                    continue;
-                }
-                $seen[$fingerprint] = true;
-
-                $hash = substr(md5($fingerprint), 0, 8);
-                $constraintName = $this->oracleIdentifier('FK_' . ($childMap['target_table'] ?? 'CHILD') . '_' . $hash);
-
-                $lines[] = 'ALTER TABLE ' . $childTarget;
-                $lines[] = 'ADD CONSTRAINT ' . $constraintName;
-                $lines[] = 'FOREIGN KEY (' . $childColumn . ')';
-                $lines[] = 'REFERENCES ' . $parentTarget . ' (' . $parentColumn . ')';
-                $lines[] = 'ENABLE NOVALIDATE;';
-                $lines[] = '';
-            }
+            // Release column models for this chunk before loading the next.
+            unset($columns);
         }
 
         return $lines;
@@ -798,11 +816,20 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         }
 
         $tableIds = array_keys($tableMapById);
-        $columnsByTable = AnonymousSiebelColumn::query()
-            ->with(['dataType'])
-            ->whereIn('table_id', $tableIds)
-            ->get()
-            ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+        // Only load ROW_ID columns — that is all PK generation needs.
+        $columnsByTable = collect();
+
+        foreach (array_chunk($tableIds, 500) as $chunk) {
+            $loaded = AnonymousSiebelColumn::query()
+                ->with(['dataType'])
+                ->whereIn('table_id', $chunk)
+                ->whereRaw('UPPER(column_name) = ?', ['ROW_ID'])
+                ->get()
+                ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+            $columnsByTable = $columnsByTable->merge($loaded);
+        }
 
         $lines = [];
         $seen = [];

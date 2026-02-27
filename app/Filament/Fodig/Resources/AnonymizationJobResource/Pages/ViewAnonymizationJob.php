@@ -8,8 +8,7 @@ use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\DB;
 
 class ViewAnonymizationJob extends ViewRecord
 {
@@ -34,9 +33,9 @@ class ViewAnonymizationJob extends ViewRecord
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('primary')
                 ->outlined()
-                ->visible(fn() => filled($this->record->sql_script))
+                ->visible(fn() => ((int) ($this->record->sql_script_length ?? 0)) > 0)
                 ->tooltip('Exports the generated anonymization script for manual execution.')
-                ->action(fn() => $this->downloadSqlScript()),
+                ->url(fn() => route('download.anonymization-job-sql', ['job' => $this->record->getKey()])),
             // Queue SQL regeneration for background worker.
             Actions\Action::make('regenerateSql')
                 ->label('Regenerate SQL')
@@ -48,7 +47,7 @@ class ViewAnonymizationJob extends ViewRecord
                     $cacheKey = GenerateAnonymizationJobSql::regenerationCacheKey((int) $this->record->getKey());
                     Cache::put($cacheKey, now()->toIso8601String(), now()->addHours(2));
                     $this->isSqlRegenerating = true;
-                    $this->lastSqlScriptHash = md5((string) ($this->record->sql_script ?? ''));
+                    $this->lastSqlScriptHash = $this->getSqlScriptHashFromDb();
 
                     GenerateAnonymizationJobSql::dispatch($this->record->getKey());
                     Notification::make()
@@ -72,18 +71,18 @@ class ViewAnonymizationJob extends ViewRecord
         $cacheKey = GenerateAnonymizationJobSql::regenerationCacheKey((int) $this->record->getKey());
         $wasRegenerating = $this->isSqlRegenerating;
 
-        $this->record->refresh();
+        // Refresh the record WITHOUT loading sql_script (which can be 50+ MB).
+        $fresh = DB::table('anonymization_jobs')
+            ->where('id', $this->record->getKey())
+            ->selectRaw('length(sql_script) as sql_script_length')
+            ->first();
+
+        if ($fresh) {
+            $this->record->sql_script_length = $fresh->sql_script_length;
+        }
 
         $this->isSqlRegenerating = Cache::has($cacheKey);
-        $currentHash = md5((string) ($this->record->sql_script ?? ''));
-
-        if (! $this->hasInfolist()) {
-            $this->refreshFormData(['sql_script']);
-            $this->form->fill([
-                ...$this->form->getState(),
-                'sql_script_preview' => $this->record->sql_script,
-            ]);
-        }
+        $currentHash = $this->getSqlScriptHashFromDb();
 
         if ($wasRegenerating && ! $this->isSqlRegenerating && $currentHash !== $this->lastSqlScriptHash) {
             Notification::make()
@@ -100,30 +99,18 @@ class ViewAnonymizationJob extends ViewRecord
     {
         $cacheKey = GenerateAnonymizationJobSql::regenerationCacheKey((int) $this->record->getKey());
         $this->isSqlRegenerating = Cache::has($cacheKey);
-        $this->lastSqlScriptHash = md5((string) ($this->record->sql_script ?? ''));
+        $this->lastSqlScriptHash = $this->getSqlScriptHashFromDb();
     }
 
-    protected function downloadSqlScript(): ?StreamedResponse
+    /**
+     * Get an MD5 hash of the sql_script directly from the database,
+     * without loading the potentially huge column into PHP memory.
+     */
+    protected function getSqlScriptHashFromDb(): string
     {
-        if (! filled($this->record->sql_script)) {
-            Notification::make()
-                ->warning()
-                ->title('No script available')
-                ->body('Generate the SQL before attempting to download the job output.')
-                ->send();
-
-            return null;
-        }
-
-        $timestamp = now()->format('Ymd_His');
-        $name = Str::slug($this->record->name) ?: 'anonymization-job';
-        $filename = $timestamp . '_' . $name . '.sql';
-        $payload = $this->record->sql_script;
-
-        return response()->streamDownload(function () use ($payload) {
-            echo $payload;
-        }, $filename, [
-            'Content-Type' => 'text/sql; charset=UTF-8',
-        ]);
+        return (string) DB::table('anonymization_jobs')
+            ->where('id', $this->record->getKey())
+            ->selectRaw("COALESCE(md5(sql_script), '') as hash")
+            ->value('hash');
     }
 }

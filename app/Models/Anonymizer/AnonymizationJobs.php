@@ -57,6 +57,7 @@ class AnonymizationJobs extends Model
         'job_type',
         'status',
         'output_format',
+        'strategy',
         'target_relation_kind',
         'target_schema',
         'target_table_mode',
@@ -79,7 +80,7 @@ class AnonymizationJobs extends Model
     ];
 
     protected $attributes = ['status' => self::STATUS_DRAFT];
-    protected $with = ['methods'];
+
     protected $appends = ['duration_human'];
 
     public function databases(): BelongsToMany
