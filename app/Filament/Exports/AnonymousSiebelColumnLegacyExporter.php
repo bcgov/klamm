@@ -160,6 +160,9 @@ class AnonymousSiebelColumnLegacyExporter extends AnonymousSiebelColumnExporter
             ExportColumn::make('anonymization_required')
                 ->label('ANON_RULE')
                 ->state(fn(AnonymousSiebelColumn $record) => self::exportAnonRuleValue($record)),
+            ExportColumn::make('anonymizationRule')
+                ->label('ANON_METHODS')
+                ->state(fn(AnonymousSiebelColumn $record) => self::exportDefaultMethodName($record)),
             ExportColumn::make('anonymizationMethods')
                 ->label('ANON_NOTE')
                 ->state(fn(AnonymousSiebelColumn $record) => $record->metadata_comment),

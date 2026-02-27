@@ -25,6 +25,7 @@ class AnonymousSiebelColumnExporter extends Exporter
             'table.schema.database',
             'dataType',
             'anonymizationMethods',
+            'anonymizationRule.methods',
             'tags',
             'parentColumns',
             'childColumns',
@@ -62,6 +63,9 @@ class AnonymousSiebelColumnExporter extends Exporter
             ExportColumn::make('anonymization_required')
                 ->label('ANON_RULE')
                 ->state(fn(AnonymousSiebelColumn $record) => self::exportAnonRuleValue($record)),
+            ExportColumn::make('anonymizationRule')
+                ->label('ANON_METHODS')
+                ->state(fn(AnonymousSiebelColumn $record) => self::exportDefaultMethodName($record)),
             ExportColumn::make('anonymizationMethods')
                 ->label('ANON_NOTE')
                 ->state(fn(AnonymousSiebelColumn $record) => $record->metadata_comment),
@@ -157,11 +161,7 @@ class AnonymousSiebelColumnExporter extends Exporter
         $reviewed = (bool) ($record->anonymization_requirement_reviewed ?? false);
 
         if ($required) {
-            return self::exportPrimaryAnonymizationMethodName($record);
-        }
-
-        if (! $reviewed) {
-            return null;
+            return $record->anonymizationRule->first()?->name;
         }
 
         if ($reviewed && ! $required) {
@@ -171,14 +171,21 @@ class AnonymousSiebelColumnExporter extends Exporter
         return null;
     }
 
-    protected static function exportPrimaryAnonymizationMethodName(AnonymousSiebelColumn $record): ?string
+    /**
+     * Return the default method name from the column's assigned rule.
+     * Export-only — the ANON_METHODS column is informational and not used during import.
+     */
+    protected static function exportDefaultMethodName(AnonymousSiebelColumn $record): ?string
     {
-        return $record->anonymizationMethods
-            ->sortBy('name')
-            ->pluck('name')
-            ->map(fn($name) => trim((string) $name))
-            ->filter()
-            ->first();
+        $rule = $record->anonymizationRule->first();
+
+        if (! $rule) {
+            return null;
+        }
+
+        return $rule->methods
+            ->firstWhere('pivot.is_default', true)
+            ?->name;
     }
 
     protected static function formatRelatedColumns($raw, $fallbackRaw = null): ?string

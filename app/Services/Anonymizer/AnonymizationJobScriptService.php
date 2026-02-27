@@ -19,6 +19,13 @@ class AnonymizationJobScriptService
 
     private const WHERE_IN_CHUNK_SIZE = 10000;
 
+    /**
+     * Number of table IDs to include per WHERE IN chunk when loading columns
+     * for inline select-list building, PK/FK generation, etc. Keeps peak memory
+     * bounded for schema-wide (FULL) jobs that can span thousands of tables.
+     */
+    protected const TABLE_COLUMN_CHUNK_SIZE = 100;
+
     protected const SEED_PLACEHOLDERS = [
         '{{SEED_MAP_LOOKUP}}',
         '{{SEED_EXPR}}',
@@ -29,6 +36,10 @@ class AnonymizationJobScriptService
     // Key: column ID, Value: AnonymizationMethods|null
     // @var array<int, AnonymizationMethods|null>
     protected array $methodCache = [];
+
+    // The strategy selected on the current job, used by resolveMethodForColumn
+    // to pick the correct method from a rule's method assignments.
+    protected ?string $currentJobStrategy = null;
 
     protected function oracleStringLiteral(?string $value): string
     {
@@ -141,6 +152,7 @@ class AnonymizationJobScriptService
     {
         $job->loadMissing([
             'columns.anonymizationMethods.packages',
+            'columns.anonymizationRule.methods.packages',
             'columns.table.schema.database',
             'columns.parentColumns.table.schema.database',
         ]);
@@ -270,6 +282,7 @@ class AnonymizationJobScriptService
         if (method_exists($columns, 'loadMissing')) {
             $columns->loadMissing([
                 'anonymizationMethods.packages',
+                'anonymizationRule.methods.packages',
                 'table.schema.database',
                 'parentColumns.table.schema.database',
             ]);
@@ -296,30 +309,46 @@ class AnonymizationJobScriptService
         // Use smaller chunks for large datasets to reduce peak memory
         $chunkSize = count($columnIds) > 5000 ? 500 : self::WHERE_IN_CHUNK_SIZE;
 
+        // Select only fields used by downstream SQL generation.
+        $columnSelect = [
+            'id',
+            'column_name',
+            'table_id',
+            'data_type_id',
+            'data_length',
+            'data_precision',
+            'data_scale',
+            'char_length',
+            'seed_contract_mode',
+            'seed_contract_expression',
+            'anonymization_required',
+        ];
+
         foreach (array_chunk($columnIds, $chunkSize) as $chunk) {
             $batch = AnonymousSiebelColumn::query()
+                ->select($columnSelect)
                 ->with([
-                    'anonymizationMethods', // Load methods without deep packages initially
+                    'anonymizationMethods',
+                    'anonymizationRule.methods',
                     'table.schema.database',
                     'dataType',
                 ])
                 ->whereIn('id', $chunk)
                 ->get();
 
-            // Use push with spread to preserve items without losing Eloquent collection type
             foreach ($batch as $item) {
                 $columns->push($item);
             }
 
-            // Free up memory between chunks
             unset($batch);
+            gc_collect_cycles();
         }
 
-        // Load parentColumns relationships separately with just the IDs needed
-        // to avoid N+1 but without the deep eager loading overhead
-        // Convert to Eloquent Collection to enable lazy loading
+        // Load parentColumns separately with only the fields needed
         $columns = AnonymousSiebelColumn::hydrate($columns->all());
-        $columns->load(['parentColumns']);
+        $columns->load(['parentColumns' => function ($q) {
+            $q->select(['anonymous_siebel_columns.id', 'column_name', 'table_id', 'seed_contract_mode']);
+        }]);
 
         // Load packages only for methods that are actually used
         $methodsWithPackages = $columns
@@ -351,6 +380,7 @@ class AnonymizationJobScriptService
 
         $columns = AnonymousSiebelColumn::with([
             'anonymizationMethods',
+            'anonymizationRule.methods',
             'table.schema.database'
         ])
             ->whereIn('id', $columnIds)
@@ -426,6 +456,7 @@ class AnonymizationJobScriptService
 
         // Step 1: Pre-cache all column->method mappings using a single query
         $this->methodCache = [];
+        $this->currentJobStrategy = $job?->strategy;
         $methodMappings = DB::table('anonymization_method_column')
             ->whereIn('column_id', $columnIds)
             ->select('column_id', 'method_id')
@@ -467,12 +498,31 @@ class AnonymizationJobScriptService
         $batchSize = 500;
         $processed = 0;
 
+        // Select only fields used by downstream SQL generation.
+        $columnSelect = [
+            'id',
+            'column_name',
+            'table_id',
+            'data_type_id',
+            'data_length',
+            'data_precision',
+            'data_scale',
+            'char_length',
+            'seed_contract_mode',
+            'seed_contract_expression',
+            'anonymization_required',
+        ];
+
         foreach (array_chunk($columnIds, $batchSize) as $chunkIndex => $chunk) {
             $batch = AnonymousSiebelColumn::query()
+                ->select($columnSelect)
                 ->with([
                     'table.schema.database',
                     'dataType',
-                    'parentColumns',
+                    'parentColumns' => function ($q) {
+                        $q->select(['anonymous_siebel_columns.id', 'column_name', 'table_id', 'seed_contract_mode']);
+                    },
+                    'anonymizationRule.methods',
                 ])
                 ->whereIn('id', $chunk)
                 ->get();
@@ -531,139 +581,337 @@ class AnonymizationJobScriptService
         return $result;
     }
 
+    /**
+     * Prepare shared context for chunked SQL generation.
+     *
+     * Uses an entirely raw-query approach so that zero Eloquent column models
+     * are accumulated in memory.  Only the ~30 method models (with packages)
+     * and a handful of seed-provider column models are hydrated.
+     */
     public function prepareChunkedContextForColumnIds(array $columnIds, ?AnonymizationJobs $job = null): array
     {
+        $this->currentJobStrategy = $job?->strategy;
         $columnIds = array_values(array_unique(array_filter(array_map('intval', $columnIds))));
 
-        Log::info('AnonymizationJobScriptService: preparing chunked context', [
+        Log::info('AnonymizationJobScriptService: preparing chunked context (lightweight)', [
             'job_id' => $job?->id,
             'column_count' => count($columnIds),
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]);
 
+        $emptyResult = [
+            'ordered_table_ids' => [],
+            'selected_column_ids' => [],
+            'prefix_sql' => '',
+            'suffix_sql' => '',
+            'seed_provider_map' => [],
+            'rewrite_context' => [],
+            'seed_map_context' => [],
+            'halted' => false,
+        ];
+
         if ($columnIds === []) {
-            return [
-                'ordered_table_ids' => [],
-                'selected_column_ids' => [],
-                'prefix_sql' => '',
-                'suffix_sql' => '',
-                'seed_provider_map' => [],
-                'rewrite_context' => [],
-                'seed_map_context' => [],
-                'halted' => false,
-            ];
+            return $emptyResult;
         }
 
-        $columns = collect();
-        $batchSize = 500;
-        $processed = 0;
+        // ── 1. Table ordering via raw queries (zero Eloquent) ──────────
+        $tableIdsByColumn = [];  // column_id → table_id
+        $tableEdges = [];        // parentTableId → [childTableId => true, ...]
+        $allTableIds = [];       // table_id => true
 
-        foreach (array_chunk($columnIds, $batchSize) as $chunk) {
-            $batch = AnonymousSiebelColumn::query()
-                ->with([
-                    'anonymizationMethods',
-                    'table.schema.database',
-                    'dataType',
-                    'parentColumns',
-                ])
+        foreach (array_chunk($columnIds, self::WHERE_IN_CHUNK_SIZE) as $chunk) {
+            $rows = DB::table('anonymous_siebel_columns')
                 ->whereIn('id', $chunk)
+                ->select(['id', 'table_id'])
                 ->get();
-
-            foreach ($batch as $item) {
-                $columns->push($item);
+            foreach ($rows as $r) {
+                $tableIdsByColumn[(int) $r->id] = (int) $r->table_id;
+                $allTableIds[(int) $r->table_id] = true;
             }
-
-            unset($batch);
-
-            $processed += count($chunk);
-            Log::info('AnonymizationJobScriptService: chunked context load progress', [
-                'job_id' => $job?->id,
-                'processed' => $processed,
-                'total' => count($columnIds),
-                'percent' => count($columnIds) > 0 ? round(($processed / count($columnIds)) * 100, 1) : 100,
-                'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-            ]);
         }
 
-        if (! $columns instanceof \Illuminate\Database\Eloquent\Collection) {
-            $columns = new \Illuminate\Database\Eloquent\Collection($columns->all());
+        // Cross-table dependency edges (parent → child).
+        foreach (array_chunk($columnIds, self::WHERE_IN_CHUNK_SIZE) as $chunk) {
+            $deps = DB::table('anonymous_siebel_column_dependencies as dep')
+                ->join('anonymous_siebel_columns as child', 'child.id', '=', 'dep.child_field_id')
+                ->join('anonymous_siebel_columns as parent', 'parent.id', '=', 'dep.parent_field_id')
+                ->whereIn('dep.child_field_id', $chunk)
+                ->select([
+                    'child.table_id as child_table_id',
+                    'parent.table_id as parent_table_id',
+                ])
+                ->get();
+            foreach ($deps as $d) {
+                $ct = (int) $d->child_table_id;
+                $pt = (int) $d->parent_table_id;
+                $allTableIds[$ct] = true;
+                $allTableIds[$pt] = true;
+                if ($ct !== $pt && $pt > 0 && $ct > 0) {
+                    $tableEdges[$pt][$ct] = true;
+                }
+            }
         }
 
-        $methodItems = $columns->pluck('anonymizationMethods')->flatten()->filter()->unique('id');
-        if ($methodItems->isNotEmpty()) {
-            $methods = AnonymizationMethods::hydrate($methodItems->values()->all());
-            $methods->loadMissing('packages');
+        // Kahn's topological sort on table IDs.
+        $sortedTableIds = array_keys($allTableIds);
+        sort($sortedTableIds);
+        $inDeg = array_fill_keys($sortedTableIds, 0);
+        foreach ($tableEdges as $from => $targets) {
+            foreach (array_keys($targets) as $to) {
+                if (! isset($inDeg[$to])) {
+                    $inDeg[$to] = 0;
+                }
+                $inDeg[$to]++;
+            }
+        }
+        $queue = [];
+        foreach ($inDeg as $id => $c) {
+            if ($c === 0) {
+                $queue[] = $id;
+            }
+        }
+        $orderedTableIds = [];
+        while ($queue !== []) {
+            $cur = array_shift($queue);
+            $orderedTableIds[] = $cur;
+            foreach (array_keys($tableEdges[$cur] ?? []) as $to) {
+                $inDeg[$to]--;
+                if ($inDeg[$to] === 0) {
+                    $queue[] = $to;
+                }
+            }
+        }
+        // Append any cycles / unreachable nodes.
+        if (count($orderedTableIds) < count($sortedTableIds)) {
+            $remaining = array_diff($sortedTableIds, $orderedTableIds);
+            sort($remaining);
+            $orderedTableIds = array_merge($orderedTableIds, $remaining);
         }
 
-        Log::info('AnonymizationJobScriptService: chunked context methods loaded', [
+        if ($orderedTableIds === []) {
+            return $emptyResult;
+        }
+
+        unset($tableEdges, $inDeg, $sortedTableIds);
+        gc_collect_cycles();
+
+        Log::info('AnonymizationJobScriptService: lightweight context tables ordered', [
             'job_id' => $job?->id,
-            'method_count' => $methodItems->count(),
+            'table_count' => count($orderedTableIds),
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]);
 
-        $ordered = $this->topologicallySortColumns($columns);
-        if ($ordered->isEmpty()) {
-            return [
-                'ordered_table_ids' => [],
-                'selected_column_ids' => [],
-                'prefix_sql' => '',
-                'suffix_sql' => '',
-                'seed_provider_map' => [],
-                'rewrite_context' => [],
-                'seed_map_context' => [],
-                'halted' => false,
-            ];
+        // ── 2. Rewrite context (table → schema → database mapping) ────
+        // Load table models (with schema.database) for the rewrite context
+        // builder. There are far fewer tables than columns (~3-5 K vs 258 K).
+        $tableModels = AnonymousSiebelTable::withTrashed()
+            ->with(['schema.database'])
+            ->whereIn('id', array_keys($allTableIds))
+            ->get()
+            ->keyBy(fn($t) => (int) $t->getKey());
+
+        // Build a minimal stub collection that satisfies
+        // buildJobTableRewriteContext's signature (Collection of columns with
+        // a ->table relation).  One stub per unique table is sufficient.
+        $stubColumns = collect();
+        foreach ($tableModels as $tid => $tableModel) {
+            $stub = new AnonymousSiebelColumn();
+            $stub->id = 0;
+            $stub->table_id = $tid;
+            $stub->setRelation('table', $tableModel);
+            $stub->setRelation('parentColumns', collect());
+            $stubColumns->push($stub);
         }
 
-        Log::info('AnonymizationJobScriptService: chunked context ordered columns', [
-            'job_id' => $job?->id,
-            'ordered_count' => $ordered->count(),
-            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-        ]);
-
-        $seedProviders = $this->resolveSeedProviders($ordered);
-        Log::info('AnonymizationJobScriptService: chunked context seed providers resolved', [
-            'job_id' => $job?->id,
-            'provider_count' => count($seedProviders),
-            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-        ]);
-        $rewriteContext = $this->buildJobTableRewriteContext($ordered, $job, true);
+        $rewriteContext = $this->buildJobTableRewriteContext($stubColumns, $job, true);
         $rewriteContext['masking_mode'] = 'inline';
         $rewriteContext['source_alias'] = 'src';
-        $seedMapContext = $this->jobUsesSeedMapPlaceholders($ordered)
-            ? $this->buildSeedMapContext($ordered, $seedProviders, $rewriteContext, $job)
-            : [];
+        unset($stubColumns, $tableModels);
+        gc_collect_cycles();
 
-        Log::info('AnonymizationJobScriptService: chunked context rewrite/seed map ready', [
+        Log::info('AnonymizationJobScriptService: lightweight context rewrite ready', [
             'job_id' => $job?->id,
-            'seed_map_count' => is_array($seedMapContext['providers'] ?? null) ? count($seedMapContext['providers']) : 0,
+            'tables_in_rewrite' => count($rewriteContext['tables_by_id'] ?? []),
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]);
 
-        $prefixLines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
-
-        $contractReview = $this->validateSeedContracts($ordered, $seedProviders, $seedMapContext);
-
-        if ($contractReview['errors']->isNotEmpty() || $contractReview['warnings']->isNotEmpty()) {
-            $prefixLines = array_merge($prefixLines, $this->renderContractReview($contractReview));
-
-            if ($contractReview['errors']->isNotEmpty()) {
-                $prefixLines[] = '-- SQL generation halted due to blocking seed contract violations.';
-
-                return [
-                    'ordered_table_ids' => [],
-                    'selected_column_ids' => [],
-                    'prefix_sql' => trim(implode(PHP_EOL, $prefixLines)),
-                    'suffix_sql' => '',
-                    'seed_provider_map' => [],
-                    'rewrite_context' => $rewriteContext,
-                    'seed_map_context' => $seedMapContext,
-                    'halted' => true,
-                ];
+        // ── 3. Method resolution & seed provider map ──────────────────
+        // Pre-resolve column → method_id from the job pivot (raw query).
+        $columnMethodMap = [];   // column_id => method_id
+        if ($job) {
+            foreach (array_chunk($columnIds, self::WHERE_IN_CHUNK_SIZE) as $chunk) {
+                $rows = DB::table('anonymization_job_columns')
+                    ->where('job_id', $job->id)
+                    ->whereIn('column_id', $chunk)
+                    ->whereNotNull('anonymization_method_id')
+                    ->select(['column_id', 'anonymization_method_id'])
+                    ->get();
+                foreach ($rows as $r) {
+                    $columnMethodMap[(int) $r->column_id] = (int) $r->anonymization_method_id;
+                }
             }
         }
 
-        $packages = $this->collectPackagesFromColumns($ordered);
+        // Load all method models (small — typically < 50).
+        $allMethodIds = array_values(array_unique(array_values($columnMethodMap)));
+        $allMethods = $allMethodIds !== []
+            ? AnonymizationMethods::withTrashed()->with('packages')->whereIn('id', $allMethodIds)->get()->keyBy('id')
+            : collect();
+
+        // Identify seed providers / consumers.
+        $emitsSeedMethodIds = $allMethods->filter(fn($m) => $m->emits_seed)->pluck('id')->flip()->all();
+        $requiresSeedMethodIds = $allMethods->filter(fn($m) => $m->requires_seed)->pluck('id')->flip()->all();
+
+        $providerColumnIds = [];
+        $consumerColumnIds = [];
+        foreach ($columnMethodMap as $cid => $mid) {
+            if (isset($emitsSeedMethodIds[$mid])) {
+                $providerColumnIds[] = $cid;
+            }
+            if (isset($requiresSeedMethodIds[$mid])) {
+                $consumerColumnIds[] = $cid;
+            }
+        }
+
+        $providersByTable = [];
+        foreach ($providerColumnIds as $pid) {
+            $tid = $tableIdsByColumn[$pid] ?? 0;
+            if ($tid > 0) {
+                $providersByTable[$tid][] = $pid;
+            }
+        }
+
+        // Hydrate only the seed-provider columns (tiny subset).
+        $providerModels = collect();
+        if ($providerColumnIds !== []) {
+            $providerModels = AnonymousSiebelColumn::query()
+                ->select([
+                    'id',
+                    'column_name',
+                    'table_id',
+                    'data_type_id',
+                    'data_length',
+                    'data_precision',
+                    'data_scale',
+                    'char_length',
+                    'seed_contract_mode',
+                    'seed_contract_expression'
+                ])
+                ->with(['dataType'])
+                ->whereIn('id', $providerColumnIds)
+                ->get()
+                ->keyBy('id');
+        }
+
+        $seedProviderMap = [];
+        foreach ($providerColumnIds as $pid) {
+            $provider = $providerModels->get($pid);
+            $seedProviderMap[$pid] = [
+                'provider_id' => $pid,
+                'expression' => $provider ? $this->seedExpressionForProvider($provider) : 'tgt.UNKNOWN',
+            ];
+        }
+        foreach ($consumerColumnIds as $cid) {
+            if (isset($seedProviderMap[$cid])) {
+                continue; // already a provider itself
+            }
+            $tid = $tableIdsByColumn[$cid] ?? 0;
+            $tableProviders = $providersByTable[$tid] ?? [];
+            $providerId = $tableProviders !== [] ? $tableProviders[0] : ($providerColumnIds[0] ?? 0);
+            $provider = $providerModels->get($providerId);
+            $seedProviderMap[$cid] = [
+                'provider_id' => $providerId,
+                'expression' => $provider ? $this->seedExpressionForProvider($provider) : null,
+            ];
+        }
+
+        Log::info('AnonymizationJobScriptService: lightweight context seeds resolved', [
+            'job_id' => $job?->id,
+            'method_count' => $allMethods->count(),
+            'provider_count' => count($providerColumnIds),
+            'consumer_count' => count($consumerColumnIds),
+            'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
+        ]);
+
+        // ── 4. Seed map context ───────────────────────────────────────
+        $needsSeedMap = false;
+        foreach ($allMethods as $method) {
+            if ($method->sql_block && (str_contains($method->sql_block, '{{SEED_MAP_LOOKUP}}') || str_contains($method->sql_block, '{{SEED_MAP_TABLE}}'))) {
+                $needsSeedMap = true;
+                break;
+            }
+        }
+
+        $seedMapContext = [];
+        if ($needsSeedMap && $providerModels->isNotEmpty()) {
+            $targetSchema = $rewriteContext['target_schema'] ?? null;
+            $prefix = $rewriteContext['table_prefix'] ?? null;
+            $tableMap = $rewriteContext['tables_by_id'] ?? [];
+            $seedStoreMode = strtolower(trim((string) ($job?->seed_store_mode ?? ($rewriteContext['seed_store_mode'] ?? 'temporary'))));
+            $seedStoreSchema = trim((string) ($job?->seed_store_schema ?? ($rewriteContext['seed_store_schema'] ?? '')));
+            $seedStorePrefix = trim((string) ($job?->seed_store_prefix ?? ($rewriteContext['seed_store_prefix'] ?? '')));
+            $isPersistent = $seedStoreMode === 'persistent';
+            if ($seedStoreSchema === '') {
+                $seedStoreSchema = (string) $targetSchema;
+            }
+            if ($seedStorePrefix === '') {
+                $seedStorePrefix = (string) $prefix;
+            }
+
+            $seedMapProviders = [];
+            foreach ($providerModels as $provider) {
+                $tableId = (int) ($provider->table_id ?? 0);
+                $mapped = $tableId > 0 ? ($tableMap[$tableId] ?? null) : null;
+                if (! is_array($mapped) || ! isset($mapped['target_qualified'], $mapped['source_table'])) {
+                    continue;
+                }
+                $seedMapName = $this->oracleIdentifier(
+                    ($isPersistent ? $seedStorePrefix : $prefix)
+                        . '_SEEDMAP_' . ($mapped['source_table'] ?? 'T') . '_' . ($provider->column_name ?? 'C')
+                );
+                $columnType = $this->oracleColumnTypeForColumn($provider);
+                $seedExpr = $this->seedExpressionForProvider($provider);
+                $seedExpr = $this->renderSeedExpressionPlaceholders($seedExpr, $rewriteContext);
+                $seedExpr = str_replace('tgt.', 'src.', $seedExpr);
+
+                $seedMapProviders[(int) $provider->id] = [
+                    'provider_id' => (int) $provider->id,
+                    'provider_column' => $provider->column_name,
+                    'provider_table' => $mapped['source_qualified'] ?? $mapped['target_qualified'],
+                    'seed_expression' => $seedExpr,
+                    'seed_map_table' => ($isPersistent ? $seedStoreSchema : $targetSchema) . '.' . $seedMapName,
+                    'seed_map_persistence' => $isPersistent ? 'persistent' : 'temporary',
+                    'old_value_type' => $columnType,
+                    'new_value_type' => $columnType,
+                    'source_alias' => 'src',
+                ];
+            }
+
+            if ($seedMapProviders !== []) {
+                $seedMapContext = ['providers' => $seedMapProviders];
+            }
+        }
+
+        unset($providerModels, $tableIdsByColumn, $allTableIds, $columnMethodMap);
+        gc_collect_cycles();
+
+        // ── 5. Prefix SQL ─────────────────────────────────────────────
+        $prefixLines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
+
+        // Contract validation is deferred to chunk workers for very large jobs
+        // to avoid materializing all 258 K+ columns in the parent process.
+        $prefixLines[] = $this->commentDivider('-');
+        $prefixLines[] = '-- Note: Seed contract validation deferred to per-table chunk processing.';
+        $prefixLines[] = $this->commentDivider('-');
+        $prefixLines[] = '';
+
+        // Packages from method models directly (no column iteration needed).
+        $packages = $allMethods
+            ->flatMap(fn($m) => $m->packages ?? collect())
+            ->unique('id')
+            ->sortBy('display_label')
+            ->values();
+
         if ($packages->isNotEmpty()) {
             $prefixLines[] = $this->commentDivider('=');
             $prefixLines[] = '-- Package Dependencies';
@@ -689,14 +937,7 @@ class AnonymizationJobScriptService
             $prefixLines[] = '';
         }
 
-        $seedProviderMap = [];
-        foreach ($seedProviders as $columnId => $provider) {
-            $seedProviderMap[(int) $columnId] = [
-                'provider_id' => isset($provider['provider']) ? (int) ($provider['provider']?->id ?? 0) : 0,
-                'expression' => $provider['expression'] ?? null,
-            ];
-        }
-
+        // ── 6. Suffix SQL ─────────────────────────────────────────────
         $suffixLines = [];
         $preMaskSql = trim((string) ($job?->pre_mask_sql ?? ''));
         if ($preMaskSql !== '') {
@@ -722,7 +963,7 @@ class AnonymizationJobScriptService
             $suffixLines[] = $this->commentDivider('=');
             $suffixLines[] = '';
         }
-        $skipConstraints = count($columnIds) > 2000;
+
         $postMaskSql = trim((string) ($job?->post_mask_sql ?? ''));
         if ($postMaskSql !== '') {
             $suffixLines[] = $this->commentDivider('=');
@@ -736,38 +977,12 @@ class AnonymizationJobScriptService
             $suffixLines[] = '';
         }
 
-        if ($skipConstraints) {
-            $suffixLines[] = $this->commentDivider('=');
-            $suffixLines[] = '-- Constraints Skipped';
-            $suffixLines[] = '-- PK/FK generation is skipped for large batch jobs to avoid memory spikes.';
-            $suffixLines[] = '-- Re-run with a smaller scope if constraints are required.';
-            $suffixLines[] = $this->commentDivider('=');
-            $suffixLines[] = '';
-        } else {
-            $pkStatements = $this->buildPrimaryKeyStatements($rewriteContext);
-            if ($pkStatements !== []) {
-                $suffixLines[] = $this->commentDivider('=');
-                $suffixLines[] = '-- Primary Keys';
-                $suffixLines[] = '-- Add ROW_ID primary keys so foreign keys can be recreated.';
-                $suffixLines[] = $this->commentDivider('=');
-                $suffixLines[] = '';
-                $suffixLines = array_merge($suffixLines, $pkStatements);
-                $suffixLines[] = $this->commentDivider('=');
-                $suffixLines[] = '';
-            }
-
-            $fkStatements = $this->buildForeignKeyStatements($rewriteContext);
-            if ($fkStatements !== []) {
-                $suffixLines[] = $this->commentDivider('=');
-                $suffixLines[] = '-- Foreign Keys';
-                $suffixLines[] = '-- Recreate parent/child relationships within the target schema.';
-                $suffixLines[] = $this->commentDivider('=');
-                $suffixLines[] = '';
-                $suffixLines = array_merge($suffixLines, $fkStatements);
-                $suffixLines[] = $this->commentDivider('=');
-                $suffixLines[] = '';
-            }
-        }
+        $suffixLines[] = $this->commentDivider('=');
+        $suffixLines[] = '-- Constraints Skipped';
+        $suffixLines[] = '-- PK/FK generation is skipped for large batch jobs to avoid memory spikes.';
+        $suffixLines[] = '-- Re-run with a smaller scope if constraints are required.';
+        $suffixLines[] = $this->commentDivider('=');
+        $suffixLines[] = '';
 
         $hygiene = $this->renderSeedMapHygieneSection($seedMapContext, $job);
         if ($hygiene !== []) {
@@ -780,12 +995,10 @@ class AnonymizationJobScriptService
         $suffixLines[] = $this->commentDivider('=');
         $suffixLines[] = '';
 
-        $orderedTableIds = $this->orderTableIdsByDependencies($ordered);
-        $selectedColumnIds = $ordered->pluck('id')->map(fn($id) => (int) $id)->all();
-
-        Log::info('AnonymizationJobScriptService: chunked context prepared', [
+        Log::info('AnonymizationJobScriptService: lightweight chunked context prepared', [
             'job_id' => $job?->id,
-            'ordered_count' => $ordered->count(),
+            'table_count' => count($orderedTableIds),
+            'column_count' => count($columnIds),
             'prefix_length' => strlen(trim(implode(PHP_EOL, $prefixLines))),
             'suffix_length' => strlen(trim(implode(PHP_EOL, $suffixLines))),
             'memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
@@ -793,7 +1006,7 @@ class AnonymizationJobScriptService
 
         return [
             'ordered_table_ids' => $orderedTableIds,
-            'selected_column_ids' => $selectedColumnIds,
+            'selected_column_ids' => $columnIds,
             'prefix_sql' => trim(implode(PHP_EOL, $prefixLines)),
             'suffix_sql' => trim(implode(PHP_EOL, $suffixLines)),
             'seed_provider_map' => $seedProviderMap,
@@ -811,6 +1024,7 @@ class AnonymizationJobScriptService
         array $allOrderedIds,
         ?AnonymizationJobs $job = null
     ): string {
+        $this->currentJobStrategy = $job?->strategy;
         $orderedIds = array_values(array_unique(array_filter(array_map('intval', $orderedIds))));
         if ($orderedIds === []) {
             return '';
@@ -819,6 +1033,7 @@ class AnonymizationJobScriptService
         $columns = AnonymousSiebelColumn::query()
             ->with([
                 'anonymizationMethods',
+                'anonymizationRule.methods',
                 'table.schema.database',
                 'dataType',
                 'parentColumns',
@@ -927,6 +1142,7 @@ class AnonymizationJobScriptService
         array $selectedColumnIds,
         ?AnonymizationJobs $job = null
     ): string {
+        $this->currentJobStrategy = $job?->strategy;
         $tableIds = array_values(array_unique(array_filter(array_map('intval', $tableIds))));
         if ($tableIds === []) {
             return '';
@@ -1191,6 +1407,7 @@ class AnonymizationJobScriptService
     {
         // Clear method cache at start of each build to ensure fresh state
         $this->methodCache = [];
+        $this->currentJobStrategy = $job?->strategy;
 
         if ($columns->isEmpty()) {
             return '';
@@ -1204,6 +1421,7 @@ class AnonymizationJobScriptService
         // Load essential relations if not already loaded
         $columns->loadMissing([
             'anonymizationMethods',
+            'anonymizationRule.methods',
             'table.schema.database',
             'dataType',
             'parentColumns',
@@ -1918,6 +2136,24 @@ class AnonymizationJobScriptService
         return $expression === '' ? null : $expression;
     }
 
+    /**
+     * Sentinel returned by inlineMaskedExpressionForColumn when the method
+     * signals that the column should be omitted from the CTAS SELECT list.
+     */
+    protected const INLINE_EXCLUDE = '__EXCLUDE__';
+
+    /**
+     * Sentinel returned when the method is a documented no-op
+     * (e.g. Seed Provider, Preserve NULL Semantics).
+     */
+    protected const INLINE_NOOP = '__NOOP__';
+
+    /**
+     * Sentinel prefix for methods that require post-CTAS execution
+     * (e.g. MERGE-based shuffles).  The full sql_block is appended.
+     */
+    protected const INLINE_DEFERRED_PREFIX = '__DEFERRED__';
+
     protected function inlineMaskedExpressionForColumn(
         AnonymousSiebelColumn $column,
         ?AnonymizationMethods $method,
@@ -1933,6 +2169,21 @@ class AnonymizationJobScriptService
         $sqlBlock = trim((string) ($method->sql_block ?? ''));
         if ($sqlBlock === '') {
             return null;
+        }
+
+        // Exclude: column should not appear in CTAS at all.
+        if ($this->isExcludeMethod($sqlBlock)) {
+            return self::INLINE_EXCLUDE;
+        }
+
+        // No-op: pass through, no warning.
+        if ($this->isNoOpMethod($sqlBlock)) {
+            return self::INLINE_NOOP;
+        }
+
+        // MERGE / non-UPDATE: defer to post-CTAS execution.
+        if ($this->isDeferredMethod($sqlBlock)) {
+            return self::INLINE_DEFERRED_PREFIX . $sqlBlock;
         }
 
         $expressionTemplate = $this->extractUpdateExpressionFromTemplate($sqlBlock);
@@ -1951,17 +2202,68 @@ class AnonymizationJobScriptService
         );
     }
 
-    protected function extractUpdateExpressionFromTemplate(string $template): ?string
+    /**
+     * Detect methods that signal column exclusion from the anonymized copy.
+     * These sql_blocks contain only SQL comments and no executable statements.
+     */
+    protected function isExcludeMethod(string $sqlBlock): bool
     {
-        $pattern = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)\s*where\s+\{\{COLUMN\}\}\s+is\s+not\s+null\b\s*;?/is';
+        // Strip comment lines and blank lines; if nothing remains, it's a comment-only (exclude/doc) method.
+        $stripped = preg_replace('/^\s*--.*$/m', '', $sqlBlock);
+        $stripped = trim((string) $stripped);
 
-        if (! preg_match($pattern, $template, $matches)) {
-            return null;
+        return $stripped === '';
+    }
+
+    /**
+     * Detect no-op methods (seed providers, documentation-only methods).
+     * These have only comments or trivial SELECT from DUAL.
+     */
+    protected function isNoOpMethod(string $sqlBlock): bool
+    {
+        $stripped = preg_replace('/^\s*--.*$/m', '', $sqlBlock);
+        $stripped = trim((string) $stripped);
+
+        if ($stripped === '') {
+            return true; // Comment-only — could also be exclude, but handled above.
         }
 
-        $expression = trim((string) ($matches[1] ?? ''));
+        // SELECT ... FROM DUAL is purely informational.
+        return (bool) preg_match('/^\s*SELECT\b.+?\bFROM\s+DUAL\s*;?\s*$/is', $stripped);
+    }
 
-        return $expression === '' ? null : $expression;
+    /**
+     * Detect methods that use MERGE or other non-UPDATE DML that cannot
+     * be inlined into a CTAS SELECT expression.
+     */
+    protected function isDeferredMethod(string $sqlBlock): bool
+    {
+        $stripped = preg_replace('/^\s*--.*$/m', '', $sqlBlock);
+        $stripped = trim((string) $stripped);
+
+        return (bool) preg_match('/^\s*MERGE\s+INTO\b/is', $stripped);
+    }
+
+    protected function extractUpdateExpressionFromTemplate(string $template): ?string
+    {
+        // Primary pattern: UPDATE ... SET {{COLUMN}} = <expr> WHERE {{COLUMN}} IS NOT NULL
+        $pattern = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)\s*where\s+\{\{COLUMN\}\}\s+is\s+not\s+null\b\s*;?/is';
+
+        if (preg_match($pattern, $template, $matches)) {
+            $expression = trim((string) ($matches[1] ?? ''));
+            return $expression === '' ? null : $expression;
+        }
+
+        // Fallback: UPDATE ... SET {{COLUMN}} = <expr> followed by WHERE on other
+        // conditions, or terminated by semicolon / end-of-string (e.g. nullable-safe).
+        $fallback = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)\s*(?:where\b|;|$)/is';
+
+        if (preg_match($fallback, $template, $matches)) {
+            $expression = trim((string) ($matches[1] ?? ''));
+            return $expression === '' ? null : $expression;
+        }
+
+        return null;
     }
 
     protected function applyInlineMaskedSelectListsForTables(
@@ -1980,46 +2282,14 @@ class AnonymizationJobScriptService
 
         $selectedLookup = array_flip(array_values(array_unique(array_filter(array_map('intval', $selectedColumnIds)))));
 
-        $columns = AnonymousSiebelColumn::query()
-            ->with([
-                'anonymizationMethods',
-                'table.schema.database',
-                'dataType',
-                'parentColumns',
-            ])
-            ->whereIn('table_id', $tableIds)
-            ->orderBy('column_name')
-            ->get();
-
-        if ($columns->isEmpty()) {
-            return [];
-        }
-
-        if ($job?->id) {
-            $jobPivotRows = DB::table('anonymization_job_columns')
-                ->where('job_id', $job->id)
-                ->whereIn('column_id', $columns->pluck('id'))
-                ->select(['column_id', 'anonymization_method_id'])
-                ->get();
-
-            foreach ($jobPivotRows as $row) {
-                $colId = (int) ($row->column_id ?? 0);
-                $column = $columns->firstWhere('id', $colId);
-                if (! $column) {
-                    continue;
-                }
-                $column->setRelation('pivot', (object) [
-                    'anonymization_method_id' => (int) ($row->anonymization_method_id ?? 0),
-                ]);
-            }
-        }
-
+        // Pre-load seed provider models once (small set — only providers for selected columns).
         $providerIds = [];
-        foreach ($columns as $column) {
-            if (! isset($selectedLookup[(int) $column->id])) {
+        foreach ($seedProviderMap as $columnId => $provider) {
+            $columnId = (int) $columnId;
+            if (! isset($selectedLookup[$columnId])) {
                 continue;
             }
-            $providerId = (int) ($seedProviderMap[$column->id]['provider_id'] ?? 0);
+            $providerId = (int) ($provider['provider_id'] ?? 0);
             if ($providerId > 0) {
                 $providerIds[$providerId] = true;
             }
@@ -2047,52 +2317,141 @@ class AnonymizationJobScriptService
             ];
         }
 
-        $warnings = [];
-        $columnsByTable = $columns->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+        // Pre-load job pivot rows once (small set — only columns attached to the job).
+        $jobPivotLookup = [];
+        if ($job?->id) {
+            $jobPivotRows = DB::table('anonymization_job_columns')
+                ->where('job_id', $job->id)
+                ->select(['column_id', 'anonymization_method_id'])
+                ->get();
 
-        foreach ($tableIds as $tableId) {
-            $tableColumns = $columnsByTable->get((int) $tableId, collect());
-            if ($tableColumns->isEmpty()) {
+            foreach ($jobPivotRows as $row) {
+                $jobPivotLookup[(int) ($row->column_id ?? 0)] = (int) ($row->anonymization_method_id ?? 0);
+            }
+        }
+
+        // Process tables in chunks to keep peak memory bounded.
+        // Each chunk loads columns with relations, builds select lists, then releases memory.
+        $warnings = [];
+
+        foreach (array_chunk($tableIds, self::TABLE_COLUMN_CHUNK_SIZE) as $tableChunk) {
+            $columns = AnonymousSiebelColumn::query()
+                ->with([
+                    'anonymizationMethods',
+                    'anonymizationRule.methods',
+                    'table.schema.database',
+                    'dataType',
+                    'parentColumns',
+                ])
+                ->whereIn('table_id', $tableChunk)
+                ->orderBy('column_name')
+                ->get();
+
+            if ($columns->isEmpty()) {
                 continue;
             }
 
-            $selectParts = [];
-            foreach ($tableColumns as $column) {
-                if ($this->isLongColumn($column)) {
-                    continue;
-                }
-
-                $isSelected = isset($selectedLookup[(int) $column->id]);
-                $method = $isSelected ? $this->resolveMethodForColumn($column) : null;
-
-                $expression = $this->inlineMaskedExpressionForColumn(
-                    $column,
-                    $method,
-                    $seedProviders,
-                    $rewriteContext,
-                    $seedMapContext,
-                    $sourceAlias
-                );
-
-                if (! $expression) {
-                    if ($method) {
-                        $warnings[] = $this->describeColumn($column)
-                            . ': method SQL could not be inlined; column will pass through unchanged.';
+            // Apply job pivot data to loaded columns.
+            if ($jobPivotLookup !== []) {
+                foreach ($columns as $column) {
+                    $colId = (int) $column->id;
+                    if (isset($jobPivotLookup[$colId])) {
+                        $column->setRelation('pivot', (object) [
+                            'anonymization_method_id' => $jobPivotLookup[$colId],
+                        ]);
                     }
-                    $expression = $sourceAlias . '.' . ($column->column_name ?? '');
                 }
-
-                $columnName = $column->column_name ?? '';
-                if ($columnName === '') {
-                    continue;
-                }
-
-                $selectParts[] = $expression . ' ' . $columnName;
             }
 
-            $rewriteContext['tables_by_id'][$tableId]['select_list'] = $selectParts === []
-                ? ''
-                : "\n    " . implode(",\n    ", $selectParts);
+            $columnsByTable = $columns->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+            foreach ($tableChunk as $tableId) {
+                $tableColumns = $columnsByTable->get((int) $tableId, collect());
+                if ($tableColumns->isEmpty()) {
+                    continue;
+                }
+
+                $selectParts = [];
+                $deferredStatements = [];
+                foreach ($tableColumns as $column) {
+                    if ($this->isLongColumn($column)) {
+                        continue;
+                    }
+
+                    $isSelected = isset($selectedLookup[(int) $column->id]);
+                    $method = $isSelected ? $this->resolveMethodForColumn($column) : null;
+
+                    $expression = $this->inlineMaskedExpressionForColumn(
+                        $column,
+                        $method,
+                        $seedProviders,
+                        $rewriteContext,
+                        $seedMapContext,
+                        $sourceAlias
+                    );
+
+                    // Exclude: omit column from CTAS entirely.
+                    if ($expression === self::INLINE_EXCLUDE) {
+                        continue;
+                    }
+
+                    // No-op: pass column through unchanged, no warning.
+                    if ($expression === self::INLINE_NOOP) {
+                        $columnName = $column->column_name ?? '';
+                        if ($columnName !== '') {
+                            $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
+                        }
+                        continue;
+                    }
+
+                    // Deferred (MERGE/shuffle): pass column through in CTAS, collect
+                    // the full statement for post-CTAS execution.
+                    if ($expression !== null && str_starts_with($expression, self::INLINE_DEFERRED_PREFIX)) {
+                        $columnName = $column->column_name ?? '';
+                        if ($columnName !== '') {
+                            $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
+                            $rawBlock = substr($expression, strlen(self::INLINE_DEFERRED_PREFIX));
+                            $deferredStatements[] = $this->applyPlaceholders(
+                                $rawBlock,
+                                $column,
+                                $seedProviders[$column->id] ?? null,
+                                $rewriteContext,
+                                $seedMapContext,
+                                $sourceAlias,
+                                false
+                            );
+                        }
+                        continue;
+                    }
+
+                    if (! $expression) {
+                        if ($method) {
+                            $warnings[] = $this->describeColumn($column)
+                                . ': method SQL could not be inlined; column will pass through unchanged.';
+                        }
+                        $expression = $sourceAlias . '.' . ($column->column_name ?? '');
+                    }
+
+                    $columnName = $column->column_name ?? '';
+                    if ($columnName === '') {
+                        continue;
+                    }
+
+                    $selectParts[] = $expression . ' ' . $columnName;
+                }
+
+                // Store deferred (post-CTAS) statements for this table.
+                if ($deferredStatements !== []) {
+                    $rewriteContext['tables_by_id'][$tableId]['deferred_statements'] = $deferredStatements;
+                }
+
+                $rewriteContext['tables_by_id'][$tableId]['select_list'] = $selectParts === []
+                    ? ''
+                    : "\n    " . implode(",\n    ", $selectParts);
+            }
+
+            // Release column models for this chunk before loading the next.
+            unset($columns, $columnsByTable);
         }
 
         return $warnings;
@@ -2289,7 +2648,7 @@ class AnonymizationJobScriptService
             $lines[] = $prefix . "  EXECUTE IMMEDIATE 'DROP TABLE {$table} PURGE';";
             $lines[] = $prefix . 'EXCEPTION';
             $lines[] = $prefix . '  WHEN OTHERS THEN';
-            $lines[] = $prefix . '    IF SQLCODE != -942 THEN RAISE; END IF;';
+            $lines[] = $prefix . '    IF SQLCODE NOT IN (-942, -12083) THEN RAISE; END IF;';
             $lines[] = $prefix . 'END;';
             $lines[] = $prefix . '/';
             $lines[] = '';
@@ -2506,7 +2865,7 @@ class AnonymizationJobScriptService
             return [];
         }
 
-        $lines = [];
+        $lines = $this->buildSourceAccessPreflightForClones($rewriteContext);
         foreach ($tablesById as $mapping) {
             $source = $mapping['source_qualified'] ?? null;
             $target = $mapping['target_qualified'] ?? null;
@@ -2528,7 +2887,7 @@ class AnonymizationJobScriptService
                 $lines[] = "  EXECUTE IMMEDIATE 'DROP VIEW {$target}';";
                 $lines[] = 'EXCEPTION';
                 $lines[] = '  WHEN OTHERS THEN';
-                $lines[] = '    IF SQLCODE != -942 THEN';
+                $lines[] = '    IF SQLCODE NOT IN (-942, -12083) THEN';
                 $lines[] = '      RAISE;';
                 $lines[] = '    END IF;';
                 $lines[] = 'END;';
@@ -2568,6 +2927,19 @@ class AnonymizationJobScriptService
                 }
                 $lines[] = $this->commentDivider('=');
                 $lines[] = '';
+
+                // Emit deferred (post-create) statements for this table (e.g. MERGE-based shuffles).
+                $deferred = $mapping['deferred_statements'] ?? [];
+                if ($deferred !== []) {
+                    $lines[] = $this->commentDivider('-');
+                    $lines[] = '-- Post-create operations for ' . $target;
+                    $lines[] = '-- These methods cannot be expressed as inline SELECT expressions.';
+                    $lines[] = $this->commentDivider('-');
+                    foreach ($deferred as $stmt) {
+                        $lines[] = $stmt;
+                        $lines[] = '';
+                    }
+                }
                 continue;
             }
 
@@ -2610,7 +2982,214 @@ class AnonymizationJobScriptService
             }
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
+
+            // Emit deferred (post-CTAS) statements for this table (e.g. MERGE-based shuffles).
+            $deferred = $mapping['deferred_statements'] ?? [];
+            if ($deferred !== []) {
+                $lines[] = $this->commentDivider('-');
+                $lines[] = '-- Post-CTAS operations for ' . $target;
+                $lines[] = '-- These methods cannot be expressed as inline SELECT expressions.';
+                $lines[] = $this->commentDivider('-');
+                foreach ($deferred as $stmt) {
+                    $lines[] = $stmt;
+                    $lines[] = '';
+                }
+            }
         }
+
+        return $lines;
+    }
+
+    protected function buildSourceAccessPreflightForClones(array $rewriteContext): array
+    {
+        $tablesById = $rewriteContext['tables_by_id'] ?? [];
+        $targetSchema = trim((string) ($rewriteContext['target_schema'] ?? ''));
+
+        if (! is_array($tablesById) || $tablesById === [] || $targetSchema === '') {
+            return [];
+        }
+
+        $sources = collect($tablesById)
+            ->map(fn($mapping) => is_array($mapping) ? ($mapping['source_qualified'] ?? null) : null)
+            ->filter(fn($source) => is_string($source) && trim($source) !== '')
+            ->map(fn(string $source) => trim($source))
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($sources === []) {
+            return [];
+        }
+
+        $targetSchemaUpper = Str::upper($targetSchema);
+        $targetSchemaLiteral = str_replace("'", "''", $targetSchemaUpper);
+
+        // Collect distinct source schemas for fallback guidance.
+        $sourceSchemas = collect($sources)
+            ->map(fn($s) => explode('.', $s, 2)[0] ?? '')
+            ->filter(fn($s) => $s !== '')
+            ->map(fn($s) => Str::upper($s))
+            ->unique()
+            ->values()
+            ->all();
+
+        $sourceSchemaSample = $sourceSchemas[0] ?? 'SOURCE_OWNER';
+        $sourceCount = count($sources);
+
+        // ── Section header ────────────────────────────────────────────
+        $lines = [
+            $this->commentDivider('='),
+            '-- Privilege preflight (optimistic)',
+            '-- Attempts all privilege setup as the current user.',
+            '-- If the current user cannot grant or create objects, the script',
+            '-- stops with a clear message explaining what to do.',
+            $this->commentDivider('='),
+            '',
+        ];
+
+        // ── Step 1: Try SELECT grants (best-effort) ──────────────────
+        $lines[] = $this->commentDivider('-');
+        $lines[] = '-- Step 1: Ensure SELECT grants on source objects to target schema';
+        $lines[] = $this->commentDivider('-');
+        $lines[] = 'DECLARE';
+        $lines[] = '  v_current_user   VARCHAR2(128) := UPPER(USER);';
+        $lines[] = "  v_target_schema  VARCHAR2(128) := '{$targetSchemaLiteral}';";
+        $lines[] = '  v_grant_ok       NUMBER := 0;';
+        $lines[] = '  v_grant_skip     NUMBER := 0;';
+        $lines[] = 'BEGIN';
+
+        foreach ($sources as $source) {
+            $grantSql = "GRANT SELECT ON {$source} TO {$targetSchemaLiteral}";
+            $sourceLiteral = str_replace("'", "''", $source);
+
+            $lines[] = '  BEGIN';
+            $lines[] = "    EXECUTE IMMEDIATE '" . str_replace("'", "''", $grantSql) . "';";
+            $lines[] = '    v_grant_ok := v_grant_ok + 1;';
+            $lines[] = '  EXCEPTION';
+            $lines[] = '    WHEN OTHERS THEN';
+            $lines[] = '      v_grant_skip := v_grant_skip + 1;';
+            $lines[] = '  END;';
+        }
+
+        $lines[] = '';
+        $lines[] = '  -- Try system privilege grants (CREATE VIEW / CREATE TABLE)';
+        $lines[] = '  BEGIN';
+        $lines[] = "    EXECUTE IMMEDIATE 'GRANT CREATE VIEW TO {$targetSchemaLiteral}';";
+        $lines[] = '  EXCEPTION WHEN OTHERS THEN NULL;';
+        $lines[] = '  END;';
+        $lines[] = '  BEGIN';
+        $lines[] = "    EXECUTE IMMEDIATE 'GRANT CREATE TABLE TO {$targetSchemaLiteral}';";
+        $lines[] = '  EXCEPTION WHEN OTHERS THEN NULL;';
+        $lines[] = '  END;';
+        $lines[] = '';
+        $lines[] = "  IF v_grant_ok > 0 THEN";
+        $lines[] = "    DBMS_OUTPUT.PUT_LINE('Step 1: granted SELECT on ' || v_grant_ok || ' object(s) to ' || v_target_schema || '.');";
+        $lines[] = "  ELSIF v_grant_skip = {$sourceCount} THEN";
+        $lines[] = "    DBMS_OUTPUT.PUT_LINE('Step 1: no grant privilege — assuming grants are pre-configured.');";
+        $lines[] = '  END IF;';
+        $lines[] = 'END;';
+        $lines[] = '/';
+        $lines[] = '';
+
+        // ── Step 2: Validate SELECT grants exist ─────────────────────
+        $lines[] = $this->commentDivider('-');
+        $lines[] = '-- Step 2: Validate SELECT grants exist for target schema';
+        $lines[] = $this->commentDivider('-');
+        $lines[] = 'DECLARE';
+        $lines[] = '  v_failures      NUMBER := 0;';
+        $lines[] = '  v_grant_count   NUMBER := 0;';
+        $lines[] = "  v_target_schema VARCHAR2(128) := '{$targetSchemaLiteral}';";
+        $lines[] = '  v_current_user  VARCHAR2(128) := UPPER(USER);';
+        $lines[] = 'BEGIN';
+
+        foreach ($sources as $index => $source) {
+            $sourceLiteral = str_replace("'", "''", $source);
+
+            $ownerPart = '';
+            $objectPart = '';
+            $parts = explode('.', $source, 2);
+            if (count($parts) === 2) {
+                $ownerPart = Str::upper(trim($parts[0]));
+                $objectPart = Str::upper(trim($parts[1]));
+            } else {
+                $objectPart = Str::upper(trim($source));
+            }
+
+            $ownerLiteral = str_replace("'", "''", $ownerPart);
+            $objectLiteral = str_replace("'", "''", $objectPart);
+
+            $lines[] = '  v_grant_count := 0;';
+            // Try ALL_TAB_PRIVS first (works when running as grantee).
+            // Fall back to USER_TAB_PRIVS_MADE (works when running as grantor/owner).
+            $lines[] = '  BEGIN';
+            $lines[] = '    SELECT COUNT(*) INTO v_grant_count FROM ALL_TAB_PRIVS';
+            if ($ownerPart !== '') {
+                $lines[] = "    WHERE TABLE_SCHEMA = '{$ownerLiteral}' AND TABLE_NAME = '{$objectLiteral}'";
+            } else {
+                $lines[] = "    WHERE TABLE_NAME = '{$objectLiteral}'";
+            }
+            $lines[] = "      AND GRANTEE = v_target_schema AND PRIVILEGE = 'SELECT';";
+            $lines[] = '  EXCEPTION WHEN OTHERS THEN v_grant_count := 0;';
+            $lines[] = '  END;';
+            // If ALL_TAB_PRIVS didn't find it (e.g. running as source owner), try USER_TAB_PRIVS_MADE.
+            $lines[] = '  IF v_grant_count = 0 THEN';
+            $lines[] = '    BEGIN';
+            $lines[] = '      SELECT COUNT(*) INTO v_grant_count FROM USER_TAB_PRIVS_MADE';
+            $lines[] = "      WHERE TABLE_NAME = '{$objectLiteral}' AND GRANTEE = v_target_schema AND PRIVILEGE = 'SELECT';";
+            $lines[] = '    EXCEPTION WHEN OTHERS THEN v_grant_count := 0;';
+            $lines[] = '    END;';
+            $lines[] = '  END IF;';
+            $lines[] = '  IF v_grant_count = 0 THEN';
+            $lines[] = '    v_failures := v_failures + 1;';
+            $lines[] = "    DBMS_OUTPUT.PUT_LINE('  Missing grant: SELECT ON {$sourceLiteral} TO ' || v_target_schema);";
+            $lines[] = '  END IF;';
+        }
+
+        $lines[] = '';
+        $lines[] = '  IF v_failures > 0 THEN';
+        $lines[] = "    RAISE_APPLICATION_ERROR(-20042, v_failures || ' source object(s) lack SELECT grants to ' || v_target_schema || '. Connect as " . str_replace("'", "''", $sourceSchemaSample) . " (source owner) and re-run, or ask a DBA to grant them.');";
+        $lines[] = '  ELSE';
+        $lines[] = "    DBMS_OUTPUT.PUT_LINE('Step 2: all {$sourceCount} source object grants verified.');";
+        $lines[] = '  END IF;';
+        $lines[] = 'END;';
+        $lines[] = '/';
+        $lines[] = '';
+
+        // ── Step 3: DDL readiness ─────────────────────────────────────
+        $lines[] = $this->commentDivider('-');
+        $lines[] = '-- Step 3: Verify DDL privileges for target schema';
+        $lines[] = $this->commentDivider('-');
+        $lines[] = 'DECLARE';
+        $lines[] = '  v_current_user  VARCHAR2(128) := UPPER(USER);';
+        $lines[] = "  v_target_schema VARCHAR2(128) := '{$targetSchemaLiteral}';";
+        $lines[] = '  v_can_create    NUMBER := 0;';
+        $lines[] = 'BEGIN';
+        $lines[] = '  BEGIN';
+        $lines[] = '    SELECT COUNT(*) INTO v_can_create FROM SESSION_PRIVS';
+        $lines[] = "    WHERE PRIVILEGE IN ('CREATE VIEW', 'CREATE ANY VIEW');";
+        $lines[] = '  EXCEPTION WHEN OTHERS THEN v_can_create := 0;';
+        $lines[] = '  END;';
+        $lines[] = '';
+        $lines[] = '  IF v_can_create > 0 AND (v_current_user = v_target_schema';
+        $lines[] = '     OR v_can_create > 0) THEN';
+        $lines[] = '    -- Also verify CREATE TABLE for CTAS-mode tables';
+        $lines[] = '    BEGIN';
+        $lines[] = '      SELECT COUNT(*) INTO v_can_create FROM SESSION_PRIVS';
+        $lines[] = "      WHERE PRIVILEGE IN ('CREATE TABLE', 'CREATE ANY TABLE');";
+        $lines[] = '    EXCEPTION WHEN OTHERS THEN NULL;';
+        $lines[] = '    END;';
+        $lines[] = "    DBMS_OUTPUT.PUT_LINE('Step 3: DDL readiness confirmed (user=' || v_current_user || ').');";
+        $lines[] = '  ELSE';
+        $lines[] = '    IF v_current_user = v_target_schema THEN';
+        $lines[] = "      RAISE_APPLICATION_ERROR(-20043, 'User ' || v_current_user || ' lacks CREATE VIEW. A DBA must run: GRANT CREATE VIEW TO ' || v_target_schema);";
+        $lines[] = '    ELSE';
+        $lines[] = "      RAISE_APPLICATION_ERROR(-20043, 'User ' || v_current_user || ' cannot create objects in ' || v_target_schema || '. Connect as ' || v_target_schema || ' or grant CREATE ANY VIEW.');";
+        $lines[] = '    END IF;';
+        $lines[] = '  END IF;';
+        $lines[] = 'END;';
+        $lines[] = '/';
+        $lines[] = $this->commentDivider('=');
+        $lines[] = '';
 
         return $lines;
     }
@@ -2726,12 +3305,22 @@ class AnonymizationJobScriptService
             return [];
         }
 
-        return AnonymousSiebelColumn::query()
-            ->with(['dataType'])
-            ->whereIn('table_id', $tableIds)
-            ->get()
-            ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0))
-            ->all();
+        // Chunk the query to avoid enormous WHERE IN clauses on large schemas.
+        $result = [];
+
+        foreach (array_chunk($tableIds, self::TABLE_COLUMN_CHUNK_SIZE * 5) as $chunk) {
+            $loaded = AnonymousSiebelColumn::query()
+                ->with(['dataType'])
+                ->whereIn('table_id', $chunk)
+                ->get()
+                ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+            foreach ($loaded as $tableId => $columns) {
+                $result[$tableId] = $columns;
+            }
+        }
+
+        return $result;
     }
 
     protected function longColumnsForTable(Collection $columns): array
@@ -2799,15 +3388,6 @@ class AnonymizationJobScriptService
             return [];
         }
 
-        $columns = AnonymousSiebelColumn::query()
-            ->with(['dataType', 'table.schema'])
-            ->whereIn('table_id', $tableIds)
-            ->get();
-
-        if ($columns->isEmpty()) {
-            return [];
-        }
-
         $tablesByIdentity = [];
         foreach ($tablesById as $tableId => $mapping) {
             if (($mapping['target_relation_kind'] ?? 'table') === 'view') {
@@ -2820,111 +3400,139 @@ class AnonymizationJobScriptService
             }
         }
 
-        $columnsByTable = $columns->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+        // Pre-load only ROW_ID columns for parent verification (tiny result set: ≤1 per table).
+        // This avoids loading ALL columns just for the parent compatibility check,
+        // and eliminates cross-chunk lookup issues.
+        $rowIdByTable = [];
+        foreach (array_chunk($tableIds, self::TABLE_COLUMN_CHUNK_SIZE * 5) as $chunk) {
+            $loaded = AnonymousSiebelColumn::query()
+                ->with(['dataType'])
+                ->whereIn('table_id', $chunk)
+                ->whereRaw('UPPER(column_name) = ?', ['ROW_ID'])
+                ->get();
+
+            foreach ($loaded as $col) {
+                $rowIdByTable[(int) $col->table_id] = $col;
+            }
+        }
 
         $lines = [];
         $seen = [];
 
-        foreach ($columns as $column) {
-            $childTableId = (int) ($column->table_id ?? 0);
-            if ($childTableId <= 0) {
+        // Process tables in chunks to keep memory bounded on large schema jobs.
+        foreach (array_chunk($tableIds, self::TABLE_COLUMN_CHUNK_SIZE) as $tableChunk) {
+            $columns = AnonymousSiebelColumn::query()
+                ->with(['dataType', 'table.schema'])
+                ->whereIn('table_id', $tableChunk)
+                ->get();
+
+            if ($columns->isEmpty()) {
                 continue;
             }
 
-            $childMap = $tablesById[$childTableId] ?? null;
-            if (! is_array($childMap)) {
-                continue;
+            foreach ($columns as $column) {
+                $childTableId = (int) ($column->table_id ?? 0);
+                if ($childTableId <= 0) {
+                    continue;
+                }
+
+                $childMap = $tablesById[$childTableId] ?? null;
+                if (! is_array($childMap)) {
+                    continue;
+                }
+
+                if (($childMap['target_relation_kind'] ?? 'table') === 'view') {
+                    continue;
+                }
+
+                $childColumn = trim((string) ($column->column_name ?? ''));
+                if ($childColumn === '') {
+                    continue;
+                }
+
+                if ($this->isLongColumn($column)) {
+                    continue;
+                }
+
+                $relationships = $this->resolveForeignKeyRelationships($column);
+                if ($relationships === []) {
+                    continue;
+                }
+
+                foreach ($relationships as $relationship) {
+                    $direction = strtoupper((string) ($relationship['direction'] ?? 'OUTBOUND'));
+                    if ($direction === 'INBOUND') {
+                        continue;
+                    }
+
+                    $schema = strtoupper(trim((string) ($relationship['schema'] ?? '')));
+                    $table = strtoupper(trim((string) ($relationship['table'] ?? '')));
+                    $parentColumn = trim((string) ($relationship['column'] ?? 'ROW_ID'));
+
+                    if ($schema === '' || $table === '' || $parentColumn === '') {
+                        continue;
+                    }
+
+                    if (strtoupper($parentColumn) !== 'ROW_ID') {
+                        continue;
+                    }
+
+                    $parentTableId = $tablesByIdentity[$schema . '|' . $table] ?? null;
+                    if (! $parentTableId) {
+                        continue;
+                    }
+
+                    $parentMap = $tablesById[$parentTableId] ?? null;
+                    if (! is_array($parentMap)) {
+                        continue;
+                    }
+
+                    if (($parentMap['target_relation_kind'] ?? 'table') === 'view') {
+                        continue;
+                    }
+
+                    // Use pre-loaded ROW_ID map for parent verification.
+                    $parentModel = $rowIdByTable[$parentTableId] ?? null;
+
+                    if (! $parentModel || $this->isLongColumn($parentModel)) {
+                        continue;
+                    }
+
+                    if (! $this->columnsAreCompatible($column, $parentModel)) {
+                        continue;
+                    }
+
+                    $childTarget = $childMap['target_qualified'] ?? null;
+                    $parentTarget = $parentMap['target_qualified'] ?? null;
+
+                    if (! $childTarget || ! $parentTarget) {
+                        continue;
+                    }
+
+                    $fingerprint = strtoupper($childTarget . '|' . $childColumn . '|' . $parentTarget . '|' . $parentColumn);
+                    if (isset($seen[$fingerprint])) {
+                        continue;
+                    }
+                    $seen[$fingerprint] = true;
+
+                    $hash = substr(md5($fingerprint), 0, 8);
+                    $constraintName = $this->oracleIdentifier('FK_' . ($childMap['target_table'] ?? 'CHILD') . '_' . $hash);
+
+                    $lines[] = 'BEGIN';
+                    $lines[] = "  EXECUTE IMMEDIATE 'ALTER TABLE {$childTarget} ADD CONSTRAINT {$constraintName} FOREIGN KEY ({$childColumn}) REFERENCES {$parentTarget} ({$parentColumn}) ENABLE NOVALIDATE';";
+                    $lines[] = 'EXCEPTION';
+                    $lines[] = '  WHEN OTHERS THEN';
+                    $lines[] = '    IF SQLCODE NOT IN (-2275, -2298, -2261, -955) THEN';
+                    $lines[] = '      RAISE;';
+                    $lines[] = '    END IF;';
+                    $lines[] = 'END;';
+                    $lines[] = '/';
+                    $lines[] = '';
+                }
             }
 
-            if (($childMap['target_relation_kind'] ?? 'table') === 'view') {
-                continue;
-            }
-
-            $childColumn = trim((string) ($column->column_name ?? ''));
-            if ($childColumn === '') {
-                continue;
-            }
-
-            if ($this->isLongColumn($column)) {
-                continue;
-            }
-
-            $relationships = $this->resolveForeignKeyRelationships($column);
-            if ($relationships === []) {
-                continue;
-            }
-
-            foreach ($relationships as $relationship) {
-                $direction = strtoupper((string) ($relationship['direction'] ?? 'OUTBOUND'));
-                if ($direction === 'INBOUND') {
-                    continue;
-                }
-
-                $schema = strtoupper(trim((string) ($relationship['schema'] ?? '')));
-                $table = strtoupper(trim((string) ($relationship['table'] ?? '')));
-                $parentColumn = trim((string) ($relationship['column'] ?? 'ROW_ID'));
-
-                if ($schema === '' || $table === '' || $parentColumn === '') {
-                    continue;
-                }
-
-                if (strtoupper($parentColumn) !== 'ROW_ID') {
-                    continue;
-                }
-
-                $parentTableId = $tablesByIdentity[$schema . '|' . $table] ?? null;
-                if (! $parentTableId) {
-                    continue;
-                }
-
-                $parentMap = $tablesById[$parentTableId] ?? null;
-                if (! is_array($parentMap)) {
-                    continue;
-                }
-
-                if (($parentMap['target_relation_kind'] ?? 'table') === 'view') {
-                    continue;
-                }
-
-                $parentColumns = $columnsByTable->get((int) $parentTableId, collect());
-                $parentModel = $parentColumns
-                    ->first(fn(AnonymousSiebelColumn $col) => strtoupper((string) ($col->column_name ?? '')) === strtoupper($parentColumn));
-
-                if (! $parentModel || $this->isLongColumn($parentModel)) {
-                    continue;
-                }
-
-                if (! $this->columnsAreCompatible($column, $parentModel)) {
-                    continue;
-                }
-
-                $childTarget = $childMap['target_qualified'] ?? null;
-                $parentTarget = $parentMap['target_qualified'] ?? null;
-
-                if (! $childTarget || ! $parentTarget) {
-                    continue;
-                }
-
-                $fingerprint = strtoupper($childTarget . '|' . $childColumn . '|' . $parentTarget . '|' . $parentColumn);
-                if (isset($seen[$fingerprint])) {
-                    continue;
-                }
-                $seen[$fingerprint] = true;
-
-                $hash = substr(md5($fingerprint), 0, 8);
-                $constraintName = $this->oracleIdentifier('FK_' . ($childMap['target_table'] ?? 'CHILD') . '_' . $hash);
-
-                $lines[] = 'BEGIN';
-                $lines[] = "  EXECUTE IMMEDIATE 'ALTER TABLE {$childTarget} ADD CONSTRAINT {$constraintName} FOREIGN KEY ({$childColumn}) REFERENCES {$parentTarget} ({$parentColumn}) ENABLE NOVALIDATE';";
-                $lines[] = 'EXCEPTION';
-                $lines[] = '  WHEN OTHERS THEN';
-                $lines[] = '    IF SQLCODE NOT IN (-2275, -2298, -2261, -955) THEN';
-                $lines[] = '      RAISE;';
-                $lines[] = '    END IF;';
-                $lines[] = 'END;';
-                $lines[] = '/';
-                $lines[] = '';
-            }
+            // Release column models for this chunk before loading the next.
+            unset($columns);
         }
 
         return $lines;
@@ -2943,11 +3551,20 @@ class AnonymizationJobScriptService
             return [];
         }
 
-        $columnsByTable = AnonymousSiebelColumn::query()
-            ->with(['dataType'])
-            ->whereIn('table_id', $tableIds)
-            ->get()
-            ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+        // Only load ROW_ID columns — that is all PK generation needs.
+        // This avoids loading the entire column set for every table in scope.
+        $columnsByTable = collect();
+
+        foreach (array_chunk($tableIds, self::TABLE_COLUMN_CHUNK_SIZE * 5) as $chunk) {
+            $loaded = AnonymousSiebelColumn::query()
+                ->with(['dataType'])
+                ->whereIn('table_id', $chunk)
+                ->whereRaw('UPPER(column_name) = ?', ['ROW_ID'])
+                ->get()
+                ->groupBy(fn(AnonymousSiebelColumn $column) => (int) ($column->table_id ?? 0));
+
+            $columnsByTable = $columnsByTable->merge($loaded);
+        }
 
         $lines = [];
         $seen = [];
@@ -3292,7 +3909,7 @@ class AnonymizationJobScriptService
                 $lines[] = "  EXECUTE IMMEDIATE 'DROP TABLE {$seedMapTable} PURGE';";
                 $lines[] = 'EXCEPTION';
                 $lines[] = '  WHEN OTHERS THEN';
-                $lines[] = '    IF SQLCODE != -942 THEN RAISE; END IF;';
+                $lines[] = '    IF SQLCODE NOT IN (-942, -12083) THEN RAISE; END IF;';
                 $lines[] = 'END;';
                 $lines[] = '/';
                 $lines[] = 'CREATE TABLE ' . $seedMapTable . ' AS';
@@ -3368,6 +3985,20 @@ class AnonymizationJobScriptService
 
     protected function buildHeaderLines(array $jobMeta, array $rewriteContext = []): array
     {
+        $targetSchema = Str::upper(trim((string) ($rewriteContext['target_schema'] ?? '')));
+
+        // Collect distinct source schemas for header instructions.
+        $sourceSchemas = [];
+        $tablesById = $rewriteContext['tables_by_id'] ?? [];
+        if (is_array($tablesById)) {
+            $sourceSchemas = collect($tablesById)
+                ->map(fn($m) => is_array($m) ? Str::upper(explode('.', (string) ($m['source_qualified'] ?? ''), 2)[0] ?? '') : '')
+                ->filter(fn($s) => $s !== '')
+                ->unique()
+                ->values()
+                ->all();
+        }
+
         $lines = [
             $this->commentDivider('='),
             '-- ' . $jobMeta['title'],
@@ -3382,6 +4013,18 @@ class AnonymizationJobScriptService
             $lines[] = '-- Output Format: ' . $jobMeta['output'];
         }
 
+        // Connection guidance
+        if ($targetSchema !== '' && $sourceSchemas !== []) {
+            $lines[] = '--';
+            $lines[] = '-- HOW TO RUN: Connect and execute. The script auto-detects privileges.';
+            $lines[] = '--   Best: a DBA or privileged user runs once and everything works.';
+            $lines[] = '--   Otherwise: the script stops with guidance if split-user setup is needed.';
+        }
+
+        $lines[] = '-- SQL*Plus / SQLcl runtime settings';
+        $lines[] = 'SET SERVEROUTPUT ON SIZE UNLIMITED';
+        $lines[] = 'WHENEVER SQLERROR EXIT SQL.SQLCODE';
+
         $lines[] = $this->commentDivider('=');
         $lines[] = '';
 
@@ -3394,8 +4037,8 @@ class AnonymizationJobScriptService
     {
         return [
             $this->commentDivider('='),
-            '-- Privilege Preflight',
-            '-- CREATE TABLE AS SELECT requires direct SELECT grants (roles are insufficient in Oracle).',
+            '-- Note: CREATE VIEW / CTAS require direct SELECT grants (role-only access is not sufficient).',
+            '-- The preflight below auto-detects and configures privileges where possible.',
             $this->commentDivider('='),
             '',
         ];
@@ -3505,6 +4148,31 @@ class AnonymizationJobScriptService
             return $resolved;
         }
 
+        // Rule-based resolution: use the column's assigned rule to resolve the method.
+        // The job's strategy (stored on $this->currentJobStrategy) guides which method
+        // the rule returns; if no strategy is set, the rule's default method is used.
+        $rules = $column->getRelationValue('anonymizationRule');
+        $rule = $rules instanceof \Illuminate\Database\Eloquent\Collection ? $rules->first() : $rules;
+
+        if (! $rule && ! $column->relationLoaded('anonymizationRule')) {
+            $rule = $column->anonymizationRule()->with('methods')->first();
+        }
+
+        if ($rule) {
+            // Ensure methods are loaded on the rule
+            if (! $rule->relationLoaded('methods')) {
+                $rule->load('methods');
+            }
+
+            $resolved = $rule->resolveMethod($this->currentJobStrategy ?? null);
+
+            if ($resolved) {
+                $this->methodCache[$columnId] = $resolved;
+                return $resolved;
+            }
+        }
+
+        // Legacy fallback: direct column→method association
         $resolved = $column->anonymizationMethods->first();
         $this->methodCache[$columnId] = $resolved;
         return $resolved;

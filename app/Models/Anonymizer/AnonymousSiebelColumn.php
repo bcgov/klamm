@@ -6,9 +6,11 @@ use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationColumnTag;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -230,6 +232,19 @@ class AnonymousSiebelColumn extends Model
             'anonymization_column_tag_column',
             'column_id',
             'tag_id'
+        )->withTimestamps();
+    }
+
+    /**
+     * The anonymization rule assigned to this column (via pivot, but enforced as one-to-one).
+     */
+    public function anonymizationRule(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationRule::class,
+            'anonymization_rule_column',
+            'column_id',
+            'rule_id'
         )->withTimestamps();
     }
 

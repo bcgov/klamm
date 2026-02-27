@@ -5,6 +5,7 @@ namespace App\Jobs\Concerns;
 use App\Models\Anonymizer\AnonymousUpload;
 use App\Models\Anonymizer\ChangeTicket;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Jobs\Exceptions\AnonymousSiebelCsvValidationException;
 use App\Services\Anonymizer\AnonymizerActivityLogger;
 use Carbon\CarbonImmutable;
@@ -1898,10 +1899,10 @@ trait InteractsWithAnonymousSiebelSync
             ];
         }
 
-        $methodIdsByName = AnonymizationMethods::query()
+        $ruleIdsByName = AnonymizationRule::query()
             ->select('id', 'name')
             ->get()
-            ->mapWithKeys(fn(AnonymizationMethods $method) => [$this->norm((string) $method->name) => (int) $method->id])
+            ->mapWithKeys(fn(AnonymizationRule $rule) => [$this->norm((string) $rule->name) => (int) $rule->id])
             ->all();
 
         $baseQuery = DB::table(self::STAGING_TABLE . ' as s')
@@ -1925,15 +1926,15 @@ trait InteractsWithAnonymousSiebelSync
         $metrics = [
             'rows_with_rule_input' => 0,
             'required_updates' => 0,
-            'method_mapping_updates' => 0,
-            'method_links_inserted' => 0,
-            'method_links_deleted' => 0,
-            'unknown_method_names' => 0,
+            'rule_mapping_updates' => 0,
+            'rule_links_inserted' => 0,
+            'rule_links_deleted' => 0,
+            'unknown_rule_names' => 0,
             'rows_noop' => 0,
             'rows_invalid_column' => 0,
         ];
         $changedColumns = [];
-        $unknownMethods = [];
+        $unknownRules = [];
 
         if ($progressReporter) {
             $initialStatus = $totalRuleRows > 0
@@ -1950,10 +1951,10 @@ trait InteractsWithAnonymousSiebelSync
                     'anonymization_rules_changed_columns' => 0,
                     'anonymization_rules_rows_with_rule_input' => 0,
                     'anonymization_rules_required_updates' => 0,
-                    'anonymization_rules_method_mapping_updates' => 0,
-                    'anonymization_rules_method_links_inserted' => 0,
-                    'anonymization_rules_method_links_deleted' => 0,
-                    'anonymization_rules_unknown_method_names' => 0,
+                    'anonymization_rules_rule_mapping_updates' => 0,
+                    'anonymization_rules_rule_links_inserted' => 0,
+                    'anonymization_rules_rule_links_deleted' => 0,
+                    'anonymization_rules_unknown_rule_names' => 0,
                     'anonymization_rules_rows_noop' => 0,
                     'anonymization_rules_rows_invalid_column' => 0,
                 ],
@@ -1965,7 +1966,7 @@ trait InteractsWithAnonymousSiebelSync
             ->select('s.id as staging_id', 'c.id as column_id', 's.database_name', 's.schema_name', 's.table_name', 's.column_name', 's.anon_rule', 's.anon_note')
             ->orderBy('s.id');
 
-        $query->chunkById(1000, function ($rows) use ($runAt, $methodIdsByName, &$processedRuleRows, $totalRuleRows, $progressReporter, &$metrics, &$changedColumns, &$unknownMethods): void {
+        $query->chunkById(1000, function ($rows) use ($runAt, $ruleIdsByName, &$processedRuleRows, $totalRuleRows, $progressReporter, &$metrics, &$changedColumns, &$unknownRules): void {
             $effectiveRowsByColumn = [];
             foreach ($rows as $row) {
                 $columnId = (int) $row->column_id;
@@ -1992,10 +1993,10 @@ trait InteractsWithAnonymousSiebelSync
                         $totalRuleRows,
                         $changedColumnCount,
                         $metrics['required_updates'],
-                        $metrics['method_mapping_updates'],
-                        $metrics['method_links_inserted'],
-                        $metrics['method_links_deleted'],
-                        $metrics['unknown_method_names'],
+                        $metrics['rule_mapping_updates'],
+                        $metrics['rule_links_inserted'],
+                        $metrics['rule_links_deleted'],
+                        $metrics['unknown_rule_names'],
                         $metrics['rows_noop']
                     )
                     : sprintf(
@@ -2003,10 +2004,10 @@ trait InteractsWithAnonymousSiebelSync
                         $processedRuleRows,
                         $changedColumnCount,
                         $metrics['required_updates'],
-                        $metrics['method_mapping_updates'],
-                        $metrics['method_links_inserted'],
-                        $metrics['method_links_deleted'],
-                        $metrics['unknown_method_names'],
+                        $metrics['rule_mapping_updates'],
+                        $metrics['rule_links_inserted'],
+                        $metrics['rule_links_deleted'],
+                        $metrics['unknown_rule_names'],
                         $metrics['rows_noop']
                     );
 
@@ -2020,10 +2021,10 @@ trait InteractsWithAnonymousSiebelSync
                         'anonymization_rules_changed_columns' => $changedColumnCount,
                         'anonymization_rules_rows_with_rule_input' => $metrics['rows_with_rule_input'],
                         'anonymization_rules_required_updates' => $metrics['required_updates'],
-                        'anonymization_rules_method_mapping_updates' => $metrics['method_mapping_updates'],
-                        'anonymization_rules_method_links_inserted' => $metrics['method_links_inserted'],
-                        'anonymization_rules_method_links_deleted' => $metrics['method_links_deleted'],
-                        'anonymization_rules_unknown_method_names' => $metrics['unknown_method_names'],
+                        'anonymization_rules_rule_mapping_updates' => $metrics['rule_mapping_updates'],
+                        'anonymization_rules_rule_links_inserted' => $metrics['rule_links_inserted'],
+                        'anonymization_rules_rule_links_deleted' => $metrics['rule_links_deleted'],
+                        'anonymization_rules_unknown_rule_names' => $metrics['unknown_rule_names'],
                         'anonymization_rules_rows_noop' => $metrics['rows_noop'],
                         'anonymization_rules_rows_invalid_column' => $metrics['rows_invalid_column'],
                     ],
@@ -2051,15 +2052,14 @@ trait InteractsWithAnonymousSiebelSync
                 $existingChangedFieldsByColumn[(int) $existingColumn->id] = $this->normalizeChangedFieldsPayload($existingColumn->changed_fields);
             }
 
-            $existingMethodRows = DB::table('anonymization_method_column')
+            $existingRuleRows = DB::table('anonymization_rule_column')
                 ->whereIn('column_id', $columnIds)
-                ->select('column_id', 'method_id')
-                ->orderBy('method_id')
+                ->select('column_id', 'rule_id')
                 ->get();
 
-            $existingMethodIdsByColumn = [];
-            foreach ($existingMethodRows as $methodRow) {
-                $existingMethodIdsByColumn[(int) $methodRow->column_id][] = (int) $methodRow->method_id;
+            $existingRuleIdByColumn = [];
+            foreach ($existingRuleRows as $ruleRow) {
+                $existingRuleIdByColumn[(int) $ruleRow->column_id] = (int) $ruleRow->rule_id;
             }
 
             foreach ($effectiveRows as $row) {
@@ -2076,7 +2076,7 @@ trait InteractsWithAnonymousSiebelSync
 
                 $desiredRequired = false;
                 $desiredReviewed = false;
-                $requestedMethodNames = [];
+                $requestedRuleId = null;
 
                 if ($anonRule !== null) {
                     if ($normalizedRule === 'NO_CHANGE') {
@@ -2085,53 +2085,40 @@ trait InteractsWithAnonymousSiebelSync
                     } else {
                         $desiredRequired = true;
                         $desiredReviewed = true;
-                        $requestedMethodNames[] = $anonRule;
-                    }
-                }
 
-                $requestedMethodIds = [];
-                foreach ($requestedMethodNames as $methodName) {
-                    $methodId = $methodIdsByName[$this->norm($methodName)] ?? null;
-                    if ($methodId) {
-                        $requestedMethodIds[] = $methodId;
-                    } else {
-                        $metrics['unknown_method_names']++;
+                        $requestedRuleId = $ruleIdsByName[$this->norm($anonRule)] ?? null;
 
-                        $methodKey = $this->norm($methodName);
-                        $columnRef = implode('.', array_filter([
-                            trim((string) ($row->database_name ?? '')),
-                            trim((string) ($row->schema_name ?? '')),
-                            trim((string) ($row->table_name ?? '')),
-                            trim((string) ($row->column_name ?? '')),
-                        ], fn($part) => $part !== ''));
+                        if ($requestedRuleId === null) {
+                            $metrics['unknown_rule_names']++;
 
-                        if (! isset($unknownMethods[$methodKey])) {
-                            $unknownMethods[$methodKey] = [
-                                'method_name' => $methodName,
-                                'count' => 0,
-                                'examples' => [],
-                            ];
-                        }
+                            $ruleKey = $this->norm($anonRule);
+                            $columnRef = implode('.', array_filter([
+                                trim((string) ($row->database_name ?? '')),
+                                trim((string) ($row->schema_name ?? '')),
+                                trim((string) ($row->table_name ?? '')),
+                                trim((string) ($row->column_name ?? '')),
+                            ], fn($part) => $part !== ''));
 
-                        $unknownMethods[$methodKey]['count']++;
-                        if ($columnRef !== '' && count($unknownMethods[$methodKey]['examples']) < 5) {
-                            $unknownMethods[$methodKey]['examples'][$columnRef] = true;
+                            if (! isset($unknownRules[$ruleKey])) {
+                                $unknownRules[$ruleKey] = [
+                                    'rule_name' => $anonRule,
+                                    'count' => 0,
+                                    'examples' => [],
+                                ];
+                            }
+
+                            $unknownRules[$ruleKey]['count']++;
+                            if ($columnRef !== '' && count($unknownRules[$ruleKey]['examples']) < 5) {
+                                $unknownRules[$ruleKey]['examples'][$columnRef] = true;
+                            }
                         }
                     }
                 }
-
-                $requestedMethodIds = array_values(array_unique($requestedMethodIds));
-                sort($requestedMethodIds);
 
                 $currentRequired = $existingRequiredByColumn[$columnId] ?? null;
                 $currentReviewed = $existingReviewedByColumn[$columnId] ?? null;
                 $currentMetadataComment = $existingMetadataCommentByColumn[$columnId] ?? null;
-
-                $currentMethodIds = $existingMethodIdsByColumn[$columnId] ?? [];
-                sort($currentMethodIds);
-
-                $methodIdsToDelete = array_values(array_diff($currentMethodIds, $requestedMethodIds));
-                $methodIdsToInsert = array_values(array_diff($requestedMethodIds, $currentMethodIds));
+                $currentRuleId = $existingRuleIdByColumn[$columnId] ?? null;
 
                 $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
                 $columnUpdates = [
@@ -2172,38 +2159,35 @@ trait InteractsWithAnonymousSiebelSync
                     $rowChanged = true;
                 }
 
-                if ($methodIdsToDelete !== [] || $methodIdsToInsert !== []) {
-                    $changedFields['anonymization_methods'] = [
-                        'old' => array_values($currentMethodIds),
-                        'new' => array_values($requestedMethodIds),
+                // Sync rule assignment (one-to-one: column → rule via pivot)
+                if ($requestedRuleId !== $currentRuleId) {
+                    $changedFields['anonymization_rule'] = [
+                        'old' => $currentRuleId,
+                        'new' => $requestedRuleId,
                     ];
 
-                    if ($methodIdsToDelete !== []) {
-                        DB::table('anonymization_method_column')
+                    if ($currentRuleId !== null) {
+                        DB::table('anonymization_rule_column')
                             ->where('column_id', $columnId)
-                            ->whereIn('method_id', $methodIdsToDelete)
+                            ->where('rule_id', $currentRuleId)
                             ->delete();
 
-                        $metrics['method_links_deleted'] += count($methodIdsToDelete);
+                        $metrics['rule_links_deleted']++;
                     }
 
-                    if ($methodIdsToInsert !== []) {
-                        $methodRows = [];
-                        foreach ($methodIdsToInsert as $methodId) {
-                            $methodRows[] = [
-                                'column_id' => $columnId,
-                                'method_id' => $methodId,
-                                'created_at' => $runAt,
-                                'updated_at' => $runAt,
-                            ];
-                        }
+                    if ($requestedRuleId !== null) {
+                        DB::table('anonymization_rule_column')->insert([
+                            'column_id' => $columnId,
+                            'rule_id' => $requestedRuleId,
+                            'created_at' => $runAt,
+                            'updated_at' => $runAt,
+                        ]);
 
-                        DB::table('anonymization_method_column')->insert($methodRows);
-                        $metrics['method_links_inserted'] += count($methodIdsToInsert);
+                        $metrics['rule_links_inserted']++;
                     }
 
-                    $existingMethodIdsByColumn[$columnId] = $requestedMethodIds;
-                    $metrics['method_mapping_updates']++;
+                    $existingRuleIdByColumn[$columnId] = $requestedRuleId;
+                    $metrics['rule_mapping_updates']++;
                     $rowChanged = true;
                 }
 
@@ -2223,13 +2207,13 @@ trait InteractsWithAnonymousSiebelSync
             }
         }, 's.id', 'staging_id');
 
-        foreach ($unknownMethods as $entry) {
-            $methodName = (string) ($entry['method_name'] ?? '');
-            if ($methodName === '') {
+        foreach ($unknownRules as $entry) {
+            $ruleName = (string) ($entry['rule_name'] ?? '');
+            if ($ruleName === '') {
                 continue;
             }
 
-            $title = 'Missing anonymization method from ANON_RULE: ' . $methodName;
+            $title = 'Missing anonymization rule from ANON_RULE: ' . $ruleName;
             $exists = ChangeTicket::query()
                 ->where('upload_id', $upload->id)
                 ->where('scope_type', 'upload')
@@ -2242,7 +2226,7 @@ trait InteractsWithAnonymousSiebelSync
             }
 
             $examples = array_keys((array) ($entry['examples'] ?? []));
-            $comment = 'ANON_RULE requested anonymization method "' . $methodName . '" but no matching method exists in the method library. Create this method and map its SQL behavior, then re-run/import to apply it.';
+            $comment = 'ANON_RULE requested anonymization rule "' . $ruleName . '" but no matching rule exists in the rule library. Create this rule and assign methods to it, then re-run/import to apply it.';
 
             if ($examples !== []) {
                 $comment .= ' Example columns: ' . implode(', ', array_slice($examples, 0, 5)) . '.';
@@ -2257,7 +2241,7 @@ trait InteractsWithAnonymousSiebelSync
                 'scope_name' => (string) ($upload->original_name ?: $upload->id),
                 'impact_summary' => $comment,
                 'diff_payload' => json_encode([
-                    'requested_method' => $methodName,
+                    'requested_rule' => $ruleName,
                     'requested_count' => (int) ($entry['count'] ?? 0),
                     'example_columns' => $examples,
                 ]),
@@ -2268,7 +2252,7 @@ trait InteractsWithAnonymousSiebelSync
         return [
             'changed_columns' => count($changedColumns),
             'required_updates' => (int) $metrics['required_updates'],
-            'method_mapping_updates' => (int) $metrics['method_mapping_updates'],
+            'rule_mapping_updates' => (int) $metrics['rule_mapping_updates'],
         ];
     }
 

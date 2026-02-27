@@ -2,13 +2,16 @@
 
 namespace App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers;
 
+use App\Filament\Fodig\Resources\AnonymizationRuleResource;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource;
+use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
-use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class ColumnsRelationManager extends RelationManager
 {
@@ -18,25 +21,50 @@ class ColumnsRelationManager extends RelationManager
 
     protected static ?string $title = 'Columns using this method';
 
+    /**
+     * Columns are now connected to methods through rules.
+     * This relation manager shows columns that reach this method
+     * via anonymization_rule_column → anonymization_rule_methods.
+     */
     public function table(Table $table): Table
     {
         return $table
-            ->heading('Columns using this method')
-            ->description('Catalog columns currently linked to this anonymization method.')
-            ->modifyQueryUsing(function (Builder $query) {
-                // Override Filament's automatic distinct behavior to avoid SQL errors.
-                $query->getQuery()->distinct = false;
+            ->heading('Columns using this method (via rules)')
+            ->description('Columns connected to this method through anonymization rules. To change column associations, edit the rule or the column\'s rule assignment.')
+            ->query(function (): Builder {
+                $methodId = $this->getOwnerRecord()->getKey();
 
-                return $query
-                    ->select([
-                        'anonymous_siebel_columns.id',
-                        'anonymous_siebel_columns.column_name',
-                        'anonymous_siebel_columns.table_id',
-                        'anonymous_siebel_columns.anonymization_required',
-                        'anonymous_siebel_columns.seed_contract_mode',
-                        'anonymous_siebel_columns.seed_contract_expression',
-                        'anonymous_siebel_columns.seed_contract_notes',
+                return AnonymousSiebelColumn::query()
+                    ->select('anonymous_siebel_columns.*')
+                    ->addSelect([
+                        'rule_name' => DB::table('anonymization_rules')
+                            ->select('anonymization_rules.name')
+                            ->join('anonymization_rule_column', 'anonymization_rules.id', '=', 'anonymization_rule_column.rule_id')
+                            ->whereColumn('anonymization_rule_column.column_id', 'anonymous_siebel_columns.id')
+                            ->join('anonymization_rule_methods', 'anonymization_rules.id', '=', 'anonymization_rule_methods.rule_id')
+                            ->where('anonymization_rule_methods.method_id', $methodId)
+                            ->limit(1),
+                        'rule_id' => DB::table('anonymization_rules')
+                            ->select('anonymization_rules.id')
+                            ->join('anonymization_rule_column', 'anonymization_rules.id', '=', 'anonymization_rule_column.rule_id')
+                            ->whereColumn('anonymization_rule_column.column_id', 'anonymous_siebel_columns.id')
+                            ->join('anonymization_rule_methods', 'anonymization_rules.id', '=', 'anonymization_rule_methods.rule_id')
+                            ->where('anonymization_rule_methods.method_id', $methodId)
+                            ->limit(1),
+                        'is_default_for_rule' => DB::table('anonymization_rule_methods')
+                            ->select('anonymization_rule_methods.is_default')
+                            ->join('anonymization_rule_column', 'anonymization_rule_methods.rule_id', '=', 'anonymization_rule_column.rule_id')
+                            ->whereColumn('anonymization_rule_column.column_id', 'anonymous_siebel_columns.id')
+                            ->where('anonymization_rule_methods.method_id', $methodId)
+                            ->limit(1),
                     ])
+                    ->whereExists(function ($query) use ($methodId) {
+                        $query->select(DB::raw(1))
+                            ->from('anonymization_rule_column')
+                            ->join('anonymization_rule_methods', 'anonymization_rule_column.rule_id', '=', 'anonymization_rule_methods.rule_id')
+                            ->whereColumn('anonymization_rule_column.column_id', 'anonymous_siebel_columns.id')
+                            ->where('anonymization_rule_methods.method_id', $methodId);
+                    })
                     ->with(['table.schema.database'])
                     ->orderBy('anonymous_siebel_columns.column_name');
             })
@@ -59,6 +87,17 @@ class ColumnsRelationManager extends RelationManager
                     ->label('Database')
                     ->sortable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('rule_name')
+                    ->label('Rule')
+                    ->url(fn(AnonymousSiebelColumn $record) => $record->rule_id
+                        ? AnonymizationRuleResource::getUrl('view', ['record' => $record->rule_id])
+                        : null)
+                    ->openUrlInNewTab()
+                    ->placeholder('—'),
+                Tables\Columns\IconColumn::make('is_default_for_rule')
+                    ->label('Default')
+                    ->boolean()
+                    ->tooltip('This method is the default for the column\'s rule'),
                 Tables\Columns\IconColumn::make('anonymization_required')
                     ->label('Required')
                     ->boolean()
@@ -68,101 +107,8 @@ class ColumnsRelationManager extends RelationManager
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([])
-            ->headerActions([
-                Tables\Actions\Action::make('attachColumns')
-                    ->label('Attach columns')
-                    ->modalHeading('Attach columns')
-                    ->modalSubmitActionLabel('Attach selected')
-                    ->form([
-                        Select::make('column_ids')
-                            ->label('Columns')
-                            ->multiple()
-                            ->required()
-                            ->searchable()
-                            ->options(fn() => $this->columnSelectOptions(limit: 25))
-                            ->getSearchResultsUsing(fn(string $search) => $this->columnSelectOptions(search: $search))
-                            ->getOptionLabelsUsing(fn(array $values) => $this->columnSelectOptions(ids: $values))
-                            ->helperText('Search by database, schema, table, or column name.'),
-                    ])
-                    ->action(function (array $data): void {
-                        $columnIds = collect($data['column_ids'] ?? [])
-                            ->filter()
-                            ->all();
-
-                        if ($columnIds === []) {
-                            return;
-                        }
-
-                        $this->getRelationship()->syncWithoutDetaching($columnIds);
-                    }),
-            ])
-            ->actions([
-                Tables\Actions\DetachAction::make()
-                    ->label('Remove'),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DetachBulkAction::make(),
-                ]),
-            ]);
-    }
-
-    private function columnSelectOptions(?string $search = null, ?array $ids = null, int $limit = 25): array
-    {
-        $query = AnonymousSiebelColumn::query()
-            ->with(['table.schema.database']);
-
-        $methodId = $this->getOwnerRecord()?->getKey();
-
-        if ($ids) {
-            $query->whereIn('anonymous_siebel_columns.id', $ids);
-        } elseif ($methodId) {
-            $query->whereDoesntHave('anonymizationMethods', fn(Builder $relationshipQuery) => $relationshipQuery
-                ->where('anonymization_methods.id', $methodId));
-        }
-
-        if ($search !== null) {
-            $this->applyColumnSearch($query, $search);
-        }
-
-        if (! $ids) {
-            $query
-                ->orderBy('anonymous_siebel_columns.column_name')
-                ->limit($limit);
-        }
-
-        return $query
-            ->get()
-            ->mapWithKeys(fn(AnonymousSiebelColumn $column) => [
-                $column->id => $this->columnPath($column),
-            ])
-            ->all();
-    }
-
-    private function applyColumnSearch(Builder $query, string $search): void
-    {
-        $term = '%' . strtolower($search) . '%';
-
-        $query->where(function (Builder $builder) use ($term) {
-            $builder
-                ->whereRaw('LOWER(anonymous_siebel_columns.column_name) LIKE ?', [$term])
-                ->orWhereHas('table', fn(Builder $tableQuery) => $tableQuery->whereRaw('LOWER(table_name) LIKE ?', [$term]))
-                ->orWhereHas('table.schema', fn(Builder $schemaQuery) => $schemaQuery->whereRaw('LOWER(schema_name) LIKE ?', [$term]))
-                ->orWhereHas('table.schema.database', fn(Builder $databaseQuery) => $databaseQuery->whereRaw('LOWER(database_name) LIKE ?', [$term]));
-        });
-    }
-
-    private function columnPath(AnonymousSiebelColumn $column): string
-    {
-        $table = $column->table;
-        $schema = $table?->schema;
-        $database = $schema?->database;
-
-        return collect([
-            $database?->database_name,
-            $schema?->schema_name,
-            $table?->table_name,
-            $column->column_name,
-        ])->filter()->implode('.');
+            ->headerActions([])
+            ->actions([])
+            ->bulkActions([]);
     }
 }
