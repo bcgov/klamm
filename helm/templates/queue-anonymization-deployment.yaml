@@ -21,6 +21,8 @@ spec:
           command:
             [
               "php",
+              "-d",
+              "memory_limit=1024M",
               "/var/www/artisan",
               "queue:work",
               "--queue=anonymization",
@@ -63,6 +65,10 @@ spec:
                 secretKeyRef:
                   name: app-secrets
                   key: DB_PASSWORD
+            - name: DB_PERSISTENT
+              value: "true"
+            - name: DB_LOGGING
+              value: "false"
             - name: MAIL_HOST
               valueFrom:
                 secretKeyRef:
@@ -99,7 +105,7 @@ spec:
           persistentVolumeClaim:
             claimName: klamm-app-shared-pvc
       restartPolicy: Always
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 630
       dnsPolicy: ClusterFirst
       securityContext:
         runAsNonRoot: true
