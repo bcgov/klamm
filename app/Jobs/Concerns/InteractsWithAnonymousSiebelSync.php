@@ -1671,39 +1671,49 @@ trait InteractsWithAnonymousSiebelSync
                 }
 
                 if ($rowsForUpsert !== []) {
-                    DB::table(self::COLUMNS_TABLE)->upsert(
-                        $rowsForUpsert,
-                        ['table_id', 'column_name'],
-                        [
-                            'qualfield',
-                            'column_id',
-                            'pr_key',
-                            'ref_tab_name',
-                            'num_distinct',
-                            'num_not_null',
-                            'num_nulls',
-                            'num_rows',
-                            'data_type_id',
-                            'data_length',
-                            'data_precision',
-                            'data_scale',
-                            'nullable',
-                            'char_length',
-                            'column_comment',
-                            'sbl_user_name',
-                            'sbl_desc_text',
-                            'table_comment',
-                            'related_columns_raw',
-                            'related_columns',
-                            'content_hash',
-                            'last_synced_at',
-                            'changed_at',
-                            'changed_fields',
-                            'anonymization_requirement_reviewed',
-                            'deleted_at',
-                            'updated_at',
-                        ]
-                    );
+                    // Wrap upsert + post-upsert ID retrieval in a single transaction
+                    // to reduce per-statement fsync overhead in PostgreSQL.
+                    DB::beginTransaction();
+                    try {
+                        DB::table(self::COLUMNS_TABLE)->upsert(
+                            $rowsForUpsert,
+                            ['table_id', 'column_name'],
+                            [
+                                'qualfield',
+                                'column_id',
+                                'pr_key',
+                                'ref_tab_name',
+                                'num_distinct',
+                                'num_not_null',
+                                'num_nulls',
+                                'num_rows',
+                                'data_type_id',
+                                'data_length',
+                                'data_precision',
+                                'data_scale',
+                                'nullable',
+                                'char_length',
+                                'column_comment',
+                                'sbl_user_name',
+                                'sbl_desc_text',
+                                'table_comment',
+                                'related_columns_raw',
+                                'related_columns',
+                                'content_hash',
+                                'last_synced_at',
+                                'changed_at',
+                                'changed_fields',
+                                'anonymization_requirement_reviewed',
+                                'deleted_at',
+                                'updated_at',
+                            ]
+                        );
+
+                        DB::commit();
+                    } catch (\Throwable $e) {
+                        DB::rollBack();
+                        throw $e;
+                    }
                 }
 
                 if ($logCreated !== []) {
@@ -1783,6 +1793,9 @@ trait InteractsWithAnonymousSiebelSync
                     );
                 }
 
+                // Flush any buffered activity log events after each chunk
+                AnonymizerActivityLogger::flush();
+
                 $processedRows += count($rows);
 
                 // Proactive garbage collection every 10 chunks to prevent memory accumulation
@@ -1825,6 +1838,9 @@ trait InteractsWithAnonymousSiebelSync
         if (! empty($columnIdentitiesBatch)) {
             $this->flushColumnIdentities($tempColumnIdentitiesTable, $columnIdentitiesBatch);
         }
+
+        // Flush any remaining buffered activity log events
+        AnonymizerActivityLogger::flush();
 
         // Return temp table names instead of loading all data into memory
         // The consuming methods will query these tables in chunks
@@ -2862,6 +2878,9 @@ trait InteractsWithAnonymousSiebelSync
                 $lastDeletedId = $column->id;
                 ++$deleted;
             }
+
+            // Flush buffered activity log events after each deletion batch
+            AnonymizerActivityLogger::flush();
         } while (true);
 
         DB::statement("DROP TABLE IF EXISTS {$tempColumnsToDeleteTable}");

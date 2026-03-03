@@ -811,17 +811,43 @@ class AnonymizationJobScriptService
                 'expression' => $provider ? $this->seedExpressionForProvider($provider) : 'tgt.UNKNOWN',
             ];
         }
+
+        $consumerFallbackExpr = [];
+        if ($consumerColumnIds !== []) {
+            foreach (array_chunk($consumerColumnIds, self::WHERE_IN_CHUNK_SIZE) as $chunk) {
+                $rows = DB::table('anonymous_siebel_column_dependencies as dep')
+                    ->join('anonymous_siebel_columns as child', 'child.id', '=', 'dep.child_field_id')
+                    ->join('anonymous_siebel_columns as parent', 'parent.id', '=', 'dep.parent_field_id')
+                    ->whereIn('dep.child_field_id', $chunk)
+                    ->whereRaw('UPPER(parent.column_name) = ?', ['ROW_ID'])
+                    ->select(['child.id as child_id', 'child.column_name as child_column_name'])
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $childId = (int) ($row->child_id ?? 0);
+                    $childColumnName = trim((string) ($row->child_column_name ?? ''));
+                    if ($childId <= 0 || $childColumnName === '') {
+                        continue;
+                    }
+
+                    $consumerFallbackExpr[$childId] = 'tgt.' . $childColumnName;
+                }
+            }
+        }
+
         foreach ($consumerColumnIds as $cid) {
             if (isset($seedProviderMap[$cid])) {
                 continue; // already a provider itself
             }
             $tid = $tableIdsByColumn[$cid] ?? 0;
             $tableProviders = $providersByTable[$tid] ?? [];
-            $providerId = $tableProviders !== [] ? $tableProviders[0] : ($providerColumnIds[0] ?? 0);
+            $providerId = $tableProviders !== [] ? $tableProviders[0] : 0;
             $provider = $providerModels->get($providerId);
             $seedProviderMap[$cid] = [
                 'provider_id' => $providerId,
-                'expression' => $provider ? $this->seedExpressionForProvider($provider) : null,
+                'expression' => $provider
+                    ? $this->seedExpressionForProvider($provider)
+                    : ($consumerFallbackExpr[$cid] ?? 'tgt.ROW_ID'),
             ];
         }
 
@@ -1852,9 +1878,19 @@ class AnonymizationJobScriptService
             $method = $this->resolveMethodForColumn($column);
             $provider = $this->seedProviderForColumn($column, $method, $columns, $emittersByTable, $seedEmitters);
 
+            $expression = $provider ? $this->seedExpressionForProvider($provider) : null;
+
+            if ($expression === null && $this->columnRequiresSeed($column, $method)) {
+                $expression = $this->defaultConsumerSeedExpression($column);
+            }
+
+            if ($expression === null) {
+                $expression = $this->seedExpressionForProvider($column);
+            }
+
             $providers[$column->id] = [
                 'provider' => $provider,
-                'expression' => $this->seedExpressionForProvider($provider ?? $column),
+                'expression' => $expression,
             ];
         }
 
@@ -1887,6 +1923,10 @@ class AnonymizationJobScriptService
             return $selectedParent;
         }
 
+        if ($parents->isNotEmpty()) {
+            return null;
+        }
+
         // Fall back to another seed emitter in the same table when no explicit parent is selected.
         $tableId = (int) ($column->table_id ?? 0);
         $sameTable = ($emittersByTable->get($tableId) ?? collect())
@@ -1913,6 +1953,22 @@ class AnonymizationJobScriptService
 
         // If no safe provider can be chosen, return null and let validation enforce explicit parents.
         return null;
+    }
+
+    protected function defaultConsumerSeedExpression(AnonymousSiebelColumn $column): string
+    {
+        $columnName = trim((string) ($column->column_name ?? ''));
+        $parents = $column->getRelationValue('parentColumns') ?? collect();
+
+        $hasRowIdParent = $parents->contains(function ($parent): bool {
+            return strtoupper(trim((string) ($parent->column_name ?? ''))) === 'ROW_ID';
+        });
+
+        if ($hasRowIdParent && $columnName !== '') {
+            return 'tgt.' . $columnName;
+        }
+
+        return 'tgt.ROW_ID';
     }
 
     // Resolve {{SEED_EXPR}} for a seed provider (explicit expression, else default to tgt.<column>).
@@ -2463,15 +2519,24 @@ class AnonymizationJobScriptService
         $tablePrefix = $this->tablePrefixForJob($job);
         $targetTableMode = $this->normalizeJobOption($job?->target_table_mode) ?: 'prefixed';
         $defaultRelationKind = $this->normalizeRelationKind($job?->target_relation_kind ?? 'table');
+        $hasExplicitColumns = false;
+
+        if ($job?->id) {
+            $hasExplicitColumns = DB::table('anonymization_job_columns')
+                ->where('job_id', (int) $job->id)
+                ->exists();
+        }
 
         if (! $targetSchema || ! $tablePrefix) {
             return [];
         }
 
         $tables = collect();
+        $grantScopeTableIds = [];
 
-        // For FULL jobs, clone every table in the selected schema scope.
-        if ($job && $job->job_type === AnonymizationJobs::TYPE_FULL) {
+        // For FULL jobs without explicit column selections, clone every table in scope.
+        // If explicit columns were selected, respect that narrower scope.
+        if ($job && $job->job_type === AnonymizationJobs::TYPE_FULL && ! $hasExplicitColumns) {
             $schemaIds = $this->schemaIdsForJobOrSelection($job, $columns);
 
             if ($schemaIds !== []) {
@@ -2489,6 +2554,11 @@ class AnonymizationJobScriptService
             $table = $column->getRelationValue('table');
             if ($table) {
                 $tables->push($table);
+
+                $tableId = (int) $table->getKey();
+                if ($tableId > 0) {
+                    $grantScopeTableIds[$tableId] = true;
+                }
             }
 
             $parents = $column->getRelationValue('parentColumns') ?? collect();
@@ -2496,6 +2566,11 @@ class AnonymizationJobScriptService
                 $parentTable = $parent->getRelationValue('table');
                 if ($parentTable) {
                     $tables->push($parentTable);
+
+                    $parentTableId = (int) $parentTable->getKey();
+                    if ($parentTableId > 0) {
+                        $grantScopeTableIds[$parentTableId] = true;
+                    }
                 }
             }
         }
@@ -2565,7 +2640,9 @@ class AnonymizationJobScriptService
             'table_prefix' => $tablePrefix,
             'target_table_mode' => $targetTableMode,
             'target_relation_kind' => $defaultRelationKind,
+            'table_scope_mode' => $hasExplicitColumns ? 'explicit-columns' : ($job?->job_type === AnonymizationJobs::TYPE_FULL ? 'full-schema' : 'selection-derived'),
             'tables_by_id' => $tablesById,
+            'grant_scope_table_ids' => array_values(array_keys($grantScopeTableIds)),
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
             'seed_store_schema' => trim((string) ($job?->seed_store_schema ?? '')),
@@ -3009,13 +3086,33 @@ class AnonymizationJobScriptService
             return [];
         }
 
-        $sources = collect($tablesById)
-            ->map(fn($mapping) => is_array($mapping) ? ($mapping['source_qualified'] ?? null) : null)
-            ->filter(fn($source) => is_string($source) && trim($source) !== '')
-            ->map(fn(string $source) => trim($source))
-            ->unique()
-            ->values()
-            ->all();
+        $resolveSourcesForTableIds = function (array $tableIds) use ($tablesById): array {
+            return collect($tableIds)
+                ->map(function (int $tableId) use ($tablesById) {
+                    $mapping = $tablesById[$tableId] ?? null;
+                    return is_array($mapping) ? ($mapping['source_qualified'] ?? null) : null;
+                })
+                ->filter(fn($source) => is_string($source) && trim($source) !== '')
+                ->map(fn(string $source) => trim($source))
+                ->unique()
+                ->values()
+                ->all();
+        };
+
+        $grantScopeTableIds = array_values(array_filter(
+            array_map('intval', $rewriteContext['grant_scope_table_ids'] ?? []),
+            fn(int $id) => $id > 0
+        ));
+
+        $sources = [];
+        if ($grantScopeTableIds !== []) {
+            $sources = $resolveSourcesForTableIds($grantScopeTableIds);
+        }
+
+        if ($sources === []) {
+            $allTableIds = array_values(array_filter(array_map('intval', array_keys($tablesById)), fn(int $id) => $id > 0));
+            $sources = $resolveSourcesForTableIds($allTableIds);
+        }
 
         if ($sources === []) {
             return [];
@@ -3986,6 +4083,7 @@ class AnonymizationJobScriptService
     protected function buildHeaderLines(array $jobMeta, array $rewriteContext = []): array
     {
         $targetSchema = Str::upper(trim((string) ($rewriteContext['target_schema'] ?? '')));
+        $tableScopeMode = trim((string) ($rewriteContext['table_scope_mode'] ?? ''));
 
         // Collect distinct source schemas for header instructions.
         $sourceSchemas = [];
@@ -4011,6 +4109,15 @@ class AnonymizationJobScriptService
 
         if ($jobMeta['output']) {
             $lines[] = '-- Output Format: ' . $jobMeta['output'];
+        }
+
+        if ($tableScopeMode !== '') {
+            $scopeLabel = match ($tableScopeMode) {
+                'explicit-columns' => 'explicit selected columns (plus dependencies)',
+                'full-schema' => 'full schema expansion',
+                default => 'selection-derived scope',
+            };
+            $lines[] = '-- Table Scope: ' . $scopeLabel;
         }
 
         // Connection guidance

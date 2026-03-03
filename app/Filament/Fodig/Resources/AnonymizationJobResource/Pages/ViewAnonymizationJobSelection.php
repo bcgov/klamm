@@ -17,12 +17,40 @@ class ViewAnonymizationJobSelection extends Page
 
     public AnonymizationJobs $record;
 
-    public function mount(int|string $record): void
+    public function mount(mixed $record): void
     {
-        // Resolve the record through the resource's getEloquentQuery() which
-        // excludes the potentially 50+ MB sql_script column.
-        $this->record = AnonymizationJobResource::getEloquentQuery()
-            ->findOrFail($record);
+        // The route may provide the numeric id, a model instance, an array,
+        // or (occasionally) a JSON-encoded string of the record. Normalize
+        // those inputs to a numeric id before resolving via the resource
+        // query which excludes the potentially large `sql_script` column.
+        $resolvedId = null;
+
+        if ($record instanceof AnonymizationJobs) {
+            $this->record = $record;
+        } else {
+            if (is_numeric($record)) {
+                $resolvedId = (int) $record;
+            } elseif (is_string($record)) {
+                $decoded = json_decode($record, true);
+                if (is_array($decoded) && isset($decoded['id']) && is_numeric($decoded['id'])) {
+                    $resolvedId = (int) $decoded['id'];
+                }
+            } elseif (is_array($record) && isset($record['id']) && is_numeric($record['id'])) {
+                $resolvedId = (int) $record['id'];
+            } elseif (is_object($record) && property_exists($record, 'id') && is_numeric($record->id)) {
+                $resolvedId = (int) $record->id;
+            }
+
+            if (isset($resolvedId)) {
+                $this->record = AnonymizationJobResource::getEloquentQuery()
+                    ->findOrFail($resolvedId);
+            } else {
+                // Fallback: attempt to resolve directly; let the framework
+                // throw a clear exception if it cannot.
+                $this->record = AnonymizationJobResource::getEloquentQuery()
+                    ->findOrFail($record);
+            }
+        }
 
         $this->record->load([
             'databases.schemas',
@@ -47,7 +75,7 @@ class ViewAnonymizationJobSelection extends Page
                 ->icon('heroicon-o-arrow-long-left')
                 ->color('secondary')
                 ->outlined()
-                ->url(fn() => AnonymizationJobResource::getUrl('view', ['record' => $this->record])),
+                ->url(fn() => AnonymizationJobResource::getUrl('view', ['record' => $this->record->getKey()])),
         ];
     }
 
@@ -55,7 +83,7 @@ class ViewAnonymizationJobSelection extends Page
     {
         return [
             AnonymizationJobResource::getUrl() => 'Jobs',
-            AnonymizationJobResource::getUrl('view', ['record' => $this->record]) => $this->record->name,
+            AnonymizationJobResource::getUrl('view', ['record' => $this->record->getKey()]) => $this->record->name,
             '#' => 'Selection',
         ];
     }
