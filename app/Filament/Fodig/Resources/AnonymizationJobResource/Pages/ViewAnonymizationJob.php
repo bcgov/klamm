@@ -61,7 +61,7 @@ class ViewAnonymizationJob extends ViewRecord
                 ->icon('heroicon-o-list-bullet')
                 ->color('secondary')
                 ->outlined()
-                ->url(fn() => AnonymizationJobResource::getUrl('selection', ['record' => $this->record])),
+                ->url(fn() => AnonymizationJobResource::getUrl('selection', ['record' => $this->record->getKey()])),
             Actions\EditAction::make(),
         ];
     }
