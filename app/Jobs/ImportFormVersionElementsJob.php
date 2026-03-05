@@ -797,6 +797,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'help_text' => $attributes['help_text'] ?? '',
                     'is_read_only' => $attributes['is_read_only'] ? true : false,
                     'custom_read_only' => $attributes['is_read_only'] ? true : false,
+                    'visible_web' => $attributes['visible_web'] ?? true,
+                    'visible_pdf' => $attributes['visible_pdf'] ?? true,
                     'is_required' => $attributes['is_required'] ?? false,
                     'save_on_submit' => $attributes['save_on_submit'] ?? true,
                 ];
@@ -806,14 +808,6 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'imported' => true,
                     'import_source' => 'template',
                 ];
-
-                $elementData['visible_pdf'] = !(
-                    isset($element['pdfStyles']['display']) && $element['pdfStyles']['display'] === 'none'
-                );
-
-                $elementData['visible_web'] = !(
-                    isset($element['webStyles']['display']) && $element['webStyles']['display'] === 'none'
-                );
 
                 $formElement = null;
 
