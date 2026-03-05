@@ -923,6 +923,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
             if (isset($dataBinding['dataBindingPath'])) {
                 $dataBindingInfo = [
+                    'source' => $dataBinding['source'] ?? null,
                     'path' => $dataBinding['dataBindingPath'],
                     'type' => $dataBinding['dataBindingType'] ?? 'jsonpath'
                 ];
@@ -931,6 +932,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
         // Format 2: direct dataBinding string (legacy support)
         elseif (isset($element['dataBinding']) && is_string($element['dataBinding'])) {
             $dataBindingInfo = [
+                'source' => $element['source'] ?? null, // Replace with actual field name
                 'path' => $element['dataBinding'],
                 'type' => 'jsonpath'
             ];
@@ -941,6 +943,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $firstBinding = reset($element['dataBindings']);
             if ($firstBinding && isset($firstBinding['path'])) {
                 $dataBindingInfo = [
+                    'source' => $firstBinding['source'] ?? null,
                     'path' => $firstBinding['path'],
                     'type' => 'jsonpath'
                 ];
@@ -949,6 +952,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
         // Format 4: binding_ref (alternative format)
         elseif (isset($element['binding_ref']) && is_string($element['binding_ref'])) {
             $dataBindingInfo = [
+                'source' => $element['source'] ?? null, // Replace with actual field name
                 'path' => $element['binding_ref'],
                 'type' => 'jsonpath'
             ];
@@ -958,6 +962,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $first = reset($element['databindings']);
             if (is_array($first) && isset($first['path'])) {
                 $dataBindingInfo = [
+                    'source' => $first['source'] ?? null,
                     'path' => $first['path'],
                     'type' => $first['type'] ?? 'jsonpath',
                 ];
@@ -973,7 +978,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function createDataBinding($formElement, array $dataBindingInfo, $formVersion): void
     {
         try {
-            $formDataSource = $formVersion->formDataSources()->first();
+            $formDataSourceName = $dataBindingInfo['source'];
+            $formDataSource = $formVersion->formDataSources()
+                ->where('form_data_sources.name', $formDataSourceName)
+                ->first();
 
             if (!$formDataSource) {
                 $formDataSource = \App\Models\FormMetadata\FormDataSource::firstOrCreate([
@@ -990,6 +998,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $formVersion->formDataSources()->attach($formDataSource->id, ['order' => 1]);
             }
+
             \App\Models\FormBuilding\FormElementDataBinding::create([
                 'form_element_id' => $formElement->id,
                 'form_data_source_id' => $formDataSource->id,
