@@ -8,12 +8,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Bus\Dispatchable;
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormBuilding\FormElementDataBinding;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormMetadata\FormDataSource;
 
 class ImportFormVersionElementsJob implements ShouldQueue
 {
@@ -978,36 +981,41 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function createDataBinding($formElement, array $dataBindingInfo, $formVersion): void
     {
         try {
-            $formDataSourceName = $dataBindingInfo['source'];
+            DB::transaction(function () use ($formElement, $dataBindingInfo, $formVersion) {
+                $formDataSourceName = $dataBindingInfo['source'];
+
             $formDataSource = $formVersion->formDataSources()
                 ->where('form_data_sources.name', $formDataSourceName)
                 ->first();
 
             if (!$formDataSource) {
-                $formDataSource = \App\Models\FormMetadata\FormDataSource::firstOrCreate([
-                    'name' => 'Imported Data Source',
-                    'type' => 'json',
-                ], [
-                    'description' => 'Auto-created data source for imported form elements',
-                    'endpoint' => null,
-                    'params' => null,
-                    'body' => null,
-                    'headers' => null,
-                    'host' => null,
-                ]);
+                    $defaultDataSource = 'Imported Data Source';
 
-                $formVersion->formDataSources()->attach($formDataSource->id, ['order' => 1]);
+                    $formDataSource = FormDataSource::firstOrCreate([
+                            'name' => $defaultDataSource,
+                        'type' => 'json',
+                    ], [
+                        'description' => 'Auto-created data source for imported form elements',
+                        'endpoint' => null,
+                        'params' => null,
+                        'body' => null,
+                        'headers' => null,
+                        'host' => null,
+                    ]);
+
+                    $formVersion->formDataSources()->syncWithoutDetaching($formDataSource->id, ['order' => 1]);
             }
 
-            \App\Models\FormBuilding\FormElementDataBinding::create([
+                FormElementDataBinding::updateOrCreate([
                 'form_element_id' => $formElement->id,
                 'form_data_source_id' => $formDataSource->id,
                 'path' => $dataBindingInfo['path'],
                 'condition' => $dataBindingInfo['condition'] ?? null,
                 'order' => 1,
             ]);
+            });
         } catch (\Exception $e) {
-            Log::warning('Failed to create data binding for imported element', [
+            Log::error('Failed to create data binding for imported element.', [
                 'element_id' => $formElement->id,
                 'data_binding_info' => $dataBindingInfo,
                 'error' => $e->getMessage()
