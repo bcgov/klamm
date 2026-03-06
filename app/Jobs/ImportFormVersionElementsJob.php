@@ -8,12 +8,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Bus\Dispatchable;
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormBuilding\FormElementDataBinding;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormMetadata\FormDataSource;
 
 class ImportFormVersionElementsJob implements ShouldQueue
 {
@@ -978,28 +981,83 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function createDataBinding($formElement, array $dataBindingInfo, $formVersion): void
     {
         try {
-            $formDataSourceName = $dataBindingInfo['source'];
+            $formDataSourceName = $dataBindingInfo['source'] ?? null;
+
             $formDataSource = $formVersion->formDataSources()
                 ->where('form_data_sources.name', $formDataSourceName)
                 ->first();
 
             if (!$formDataSource) {
-                $formDataSource = \App\Models\FormMetadata\FormDataSource::firstOrCreate([
-                    'name' => 'Imported Data Source',
-                    'type' => 'json',
-                ], [
-                    'description' => 'Auto-created data source for imported form elements',
-                    'endpoint' => null,
-                    'params' => null,
-                    'body' => null,
-                    'headers' => null,
-                    'host' => null,
-                ]);
+                DB::transaction(function () use (&$formDataSource, $formVersion) {
 
-                $formVersion->formDataSources()->attach($formDataSource->id, ['order' => 1]);
+                    // Fix ID sequence counter to prevent duplicate key errors when creating the default data source
+                    static $fixedOnce = false;
+
+                    if (!$fixedOnce && DB::getDriverName() === 'pgsql') {
+                        try {
+                            // Derive a stable 64-bit advisory lock key from table and column names
+                            // Prevents concurrent sequence fixes across multiple imports or workers
+                            $k1 = DB::selectOne("SELECT hashtext('form_data_sources') AS k")->k ?? 0;
+                            $k2 = DB::selectOne("SELECT hashtext('id') AS k")->k ?? 0;
+
+                            $gotLock = (bool) (DB::selectOne(
+                                "SELECT pg_try_advisory_lock(?, ?) AS ok",
+                                [$k1, $k2]
+                            )->ok ?? false);
+
+                            try {
+                                if ($gotLock) {
+                                    // Compute next needed id = MAX(id)+1 (or 1 if table empty)
+                                    $maxId = (int) (FormDataSource::max('id') ?? 0);
+                                    $next  = $maxId > 0 ? $maxId + 1 : 1;
+
+                                    // Set the sequence to next available id
+                                    // Postgres resolves the seq via pg_get_serial_sequence
+                                    DB::statement("
+                                    SELECT setval(
+                                        pg_get_serial_sequence('form_data_sources','id'),
+                                        ?, false
+                                    )
+                                ", [$next]);
+
+                                    Log::info("Adjusted form_data_sources.id sequence to {$next}");
+                                    $fixedOnce = true;
+                                }
+                            } finally {
+                                if (!empty($gotLock)) {
+                                    try {
+                                        DB::select('SELECT pg_advisory_unlock(?, ?)', [$k1, $k2]);
+                                    } catch (\Throwable $e) {
+                                    }
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning('Could not re-adjust form_data_sources.id sequence to next available ID', [
+                                'table' => 'form_data_sources',
+                                'pk'    => 'id',
+                                'next_id' => $next,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                    // ---------------------------------------------------------------------
+
+                    $formDataSource = FormDataSource::firstOrCreate([
+                        'name' => 'Imported Data Source',
+                        'type' => 'json',
+                    ], [
+                        'description' => 'Auto-created data source for imported form elements',
+                        'endpoint' => null,
+                        'params' => null,
+                        'body' => null,
+                        'headers' => null,
+                        'host' => null,
+                    ]);
+                    $formVersion->formDataSources()->sync($formDataSource->id, ['order' => 1]);
+                });
             }
 
-            \App\Models\FormBuilding\FormElementDataBinding::create([
+            FormElementDataBinding::create([
                 'form_element_id' => $formElement->id,
                 'form_data_source_id' => $formDataSource->id,
                 'path' => $dataBindingInfo['path'],
