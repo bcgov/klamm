@@ -704,10 +704,14 @@ class ImportFormVersionElementsJob implements ShouldQueue
                         'select-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
                         'checkbox' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
                         'checkbox-input' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
+                        'checkbox-group' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
+                        'checkbox-group-input' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
                         'date' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
                         'date-select-input' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
                         'number' => \App\Models\FormBuilding\NumberInputFormElement::class,
                         'number-input' => \App\Models\FormBuilding\NumberInputFormElement::class,
+                        'currency' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
+                        'currency-input' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
                         'html' => \App\Models\FormBuilding\HTMLFormElement::class,
                         'text-info' => \App\Models\FormBuilding\TextInfoFormElement::class,
                         'button' => \App\Models\FormBuilding\ButtonInputFormElement::class,
@@ -842,6 +846,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $checkboxInputModel = \App\Models\FormBuilding\CheckboxInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $checkboxInputModel->id;
                     $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\CheckboxGroupFormElement::class) {
+                    $checkboxGroupModel = \App\Models\FormBuilding\CheckboxGroupFormElement::updateOrCreate($attributes['attributes']);
+                    $elementData['elementable_id'] = $checkboxGroupModel->id;
+                    $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
                     $selectModel = \App\Models\FormBuilding\SelectInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $selectModel->id;
@@ -855,6 +863,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 } else if ($type === \App\Models\FormBuilding\NumberInputFormElement::class) {
                     $numberInputModel = \App\Models\FormBuilding\NumberInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $numberInputModel->id;
+                    $formElement = FormElement::create($elementData);
+                } else if ($type === \App\Models\FormBuilding\CurrencyInputFormElement::class) {
+                    $currencyInputModel = \App\Models\FormBuilding\CurrencyInputFormElement::updateOrCreate($attributes['attributes']);
+                    $elementData['elementable_id'] = $currencyInputModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\ButtonInputFormElement::class) {
                     $buttonModel = \App\Models\FormBuilding\ButtonInputFormElement::updateOrCreate($attributes['attributes']);
@@ -996,26 +1008,26 @@ class ImportFormVersionElementsJob implements ShouldQueue
             DB::transaction(function () use ($formElement, $dataBindingInfo, $formVersion) {
                 $formDataSourceName = $dataBindingInfo['source'];
 
-            $formDataSource = $formVersion->formDataSources()
-                ->where('form_data_sources.name', $formDataSourceName)
-                ->first();
+                $formDataSource = $formVersion->formDataSources()
+                    ->where('form_data_sources.name', $formDataSourceName)
+                    ->first();
 
-            if (!$formDataSource) {
+                if (!$formDataSource) {
                     $defaultDataSource = 'Imported Data Source';
 
                     // Specific catch for creating the default data source
                     try {
-                    $formDataSource = FormDataSource::firstOrCreate([
+                        $formDataSource = FormDataSource::firstOrCreate([
                             'name' => $defaultDataSource,
-                        'type' => 'json',
-                    ], [
-                        'description' => 'Auto-created data source for imported form elements',
-                        'endpoint' => null,
-                        'params' => null,
-                        'body' => null,
-                        'headers' => null,
-                        'host' => null,
-                    ]);
+                            'type' => 'json',
+                        ], [
+                            'description' => 'Auto-created data source for imported form elements',
+                            'endpoint' => null,
+                            'params' => null,
+                            'body' => null,
+                            'headers' => null,
+                            'host' => null,
+                        ]);
                     } catch (\Exception $e) {
                         Log::warning('Failed to create the default data source "{source}". Please reseed the form_data_sources table'
                             . ' using the following command: sail artisan db:seed --class=FormDataSourceSeeder', [
@@ -1029,15 +1041,15 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     }
 
                     $formVersion->formDataSources()->syncWithoutDetaching($formDataSource->id, ['order' => 1]);
-            }
+                }
 
                 FormElementDataBinding::updateOrCreate([
-                'form_element_id' => $formElement->id,
-                'form_data_source_id' => $formDataSource->id,
-                'path' => $dataBindingInfo['path'],
-                'condition' => $dataBindingInfo['condition'] ?? null,
-                'order' => 1,
-            ]);
+                    'form_element_id' => $formElement->id,
+                    'form_data_source_id' => $formDataSource->id,
+                    'path' => $dataBindingInfo['path'],
+                    'condition' => $dataBindingInfo['condition'] ?? null,
+                    'order' => 1,
+                ]);
             });
         } catch (\Exception $e) {
             Log::warning('Failed to create data binding for imported element.', [
@@ -1056,9 +1068,11 @@ class ImportFormVersionElementsJob implements ShouldQueue
             'TextInfoFormElements' => \App\Models\FormBuilding\TextInfoFormElement::class,
             'DateSelectInputFormElements' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
             'CheckboxInputFormElements' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
+            'CheckboxGroupFormElements' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
             'SelectInputFormElements' => \App\Models\FormBuilding\SelectInputFormElement::class,
             'RadioInputFormElements' => \App\Models\FormBuilding\RadioInputFormElement::class,
             'NumberInputFormElements' => \App\Models\FormBuilding\NumberInputFormElement::class,
+            'CurrencyInputFormElements' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
             'ButtonInputFormElements' => \App\Models\FormBuilding\ButtonInputFormElement::class,
             'HTMLFormElements' => \App\Models\FormBuilding\HTMLFormElement::class,
             'ContainerFormElements' => \App\Models\FormBuilding\ContainerFormElement::class,
