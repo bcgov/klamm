@@ -18,6 +18,8 @@ use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
 use App\Models\FormMetadata\FormDataSource;
 
+use Filament\Notifications\Notification;
+
 class ImportFormVersionElementsJob implements ShouldQueue
 {
     use Dispatchable;
@@ -29,6 +31,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
     protected $schemaContent;
     protected $cacheKey;
     protected $userId;
+
+    private $defaultDataSourceError = false;
 
     public function __construct($formVersionId, $schemaContent, $cacheKey, $userId)
     {
@@ -910,6 +914,14 @@ class ImportFormVersionElementsJob implements ShouldQueue
             }
         }
 
+        if ($this->defaultDataSourceError) {
+            Notification::make()
+                ->title("Failed to create the default data source 'Imported Data Source'")
+                ->body("Please reseed the form_data_sources table using the following command: sail artisan db:seed --class=FormDataSourceSeeder")
+                ->warning()
+                ->send();
+        }
+
         return $processedElements;
     }
 
@@ -991,6 +1003,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
             if (!$formDataSource) {
                     $defaultDataSource = 'Imported Data Source';
 
+                    // Specific catch for creating the default data source
+                    try {
                     $formDataSource = FormDataSource::firstOrCreate([
                             'name' => $defaultDataSource,
                         'type' => 'json',
@@ -1002,6 +1016,17 @@ class ImportFormVersionElementsJob implements ShouldQueue
                         'headers' => null,
                         'host' => null,
                     ]);
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to create the default data source "{source}". Please reseed the form_data_sources table'
+                            . ' using the following command: sail artisan db:seed --class=FormDataSourceSeeder', [
+                            'source' => $defaultDataSource,
+                            'error' => $e->getMessage(),
+                        ]);
+
+                        $this->defaultDataSourceError = true;
+
+                        throw $e; // ensure transaction rolls back
+                    }
 
                     $formVersion->formDataSources()->syncWithoutDetaching($formDataSource->id, ['order' => 1]);
             }
@@ -1015,7 +1040,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
             ]);
             });
         } catch (\Exception $e) {
-            Log::error('Failed to create data binding for imported element.', [
+            Log::warning('Failed to create data binding for imported element.', [
                 'element_id' => $formElement->id,
                 'data_binding_info' => $dataBindingInfo,
                 'error' => $e->getMessage()
