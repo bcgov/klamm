@@ -819,49 +819,49 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $formElement = null;
 
                 if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
-                    $containerModel = \App\Models\FormBuilding\ContainerFormElement::create($attributes['attributes']);
+                    $containerModel = \App\Models\FormBuilding\ContainerFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $containerModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\TextInputFormElement::class) {
-                    $textInputModel = \App\Models\FormBuilding\TextInputFormElement::create($attributes['attributes']);
+                    $textInputModel = \App\Models\FormBuilding\TextInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $textInputModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\TextareaInputFormElement::class) {
-                    $textareModel = \App\Models\FormBuilding\TextareaInputFormElement::create($attributes['attributes']);
+                    $textareModel = \App\Models\FormBuilding\TextareaInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $textareModel->id;
                     $formElement = FormElement::create($elementData);
                 } elseif ($type === \App\Models\FormBuilding\TextInfoFormElement::class) {
-                    $textInfoModel = \App\Models\FormBuilding\TextInfoFormElement::create($attributes['attributes']);
+                    $textInfoModel = \App\Models\FormBuilding\TextInfoFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $textInfoModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\DateSelectInputFormElement::class) {
-                    $dateSelectModel = \App\Models\FormBuilding\DateSelectInputFormElement::create($attributes['attributes']);
+                    $dateSelectModel = \App\Models\FormBuilding\DateSelectInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $dateSelectModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\CheckboxInputFormElement::class) {
-                    $checkboxInputModel = \App\Models\FormBuilding\CheckboxInputFormElement::create($attributes['attributes']);
+                    $checkboxInputModel = \App\Models\FormBuilding\CheckboxInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $checkboxInputModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
-                    $selectModel = \App\Models\FormBuilding\SelectInputFormElement::create($attributes['attributes']);
+                    $selectModel = \App\Models\FormBuilding\SelectInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $selectModel->id;
                     $formElement = FormElement::create($elementData);
                     $this->createSelectOptions($selectModel, $options);
                 } elseif ($type === \App\Models\FormBuilding\RadioInputFormElement::class) {
-                    $radioModel = \App\Models\FormBuilding\RadioInputFormElement::create($attributes['attributes']);
+                    $radioModel = \App\Models\FormBuilding\RadioInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $radioModel->id;
                     $formElement = FormElement::create($elementData);
                     $this->createRadioOptions($radioModel, $options);
                 } else if ($type === \App\Models\FormBuilding\NumberInputFormElement::class) {
-                    $numberInputModel = \App\Models\FormBuilding\NumberInputFormElement::create($attributes['attributes']);
+                    $numberInputModel = \App\Models\FormBuilding\NumberInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $numberInputModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\ButtonInputFormElement::class) {
-                    $buttonModel = \App\Models\FormBuilding\ButtonInputFormElement::create($attributes['attributes']);
+                    $buttonModel = \App\Models\FormBuilding\ButtonInputFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $buttonModel->id;
                     $formElement = FormElement::create($elementData);
                 } else if ($type === \App\Models\FormBuilding\HTMLFormElement::class) {
-                    $htmlModel = \App\Models\FormBuilding\HTMLFormElement::create($attributes['attributes']);
+                    $htmlModel = \App\Models\FormBuilding\HTMLFormElement::updateOrCreate($attributes['attributes']);
                     $elementData['elementable_id'] = $htmlModel->id;
                     $formElement = FormElement::create($elementData);
                 } else {
