@@ -206,9 +206,10 @@ class AnonymizationJobResource extends Resource
                             ->options([
                                 'prefixed' => 'Job-scoped working copies (safe) (e.g. <prefix>_INITIAL_S_CONTACT)',
                                 'anon' => 'Mirror ANON_* tables (e.g. INITIAL_S_CONTACT → ANON_S_CONTACT)',
+                                'exact' => 'Use exact source table names in target schema (e.g. S_CONTACT → S_CONTACT)',
                             ])
                             ->default('prefixed')
-                            ->helperText('Controls where the clone + masking updates are applied. Use ANON_* mode when you want the job to produce anonymized copies in your ANON_ tables.'),
+                            ->helperText('Controls where the clone + masking updates are applied. Exact-name mode is allowed only when target objects do not resolve to the original source objects.'),
                         Select::make('target_relation_kind')
                             ->label('Target creation')
                             ->options([
