@@ -111,6 +111,30 @@ class AnonymizationJobScriptService
         return $value === 'view' ? 'view' : 'table';
     }
 
+    protected function shouldNullUnselectedColumns(?AnonymizationJobs $job): bool
+    {
+        return $job?->job_type === AnonymizationJobs::TYPE_PARTIAL;
+    }
+
+    protected function loadColumnsForIds(array $columnIds): \Illuminate\Database\Eloquent\Collection
+    {
+        $columnIds = array_values(array_unique(array_filter(array_map('intval', $columnIds))));
+        if ($columnIds === []) {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return AnonymousSiebelColumn::query()
+            ->with([
+                'anonymizationMethods.packages',
+                'anonymizationRule.methods.packages',
+                'table.schema.database',
+                'dataType',
+                'parentColumns.table.schema.database',
+            ])
+            ->whereIn('id', $columnIds)
+            ->get();
+    }
+
     protected function methodUsesSeedPlaceholders(?AnonymizationMethods $method): bool
     {
         $sqlBlock = trim((string) ($method?->sql_block ?? ''));
@@ -227,6 +251,7 @@ class AnonymizationJobScriptService
         }
 
         $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
+        $lines = array_merge($lines, $this->buildDeterministicRandomSeedSection($rewriteContext));
 
         $lines[] = $this->commentDivider('=');
         $targetMode = $this->normalizeJobOption((string) ($rewriteContext['target_table_mode'] ?? '')) ?: 'prefixed';
@@ -1107,6 +1132,7 @@ class AnonymizationJobScriptService
 
         // ── 5. Prefix SQL ─────────────────────────────────────────────
         $prefixLines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
+        $prefixLines = array_merge($prefixLines, $this->buildDeterministicRandomSeedSection($rewriteContext));
 
         // Contract validation is deferred to chunk workers for very large jobs
         // to avoid materializing all 258 K+ columns in the parent process.
@@ -2496,9 +2522,10 @@ class AnonymizationJobScriptService
 
         $seedMap = $this->seedMapForColumn($seedProvider['provider'] ?? null, $seedMapContext);
         $seedMapTable = $seedMap['seed_map_table'] ?? '';
+        $seedLookupColumnRef = $alias . '.' . ($column->column_name ?? '');
         $seedMapLookup = $seedMapTable !== ''
-            ? '(SELECT sm.new_value FROM ' . $seedMapTable . ' sm WHERE sm.old_value = ' . $alias . '.' . ($column->column_name ?? '') . ' AND ROWNUM = 1)'
-            : '';
+            ? '(SELECT sm.new_value FROM ' . $seedMapTable . ' sm WHERE sm.old_value = ' . $seedLookupColumnRef . ' AND ROWNUM = 1)'
+            : $seedLookupColumnRef;
 
         $jobSeed = $rewriteContext['job_seed'] ?? '';
         $jobSeedLiteral = $rewriteContext['job_seed_literal'] ?? "''";
@@ -2539,9 +2566,59 @@ class AnonymizationJobScriptService
             $rendered = str_replace(array_keys($rawReplace), array_values($rawReplace), $rendered);
         }
 
+        $rendered = $this->enforceDeterministicRandomUsage($rendered, $column, $rewriteContext);
         $rendered = $this->rewriteAnonymizationPackageOwner($rendered);
 
         return $rendered;
+    }
+
+    protected function deterministicShuffleRowKeyExpression(AnonymousSiebelColumn $column): string
+    {
+        $tableId = (int) ($column->table_id ?? 0);
+        $columnNames = $tableId > 0 ? $this->tableColumnNamesForSeedFallback($tableId) : [];
+
+        foreach (['ROW_ID', 'PAR_ROW_ID', 'PARENT_ROW_ID', 'PARENT_ID', 'PAR_ID', 'ID'] as $candidate) {
+            if (isset($columnNames[$candidate])) {
+                return 'TO_CHAR(' . $candidate . ')';
+            }
+        }
+
+        return 'TO_CHAR(ROWID)';
+    }
+
+    protected function deterministicShuffleOrderExpression(AnonymousSiebelColumn $column, array $rewriteContext): string
+    {
+        $jobSeedLiteral = $rewriteContext['job_seed_literal'] ?? "''";
+        if (! is_string($jobSeedLiteral) || $jobSeedLiteral === '') {
+            $jobSeedLiteral = "''";
+        }
+
+        $columnName = strtoupper(trim((string) ($column->column_name ?? 'COLUMN')));
+        if ($columnName === '') {
+            $columnName = 'COLUMN';
+        }
+
+        $rowKeyExpression = $this->deterministicShuffleRowKeyExpression($column);
+
+        return "STANDARD_HASH({$jobSeedLiteral} || '|SHUFFLE|{$columnName}|' || {$rowKeyExpression}, 'SHA256')";
+    }
+
+    protected function enforceDeterministicRandomUsage(string $sql, AnonymousSiebelColumn $column, array $rewriteContext): string
+    {
+        if (! str_contains(strtoupper($sql), 'DBMS_RANDOM.VALUE')) {
+            return $sql;
+        }
+
+        $orderExpression = $this->deterministicShuffleOrderExpression($column, $rewriteContext);
+
+        $rewritten = preg_replace('/DBMS_RANDOM\.VALUE\s*\(\s*\)/i', $orderExpression, $sql);
+        if ($rewritten === null) {
+            return $sql;
+        }
+
+        $rewritten = preg_replace('/DBMS_RANDOM\.VALUE\b/i', $orderExpression, $rewritten);
+
+        return $rewritten ?? $sql;
     }
 
     protected function extractUpdateExpression(string $renderedSql, string $columnName): ?string
@@ -2709,6 +2786,7 @@ class AnonymizationJobScriptService
         }
 
         $selectedLookup = array_flip(array_values(array_unique(array_filter(array_map('intval', $selectedColumnIds)))));
+        $nullUnselectedColumns = $this->shouldNullUnselectedColumns($job);
 
         // Pre-load seed provider models once (small set — only providers for selected columns).
         $providerIds = [];
@@ -2802,12 +2880,27 @@ class AnonymizationJobScriptService
 
                 $selectParts = [];
                 $deferredStatements = [];
+                $selectedSourceColumns = [];
                 foreach ($tableColumns as $column) {
                     if ($this->isLongColumn($column)) {
                         continue;
                     }
 
                     $isSelected = isset($selectedLookup[(int) $column->id]);
+                    $columnName = $column->column_name ?? '';
+                    if ($columnName === '') {
+                        continue;
+                    }
+
+                    if ($isSelected) {
+                        $selectedSourceColumns[] = Str::upper($columnName);
+                    }
+
+                    if (! $isSelected && $nullUnselectedColumns) {
+                        $selectParts[] = 'CAST(NULL AS ' . $this->oracleColumnTypeForColumn($column) . ') ' . $columnName;
+                        continue;
+                    }
+
                     $method = $isSelected ? $this->resolveMethodForColumn($column) : null;
 
                     if ($method) {
@@ -2833,30 +2926,24 @@ class AnonymizationJobScriptService
 
                     // No-op: pass column through unchanged, no warning.
                     if ($expression === self::INLINE_NOOP) {
-                        $columnName = $column->column_name ?? '';
-                        if ($columnName !== '') {
-                            $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
-                        }
+                        $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
                         continue;
                     }
 
                     // Deferred (MERGE/shuffle): pass column through in CTAS, collect
                     // the full statement for post-CTAS execution.
                     if ($expression !== null && str_starts_with($expression, self::INLINE_DEFERRED_PREFIX)) {
-                        $columnName = $column->column_name ?? '';
-                        if ($columnName !== '') {
-                            $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
-                            $rawBlock = substr($expression, strlen(self::INLINE_DEFERRED_PREFIX));
-                            $deferredStatements[] = $this->applyPlaceholders(
-                                $rawBlock,
-                                $column,
-                                $seedProviders[$column->id] ?? null,
-                                $rewriteContext,
-                                $seedMapContext,
-                                'tgt',
-                                false
-                            );
-                        }
+                        $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
+                        $rawBlock = substr($expression, strlen(self::INLINE_DEFERRED_PREFIX));
+                        $deferredStatements[] = $this->applyPlaceholders(
+                            $rawBlock,
+                            $column,
+                            $seedProviders[$column->id] ?? null,
+                            $rewriteContext,
+                            $seedMapContext,
+                            'tgt',
+                            false
+                        );
                         continue;
                     }
 
@@ -2869,11 +2956,6 @@ class AnonymizationJobScriptService
                     }
 
                     $expression = $this->normalizeInlineExpressionForCtas($expression, $column);
-
-                    $columnName = $column->column_name ?? '';
-                    if ($columnName === '') {
-                        continue;
-                    }
 
                     $lookupPlan = $this->buildInlineReferenceLookupPlan(
                         $tableId,
@@ -2942,6 +3024,8 @@ class AnonymizationJobScriptService
                     $rewriteContext['tables_by_id'][$tableId]['deferred_statements'] = $deferredStatements;
                 }
 
+                $rewriteContext['tables_by_id'][$tableId]['null_unselected_columns'] = $nullUnselectedColumns;
+                $rewriteContext['tables_by_id'][$tableId]['selected_source_columns'] = array_values(array_unique($selectedSourceColumns));
                 $rewriteContext['tables_by_id'][$tableId]['select_list'] = $selectParts === []
                     ? ''
                     : "\n    " . implode(",\n    ", $selectParts);
@@ -4648,6 +4732,12 @@ class AnonymizationJobScriptService
                     continue;
                 }
 
+                $childSelectedColumns = array_map('strtoupper', $childMap['selected_source_columns'] ?? []);
+                $childNullUnselectedColumns = (bool) ($childMap['null_unselected_columns'] ?? false);
+                if ($childNullUnselectedColumns && ! in_array(strtoupper($childColumn), $childSelectedColumns, true)) {
+                    continue;
+                }
+
                 if ($this->isLongColumn($column)) {
                     continue;
                 }
@@ -4686,6 +4776,12 @@ class AnonymizationJobScriptService
                     }
 
                     if (($parentMap['target_relation_kind'] ?? 'table') === 'view') {
+                        continue;
+                    }
+
+                    $parentSelectedColumns = array_map('strtoupper', $parentMap['selected_source_columns'] ?? []);
+                    $parentNullUnselectedColumns = (bool) ($parentMap['null_unselected_columns'] ?? false);
+                    if ($parentNullUnselectedColumns && ! in_array('ROW_ID', $parentSelectedColumns, true)) {
                         continue;
                     }
 
@@ -4773,6 +4869,12 @@ class AnonymizationJobScriptService
             }
             $target = $mapping['target_qualified'] ?? null;
             if (! $target) {
+                continue;
+            }
+
+            $selectedSourceColumns = array_map('strtoupper', $mapping['selected_source_columns'] ?? []);
+            $nullUnselectedColumns = (bool) ($mapping['null_unselected_columns'] ?? false);
+            if ($nullUnselectedColumns && ! in_array('ROW_ID', $selectedSourceColumns, true)) {
                 continue;
             }
 
@@ -5288,6 +5390,31 @@ class AnonymizationJobScriptService
         $lines = array_merge($lines, $this->buildPrivilegePreflightSection());
 
         return $lines;
+    }
+
+    protected function buildDeterministicRandomSeedSection(array $rewriteContext): array
+    {
+        $jobSeed = trim((string) ($rewriteContext['job_seed'] ?? ''));
+        if ($jobSeed === '') {
+            return [];
+        }
+
+        $jobSeedLiteral = $rewriteContext['job_seed_literal'] ?? $this->oracleStringLiteral($jobSeed);
+        if (! is_string($jobSeedLiteral) || $jobSeedLiteral === '') {
+            $jobSeedLiteral = $this->oracleStringLiteral($jobSeed);
+        }
+
+        return [
+            $this->commentDivider('='),
+            '-- Deterministic Randomness',
+            '-- Seeds DBMS_RANDOM from job seed so random-based methods are repeatable.',
+            $this->commentDivider('='),
+            'BEGIN',
+            '  DBMS_RANDOM.SEED(' . $jobSeedLiteral . ');',
+            'END;',
+            '/',
+            '',
+        ];
     }
 
     protected function buildPrivilegePreflightSection(): array

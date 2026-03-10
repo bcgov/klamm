@@ -76,8 +76,11 @@ trait BuildsDoubleSeededDeterministicOracleScripts
 
         // Collect tables involved and map to working copies.
         $tables = $this->collectTablesForDoubleSeededJob($ordered);
+        $tableColumns = $this->columnsByTableWithTypes($tables);
         $tableMappings = $this->buildStableDemoTableMappings($tables, $targetSchema, $seedPrefix);
         $tableMappingsBySourceTable = collect($tableMappings)->keyBy('source_table');
+        $selectedLookup = $ordered->pluck('id')->mapWithKeys(fn($id) => [(int) $id => true])->all();
+        $nullUnselectedColumns = $job->job_type === AnonymizationJobs::TYPE_PARTIAL;
 
         // Identify seed provider columns that need ORIGINAL_<column> tracking for deterministic masking.
         $seedProviderColumns = $this->identifySeedProviderColumns($ordered, $seedMapContext);
@@ -108,6 +111,17 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         $lines[] = '-- Controls run-to-run reproducibility';
         $lines[] = $this->commentDivider('-');
         $lines = array_merge($lines, $this->renderJobSeedTableDDL($jobSeedTable, $jobKeyName, $jobSeedLiteral));
+
+        // Ensure any residual DBMS_RANDOM usage is repeatable for this run.
+        $lines[] = $this->commentDivider('-');
+        $lines[] = '-- DETERMINISTIC RANDOMNESS';
+        $lines[] = '-- Seeds DBMS_RANDOM from job seed.';
+        $lines[] = $this->commentDivider('-');
+        $lines[] = 'BEGIN';
+        $lines[] = '  DBMS_RANDOM.SEED(' . $jobSeedLiteral . ');';
+        $lines[] = 'END;';
+        $lines[] = '/';
+        $lines[] = '';
 
         // === Packages ===
         $packages = $this->collectPackagesFromColumns($ordered);
@@ -141,8 +155,23 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         $lines[] = '-- Adds ORIGINAL_<column> columns for seed provider tracking.';
         $lines[] = $this->commentDivider('-');
 
-        foreach ($tableMappings as $mapping) {
-            $lines = array_merge($lines, $this->renderStableCloneStatements($mapping['source_qualified'], $mapping['target_qualified']));
+        foreach ($tableMappings as $index => $mapping) {
+            $tableId = (int) ($mapping['table_id'] ?? 0);
+            $selectedSourceColumns = [];
+            $selectList = $this->buildDoubleSeededCloneSelectList(
+                $tableColumns[$tableId] ?? collect(),
+                $selectedLookup,
+                $nullUnselectedColumns,
+                $selectedSourceColumns
+            );
+
+            $tableMappings[$index]['selected_source_columns'] = $selectedSourceColumns;
+            $tableMappings[$index]['null_unselected_columns'] = $nullUnselectedColumns;
+            $lines = array_merge($lines, $this->renderStableCloneStatements(
+                $mapping['source_qualified'],
+                $mapping['target_qualified'],
+                $selectList
+            ));
 
             // Add ORIGINAL_<column> columns for each seed provider in this table.
             $tableProviders = $seedProviderColumns->filter(
@@ -164,6 +193,8 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                 $lines[] = '';
             }
         }
+
+        $tableMappingsBySourceTable = collect($tableMappings)->keyBy('source_table');
 
         // === Seed maps for FK preservation ===
         $seedMaps = $this->buildDoubleSeededSeedMaps($seedProviderColumns, $tableMappingsBySourceTable, $seedStoreSchema, $seedPrefix);
@@ -631,8 +662,66 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return implode('_', $rendered);
     }
 
-    protected function renderStableCloneStatements(string $qualifiedSource, string $qualifiedTarget): array
+    protected function buildDoubleSeededCloneSelectList(
+        Collection $columns,
+        array $selectedLookup,
+        bool $nullUnselectedColumns,
+        array &$selectedSourceColumns = []
+    ): string {
+        if ($columns->isEmpty()) {
+            return '*';
+        }
+
+        $selectParts = [];
+        $selectedSourceColumns = [];
+
+        foreach ($columns as $column) {
+            if ($this->isLongColumn($column)) {
+                continue;
+            }
+
+            $columnName = (string) ($column->column_name ?? '');
+            if ($columnName === '') {
+                continue;
+            }
+
+            $isSelected = isset($selectedLookup[(int) $column->id]);
+            if ($isSelected) {
+                $selectedSourceColumns[] = Str::upper($columnName);
+            }
+
+            if (! $isSelected && $nullUnselectedColumns) {
+                $selectParts[] = 'CAST(NULL AS ' . $this->oracleColumnTypeForColumn($column) . ') ' . $columnName;
+                continue;
+            }
+
+            $selectParts[] = $columnName;
+        }
+
+        if ($selectParts === []) {
+            return '';
+        }
+
+        return implode(', ', $selectParts);
+    }
+
+    protected function renderStableCloneStatements(string $qualifiedSource, string $qualifiedTarget, string $selectList = '*'): array
     {
+        if (trim($selectList) === '') {
+            return [
+                'BEGIN',
+                "  EXECUTE IMMEDIATE 'DROP TABLE {$qualifiedTarget} CASCADE CONSTRAINTS PURGE';",
+                'EXCEPTION',
+                '  WHEN OTHERS THEN',
+                '    IF SQLCODE != -942 THEN RAISE; END IF;',
+                'END;',
+                '/',
+                '',
+                '-- Skipped: no non-LONG columns available for CTAS.',
+                '',
+            ];
+        }
+
         return [
             'BEGIN',
             "  EXECUTE IMMEDIATE 'DROP TABLE {$qualifiedTarget} CASCADE CONSTRAINTS PURGE';",
@@ -643,7 +732,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             '/',
             '',
             'CREATE TABLE ' . $qualifiedTarget . ' AS',
-            'SELECT * FROM ' . $qualifiedSource . ';',
+            'SELECT ' . $selectList . ' FROM ' . $qualifiedSource . ';',
             '',
         ];
     }
@@ -721,6 +810,12 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                     continue;
                 }
 
+                $childSelectedColumns = array_map('strtoupper', $childMap['selected_source_columns'] ?? []);
+                $childNullUnselectedColumns = (bool) ($childMap['null_unselected_columns'] ?? false);
+                if ($childNullUnselectedColumns && ! in_array(strtoupper($childColumn), $childSelectedColumns, true)) {
+                    continue;
+                }
+
                 $relationships = $this->resolveDeterministicForeignKeyRelationships($column);
                 if ($relationships === []) {
                     continue;
@@ -751,6 +846,12 @@ trait BuildsDoubleSeededDeterministicOracleScripts
 
                     $parentMap = $tableMapById[$parentTableId] ?? null;
                     if (! is_array($parentMap)) {
+                        continue;
+                    }
+
+                    $parentSelectedColumns = array_map('strtoupper', $parentMap['selected_source_columns'] ?? []);
+                    $parentNullUnselectedColumns = (bool) ($parentMap['null_unselected_columns'] ?? false);
+                    if ($parentNullUnselectedColumns && ! in_array('ROW_ID', $parentSelectedColumns, true)) {
                         continue;
                     }
 
@@ -837,6 +938,12 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         foreach ($tableMapById as $tableId => $mapping) {
             $target = $mapping['target_qualified'] ?? null;
             if (! $target) {
+                continue;
+            }
+
+            $selectedSourceColumns = array_map('strtoupper', $mapping['selected_source_columns'] ?? []);
+            $nullUnselectedColumns = (bool) ($mapping['null_unselected_columns'] ?? false);
+            if ($nullUnselectedColumns && ! in_array('ROW_ID', $selectedSourceColumns, true)) {
                 continue;
             }
 
