@@ -691,7 +691,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             }
 
             if (! $isSelected && $nullUnselectedColumns) {
-                $selectParts[] = 'CAST(NULL AS ' . $this->oracleColumnTypeForColumn($column) . ') ' . $columnName;
+                $selectParts[] = $this->oracleNullExpressionForColumn($column) . ' ' . $columnName;
                 continue;
             }
 
