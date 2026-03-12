@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Anonymization;
 
 use App\Models\Anonymizer\AnonymizationMethods;
 use App\Models\Anonymizer\AnonymizationRule;
@@ -324,8 +324,8 @@ SQL,
                 'sql_block' => <<<'SQL'
 -- Deterministic SIN surrogate lookup from Faker package
 UPDATE {{TABLE}} tgt
-   SET {{COLUMN}} = ANON_DATA.PKG_ANON_sin.GET_sin(
-       {{JOB_SEED_LITERAL}} || '|sin|' || TO_CHAR({{SEED_EXPR}}) || '|' || tgt.{{COLUMN}},
+   SET {{COLUMN}} = ANON_DATA.PKG_ANON_SIN.GET_SIN(
+       {{JOB_SEED_LITERAL}} || '|SIN|' || TO_CHAR({{SEED_EXPR}}) || '|' || tgt.{{COLUMN}},
        {{COLUMN_MAX_LEN_EXPR}}
    )
  WHERE {{COLUMN}} IS NOT NULL;

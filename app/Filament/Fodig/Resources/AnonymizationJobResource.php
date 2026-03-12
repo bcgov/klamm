@@ -505,6 +505,42 @@ class AnonymizationJobResource extends Resource
         );
     }
 
+    public static function duplicateJob(AnonymizationJobs $record): AnonymizationJobs
+    {
+        $source = AnonymizationJobs::query()
+            ->withTrashed()
+            ->select([
+                'id',
+                'name',
+                'job_type',
+                'status',
+                'output_format',
+                'strategy',
+                'target_relation_kind',
+                'target_schema',
+                'target_table_mode',
+                'seed_store_mode',
+                'seed_store_schema',
+                'seed_store_prefix',
+                'seed_map_hygiene_mode',
+                'job_seed',
+                'pre_mask_sql',
+                'post_mask_sql',
+                'last_run_at',
+                'duration_seconds',
+                'created_at',
+                'updated_at',
+                'deleted_at',
+            ])
+            ->findOrFail($record->getKey());
+
+        $duplicate = $source->duplicateAsDraft();
+
+        GenerateAnonymizationJobSql::dispatch($duplicate->getKey());
+
+        return $duplicate;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -646,6 +682,19 @@ class AnonymizationJobResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\Action::make('duplicate')
+                    ->label('Duplicate')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Duplicate anonymization job?')
+                    ->modalDescription('This creates a new draft job with the same settings, scope, and column selections. The SQL script is regenerated for the new copy.')
+                    ->modalSubmitActionLabel('Duplicate job')
+                    ->action(function (AnonymizationJobs $record) {
+                        $duplicate = self::duplicateJob($record);
+
+                        return redirect(self::getUrl('edit', ['record' => $duplicate]));
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

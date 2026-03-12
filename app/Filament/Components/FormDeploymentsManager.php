@@ -27,61 +27,6 @@ class FormDeploymentsManager
             ->schema([
                 Grid::make(3)
                     ->schema([
-                        // Test Environment
-                        Section::make('Test Environment')
-                            ->icon('heroicon-o-beaker')
-                            ->compact()
-                            ->schema([
-                                Placeholder::make('test_deployment_info')
-                                    ->label('')
-                                    ->content(function ($record) {
-                                        if (!$record) return 'No deployment details yet';
-
-                                        $deployment = FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
-                                        if (!$deployment) {
-                                            return 'No deployment details yet';
-                                        }
-
-                                        return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
-                                    })
-                                    ->extraAttributes(['class' => 'text-sm']),
-                                Actions::make([
-                                    Action::make('deploy_to_test')
-                                        ->label('Deploy')
-                                        ->icon('heroicon-o-rocket-launch')
-                                        ->color('warning')
-                                        ->size('sm')
-                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
-                                        ->form([
-                                            Select::make('form_version_id')
-                                                ->label('Form Version')
-                                                ->options(function ($record) {
-                                                    if (!$record) return [];
-                                                    return $record->formVersions()
-                                                        ->whereIn('status', ['approved', 'published'])
-                                                        ->get()
-                                                        ->pluck('version_number', 'id')
-                                                        ->map(fn($version) => "Version {$version}")
-                                                        ->toArray();
-                                                })
-                                                ->required(),
-                                            DateTimePicker::make('deployed_at')
-                                                ->label('Deployment Date & Time')
-                                                ->default(now())
-                                                ->required(),
-                                        ])
-                                        ->action(function (array $data, $record) {
-                                            FormDeployment::deployToEnvironment(
-                                                $data['form_version_id'],
-                                                'test',
-                                                Carbon::parse($data['deployed_at'])
-                                            );
-                                        })
-                                        ->successNotificationTitle('Successfully deployed to Test environment'),
-                                ])
-                                    ->alignment(Alignment::Left),
-                            ]),
-
                         // Dev Environment
                         Section::make('Development Environment')
                             ->icon('heroicon-o-cog')
@@ -90,7 +35,8 @@ class FormDeploymentsManager
                                 Placeholder::make('dev_deployment_info')
                                     ->label('')
                                     ->content(function ($record) {
-                                        if (!$record) return 'No deployment details yet';
+                                        if (!$record)
+                                            return 'No deployment details yet';
 
                                         $deployment = FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'dev');
                                         if (!$deployment) {
@@ -104,14 +50,15 @@ class FormDeploymentsManager
                                     Action::make('deploy_to_dev')
                                         ->label('Deploy')
                                         ->icon('heroicon-o-rocket-launch')
-                                        ->color('info')
+                                        ->color('warning')
                                         ->size('sm')
                                         ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
                                         ->form([
                                             Select::make('form_version_id')
                                                 ->label('Form Version')
                                                 ->options(function ($record) {
-                                                    if (!$record) return [];
+                                                    if (!$record)
+                                                        return [];
                                                     return $record->formVersions()
                                                         ->whereIn('status', ['approved', 'published'])
                                                         ->get()
@@ -137,6 +84,63 @@ class FormDeploymentsManager
                                     ->alignment(Alignment::Left),
                             ]),
 
+                        // Test Environment
+                        Section::make('Test Environment')
+                            ->icon('heroicon-o-beaker')
+                            ->compact()
+                            ->schema([
+                                Placeholder::make('test_deployment_info')
+                                    ->label('')
+                                    ->content(function ($record) {
+                                        if (!$record)
+                                            return 'No deployment details yet';
+
+                                        $deployment = FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
+                                        if (!$deployment) {
+                                            return 'No deployment details yet';
+                                        }
+
+                                        return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                    })
+                                    ->extraAttributes(['class' => 'text-sm']),
+                                Actions::make([
+                                    Action::make('deploy_to_test')
+                                        ->label('Deploy')
+                                        ->icon('heroicon-o-rocket-launch')
+                                        ->color('info')
+                                        ->size('sm')
+                                        ->visible(fn($livewire) => !($livewire instanceof ViewRecord))
+                                        ->form([
+                                            Select::make('form_version_id')
+                                                ->label('Form Version')
+                                                ->options(function ($record) {
+                                                    if (!$record)
+                                                        return [];
+                                                    return $record->formVersions()
+                                                        ->whereIn('status', ['approved', 'published'])
+                                                        ->get()
+                                                        ->pluck('version_number', 'id')
+                                                        ->map(fn($version) => "Version {$version}")
+                                                        ->toArray();
+                                                })
+                                                ->required(),
+                                            DateTimePicker::make('deployed_at')
+                                                ->label('Deployment Date & Time')
+                                                ->default(now())
+                                                ->required(),
+                                        ])
+                                        ->action(function (array $data, $record) {
+                                            FormDeployment::deployToEnvironment(
+                                                $data['form_version_id'],
+                                                'test',
+                                                Carbon::parse($data['deployed_at'])
+                                            );
+                                        })
+                                        ->successNotificationTitle('Successfully deployed to Test environment'),
+                                ])
+                                    ->alignment(Alignment::Left),
+                            ]),
+
                         // Production Environment
                         Section::make('Production Environment')
                             ->icon('heroicon-o-globe-alt')
@@ -145,7 +149,8 @@ class FormDeploymentsManager
                                 Placeholder::make('prod_deployment_info')
                                     ->label('')
                                     ->content(function ($record) {
-                                        if (!$record) return 'No deployment details yet';
+                                        if (!$record)
+                                            return 'No deployment details yet';
 
                                         $deployment = FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'prod');
                                         if (!$deployment) {
@@ -166,7 +171,8 @@ class FormDeploymentsManager
                                             Select::make('form_version_id')
                                                 ->label('Form Version')
                                                 ->options(function ($record) {
-                                                    if (!$record) return [];
+                                                    if (!$record)
+                                                        return [];
                                                     return $record->formVersions()
                                                         ->whereIn('status', ['approved', 'published'])
                                                         ->get()

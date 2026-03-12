@@ -59,7 +59,8 @@ class TextInputFormElement extends Model
                             ->label('Input Mask Type')
                             ->options([
                                 'email' => 'Email',
-                                'phone'=> 'Phone',
+                                'phone' => 'Phone',
+                                'postal' => 'Postal Code',
                                 'custom' => 'Custom',
                             ])
                             ->inline()
@@ -68,6 +69,7 @@ class TextInputFormElement extends Model
                                 $maskPatterns = [
                                     'email' => '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
                                     'phone' => '### ###-####',
+                                    'postal' => '@#@ #@#',
                                     'custom' => '',
                                 ];
                                 $set('elementable_data.mask', $maskPatterns[$state] ?? '');
@@ -81,7 +83,7 @@ class TextInputFormElement extends Model
                             ->label('Validation Message')
                             ->placeholder('e.g. Only letters and spaces are allowed')
                             ->hint('Displayed when input doesn\'t match the mask')
-                            ->visible(fn ($get) => $get('elementable_data.maskType') === 'custom')
+                            ->visible(fn($get) => $get('elementable_data.maskType') === 'custom')
                             ->disabled($disabled),
                     ])
                     ->columns(1),

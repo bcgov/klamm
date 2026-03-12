@@ -183,6 +183,26 @@ class AnonymizationJobScriptService
         return 4000;
     }
 
+    protected function isClobColumn(AnonymousSiebelColumn $column): bool
+    {
+        $typeName = strtolower(trim((string) ($column->getRelationValue('dataType')?->data_type_name ?? '')));
+
+        if ($typeName === '') {
+            $typeName = strtolower(trim((string) ($column->data_type ?? '')));
+        }
+
+        return $typeName !== '' && str_contains($typeName, 'clob');
+    }
+
+    protected function oracleNullExpressionForColumn(AnonymousSiebelColumn $column): string
+    {
+        if ($this->isClobColumn($column)) {
+            return 'EMPTY_CLOB()';
+        }
+
+        return 'CAST(NULL AS ' . $this->oracleColumnTypeForColumn($column) . ')';
+    }
+
     public function buildForJob(AnonymizationJobs $job): string
     {
         $job->loadMissing([
@@ -1132,6 +1152,7 @@ class AnonymizationJobScriptService
 
         // ── 5. Prefix SQL ─────────────────────────────────────────────
         $prefixLines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
+        $prefixLines = array_merge($prefixLines, $this->buildSourceAccessPreflightForClones($rewriteContext));
         $prefixLines = array_merge($prefixLines, $this->buildDeterministicRandomSeedSection($rewriteContext));
 
         // Contract validation is deferred to chunk workers for very large jobs
@@ -2897,7 +2918,7 @@ class AnonymizationJobScriptService
                     }
 
                     if (! $isSelected && $nullUnselectedColumns) {
-                        $selectParts[] = 'CAST(NULL AS ' . $this->oracleColumnTypeForColumn($column) . ') ' . $columnName;
+                        $selectParts[] = $this->oracleNullExpressionForColumn($column) . ' ' . $columnName;
                         continue;
                     }
 
@@ -3045,7 +3066,7 @@ class AnonymizationJobScriptService
     protected function normalizeInlineExpressionForCtas(string $expression, AnonymousSiebelColumn $column): string
     {
         if (preg_match('/^\s*NULL\s*$/i', $expression)) {
-            return 'CAST(NULL AS ' . $this->oracleColumnTypeForColumn($column) . ')';
+            return $this->oracleNullExpressionForColumn($column);
         }
 
         return $expression;

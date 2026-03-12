@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Anonymization;
 
 use App\Models\Anonymizer\AnonymizationMethods;
 use Illuminate\Database\Seeder;
@@ -9,10 +9,15 @@ class AnonymizationMethodSeeder extends Seeder
 {
     public function run(): void
     {
-        // Base methods required for anonymization demos and day-to-day usage.
+        // Full method catalog for anonymization demos and general usage.
+        // For a trimmed Faker-only package workflow, prefer AnonymizationFakerSeeder.
         // SQL-only methods are seeded via AnonymizationSqlOnlyMethodSeeder.
+        // Faker-based lookup methods are seeded via AnonymizationFakerLookupMethodSeeder.
+        // Comprehensive methods cover all edge cases via AnonymizationComprehensiveMethodSeeder.
         $this->call([
             AnonymizationSqlOnlyMethodSeeder::class,
+            AnonymizationFakerLookupMethodSeeder::class,
+            AnonymizationComprehensiveMethodSeeder::class,
         ]);
 
         $genericMethods = [
