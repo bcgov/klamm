@@ -44,36 +44,9 @@ class GeneralTabHelper
         }
 
         // Name field
-        $nameField = TextInput::make('name')
-            ->required()
-            ->maxLength(255)
-            ->label('Element Name')
-            ->autocomplete(false)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+        $schema[] = self::makeNameField($isCreate, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
-        // Add auto-generation logic for create mode
-        if ($isCreate) {
-            $nameField = $nameField
-                ->live(onBlur: true)
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    // Auto-generate reference_id if it's empty and we have a name
-                    if (!empty($state) && empty($get('reference_id'))) {
-                        // Replace slashes and backslashes with dashes before slugifying
-                        $preparedState = preg_replace('/[\/\\\\]/', '-', $state);
-                        $slug = \Illuminate\Support\Str::slug($preparedState, '-');
-                        $set('reference_id', $slug);
-                    }
-                });
-        }
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $nameField = $nameField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-            });
-        }
-
-        $schema[] = $nameField;
+        // Hidden ID field
         $schema[] = Hidden::make('id')->dehydrated(false);
 
         // Reference ID field - editable on create and edit
@@ -658,6 +631,42 @@ class GeneralTabHelper
             $field,
             $shouldShowTooltipsCallback,
             'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.'
+        );
+    }
+
+    private static function makeNameField(
+        bool $isCreate,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ) {
+        $field = TextInput::make('name')
+            ->required()
+            ->maxLength(255)
+            ->label('Element Name')
+            ->autocomplete(false)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Add auto-generation logic for create mode
+        if ($isCreate) {
+            $field = $field
+                ->live(onBlur: true)
+                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                    // Auto-generate reference_id if it's empty and we have a name
+                    if (!empty($state) && empty($get('reference_id'))) {
+                        // Replace slashes and backslashes with dashes before slugifying
+                        $preparedState = preg_replace('/[\/\\\\]/', '-', $state);
+                        $slug = \Illuminate\Support\Str::slug($preparedState, '-');
+                        $set('reference_id', $slug);
+                    }
+                });
+        }
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Human friendly identifier to help you find and reference this element'
         );
     }
 
