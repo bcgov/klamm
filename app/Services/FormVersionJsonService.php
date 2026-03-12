@@ -143,9 +143,11 @@ class FormVersionJsonService
 
         // Append all attached stylesheets to the web CSS
         foreach ($formVersion->styleSheets as $sheet) {
-            if (!$sheet) continue;
+            if (!$sheet)
+                continue;
             $key = $sheet->id ? ('style:' . $sheet->id) : null;
-            if ($key && isset($added[$key])) continue;
+            if ($key && isset($added[$key]))
+                continue;
 
             $css = $sheet->getCssContent() ?? '';
             if ($css !== '') {
@@ -153,7 +155,8 @@ class FormVersionJsonService
                     . "/* Attached stylesheet */\n"
                     . $css;
             }
-            if ($key) $added[$key] = true;
+            if ($key)
+                $added[$key] = true;
         }
 
         if ($webCss !== '') {
@@ -189,9 +192,11 @@ class FormVersionJsonService
 
         // Append all attached form scripts to the web JS
         foreach ($formVersion->formScripts as $script) {
-            if (!$script) continue;
+            if (!$script)
+continue;
             $key = $script->id ? ('script:' . $script->id) : null;
-            if ($key && isset($added[$key])) continue;
+            if ($key && isset($added[$key]))
+continue;
 
             $js = $script->getJsContent() ?? '';
             if ($js !== '') {
@@ -199,7 +204,8 @@ class FormVersionJsonService
                     . "/* Attached form script */\n"
                     . $js;
             }
-            if ($key) $added[$key] = true;
+            if ($key)
+$added[$key] = true;
         }
 
         if ($webJs !== '') {
@@ -250,16 +256,19 @@ class FormVersionJsonService
 
         // 3) Append all attached stylesheets (deduping)
         foreach ($formVersion->styleSheets as $sheet) {
-            if (!$sheet) continue;
+            if (!$sheet)
+continue;
             $key = $sheet->id ? ('style:' . $sheet->id) : null;
-            if ($key && isset($added[$key])) continue;
+            if ($key && isset($added[$key]))
+continue;
 
             $styles[] = [
                 'type' => $sheet->type ?? 'web',
                 'filename' => $sheet->filename,
                 'content' => $sheet->getCssContent() ?? ''
             ];
-            if ($key) $added[$key] = true;
+            if ($key)
+$added[$key] = true;
         }
 
         return $styles;
@@ -296,16 +305,19 @@ class FormVersionJsonService
 
         // 3) Append all attached form scripts (deduping)
         foreach ($formVersion->formScripts as $script) {
-            if (!$script) continue;
+            if (!$script)
+continue;
             $key = $script->id ? ('script:' . $script->id) : null;
-            if ($key && isset($added[$key])) continue;
+            if ($key && isset($added[$key]))
+continue;
 
             $scripts[] = [
                 'type' => $script->type ?? 'web',
                 'filename' => $script->filename,
                 'content' => $script->getJsContent() ?? ''
             ];
-            if ($key) $added[$key] = true;
+            if ($key)
+$added[$key] = true;
         }
 
         return $scripts;
@@ -470,7 +482,7 @@ class FormVersionJsonService
             return $this->transformRepeatableContainerAsGroup($element, $elementData);
         }
 
-        $elementData['containerId'] = (string)($element->id ?? '');
+        $elementData['containerId'] = (string) ($element->id ?? '');
         $elementData['clear_button'] = false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'container')
@@ -521,7 +533,7 @@ class FormVersionJsonService
         // Transform repeatable container to group format for renderer compatibility
         $elementData['type'] = 'group'; // Override type to group
         $elementData['label'] = $element->elementable?->legend ?? null;
-        $elementData['groupId'] = (string)($element->id ?? '1');
+        $elementData['groupId'] = (string) ($element->id ?? '1');
         $elementData['repeater'] = true; // Always true for repeatable containers
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
         $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
@@ -588,7 +600,7 @@ class FormVersionJsonService
     protected function transformGroupElement(FormElement $element, array $elementData): array
     {
         $elementData['label'] = $element->elementable?->legend ?? null;
-        $elementData['groupId'] = (string)($element->id ?? '1');
+        $elementData['groupId'] = (string) ($element->id ?? '1');
         $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
         $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
@@ -767,7 +779,7 @@ class FormVersionJsonService
                 // Add default value for boolean elements
                 $attributes = $this->getElementAttributes($element);
                 if (isset($attributes['default_value'])) {
-                    $elementData['defaultValue'] = (bool)$attributes['default_value'];
+                    $elementData['defaultValue'] = (bool) $attributes['default_value'];
                 }
                 break;
             case 'radio-input':
@@ -851,7 +863,7 @@ class FormVersionJsonService
         if (isset($attributes['required']) && $attributes['required'] || $element->is_required) {
             $validation[] = [
                 'type' => 'required',
-                'value' => (bool)($attributes['required'] ?? $element->is_required),
+                'value' => (bool) ($attributes['required'] ?? $element->is_required),
                 'errorMessage' => $attributes['required_message'] ?? 'This field is required!'
             ];
         }
@@ -860,7 +872,7 @@ class FormVersionJsonService
         if (isset($attributes['min_length'])) {
             $validation[] = [
                 'type' => 'minLength',
-                'value' => (string)$attributes['min_length'],
+                'value' => (string) $attributes['min_length'],
                 'errorMessage' => $attributes['min_length_message'] ?? "Minimum length is {$attributes['min_length']}"
             ];
         }
@@ -868,7 +880,7 @@ class FormVersionJsonService
         if (isset($attributes['max_length'])) {
             $validation[] = [
                 'type' => 'maxLength',
-                'value' => (string)$attributes['max_length'],
+                'value' => (string) $attributes['max_length'],
                 'errorMessage' => $attributes['max_length_message'] ?? "Maximum length is {$attributes['max_length']}"
             ];
         }
@@ -877,7 +889,7 @@ class FormVersionJsonService
         if (isset($attributes['min_value'])) {
             $validation[] = [
                 'type' => 'minValue',
-                'value' => (string)$attributes['min_value'],
+                'value' => (string) $attributes['min_value'],
                 'errorMessage' => $attributes['min_value_message'] ?? "Minimum value is {$attributes['min_value']}"
             ];
         }
@@ -885,7 +897,7 @@ class FormVersionJsonService
         if (isset($attributes['max_value'])) {
             $validation[] = [
                 'type' => 'maxValue',
-                'value' => (string)$attributes['max_value'],
+                'value' => (string) $attributes['max_value'],
                 'errorMessage' => $attributes['max_value_message'] ?? "Maximum value is {$attributes['max_value']}"
             ];
         }
@@ -1086,7 +1098,7 @@ class FormVersionJsonService
     protected function convertKeyValueArrayToObject($keyValueArray): object
     {
         if (!is_array($keyValueArray)) {
-            return (object)[];
+            return (object) [];
         }
 
         $result = [];
@@ -1096,7 +1108,7 @@ class FormVersionJsonService
             }
         }
 
-        return (object)$result;
+        return (object) $result;
     }
 
     /**
@@ -1120,16 +1132,16 @@ class FormVersionJsonService
         }
 
         if (empty($jsonString) || !is_string($jsonString)) {
-            return (object)[];
+            return (object) [];
         }
 
         $decoded = json_decode($jsonString, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            return (object)[];
+            return (object) [];
         }
 
-        return is_array($decoded) ? (object)$decoded : (object)[];
+        return is_array($decoded) ? (object) $decoded : (object) [];
     }
 
     /**
@@ -1151,7 +1163,7 @@ class FormVersionJsonService
             case 'min':
             case 'step':
                 if (is_numeric($value)) {
-                    return [$key, (float)$value];
+                    return [$key, (float) $value];
                 }
                 return [$key, $value];
             case 'dateFormat':

@@ -86,11 +86,14 @@ class GeneralTabHelper
                     $set('description', $template->description);
                     $set('help_text', $template->help_text);
                     $set('elementable_type', $template->elementable_type);
+                    $set('is_required_toggle', $template->is_required !== null && $template->is_required !== '');
                     $set('is_required', $template->is_required);
+                    $set('is_read_only_toggle', $template->is_read_only !== null && $template->is_read_only !== '');
+                    $set('is_read_only', $template->is_read_only);
                     $set('visible_web', $template->visible_web);
                     $set('visible_pdf', $template->visible_pdf);
                     $set('is_template', false); // New element should not be a template by default
-
+    
                     // Prefill tags
                     if ($template->tags->isNotEmpty()) {
                         $set('tags', $template->tags->pluck('id')->toArray());
@@ -219,8 +222,8 @@ class GeneralTabHelper
                         ->tooltip(fn($get) => $get('reference_id_locked')
                             ? ''
                             : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings.')->action(function ($set, $get) {
-                            $set('reference_id_locked', true);
-                        })
+                                $set('reference_id_locked', true);
+                            })
                 )
                 ->disabled(fn($get) => !$get('reference_id_locked'))
                 ->suffix(function ($get) {
@@ -402,50 +405,50 @@ class GeneralTabHelper
             // For create and view modes
             $elementTypeField = $isCreate
                 ? ToggleButtons::make('elementable_type')
-                ->label(function (?string $state): string {
-                    $elementType = $state ? FormElement::getElementTypeName($state) : '';
-                    if ($elementType) {
-                        return "Element Type: {$elementType}";
-                    } else {
-                        return 'Element Type';
-                    }
-                })
-                ->options(FormElement::getAvailableElementTypes())
-                ->inline()
-                ->icons([
-                    'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
-                    'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
-                    'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
-                    'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
-                    'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
-                    'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
-                    'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
-                    'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
-                    'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
-                    'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
-                    'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
-                    'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
-                    'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
-                ])
-                ->required()
-                ->live()
-                ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                ->afterStateUpdated(function ($state, callable $set) {
-                    // Clear existing elementable data when type changes
-                    $set('elementable_data', []);
-
-                    // Populate with defaults from the new element type
-                    if ($state && class_exists($state)) {
-                        $defaults = self::getElementTypeDefaults($state);
-
-                        if (!empty($defaults)) {
-                            $set('elementable_data', $defaults);
+                    ->label(function (?string $state): string {
+                        $elementType = $state ? FormElement::getElementTypeName($state) : '';
+                        if ($elementType) {
+                            return "Element Type: {$elementType}";
+                        } else {
+                            return 'Element Type';
                         }
-                    }
-                })
+                    })
+                    ->options(FormElement::getAvailableElementTypes())
+                    ->inline()
+                    ->icons([
+                        'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
+                        'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
+                        'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
+                        'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
+                        'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
+                        'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
+                        'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
+                        'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
+                        'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
+                        'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
+                        'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
+                        'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
+                        'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
+                    ])
+                    ->required()
+                    ->live()
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // Clear existing elementable data when type changes
+                        $set('elementable_data', []);
+
+                        // Populate with defaults from the new element type
+                        if ($state && class_exists($state)) {
+                            $defaults = self::getElementTypeDefaults($state);
+
+                            if (!empty($defaults)) {
+                                $set('elementable_data', $defaults);
+                            }
+                        }
+                    })
                 : TextInput::make('elementable_type')
-                ->label('Element Type')
-                ->disabled(true);
+                    ->label('Element Type')
+                    ->disabled(true);
         }
 
         // Add tooltip if callback is provided
@@ -478,17 +481,15 @@ class GeneralTabHelper
         $schema[] = $helpTextField;
 
         // Visibility toggles
-        $schema[] = Grid::make(2)
-            ->schema([
-                Toggle::make('visible_web')
-                    ->label('Visible on Web')
-                    ->default(true)
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
-                Toggle::make('visible_pdf')
-                    ->label('Visible on PDF')
-                    ->default(true)
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
-            ]);
+        $visibleWebToggle = Toggle::make('visible_web')
+            ->label('Visible on Web')
+            ->default(true)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        $visiblePdfToggle = Toggle::make('visible_pdf')
+            ->label('Visible on PDF')
+            ->default(true)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Required and Template toggles
         $templateToggle = Toggle::make('is_template')
@@ -503,27 +504,68 @@ class GeneralTabHelper
             });
         }
 
-        $requirementToggle = Toggle::make('is_required')
+        $requirementToggle = Toggle::make('is_required_toggle')
             ->label('Is Required')
-            ->default(false);
+            ->default(false)
+            ->live()
+            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
+                $isRequired = $get('is_required');
+                // Set toggle to true if is_required has any non-null value ('always' or 'portal')
+                if ($isRequired !== null && $isRequired !== '') {
+                    $set('is_required_toggle', true);
+                }
+            });
+
+        $requirementToggleButtons = ToggleButtons::make('is_required')
+            ->label('Required When')
+            ->options([
+                'always' => 'Always',
+                'portal' => 'On Portal Forms'
+            ])
+            ->default('always')
+            ->inline()
+            ->disabled(fn($get) => !$get('is_required_toggle'))
+            ->afterStateHydrated(function (callable $set, callable $get) {
+                $value = $get('is_required');
+                if ($value === null || $value === '') {
+                    $set('is_required', 'always');
+                }
+            });
 
         // For view mode or when disabled callback is true, disable the is_required toggle too
         if ($disabled || ($disabledCallback && $disabledCallback())) {
             $requirementToggle = $requirementToggle->disabled(true);
         }
 
-        $schema[] = Grid::make(2)
-            ->schema([
-                $requirementToggle,
-                $templateToggle,
-            ]);
-
         // Read Only and Save on Submit toggles
-        $readOnlyToggle = Toggle::make('is_read_only')
+        $readOnlyBool = Toggle::make('is_read_only_toggle')
             ->label('Is Read Only')
             ->default(false)
             ->live()
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
+                $isReadOnly = $get('is_read_only');
+                // Set toggle to true if is_read_only has any non-null value ('always' or 'portal')
+                if ($isReadOnly !== null && $isReadOnly !== '') {
+                    $set('is_read_only_toggle', true);
+                }
+            });
+
+        $readOnlyToggleButtons = ToggleButtons::make('is_read_only')
+            ->label('Read Only When')
+            ->options([
+                'always' => 'Always',
+                'portal' => 'On Portal Forms'
+            ])
+            ->default('always')
+            ->inline()
+            ->disabled(fn($get) => !$get('is_read_only_toggle'))
+            ->afterStateHydrated(function (callable $set, callable $get) {
+                $value = $get('is_read_only');
+                if ($value === null || $value === '') {
+                    $set('is_read_only', 'always');
+                }
+            });
 
         $saveOnSubmitToggle = Toggle::make('save_on_submit')
             ->label('Save on Submit')
@@ -537,13 +579,7 @@ class GeneralTabHelper
             });
         }
 
-        $schema[] = Grid::make(2)
-            ->schema([
-                $readOnlyToggle,
-                $saveOnSubmitToggle,
-            ]);
-
-        $schema[] = Grid::make(1)
+        $customReadOnlyField = Grid::make(1)
             ->schema([
                 TextArea::make('custom_read_only')
                     ->label('Custom Read Only Script')
@@ -604,7 +640,20 @@ class GeneralTabHelper
             }
         }
 
-        $schema[] = $tagsField;
+        // Organize visibility, validation, behaviour, and metadata fields
+        $schema[] = Grid::make(2)
+            ->schema([
+                $visibleWebToggle,
+                $visiblePdfToggle,
+                $requirementToggle,
+                $requirementToggleButtons,
+                $readOnlyBool,
+                $readOnlyToggleButtons,
+                $customReadOnlyField,
+                $templateToggle,
+                $saveOnSubmitToggle,
+                $tagsField->columnSpanFull(),
+            ]);
 
         return $schema;
     }
