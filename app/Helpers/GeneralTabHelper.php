@@ -243,7 +243,7 @@ class GeneralTabHelper
         return $schema;
     }
 
-    private static function makeTemplateField(?callable $shouldShowTooltipsCallback)
+    private static function makeTemplateField(?callable $shouldShowTooltipsCallback): Component
     {
         $field = Select::make('template_id')
             ->label('Start from template')
@@ -328,7 +328,7 @@ class GeneralTabHelper
         bool $disabled,
         ?callable $disabledCallback,
         ?callable $shouldShowTooltipsCallback
-    ) {
+    ): Component {
         $field = TextInput::make('name')
             ->required()
             ->maxLength(255)
@@ -364,7 +364,7 @@ class GeneralTabHelper
         bool $disabled,
         ?callable $disabledCallback,
         ?callable $shouldShowTooltipsCallback
-    ) {
+    ): Component {
         $field = TextInput::make('reference_id')
             ->label('Reference ID')
             ->rules(['alpha_dash'])
@@ -459,7 +459,7 @@ class GeneralTabHelper
                     })
             );
 
-        } elseif ($mode === 'view') {
+        } else { // $mode === 'view'
             // Add copy functionality for view mode
             return $field
                 ->suffix(function ($get) {
@@ -478,7 +478,7 @@ class GeneralTabHelper
         bool $disabled,
         ?callable $disabledCallback,
         ?callable $shouldShowTooltipsCallback
-    ) {
+    ): Component {
         $tooltip = 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML';
 
         if ($mode === 'edit') {
@@ -546,7 +546,7 @@ class GeneralTabHelper
                 $tooltip,
             );
 
-        } else if ($mode === 'view') {
+        } else { // $mode === 'view'
             $field = TextInput::make('elementable_type')
                 ->label('Element Type')
                 ->disabled(true);
@@ -564,7 +564,7 @@ class GeneralTabHelper
         bool $disabled,
         ?callable $disabledCallback,
         ?callable $shouldShowTooltipsCallback
-    ) {
+    ): Component {
         $field = TextInput::make('help_text')
             ->maxLength(500)
             ->autocomplete(false)
