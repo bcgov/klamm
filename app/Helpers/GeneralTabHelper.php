@@ -82,60 +82,7 @@ class GeneralTabHelper
             ]);
 
         // Tags field
-        $tagsField = Select::make('tags')
-            ->label('Tags')
-            ->multiple()
-            ->searchable()
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $tagsField = $tagsField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-            });
-        }
-
-        // Different handling for edit vs create modes
-        if ($isEdit || $mode === 'view') {
-            $tagsField = $tagsField->relationship('tags', 'name');
-            if ($mode === 'view') {
-                $tagsField = $tagsField->preload();
-            }
-        }
-
-        if ($isCreate || $isEdit) {
-            $tagsField = $tagsField
-                ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
-                ->preload();
-
-            // Only add createOptionAction for create mode to avoid modal stacking issues
-            if ($isCreate) {
-                $tagsField = $tagsField
-                    ->createOptionAction(
-                        fn(Forms\Components\Actions\Action $action) => $action
-                            ->modalHeading('Create Tag')
-                            ->modalWidth('md')
-                    )
-                    ->createOptionForm([
-                        TextInput::make('name')
-                            ->required()
-                            ->maxLength(255)
-                            ->unique(FormElementTag::class, 'name'),
-                        Textarea::make('description')
-                            ->rows(3),
-                    ])
-                    ->createOptionUsing(function (array $data) {
-                        $tag = FormElementTag::create($data);
-                        return $tag->id;
-                    });
-            }
-        }
-
-        // Organize visibility, validation, behaviour, and metadata fields
-        $schema[] = Grid::make(2)
-            ->schema([
-                $tagsField->columnSpanFull(),
-            ]);
+        $schema[] = self::makeTagsfield($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
         return $schema;
     }
@@ -609,6 +556,62 @@ class GeneralTabHelper
             $toggle,
             $shouldShowTooltipsCallback,
             'If this element\'s data should be saved when the form is submitted',
+        );
+    }
+
+    private static function makeTagsField(
+        string $mode,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $field = Select::make('tags')
+            ->label('Tags')
+            ->multiple()
+            ->searchable()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Different handling for edit vs create modes
+        if ($mode === 'edit' || $mode === 'view') {
+            $field = $field->relationship('tags', 'name');
+            if ($mode === 'view') {
+                $field = $field->preload();
+            }
+        }
+
+        if ($mode === 'create' || $mode === 'edit') {
+            $field = $field
+                ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
+                ->preload();
+
+            // Only add createOptionAction for create mode to avoid modal stacking issues
+            if ($mode === 'create') {
+                $field = $field
+                    ->createOptionAction(
+                        fn(Action $action) => $action
+                            ->modalHeading('Create Tag')
+                            ->modalWidth('md')
+                    )
+                    ->createOptionForm([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(FormElementTag::class, 'name'),
+                        Textarea::make('description')
+                            ->rows(3),
+                    ])
+                    ->createOptionUsing(function (array $data) {
+                        $tag = FormElementTag::create($data);
+                        return $tag->id;
+                    });
+            }
+        }
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Categorize related fields (use camelCase)',
         );
     }
 
