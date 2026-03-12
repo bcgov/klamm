@@ -40,84 +40,7 @@ class GeneralTabHelper
 
         // Template selector (only for create mode when explicitly requested)
         if ($includeTemplateSelector && $isCreate) {
-            $templateField = Select::make('template_id')
-                ->label('Start from template')
-                ->placeholder('Select a template (optional)')
-                ->options(function () {
-                    $templates = FormElement::templates()
-                        ->with('elementable')
-                        ->get();
-
-                    $availableTypes = FormElement::getAvailableElementTypes();
-                    $groupedOptions = [];
-
-                    foreach ($templates as $template) {
-                        $elementType = $template->elementable_type;
-                        $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
-                        $typeName = $availableTypes[$elementType] ?? class_basename($elementType);
-
-                        if (!isset($groupedOptions[$groupName])) {
-                            $groupedOptions[$groupName] = [];
-                        }
-
-                        $groupedOptions[$groupName][$template->id] = $template->name . ' (' . $typeName . ')';
-                    }
-
-                    // Sort groups alphabetically
-                    ksort($groupedOptions);
-
-                    return $groupedOptions;
-                })
-                ->live()
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    if (!$state) {
-                        return;
-                    }
-
-                    // Load the template element with its relationships
-                    $template = FormElement::with(['elementable', 'tags'])->find($state);
-
-                    if (!$template) {
-                        return;
-                    }
-
-                    // Prefill basic form element data
-                    $set('name', $template->name);
-                    $set('description', $template->description);
-                    $set('help_text', $template->help_text);
-                    $set('elementable_type', $template->elementable_type);
-                    $set('is_required_toggle', $template->is_required !== null && $template->is_required !== '');
-                    $set('is_required', $template->is_required);
-                    $set('is_read_only_toggle', $template->is_read_only !== null && $template->is_read_only !== '');
-                    $set('is_read_only', $template->is_read_only);
-                    $set('visible_web', $template->visible_web);
-                    $set('visible_pdf', $template->visible_pdf);
-                    $set('is_template', false); // New element should not be a template by default
-    
-                    // Prefill tags
-                    if ($template->tags->isNotEmpty()) {
-                        $set('tags', $template->tags->pluck('id')->toArray());
-                    }
-
-                    // Prefill elementable data if it exists
-                    if ($template->elementable) {
-                        $elementableData = $template->elementable->toArray();
-                        // Remove timestamps and primary key
-                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
-                        $set('elementable_data', $elementableData);
-                    }
-                })
-                ->searchable()
-                ->columnSpanFull();
-
-            // Add tooltip if callback is provided
-            if ($shouldShowTooltipsCallback) {
-                $templateField = $templateField->when($shouldShowTooltipsCallback, function ($component) {
-                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.');
-                });
-            }
-
-            $schema[] = $templateField;
+            $schema[] = self::makeTemplateField($shouldShowTooltipsCallback);
         }
 
         // Name field
@@ -658,6 +581,86 @@ class GeneralTabHelper
         return $schema;
     }
 
+    private static function makeTemplateField(?callable $shouldShowTooltipsCallback)
+    {
+        $field = Select::make('template_id')
+            ->label('Start from template')
+            ->placeholder('Select a template (optional)')
+            ->options(function () {
+                $templates = FormElement::templates()
+                    ->with('elementable')
+                    ->get();
+
+                $availableTypes = FormElement::getAvailableElementTypes();
+                $groupedOptions = [];
+
+                foreach ($templates as $template) {
+                    $elementType = $template->elementable_type;
+                    $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
+                    $typeName = $availableTypes[$elementType] ?? class_basename($elementType);
+
+                    if (!isset($groupedOptions[$groupName])) {
+                        $groupedOptions[$groupName] = [];
+                    }
+
+                    $groupedOptions[$groupName][$template->id] = $template->name . ' (' . $typeName . ')';
+                }
+
+                // Sort groups alphabetically
+                ksort($groupedOptions);
+
+                return $groupedOptions;
+            })
+            ->live()
+            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                if (!$state) {
+                    return;
+                }
+
+                // Load the template element with its relationships
+                $template = FormElement::with(['elementable', 'tags'])->find($state);
+
+                if (!$template) {
+                    return;
+                }
+
+                // Prefill basic form element data
+                $set('name', $template->name);
+                $set('description', $template->description);
+                $set('help_text', $template->help_text);
+                $set('elementable_type', $template->elementable_type);
+                $set('is_required_toggle', $template->is_required !== null && $template->is_required !== '');
+                $set('is_required', $template->is_required);
+                $set('is_read_only_toggle', $template->is_read_only !== null && $template->is_read_only !== '');
+                $set('is_read_only', $template->is_read_only);
+                $set('visible_web', $template->visible_web);
+                $set('visible_pdf', $template->visible_pdf);
+                $set('is_template', false); // New element should not be a template by default
+    
+                // Prefill tags
+                if ($template->tags->isNotEmpty()) {
+                    $set('tags', $template->tags->pluck('id')->toArray());
+                }
+
+                // Prefill elementable data if it exists
+                if ($template->elementable) {
+                    $elementableData = $template->elementable->toArray();
+                    // Remove timestamps and primary key
+                    unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                    $set('elementable_data', $elementableData);
+                }
+            })
+            ->searchable()
+            ->columnSpanFull();
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.'
+        );
+    }
+
     /**
      * Get the General tab schema for create forms (BuildFormVersion)
      *
@@ -735,5 +738,15 @@ class GeneralTabHelper
         }
 
         return $defaults;
+    }
+
+    private static function withOptionalTooltip(
+        Forms\Components\Component $component,
+        ?callable $shouldShowTooltipsCallback,
+        string $tooltip
+    ): Forms\Components\Component {
+        return $shouldShowTooltipsCallback
+            ? $component->when($shouldShowTooltipsCallback, fn($c) => $c->hintIcon('heroicon-m-question-mark-circle', tooltip: $tooltip))
+            : $component;
     }
 }
