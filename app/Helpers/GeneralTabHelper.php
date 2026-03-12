@@ -68,7 +68,10 @@ class GeneralTabHelper
         // Visibility grid
         $schema[] = self::makeVisibilityGrid($disabled, $disabledCallback);
 
-        // Required and Template toggles
+        // Required grid
+        $schema[] = self::makeRequiredGrid($disabled, $disabledCallback);
+
+        // Template toggles
         $templateToggle = Toggle::make('is_template')
             ->label('Is Template')
             ->default(false)
@@ -79,39 +82,6 @@ class GeneralTabHelper
             $templateToggle = $templateToggle->when($shouldShowTooltipsCallback, function ($component) {
                 return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
             });
-        }
-
-        $requirementToggle = Toggle::make('is_required_toggle')
-            ->label('Is Required')
-            ->default(false)
-            ->live()
-            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
-                $isRequired = $get('is_required');
-                // Set toggle to true if is_required has any non-null value ('always' or 'portal')
-                if ($isRequired !== null && $isRequired !== '') {
-                    $set('is_required_toggle', true);
-                }
-            });
-
-        $requirementToggleButtons = ToggleButtons::make('is_required')
-            ->label('Required When')
-            ->options([
-                'always' => 'Always',
-                'portal' => 'On Portal Forms'
-            ])
-            ->default('always')
-            ->inline()
-            ->disabled(fn($get) => !$get('is_required_toggle'))
-            ->afterStateHydrated(function (callable $set, callable $get) {
-                $value = $get('is_required');
-                if ($value === null || $value === '') {
-                    $set('is_required', 'always');
-                }
-            });
-
-        // For view mode or when disabled callback is true, disable the is_required toggle too
-        if ($disabled || ($disabledCallback && $disabledCallback())) {
-            $requirementToggle = $requirementToggle->disabled(true);
         }
 
         // Read Only and Save on Submit toggles
@@ -220,8 +190,6 @@ class GeneralTabHelper
         // Organize visibility, validation, behaviour, and metadata fields
         $schema[] = Grid::make(2)
             ->schema([
-                $requirementToggle,
-                $requirementToggleButtons,
                 $readOnlyBool,
                 $readOnlyToggleButtons,
                 $customReadOnlyField,
@@ -580,6 +548,44 @@ class GeneralTabHelper
                     ->label('Visible on PDF')
                     ->default(true)
                     ->disabled($disabled || ($disabledCallback && $disabledCallback())),
+            ]);
+    }
+
+    private static function makeRequiredGrid(bool $disabled, ?callable $disabledCallback): Component
+    {
+        $toggle = Toggle::make('is_required_toggle')
+            ->label('Is Required')
+            ->default(false)
+            ->live()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
+                $isRequired = $get('is_required');
+                // Set toggle to true if is_required has any non-null value ('always' or 'portal')
+                if ($isRequired !== null && $isRequired !== '') {
+                    $set('is_required_toggle', true);
+                }
+            });
+
+        $buttons = ToggleButtons::make('is_required')
+            ->label('Required When')
+            ->options([
+                'always' => 'Always',
+                'portal' => 'On Portal Forms'
+            ])
+            ->default('always')
+            ->inline()
+            ->disabled(fn($get) => !$get('is_required_toggle'))
+            ->afterStateHydrated(function (callable $set, callable $get) {
+                $value = $get('is_required');
+                if ($value === null || $value === '') {
+                    $set('is_required', 'always');
+                }
+            });
+
+        return Grid::make(2)
+            ->schema([
+                $toggle,
+                $buttons,
             ]);
     }
 
