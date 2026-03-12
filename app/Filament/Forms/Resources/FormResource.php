@@ -199,7 +199,7 @@ class FormResource extends Resource
                     ])
                     ->hidden(fn() => !Gate::allows('admin') && !Gate::allows('form-developer')),
 
-                Section::make('Deployments TEST')
+                Section::make('Deployments')
                     ->collapsible()
                     ->collapsed(false)
                     ->schema([
