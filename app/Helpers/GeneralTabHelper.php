@@ -74,31 +74,12 @@ class GeneralTabHelper
         // Read Only grid
         $schema[] = self::makeReadOnlyGrid($disabled, $disabledCallback);
 
-        // Template toggles
-        $templateToggle = Toggle::make('is_template')
-            ->label('Is Template')
-            ->default(false)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $templateToggle = $templateToggle->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-            });
-        }
-
-        // Save on Submit toggles
-        $saveOnSubmitToggle = Toggle::make('save_on_submit')
-            ->label('Save on Submit')
-            ->default(true)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $saveOnSubmitToggle = $saveOnSubmitToggle->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
-            });
-        }
+        // Template and Save On Submit toggles
+        $schema[] = Grid::make(2)
+            ->schema([
+                self::makeTemplateToggle($disabled, $disabledCallback, $shouldShowTooltipsCallback),
+                self::makeSaveOnSubmitToggle($disabled, $disabledCallback, $shouldShowTooltipsCallback),
+            ]);
 
         // Tags field
         $tagsField = Select::make('tags')
@@ -153,8 +134,6 @@ class GeneralTabHelper
         // Organize visibility, validation, behaviour, and metadata fields
         $schema[] = Grid::make(2)
             ->schema([
-                $templateToggle,
-                $saveOnSubmitToggle,
                 $tagsField->columnSpanFull(),
             ]);
 
@@ -594,6 +573,43 @@ class GeneralTabHelper
                 $buttons,
                 $customScript
             ]);
+    }
+
+    private static function makeTemplateToggle(
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $toggle = Toggle::make('is_template')
+            ->label('Is Template')
+            ->default(false)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $toggle,
+            $shouldShowTooltipsCallback,
+            'If this element should be a template for later reuse',
+        );
+    }
+
+    private static function makeSaveOnSubmitToggle(
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        // Save on Submit toggles
+        $toggle = Toggle::make('save_on_submit')
+            ->label('Save on Submit')
+            ->default(true)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $toggle,
+            $shouldShowTooltipsCallback,
+            'If this element\'s data should be saved when the form is submitted',
+        );
     }
 
     /**
