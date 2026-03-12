@@ -35,18 +35,16 @@ class GeneralTabHelper
         ?callable $disabledCallback = null
     ): array {
         $disabled = $mode === 'view';
-        $isEdit = $mode === 'edit';
-        $isCreate = $mode === 'create';
 
         $schema = [];
 
         // Template selector (only for create mode when explicitly requested)
-        if ($includeTemplateSelector && $isCreate) {
+        if ($includeTemplateSelector && $mode === 'create') {
             $schema[] = self::makeTemplateField($shouldShowTooltipsCallback);
         }
 
         // Name field
-        $schema[] = self::makeNameField($isCreate, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
+        $schema[] = self::makeNameField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
         // Hidden ID field
         $schema[] = Hidden::make('id')->dehydrated(false);
@@ -168,7 +166,7 @@ class GeneralTabHelper
     }
 
     private static function makeNameField(
-        bool $isCreate,
+        string $mode,
         bool $disabled,
         ?callable $disabledCallback,
         ?callable $shouldShowTooltipsCallback
@@ -181,7 +179,7 @@ class GeneralTabHelper
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add auto-generation logic for create mode
-        if ($isCreate) {
+        if ($mode === 'create') {
             $field = $field
                 ->live(onBlur: true)
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
