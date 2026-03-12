@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Anonymization;
 
 use App\Models\Anonymizer\AnonymizationPackage;
 use Illuminate\Database\Seeder;
@@ -11,9 +11,7 @@ class AnonymizationPackageSeeder extends Seeder
 {
     public function run(): void
     {
-        // Intentionally empty.
-        // Packages can contain vendor- or environment-specific SQL/PLSQL.
-        // We do not ship or seed any default packages in Klamm.
+        $this->call(AnonymizationFakerPackageSeeder::class);
     }
 
     protected function seedPackageFromDir(

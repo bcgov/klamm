@@ -1,10 +1,13 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Anonymization;
 
 use App\Models\Anonymizer\AnonymizationMethods;
 use Illuminate\Database\Seeder;
 
+// This seeder creates anonymization methods that use SQL blocks without any package dependencies.
+// This can be used for demo and testing purposes in schemas that do not allow CREATE PACKAGE, such as the Siebel demo schemas.
+// or, if you want to build anonymization jobs that rely solely on SQL transformations without any PL/SQL package calls (for improved speed).
 class AnonymizationSqlOnlyMethodSeeder extends Seeder
 {
     public function run(): void
