@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -62,19 +63,7 @@ class GeneralTabHelper
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Help text field
-        $helpTextField = TextInput::make('help_text')
-            ->maxLength(500)
-            ->autocomplete(false)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $helpTextField = $helpTextField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-            });
-        }
-
-        $schema[] = $helpTextField;
+        $schema[] = self::makeHelpTextField($disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
         // Visibility toggles
         $visibleWebToggle = Toggle::make('visible_web')
@@ -571,6 +560,24 @@ class GeneralTabHelper
         }
     }
 
+    private static function makeHelpTextField(
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ) {
+        $field = TextInput::make('help_text')
+            ->maxLength(500)
+            ->autocomplete(false)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'This text is read aloud by screen readers to describe the element',
+        );
+    }
+
     /**
      * Get the General tab schema for create forms (BuildFormVersion)
      *
@@ -651,10 +658,10 @@ class GeneralTabHelper
     }
 
     private static function withOptionalTooltip(
-        Forms\Components\Component $component,
+        Component $component,
         ?callable $shouldShowTooltipsCallback,
         string $tooltip
-    ): Forms\Components\Component {
+    ): Component {
         return $shouldShowTooltipsCallback
             ? $component->when($shouldShowTooltipsCallback, fn($c) => $c->hintIcon('heroicon-m-question-mark-circle', tooltip: $tooltip))
             : $component;
