@@ -53,76 +53,8 @@ class GeneralTabHelper
         // Reference ID field - editable on create and edit
         $schema[] = self::makeReferenceIdField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
-        // Element type field (different handling for edit vs create/view)
-        if ($isEdit) {
-            // For edit mode, we need both hidden and display fields
-            $schema[] = Hidden::make('elementable_type');
-            $elementTypeField = TextInput::make('elementable_type_display')
-                ->label('Element Type')
-                ->disabled(true)
-                ->dehydrated(false)
-                ->formatStateUsing(function ($state, callable $get) {
-                    $elementType = $get('elementable_type');
-                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
-                });
-        } else {
-            // For create and view modes
-            $elementTypeField = $isCreate
-                ? ToggleButtons::make('elementable_type')
-                    ->label(function (?string $state): string {
-                        $elementType = $state ? FormElement::getElementTypeName($state) : '';
-                        if ($elementType) {
-                            return "Element Type: {$elementType}";
-                        } else {
-                            return 'Element Type';
-                        }
-                    })
-                    ->options(FormElement::getAvailableElementTypes())
-                    ->inline()
-                    ->icons([
-                        'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
-                        'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
-                        'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
-                        'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
-                        'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
-                        'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
-                        'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
-                        'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
-                        'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
-                        'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
-                        'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
-                        'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
-                        'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
-                    ])
-                    ->required()
-                    ->live()
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                    ->afterStateUpdated(function ($state, callable $set) {
-                        // Clear existing elementable data when type changes
-                        $set('elementable_data', []);
-
-                        // Populate with defaults from the new element type
-                        if ($state && class_exists($state)) {
-                            $defaults = self::getElementTypeDefaults($state);
-
-                            if (!empty($defaults)) {
-                                $set('elementable_data', $defaults);
-                            }
-                        }
-                    })
-                : TextInput::make('elementable_type')
-                    ->label('Element Type')
-                    ->disabled(true);
-        }
-
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $elementTypeField = $elementTypeField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-            });
-        }
-
-        $schema[] = $elementTypeField;
+        // Element Type field (different handling for edit vs create/view)
+        $schema[] = self::makeElementTypeField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
         // Description field
         $schema[] = Textarea::make('description')
@@ -424,7 +356,7 @@ class GeneralTabHelper
                     if (!empty($state) && empty($get('reference_id'))) {
                         // Replace slashes and backslashes with dashes before slugifying
                         $preparedState = preg_replace('/[\/\\\\]/', '-', $state);
-                        $slug = \Illuminate\Support\Str::slug($preparedState, '-');
+                        $slug = Str::slug($preparedState, '-');
                         $set('reference_id', $slug);
                     }
                 });
@@ -522,6 +454,7 @@ class GeneralTabHelper
                     self::makeCopyCssAction(),
                 ])
                 ->extraAttributes(self::getCopyToClipboardText());
+
         } elseif ($mode === 'create') {
             // Add regenerate action for create mode
             return $field->suffixAction(
@@ -536,6 +469,7 @@ class GeneralTabHelper
                         }
                     })
             );
+
         } elseif ($mode === 'view') {
             // Add copy functionality for view mode
             return $field
@@ -547,6 +481,93 @@ class GeneralTabHelper
                     self::makeCopyCssAction(),
                 ])
                 ->extraAttributes(self::getCopyToClipboardText());
+        }
+    }
+
+    private static function makeElementTypeField(
+        string $mode,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ) {
+        $tooltip = 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML';
+
+        if ($mode === 'edit') {
+            $field = TextInput::make('elementable_type_display')
+                ->label('Element Type')
+                ->disabled(true)
+                ->dehydrated(false)
+                ->formatStateUsing(function ($state, callable $get) {
+                    $elementType = $get('elementable_type');
+                    return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
+                });
+
+            // For edit mode, we need both hidden and display fields
+            return Grid::make(1)
+                ->schema([
+                    Hidden::make('elementable_type'),
+                    self::withOptionalTooltip(
+                        $field,
+                        $shouldShowTooltipsCallback,
+                        $tooltip,
+                    ),
+                ]);
+
+        } else if ($mode === 'create') {
+            $field = ToggleButtons::make('elementable_type')
+                ->label(function (?string $state): string {
+                    $elementType = $state ? FormElement::getElementTypeName($state) : '';
+                    return $elementType ? "Element Type: {$elementType}" : 'Element Type';
+                })
+                ->options(FormElement::getAvailableElementTypes())
+                ->inline()
+                ->icons([
+                    'App\Models\FormBuilding\TextInputFormElement' => 'heroicon-o-pencil-square',
+                    'App\Models\FormBuilding\TextareaInputFormElement' => 'heroicon-o-document-text',
+                    'App\Models\FormBuilding\SelectInputFormElement' => 'heroicon-o-queue-list',
+                    'App\Models\FormBuilding\RadioInputFormElement' => 'heroicon-o-radio',
+                    'App\Models\FormBuilding\CheckboxInputFormElement' => 'heroicon-o-check-circle',
+                    'App\Models\FormBuilding\CheckboxGroupFormElement' => 'heroicon-o-list-bullet',
+                    'App\Models\FormBuilding\DateSelectInputFormElement' => 'heroicon-o-calendar',
+                    'App\Models\FormBuilding\NumberInputFormElement' => 'heroicon-o-calculator',
+                    'App\Models\FormBuilding\CurrencyInputFormElement' => 'heroicon-o-currency-dollar',
+                    'App\Models\FormBuilding\ContainerFormElement' => 'heroicon-o-rectangle-group',
+                    'App\Models\FormBuilding\TextInfoFormElement' => 'heroicon-o-information-circle',
+                    'App\Models\FormBuilding\ButtonInputFormElement' => 'heroicon-o-cursor-arrow-ripple',
+                    'App\Models\FormBuilding\HTMLFormElement' => 'heroicon-o-code-bracket',
+                ])
+                ->required()
+                ->live()
+                ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+                ->afterStateUpdated(function ($state, callable $set) {
+                    // Clear existing elementable data when type changes
+                    $set('elementable_data', []);
+                    // Populate with defaults from the new element type
+                    if ($state && class_exists($state)) {
+                        $defaults = self::getElementTypeDefaults($state);
+                        if (!empty($defaults)) {
+                            $set('elementable_data', $defaults);
+                        }
+                    }
+                });
+
+            return self::withOptionalTooltip(
+                $field,
+                $shouldShowTooltipsCallback,
+                $tooltip,
+            );
+
+        } else if ($mode === 'view') {
+            $field = TextInput::make('elementable_type')
+                ->label('Element Type')
+                ->disabled(true);
+
+            // Add tooltip if callback is provided
+            return self::withOptionalTooltip(
+                $field,
+                $shouldShowTooltipsCallback,
+                $tooltip,
+            );
         }
     }
 
