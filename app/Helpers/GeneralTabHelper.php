@@ -80,7 +80,7 @@ class GeneralTabHelper
             ]);
 
         // Tags field
-        $schema[] = self::makeTagsfield($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
+        $schema[] = self::makeTagsField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
         return $schema;
     }
