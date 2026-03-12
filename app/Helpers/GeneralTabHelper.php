@@ -65,16 +65,8 @@ class GeneralTabHelper
         // Help text field
         $schema[] = self::makeHelpTextField($disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
-        // Visibility toggles
-        $visibleWebToggle = Toggle::make('visible_web')
-            ->label('Visible on Web')
-            ->default(true)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        $visiblePdfToggle = Toggle::make('visible_pdf')
-            ->label('Visible on PDF')
-            ->default(true)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+        // Visibility grid
+        $schema[] = self::makeVisibilityGrid($disabled, $disabledCallback);
 
         // Required and Template toggles
         $templateToggle = Toggle::make('is_template')
@@ -228,8 +220,6 @@ class GeneralTabHelper
         // Organize visibility, validation, behaviour, and metadata fields
         $schema[] = Grid::make(2)
             ->schema([
-                $visibleWebToggle,
-                $visiblePdfToggle,
                 $requirementToggle,
                 $requirementToggleButtons,
                 $readOnlyBool,
@@ -576,6 +566,21 @@ class GeneralTabHelper
             $shouldShowTooltipsCallback,
             'This text is read aloud by screen readers to describe the element',
         );
+    }
+
+    private static function makeVisibilityGrid(bool $disabled, ?callable $disabledCallback): Component
+    {
+        return Grid::make(2)
+            ->schema([
+                Toggle::make('visible_web')
+                    ->label('Visible on Web')
+                    ->default(true)
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
+                Toggle::make('visible_pdf')
+                    ->label('Visible on PDF')
+                    ->default(true)
+                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
+            ]);
     }
 
     /**
