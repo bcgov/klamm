@@ -71,6 +71,9 @@ class GeneralTabHelper
         // Required grid
         $schema[] = self::makeRequiredGrid($disabled, $disabledCallback);
 
+        // Read Only grid
+        $schema[] = self::makeReadOnlyGrid($disabled, $disabledCallback);
+
         // Template toggles
         $templateToggle = Toggle::make('is_template')
             ->label('Is Template')
@@ -84,36 +87,7 @@ class GeneralTabHelper
             });
         }
 
-        // Read Only and Save on Submit toggles
-        $readOnlyBool = Toggle::make('is_read_only_toggle')
-            ->label('Is Read Only')
-            ->default(false)
-            ->live()
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
-                $isReadOnly = $get('is_read_only');
-                // Set toggle to true if is_read_only has any non-null value ('always' or 'portal')
-                if ($isReadOnly !== null && $isReadOnly !== '') {
-                    $set('is_read_only_toggle', true);
-                }
-            });
-
-        $readOnlyToggleButtons = ToggleButtons::make('is_read_only')
-            ->label('Read Only When')
-            ->options([
-                'always' => 'Always',
-                'portal' => 'On Portal Forms'
-            ])
-            ->default('always')
-            ->inline()
-            ->disabled(fn($get) => !$get('is_read_only_toggle'))
-            ->afterStateHydrated(function (callable $set, callable $get) {
-                $value = $get('is_read_only');
-                if ($value === null || $value === '') {
-                    $set('is_read_only', 'always');
-                }
-            });
-
+        // Save on Submit toggles
         $saveOnSubmitToggle = Toggle::make('save_on_submit')
             ->label('Save on Submit')
             ->default(true)
@@ -125,17 +99,6 @@ class GeneralTabHelper
                 return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
             });
         }
-
-        $customReadOnlyField = Grid::make(1)
-            ->schema([
-                TextArea::make('custom_read_only')
-                    ->label('Custom Read Only Script')
-                    ->visible(fn($get) => $get('is_read_only'))
-                    ->reactive()
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                    ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom read only script to control when this element is read only. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.'),
-            ]);
-
 
         // Tags field
         $tagsField = Select::make('tags')
@@ -190,9 +153,6 @@ class GeneralTabHelper
         // Organize visibility, validation, behaviour, and metadata fields
         $schema[] = Grid::make(2)
             ->schema([
-                $readOnlyBool,
-                $readOnlyToggleButtons,
-                $customReadOnlyField,
                 $templateToggle,
                 $saveOnSubmitToggle,
                 $tagsField->columnSpanFull(),
@@ -586,6 +546,53 @@ class GeneralTabHelper
             ->schema([
                 $toggle,
                 $buttons,
+            ]);
+    }
+
+    private static function makeReadOnlyGrid(bool $disabled, ?callable $disabledCallback): Component
+    {
+        $toggle = Toggle::make('is_read_only_toggle')
+            ->label('Is Read Only')
+            ->default(false)
+            ->live()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
+                $isReadOnly = $get('is_read_only');
+                // Set toggle to true if is_read_only has any non-null value ('always' or 'portal')
+                if ($isReadOnly !== null && $isReadOnly !== '') {
+                    $set('is_read_only_toggle', true);
+                }
+            });
+
+        $buttons = ToggleButtons::make('is_read_only')
+            ->label('Read Only When')
+            ->options([
+                'always' => 'Always',
+                'portal' => 'On Portal Forms'
+            ])
+            ->default('always')
+            ->inline()
+            ->disabled(fn($get) => !$get('is_read_only_toggle'))
+            ->afterStateHydrated(function (callable $set, callable $get) {
+                $value = $get('is_read_only');
+                if ($value === null || $value === '') {
+                    $set('is_read_only', 'always');
+                }
+            });
+
+        $customScript = TextArea::make('custom_read_only')
+            ->label('Custom Read Only Script')
+            ->visible(fn($get) => $get('is_read_only'))
+            ->reactive()
+            ->disabled(fn($get) => !$get('is_read_only_toggle'))
+            ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom read only script to control when this element is read only. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.')
+            ->columnSpanFull();
+
+        return Grid::make(2)
+            ->schema([
+                $toggle,
+                $buttons,
+                $customScript
             ]);
     }
 
