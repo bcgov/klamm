@@ -4,7 +4,6 @@ namespace Database\Seeders\Anonymization;
 
 use App\Models\Anonymizer\AnonymizationPackage;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 
 /**
  * Seeds AnonymizationPackage records from Faker-generated packages.
@@ -17,7 +16,7 @@ class AnonymizationFakerPackageSeeder extends AnonymizationPackageSeeder
     /**
      * Base directory for generated Faker packages.
      */
-    protected const PACKAGES_DIR = 'database/seeders/anonymization/packages';
+    protected const PACKAGES_DIR = 'database/seeders/Anonymization/packages';
 
     /**
      * Package definitions mapping handle to metadata.
