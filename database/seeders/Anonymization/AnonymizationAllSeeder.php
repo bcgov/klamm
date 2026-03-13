@@ -18,6 +18,7 @@ use Illuminate\Database\Seeder;
  *
  * Usage:
  *   sail artisan db:seed --class="Database\\Seeders\\Anonymization\\AnonymizationAllSeeder"
+ *
  */
 class AnonymizationAllSeeder extends Seeder
 {
