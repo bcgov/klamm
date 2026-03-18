@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+
 
 class FormDataSourceSeeder extends Seeder
 {
@@ -13,10 +15,10 @@ class FormDataSourceSeeder extends Seeder
      */
     public function run()
     {
-        \DB::table('form_data_sources')->delete();
+        DB::table('form_data_sources')->delete();
 
-        \DB::table('form_data_sources')->insert(array (
-            0 => 
+        DB::table('form_data_sources')->insert(array(
+            0 =>
             array(
                 'id' => 1,
                 'name' => 'Case',
@@ -27,7 +29,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            1 => 
+            1 =>
             array(
                 'id' => 2,
                 'name' => 'Contact',
@@ -38,7 +40,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            2 => 
+            2 =>
             array(
                 'id' => 3,
                 'name' => 'Service Request',
@@ -49,7 +51,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            3 => 
+            3 =>
             array(
                 'id' => 4,
                 'name' => 'Benefit Plan',
@@ -60,7 +62,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            4 => 
+            4 =>
             array(
                 'id' => 5,
                 'name' => 'Case Review',
@@ -71,7 +73,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            5 => 
+            5 =>
             array(
                 'id' => 6,
                 'name' => 'Incident',
@@ -82,7 +84,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            6 => 
+            6 =>
             array(
                 'id' => 7,
                 'name' => 'Service Order',
@@ -93,7 +95,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            7 => 
+            7 =>
             array(
                 'id' => 8,
                 'name' => 'Service Plan',
@@ -104,7 +106,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            8 => 
+            8 =>
             array(
                 'id' => 9,
                 'name' => 'Service Provider',
@@ -115,7 +117,7 @@ class FormDataSourceSeeder extends Seeder
                 'headers' => '{"Authorization":"Bearer @@token@@"}',
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
-            9 => 
+            9 =>
             array(
                 'id' => 10,
                 'name' => 'Transacation Summary',
@@ -127,5 +129,14 @@ class FormDataSourceSeeder extends Seeder
                 'host' => 'SIEBEL_ICM_API_HOST',
             ),
         ));
+
+        // Reset the ID sequence to avoid conflicts with future inserts
+        DB::statement("
+            SELECT setval(
+                pg_get_serial_sequence('form_data_sources', 'id'),
+                COALESCE((SELECT MAX(id) FROM form_data_sources), 0) + 1,
+                false
+            )
+        ");
     }
 }
