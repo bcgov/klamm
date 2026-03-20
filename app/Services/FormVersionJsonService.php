@@ -193,10 +193,10 @@ class FormVersionJsonService
         // Append all attached form scripts to the web JS
         foreach ($formVersion->formScripts as $script) {
             if (!$script)
-continue;
+                continue;
             $key = $script->id ? ('script:' . $script->id) : null;
             if ($key && isset($added[$key]))
-continue;
+                continue;
 
             $js = $script->getJsContent() ?? '';
             if ($js !== '') {
@@ -205,7 +205,7 @@ continue;
                     . $js;
             }
             if ($key)
-$added[$key] = true;
+                $added[$key] = true;
         }
 
         if ($webJs !== '') {
@@ -257,10 +257,10 @@ $added[$key] = true;
         // 3) Append all attached stylesheets (deduping)
         foreach ($formVersion->styleSheets as $sheet) {
             if (!$sheet)
-continue;
+                continue;
             $key = $sheet->id ? ('style:' . $sheet->id) : null;
             if ($key && isset($added[$key]))
-continue;
+                continue;
 
             $styles[] = [
                 'type' => $sheet->type ?? 'web',
@@ -268,7 +268,7 @@ continue;
                 'content' => $sheet->getCssContent() ?? ''
             ];
             if ($key)
-$added[$key] = true;
+                $added[$key] = true;
         }
 
         return $styles;
@@ -306,10 +306,10 @@ $added[$key] = true;
         // 3) Append all attached form scripts (deduping)
         foreach ($formVersion->formScripts as $script) {
             if (!$script)
-continue;
+                continue;
             $key = $script->id ? ('script:' . $script->id) : null;
             if ($key && isset($added[$key]))
-continue;
+                continue;
 
             $scripts[] = [
                 'type' => $script->type ?? 'web',
@@ -317,7 +317,7 @@ continue;
                 'content' => $script->getJsContent() ?? ''
             ];
             if ($key)
-$added[$key] = true;
+                $added[$key] = true;
         }
 
         return $scripts;
@@ -536,7 +536,9 @@ $added[$key] = true;
         $elementData['groupId'] = (string) ($element->id ?? '1');
         $elementData['repeater'] = true; // Always true for repeatable containers
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? null;
+        $elementData['minRepeats'] = $element->elementable?->min_repeats ?? null;
+        $elementData['maxRepeats'] = $element->elementable?->max_repeats ?? null;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')
@@ -603,7 +605,9 @@ $added[$key] = true;
         $elementData['groupId'] = (string) ($element->id ?? '1');
         $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? null;
+        $elementData['minRepeats'] = $element->elementable?->min_repeats ?? null;
+        $elementData['maxRepeats'] = $element->elementable?->max_repeats ?? null;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
         $elementData['codeContext'] = [
             'name' => $this->generateCodeContextName($element->name ?? 'group')

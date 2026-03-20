@@ -113,8 +113,8 @@ class FormResource extends Resource
                     ->hidden(
                         fn($record): bool =>
                         empty($record->formFrequency?->name) &&
-                            empty($record->userTypes?->pluck('name')->filter()->toArray()) &&
-                            empty($record->formReach?->name)
+                        empty($record->userTypes?->pluck('name')->filter()->toArray()) &&
+                        empty($record->formReach?->name)
                     )
                     ->schema([
                         InfolistGrid::make(1)
@@ -205,20 +205,6 @@ class FormResource extends Resource
                     ->schema([
                         InfolistGrid::make(1)
                             ->schema([
-                                TextEntry::make('test_deployment')
-                                    ->label(new HtmlString(self::formatLabel('Test Environment')))
-                                    ->getStateUsing(function ($record) {
-                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
-                                        if ($deployment) {
-                                            return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
-                                        }
-                                        return 'No deployment';
-                                    })
-                                    ->badge()
-                                    ->color(function ($record) {
-                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
-                                        return $deployment ? 'warning' : 'gray';
-                                    }),
                                 TextEntry::make('dev_deployment')
                                     ->label(new HtmlString(self::formatLabel('Development Environment')))
                                     ->getStateUsing(function ($record) {
@@ -231,6 +217,20 @@ class FormResource extends Resource
                                     ->badge()
                                     ->color(function ($record) {
                                         $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'dev');
+                                        return $deployment ? 'warning' : 'gray';
+                                    }),
+                                TextEntry::make('test_deployment')
+                                    ->label(new HtmlString(self::formatLabel('Test Environment')))
+                                    ->getStateUsing(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
+                                        if ($deployment) {
+                                            return "Version {$deployment->formVersion->version_number} deployed at {$deployment->deployed_at->format('M j, Y g:i A')}";
+                                        }
+                                        return 'No deployment';
+                                    })
+                                    ->badge()
+                                    ->color(function ($record) {
+                                        $deployment = \App\Models\FormDeployment::getDeploymentForFormAndEnvironment($record->id, 'test');
                                         return $deployment ? 'info' : 'gray';
                                     }),
                                 TextEntry::make('prod_deployment')
