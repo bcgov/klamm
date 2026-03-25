@@ -13,11 +13,17 @@ class FormSoftwareSourceSeeder extends Seeder
      */
     public function run(): void
     {
-        FormSoftwareSource::create(['name' => 'Livecycle']);
-        FormSoftwareSource::create(['name' => 'Adobe Acrobat']);
-        FormSoftwareSource::create(['name' => 'Orbeon']);
-        FormSoftwareSource::create(['name' => 'Microsoft Word']);
-        FormSoftwareSource::create(['name' => 'Microsoft PowerPoint']);
-        FormSoftwareSource::create(['name' => 'Klamm']); // todo: change to new forms platform once named
+        $softwareSources = [
+            'Livecycle',
+            'Adobe Acrobat',
+            'Orbeon',
+            'Microsoft Word',
+            'Microsoft PowerPoint',
+            'Klamm',
+        ];
+
+        foreach ($softwareSources as $name) {
+            FormSoftwareSource::firstOrCreate(['name' => $name]);
+        }
     }
 }

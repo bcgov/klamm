@@ -13,8 +13,14 @@ class UserTypeSeeder extends Seeder
      */
     public function run(): void
     {
-        UserType::create(['name' => 'Internal']);
-        UserType::create(['name' => 'Public']);
-        UserType::create(['name' => 'Public with Disabilities']);
+        $userTypes = [
+            'Internal',
+            'Public',
+            'Public with Disabilities',
+        ];
+
+        foreach ($userTypes as $name) {
+            UserType::firstOrCreate(['name' => $name]);
+        }
     }
 }
