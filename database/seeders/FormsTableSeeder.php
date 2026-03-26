@@ -17,7 +17,7 @@ class FormsTableSeeder extends Seeder
     {
         
 
-        DB::table('forms')->delete();
+        DB::table('forms')->truncate();
         
         DB::table('forms')->insert([
             0 => [
@@ -11548,7 +11548,7 @@ Not found in EA/Bus Pass Case or SR attachments New from Template.',
                 'deleted_at' => NULL,
             ],
         ]);
-        \DB::table('forms')->insert([
+        DB::table('forms')->insert([
             0 => [
                 'id' => 494,
                 'form_id' => 'CF0277',
@@ -23066,7 +23066,7 @@ Contact: Janine Garland (Child Care Division, Ministry of Education and Child Ca
                 'deleted_at' => NULL,
             ],
             ]);
-        \DB::table('forms')->insert([
+        DB::table('forms')->insert([
             0 => [
                 'id' => 997,
                 'form_id' => 'CF4153',
@@ -34573,7 +34573,7 @@ Type: Form',
                 'deleted_at' => NULL,
             ],
         ]);
-        \DB::table('forms')->insert([
+        DB::table('forms')->insert([
             0 => [
                 'id' => 1494,
                 'form_id' => 'HR3092',
@@ -46083,7 +46083,7 @@ WorkBC Extranet',
                 'deleted_at' => NULL,
             ],
         ]);
-        \DB::table('forms')->insert([
+        DB::table('forms')->insert([
             0 => [
                 'id' => 2001,
                 'form_id' => 'HR4012',
@@ -48956,5 +48956,14 @@ Robert Seib, Bojan Zimonja, and David Okulski have access to edit both the form 
                 'deleted_at' => NULL,
             ],
         ]);
+
+        // Reset the ID sequence to avoid conflicts with future inserts
+        DB::statement("
+            SELECT setval(
+                pg_get_serial_sequence('forms', 'id'),
+                COALESCE((SELECT MAX(id) FROM forms), 0) + 1,
+                false
+            )
+        ");
     }
 }
