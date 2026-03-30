@@ -12,7 +12,13 @@ class ErrorActorSeeder extends Seeder
      */
     public function run(): void
     {
-        ErrorActor::create(['name' => 'User']);
-        ErrorActor::create(['name' => 'System']);
+        $actors = [
+            'User',
+            'System',
+        ];
+
+        foreach ($actors as $name) {
+            ErrorActor::firstOrCreate(['name' => $name]);
+        }
     }
 }
