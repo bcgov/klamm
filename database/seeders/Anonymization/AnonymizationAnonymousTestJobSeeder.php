@@ -1,10 +1,11 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Anonymization;
 
 use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelDataType;
 use App\Models\Anonymizer\AnonymousSiebelDatabase;
@@ -40,11 +41,10 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
 
         // Match the export script output.
         $database = AnonymousSiebelDatabase::withTrashed()->updateOrCreate(
-            // For the Oracle demo seed schema, keep this aligned with the actual schema name
-            // so generated SQL refers to a real owner (ANON_SCHEMA_SEED.sql creates INITIAL_* there).
+            // demo name
             ['database_name' => 'ANON_SIEBEL'],
             [
-                'description' => 'Seeded metadata database (Oracle owner) used for anonymization job demos.',
+                'description' => 'Seeded metadata database (owner) used for anonymization job demos.',
                 'content_hash' => hash('sha256', 'ANON_SIEBEL'),
                 'last_synced_at' => now(),
                 'changed_at' => null,
@@ -56,11 +56,11 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
         }
 
         $schema = AnonymousSiebelSchema::withTrashed()->updateOrCreate(
-            // This must match the Oracle schema that owns INITIAL_* tables in ANON_SCHEMA_SEED.sql.
+            // This must match the schema that owns INITIAL_* tables in ANON_SCHEMA_SEED.sql.
             ['schema_name' => 'ANON_SIEBEL'],
             [
                 'database_id' => $database->getKey(),
-                'description' => 'Seeded metadata schema (Oracle owner) for anonymization job demos.',
+                'description' => 'Seeded metadata schema (owner) for anonymization job demos.',
                 'type' => 'oracle',
                 'content_hash' => hash('sha256', 'ANON_SIEBEL:ANON_SIEBEL'),
                 'last_synced_at' => now(),
@@ -87,7 +87,6 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
             $table->restore();
         }
 
-        // Seed minimal referenced metadata so RELATED_COLUMNS targets exist.
         $userTable = AnonymousSiebelTable::withTrashed()->updateOrCreate(
             ['schema_id' => $schema->getKey(), 'table_name' => 'INITIAL_S_USER'],
             [
@@ -125,21 +124,17 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
             relatedColumnsRaw: null,
         );
 
-        /** @var AnonymousSiebelColumn $userRowId */
         $userRowId = AnonymousSiebelColumn::withTrashed()
             ->where('table_id', (int) $userTable->getKey())
             ->where('column_name', 'ROW_ID')
             ->firstOrFail();
 
-        // Seed expression can reference job seed placeholders; the script generator resolves them.
         $userRowId->forceFill([
             'seed_contract_expression' => "substr(lower(rawtohex(standard_hash({{JOB_SEED_LITERAL}} || '|ROW_ID|' || tgt.ROW_ID, 'SHA256'))), 1, 15)",
             'seed_contract_notes' => 'Deterministically remap INITIAL_S_USER.ROW_ID so dependent FKs can be remapped via seed maps.',
         ])->save();
 
-        // Seed provider: ROW_ID.
-        // This mirrors how the job generator resolves {{SEED_EXPR}}:
-        // consumer columns (that require seed) will use the provider's seed_contract_expression.
+        // Seed provider: ROW_ID - mirrors how the job generator resolves {{SEED_EXPR}}:
         $rowId = $this->upsertColumn(
             tableId: (int) $table->getKey(),
             dataTypeId: (int) $varchar2->getKey(),
@@ -213,7 +208,7 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
         );
 
         // A related/dependent column (from the metadata export): CREATOR_LOGIN relates to INITIAL_S_USER.LOGIN.
-        // We anonymize it with a deterministic irreversible token.
+        // Anonymized with a deterministic token.
         $creatorLogin = $this->upsertColumn(
             tableId: (int) $table->getKey(),
             dataTypeId: (int) $varchar2->getKey(),
@@ -221,8 +216,6 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
             length: 50,
             nullable: true,
             anonymizationRequired: true,
-            // In the seeded Oracle demo data, CREATOR_LOGIN contains INITIAL_S_USER.LOGIN.
-            // We will pre-mask rewrite it into INITIAL_S_USER.ROW_ID, then remap via seed map.
             seedContractMode: SeedContractMode::CONSUMER,
             relatedColumnsRaw: 'ANON_SIEBEL.INITIAL_S_USER.ROW_ID via LINK_CREATOR_LOGIN',
         );
@@ -246,8 +239,7 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
         ]);
 
         // Methods (seeded by AnonymizationSqlOnlyMethodSeeder).
-        // Use SQL-only methods so the generated script runs in Oracle demo schemas
-        // that cannot CREATE PACKAGE.
+        // Uses SQL-only methods.
         $methodSeedProvider = AnonymizationMethods::query()->where('name', 'Seed Provider (No-Op)')->firstOrFail();
         $methodUserRowId = AnonymizationMethods::query()->where('name', 'SQL Deterministic Siebel ROW_ID (SHA-256)')->firstOrFail();
         $methodFirst = AnonymizationMethods::query()->where('name', 'SQL Deterministic First Name (SHA-256)')->firstOrFail();
@@ -256,8 +248,61 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
         $methodBirth = AnonymizationMethods::query()->where('name', 'SQL Date Shift (±365 days)')->firstOrFail();
         $methodFkLookup = AnonymizationMethods::query()->where('name', 'SQL Seed Map Lookup (FK)')->firstOrFail();
 
-        // Ensure each demo column has exactly the intended method association.
-        // This prevents method resolution from picking up stale/legacy associations.
+        // Create rules that group methods for each anonymization concern.
+        // Each column is assigned exactly one rule; the rule determines method used (via default or strategy selection on the job).
+        $ruleSeedProvider = $this->upsertRule(
+            'Seed Provider (No-Op)',
+            'Marks a column as a seed source without masking its value.',
+            [['method' => $methodSeedProvider, 'is_default' => true, 'strategy' => null]],
+        );
+
+        $ruleRowIdHash = $this->upsertRule(
+            'ROW_ID Hash (SHA-256)',
+            'Deterministically remaps Siebel ROW_ID values using SHA-256 so dependent FK columns can be re-pointed.',
+            [['method' => $methodUserRowId, 'is_default' => true, 'strategy' => null]],
+        );
+
+        $ruleFirstName = $this->upsertRule(
+            'First Name Masking',
+            'Deterministic first-name replacement using SHA-256 hash.',
+            [['method' => $methodFirst, 'is_default' => true, 'strategy' => null]],
+        );
+
+        $ruleLastName = $this->upsertRule(
+            'Last Name Masking',
+            'Deterministic last-name replacement using SHA-256 hash.',
+            [['method' => $methodLast, 'is_default' => true, 'strategy' => null]],
+        );
+
+        $ruleEmail = $this->upsertRule(
+            'Email Masking',
+            'Deterministic email replacement using SHA-256 hash with safe domain.',
+            [['method' => $methodEmail, 'is_default' => true, 'strategy' => null]],
+        );
+
+        $ruleDateShift = $this->upsertRule(
+            'Date Shift (±365 days)',
+            'Shifts date values by a deterministic offset derived from the seed.',
+            [['method' => $methodBirth, 'is_default' => true, 'strategy' => null]],
+        );
+
+        $ruleFkLookup = $this->upsertRule(
+            'FK Seed Map Lookup',
+            'Remaps a foreign-key column via the seed map populated by the referenced table.',
+            [['method' => $methodFkLookup, 'is_default' => true, 'strategy' => null]],
+        );
+
+        // Each column gets exactly one rule (enforced by unique constraint on column_id).
+        $rowId->anonymizationRule()->sync([$ruleSeedProvider->getKey()]);
+        $userRowId->anonymizationRule()->sync([$ruleRowIdHash->getKey()]);
+        $firstName->anonymizationRule()->sync([$ruleFirstName->getKey()]);
+        $lastName->anonymizationRule()->sync([$ruleLastName->getKey()]);
+        $email->anonymizationRule()->sync([$ruleEmail->getKey()]);
+        $altEmail->anonymizationRule()->sync([$ruleEmail->getKey()]);
+        $birthDate->anonymizationRule()->sync([$ruleDateShift->getKey()]);
+        $creatorLogin->anonymizationRule()->sync([$ruleFkLookup->getKey()]);
+
+        // Legacy direct method associations kept for backward compatibility. Script generator prefers rule-based resolution.
         $rowId->anonymizationMethods()->sync([(int) $methodSeedProvider->getKey()]);
         $userRowId->anonymizationMethods()->sync([(int) $methodUserRowId->getKey()]);
         $firstName->anonymizationMethods()->sync([(int) $methodFirst->getKey()]);
@@ -283,8 +328,7 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
                 'seed_store_prefix' => null,
                 'job_seed' => 'anonymous-test-seed',
                 // Convert CREATOR_LOGIN from LOGIN -> ROW_ID before building seed maps and remapping.
-                // This demonstrates a cross-table relationship where the final ANON_S_CONTACT.CREATOR_LOGIN
-                // references the remapped ANON_S_USER.ROW_ID.
+                // This demonstrates a cross-table relationship where the final ANON_S_CONTACT.CREATOR_LOGIN references the remapped ANON_S_USER.ROW_ID.
                 'pre_mask_sql' => "update ANON_S_CONTACT c\n   set c.CREATOR_LOGIN = (select u.ROW_ID from ANON_S_USER u where u.LOGIN = c.CREATOR_LOGIN and rownum = 1)\n where c.CREATOR_LOGIN is not null;",
                 'post_mask_sql' => null,
                 'last_run_at' => null,
@@ -363,5 +407,32 @@ class AnonymizationAnonymousTestJobSeeder extends Seeder
         }
 
         return $col;
+    }
+
+    //Create or update an anonymization rule with its method assignments.
+    private function upsertRule(string $name, string $description, array $methodAssignments): AnonymizationRule
+    {
+        $rule = AnonymizationRule::withTrashed()->updateOrCreate(
+            ['name' => $name],
+            ['description' => $description],
+        );
+
+        if ($rule->trashed()) {
+            $rule->restore();
+        }
+
+        // Sync method assignments via pivot with is_default and strategy.
+        $syncData = [];
+        foreach ($methodAssignments as $assignment) {
+            $methodId = (int) $assignment['method']->getKey();
+            $syncData[$methodId] = [
+                'is_default' => $assignment['is_default'] ?? false,
+                'strategy' => $assignment['strategy'] ?? null,
+            ];
+        }
+
+        $rule->methods()->sync($syncData);
+
+        return $rule;
     }
 }

@@ -92,6 +92,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            // Persistent connections reuse TCP sockets across queries within the same
+            // process, eliminating per-query connection overhead for queue workers.
+            'persistent' => env('DB_PERSISTENT', false),
             'options' => [
                 PDO::ATTR_TIMEOUT => env('DB_TIMEOUT', 60),
             ],

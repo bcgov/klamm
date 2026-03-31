@@ -79,7 +79,11 @@ class AnonymousUploadResource extends Resource
                                 'processing' => 'Processing',
                                 'completed' => 'Completed',
                                 'failed' => 'Failed',
+                                'cancelled' => 'Cancelled',
                             ])
+                            ->disabled(),
+                        Forms\Components\Toggle::make('override_anonymization_rules')
+                            ->label('Override anonymization rules')
                             ->disabled(),
                         Forms\Components\Textarea::make('status_detail')
                             ->label('Status Detail')
@@ -173,12 +177,13 @@ class AnonymousUploadResource extends Resource
                     }),
                 TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn(string $state): string => Str::title($state))
-                    ->color(fn(string $state): string => match ($state) {
+                    ->formatStateUsing(fn(string $state, AnonymousUpload $record): string => $state === 'failed' && ($record->run_phase ?? null) === 'cancelled' ? 'Cancelled' : Str::title($state))
+                    ->color(fn(string $state, AnonymousUpload $record): string => ($state === 'failed' && ($record->run_phase ?? null) === 'cancelled') ? 'gray' : match ($state) {
                         'completed' => 'success',
                         'processing' => 'info',
                         'failed' => 'danger',
                         'queued' => 'warning',
+                        'cancelled' => 'gray',
                         default => 'gray',
                     }),
                 TextColumn::make('progress_percent')
@@ -227,6 +232,7 @@ class AnonymousUploadResource extends Resource
                         'processing' => 'Processing',
                         'completed' => 'Completed',
                         'failed' => 'Failed',
+                        'cancelled' => 'Cancelled',
                     ]),
                 Tables\Filters\SelectFilter::make('import_type')
                     ->options([
@@ -235,6 +241,20 @@ class AnonymousUploadResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('cancel_import')
+                    ->label('Cancel')
+                    ->icon('heroicon-o-stop')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->visible(fn(AnonymousUpload $record): bool => in_array($record->status, ['queued', 'processing'], true))
+                    ->action(function (AnonymousUpload $record): void {
+                        $record->update([
+                            'status' => 'failed',
+                            'status_detail' => 'Cancellation requested by user',
+                            'run_phase' => 'cancelled',
+                            'progress_updated_at' => now(),
+                        ]);
+                    }),
                 Tables\Actions\Action::make('resume_import')
                     ->label('Resume')
                     ->icon('heroicon-o-play')
@@ -312,12 +332,13 @@ class AnonymousUploadResource extends Resource
                                     }),
                                 TextEntry::make('status')
                                     ->badge()
-                                    ->formatStateUsing(fn(string $state): string => Str::title($state))
-                                    ->color(fn(string $state): string => match ($state) {
+                                    ->formatStateUsing(fn(string $state, AnonymousUpload $record): string => $state === 'failed' && ($record->run_phase ?? null) === 'cancelled' ? 'Cancelled' : Str::title($state))
+                                    ->color(fn(string $state, AnonymousUpload $record): string => ($state === 'failed' && ($record->run_phase ?? null) === 'cancelled') ? 'gray' : match ($state) {
                                         'completed' => 'success',
                                         'processing' => 'info',
                                         'failed' => 'danger',
                                         'queued' => 'warning',
+                                        'cancelled' => 'gray',
                                         default => 'gray',
                                     }),
                                 TextEntry::make('create_change_tickets')
@@ -325,6 +346,11 @@ class AnonymousUploadResource extends Resource
                                     ->badge()
                                     ->formatStateUsing(fn($state): string => ($state === false) ? 'No' : 'Yes')
                                     ->color(fn($state): string => ($state === false) ? 'gray' : 'success'),
+                                TextEntry::make('override_anonymization_rules')
+                                    ->label('Override Anonymization Rules')
+                                    ->badge()
+                                    ->formatStateUsing(fn($state): string => ($state === true) ? 'Yes' : 'No')
+                                    ->color(fn($state): string => ($state === true) ? 'warning' : 'gray'),
                                 TextEntry::make('status_detail')
                                     ->label('Status Detail')
                                     ->columnSpanFull(),

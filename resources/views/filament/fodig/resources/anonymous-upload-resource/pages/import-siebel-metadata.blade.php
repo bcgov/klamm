@@ -39,17 +39,21 @@ $optionalColumns = \App\Constants\Fodig\Anonymizer\SiebelMetadata::OPTIONAL_HEAD
                             <th class="px-3 py-2 font-semibold text-right">Updated</th>
                             <th class="px-3 py-2 font-semibold text-right">Deleted</th>
                             <th class="px-3 py-2 font-semibold">Error</th>
+                            <th class="px-3 py-2 font-semibold">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach ($this->recentUploads as $upload)
                         @php
                         $status = $upload['status'] ?? 'unknown';
-                        $badgeClasses = match ($status) {
-                        'completed' => 'bg-emerald-100 text-emerald-800',
-                        'processing' => 'bg-blue-100 text-blue-800',
-                        'failed' => 'bg-rose-100 text-rose-800',
-                        'queued' => 'bg-amber-100 text-amber-800',
+                        $isCancelled = $status === 'cancelled' || ($status === 'failed' && (($upload['run_phase'] ?? null) === 'cancelled'));
+                        $statusLabel = $isCancelled ? 'Cancelled' : \Illuminate\Support\Str::title($status);
+                        $badgeClasses = match (true) {
+                        $isCancelled => 'bg-gray-200 text-gray-800',
+                        $status === 'completed' => 'bg-emerald-100 text-emerald-800',
+                        $status === 'processing' => 'bg-blue-100 text-blue-800',
+                        $status === 'failed' => 'bg-rose-100 text-rose-800',
+                        $status === 'queued' => 'bg-amber-100 text-amber-800',
                         default => 'bg-gray-100 text-gray-800',
                         };
                         @endphp
@@ -66,7 +70,7 @@ $optionalColumns = \App\Constants\Fodig\Anonymizer\SiebelMetadata::OPTIONAL_HEAD
                             <td class="px-3 py-2 align-top text-xs text-gray-500">{{ $upload['created_at'] }}</td>
                             <td class="px-3 py-2 align-top">
                                 <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold {{ $badgeClasses }}">
-                                    {{ \Illuminate\Support\Str::title($status) }}
+                                    {{ $statusLabel }}
                                 </span>
                                 @if(! empty($upload['status_detail']))
                                 <div class="mt-1 text-xs text-gray-500">{{ $upload['status_detail'] }}</div>
@@ -75,7 +79,7 @@ $optionalColumns = \App\Constants\Fodig\Anonymizer\SiebelMetadata::OPTIONAL_HEAD
                             <td class="px-3 py-2 align-top text-xs text-gray-700">
                                 @php
                                 $progressPercent = max(0, min(100, (int) ($upload['progress_percent'] ?? 0)));
-                                $progressClass = $status === 'failed' ? 'bg-rose-500' : 'bg-blue-500';
+                                $progressClass = $isCancelled ? 'bg-gray-500' : ($status === 'failed' ? 'bg-rose-500' : 'bg-blue-500');
                                 @endphp
                                 <div class="flex items-center gap-2">
                                     <div class="h-2 w-32 overflow-hidden rounded-full bg-gray-200">
@@ -100,6 +104,18 @@ $optionalColumns = \App\Constants\Fodig\Anonymizer\SiebelMetadata::OPTIONAL_HEAD
                             <td class="px-3 py-2 align-top text-right text-xs text-gray-700">{{ $upload['deleted'] }}</td>
                             <td class="px-3 py-2 align-top text-xs text-rose-600">
                                 {{ $upload['error'] ? \Illuminate\Support\Str::limit($upload['error'], 120) : '—' }}
+                            </td>
+                            <td class="px-3 py-2 align-top text-xs">
+                                @if(in_array($status, ['queued', 'processing'], true))
+                                <x-filament::button
+                                    color="danger"
+                                    size="xs"
+                                    wire:click="cancelUpload({{ $upload['id'] }})">
+                                    Cancel
+                                </x-filament::button>
+                                @else
+                                <span class="text-gray-400">—</span>
+                                @endif
                             </td>
                         </tr>
                         @endforeach
