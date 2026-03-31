@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Jobs\Concerns\InteractsWithAnonymousSiebelSync;
+use App\Jobs\Exceptions\AnonymousUploadCancelledException;
 use App\Models\Anonymizer\AnonymousUpload;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,9 +35,15 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
     {
         $upload = AnonymousUpload::findOrFail($this->uploadId);
 
+        if ($this->isCancellationRequested($upload)) {
+            return;
+        }
+
         $currentPhase = (string) ($upload->run_phase ?? '');
 
         $persist = function (array $attributes) use ($upload, &$currentPhase): void {
+            $this->throwIfCancellationRequested($upload->id, $currentPhase);
+
             if (array_key_exists('run_phase', $attributes)) {
                 $currentPhase = (string) ($attributes['run_phase'] ?? '');
             }
@@ -75,6 +82,20 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         $currentPhase = 'preparing';
 
         try {
+            $persist([
+                'status_detail' => 'Pruning temporary staging',
+                'run_phase' => 'pruning_staging',
+            ]);
+
+            $prunedStagingRows = $this->purgeTemporaryStagingBeforeRun($upload->id);
+
+            $persist([
+                'status_detail' => $prunedStagingRows > 0
+                    ? ('Pruned ' . number_format($prunedStagingRows) . ' stale staging row(s)')
+                    : 'No stale staging rows to prune',
+                'run_phase' => 'preparing',
+            ]);
+
             if ($this->forceRestart) {
                 $persist([
                     'status_detail' => 'Restarting import (clearing staging)',
@@ -159,6 +180,23 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
                     $this->persistProgress($upload->id, $progress);
                 }
             );
+
+            if ((bool) ($upload->override_anonymization_rules ?? false)) {
+                $persist([
+                    'status_detail' => 'Applying anonymization rules',
+                    'run_phase' => 'applying_anonymization_rules',
+                ]);
+
+                $ruleSync = $this->synchronizeAnonymizationRulesFromStaging(
+                    $upload,
+                    $runAt,
+                    function (array $progress) use ($upload) {
+                        $this->persistProgress($upload->id, $progress);
+                    }
+                );
+
+                $result['totals']['updated'] = (int) ($result['totals']['updated'] ?? 0) + (int) ($ruleSync['changed_columns'] ?? 0);
+            }
 
             $persist([
                 'processed_rows' => $result['processedRows'],
@@ -252,15 +290,32 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
             // Only clean up staging after a successful run so failed uploads can be resumed.
             $this->cleanupStaging($upload->id);
+        } catch (AnonymousUploadCancelledException $exception) {
+            $upload->refresh();
+
+            $upload->update([
+                'status' => 'failed',
+                'status_detail' => 'Cancelled by user',
+                'run_phase' => 'cancelled',
+                'failed_phase' => $currentPhase,
+                'error' => null,
+                'error_context' => null,
+                'progress_updated_at' => CarbonImmutable::now(),
+                'retention_until' => CarbonImmutable::now()->addDays(max(1, (int) config('anonymizer.upload_retention_days', 30))),
+            ]);
+
+            return;
         } catch (Throwable $exception) {
+            $exceptionMessage = $this->sanitizeUtf8Value($exception->getMessage());
+
             $upload->update([
                 'status' => 'failed',
                 'status_detail' => 'Failed',
                 'failed_phase' => $currentPhase,
-                'error' => $exception->getMessage(),
+                'error' => is_string($exceptionMessage) ? $exceptionMessage : 'Import failed',
                 'error_context' => [
                     'phase' => $currentPhase,
-                    'message' => $exception->getMessage(),
+                    'message' => $exceptionMessage,
                     'class' => get_class($exception),
                     'at' => CarbonImmutable::now()->toIso8601String(),
                 ],
@@ -274,9 +329,72 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
 
     protected function persistProgress(int $uploadId, array $attributes): void
     {
+        $this->throwIfCancellationRequested($uploadId, (string) ($attributes['run_phase'] ?? 'processing'));
+
+        $attributes = $this->sanitizeUtf8Value($attributes);
         $attributes['progress_updated_at'] = $attributes['progress_updated_at'] ?? CarbonImmutable::now();
 
         AnonymousUpload::whereKey($uploadId)->update($attributes);
+    }
+
+    protected function throwIfCancellationRequested(int $uploadId, string $phase = ''): void
+    {
+        $upload = AnonymousUpload::query()->whereKey($uploadId)->first(['status', 'run_phase']);
+
+        if ($upload && $this->isCancellationRequested($upload)) {
+            $message = 'Upload cancelled by user';
+            if ($phase !== '') {
+                $message .= " during {$phase}";
+            }
+
+            throw new AnonymousUploadCancelledException($message);
+        }
+    }
+
+    protected function isCancellationRequested(AnonymousUpload $upload): bool
+    {
+        return (string) ($upload->run_phase ?? '') === 'cancelled'
+            || (string) ($upload->status ?? '') === 'cancelled';
+    }
+
+    /**
+     * Ensure values persisted to JSON-cast columns are UTF-8 safe.
+     */
+    protected function sanitizeUtf8Value(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $value[$key] = $this->sanitizeUtf8Value($item);
+            }
+
+            return $value;
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        if (preg_match('//u', $value) === 1) {
+            return $value;
+        }
+
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+
+            if ($converted !== false && preg_match('//u', $converted) === 1) {
+                return $converted;
+            }
+        }
+
+        if (function_exists('mb_convert_encoding')) {
+            $converted = mb_convert_encoding($value, 'UTF-8', 'UTF-8, ISO-8859-1, Windows-1252');
+
+            if (is_string($converted) && preg_match('//u', $converted) === 1) {
+                return $converted;
+            }
+        }
+
+        return preg_replace('/[^\x09\x0A\x0D\x20-\x7E]/', '', $value) ?? 'Invalid text encoding';
     }
 
     protected function determineUploadSize(AnonymousUpload $upload): ?int
@@ -286,5 +404,45 @@ class SyncAnonymousSiebelColumnsJob implements ShouldQueue
         } catch (Throwable) {
             return null;
         }
+    }
+
+    protected function purgeTemporaryStagingBeforeRun(int $currentUploadId): int
+    {
+        $activeUploadIds = AnonymousUpload::query()
+            ->whereIn('status', ['queued', 'processing'])
+            ->pluck('id')
+            ->all();
+
+        $baseQuery = DB::table(self::STAGING_TABLE)
+            ->where('upload_id', '!=', $currentUploadId);
+
+        if ($activeUploadIds !== []) {
+            $baseQuery->whereNotIn('upload_id', $activeUploadIds);
+        }
+
+        $deleted = 0;
+        $lastId = 0;
+        $rowChunk = 5000;
+
+        do {
+            $ids = (clone $baseQuery)
+                ->where('id', '>', $lastId)
+                ->orderBy('id')
+                ->limit($rowChunk)
+                ->pluck('id')
+                ->all();
+
+            if ($ids === []) {
+                break;
+            }
+
+            $deleted += (int) DB::table(self::STAGING_TABLE)
+                ->whereIn('id', $ids)
+                ->delete();
+
+            $lastId = (int) end($ids);
+        } while (count($ids) === $rowChunk);
+
+        return $deleted;
     }
 }

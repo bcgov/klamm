@@ -16,7 +16,9 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     nodejs \
     npm \
-    && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip \
+    && docker-php-ext-install pdo_mysql pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl zip opcache \
+    && pecl install redis \
+    && docker-php-ext-enable redis opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache mod_rewrite
@@ -69,6 +71,9 @@ COPY 000-default.conf /etc/apache2/sites-available/000-default.conf
 
 # Copy PHP upload config
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+
+# Copy PHP OPcache config for production performance
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
 # Generate APP_KEY
 RUN echo "APP_KEY=" > .env

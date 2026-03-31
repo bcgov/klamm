@@ -16,6 +16,7 @@ class FormSeeder extends Seeder
             FormFormLocationTableSeeder::class,
             FormFormTagsTableSeeder::class,
             FormSoftwareSourceFormTableSeeder::class,
+            FormAttachSoftwareSourceSeeder::class,
             FormUserTypeTableSeeder::class,
             FormWorkbenchPathsTableSeeder::class,
             FormBusinessAreaTableSeeder::class,

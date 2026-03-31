@@ -6,6 +6,7 @@ use App\Models\FormMetadata\FormLocation;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
+
 class FormLocationSeeder extends Seeder
 {
     /**
@@ -13,12 +14,18 @@ class FormLocationSeeder extends Seeder
      */
     public function run(): void
     {
-        FormLocation::create(['name' => 'ICM Target']);
-        FormLocation::create(['name' => 'ICM Dev']);
-        FormLocation::create(['name' => 'ICM Test']);
-        FormLocation::create(['name' => 'iConnect']);
-        FormLocation::create(['name' => 'Resource Finder']);
-        FormLocation::create(['name' => 'MySelfServe']);
-        FormLocation::create(['name' => 'Loop']);
+        $locations = [
+            'ICM Target',
+            'ICM Dev',
+            'ICM Test',
+            'iConnect',
+            'Resource Finder',
+            'MySelfServe',
+            'Loop',
+        ];
+
+        foreach ($locations as $name) {
+            FormLocation::firstOrCreate(['name' => $name]);
+        }
     }
 }

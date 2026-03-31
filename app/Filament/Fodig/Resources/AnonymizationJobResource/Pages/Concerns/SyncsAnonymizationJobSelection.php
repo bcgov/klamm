@@ -38,7 +38,9 @@ trait SyncsAnonymizationJobSelection
         // Filament's relationship() component should sync these automatically.
         // Only manually sync if we have explicit data in state AND the relationships are empty.
         // This prevents us from accidentally wiping out what Filament already synced.
-        $jobRecord->refresh();
+        // Clear cached relationships so the next pluck queries hit the DB.
+        // Avoid $jobRecord->refresh() which would reload the 50+ MB sql_script column.
+        $jobRecord->unsetRelations();
 
         $existingDatabases = $jobRecord->databases()->pluck('anonymous_siebel_databases.id')->all();
         $existingSchemas = $jobRecord->schemas()->pluck('anonymous_siebel_schemas.id')->all();
@@ -53,7 +55,7 @@ trait SyncsAnonymizationJobSelection
 
         if ($needsManualSync) {
             $this->syncScopeRelationships($jobRecord, $scopeFromState);
-            $jobRecord->refresh();
+            $jobRecord->unsetRelations();
         }
 
         // Use the actual persisted scope for further processing

@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Models\FormBuilding\FormElement;
 use App\Models\FormBuilding\FormElementTag;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms;
 use App\Livewire\FormElementTreeBuilder as Builder;
+use Illuminate\Support\Str;
 
 class GeneralTabHelper
 {
@@ -33,92 +35,143 @@ class GeneralTabHelper
         ?callable $disabledCallback = null
     ): array {
         $disabled = $mode === 'view';
-        $isEdit = $mode === 'edit';
-        $isCreate = $mode === 'create';
 
         $schema = [];
 
         // Template selector (only for create mode when explicitly requested)
-        if ($includeTemplateSelector && $isCreate) {
-            $templateField = Select::make('template_id')
-                ->label('Start from template')
-                ->placeholder('Select a template (optional)')
-                ->options(function () {
-                    $templates = FormElement::templates()
-                        ->with('elementable')
-                        ->get();
-
-                    $availableTypes = FormElement::getAvailableElementTypes();
-                    $groupedOptions = [];
-
-                    foreach ($templates as $template) {
-                        $elementType = $template->elementable_type;
-                        $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
-                        $typeName = $availableTypes[$elementType] ?? class_basename($elementType);
-
-                        if (!isset($groupedOptions[$groupName])) {
-                            $groupedOptions[$groupName] = [];
-                        }
-
-                        $groupedOptions[$groupName][$template->id] = $template->name . ' (' . $typeName . ')';
-                    }
-
-                    // Sort groups alphabetically
-                    ksort($groupedOptions);
-
-                    return $groupedOptions;
-                })
-                ->live()
-                ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                    if (!$state) {
-                        return;
-                    }
-
-                    // Load the template element with its relationships
-                    $template = FormElement::with(['elementable', 'tags'])->find($state);
-
-                    if (!$template) {
-                        return;
-                    }
-
-                    // Prefill basic form element data
-                    $set('name', $template->name);
-                    $set('description', $template->description);
-                    $set('help_text', $template->help_text);
-                    $set('elementable_type', $template->elementable_type);
-                    $set('is_required', $template->is_required);
-                    $set('visible_web', $template->visible_web);
-                    $set('visible_pdf', $template->visible_pdf);
-                    $set('is_template', false); // New element should not be a template by default
-
-                    // Prefill tags
-                    if ($template->tags->isNotEmpty()) {
-                        $set('tags', $template->tags->pluck('id')->toArray());
-                    }
-
-                    // Prefill elementable data if it exists
-                    if ($template->elementable) {
-                        $elementableData = $template->elementable->toArray();
-                        // Remove timestamps and primary key
-                        unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
-                        $set('elementable_data', $elementableData);
-                    }
-                })
-                ->searchable()
-                ->columnSpanFull();
-
-            // Add tooltip if callback is provided
-            if ($shouldShowTooltipsCallback) {
-                $templateField = $templateField->when($shouldShowTooltipsCallback, function ($component) {
-                    return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.');
-                });
-            }
-
-            $schema[] = $templateField;
+        if ($includeTemplateSelector && $mode === 'create') {
+            $schema[] = self::makeTemplateField($shouldShowTooltipsCallback);
         }
 
         // Name field
-        $nameField = TextInput::make('name')
+        $schema[] = self::makeNameField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
+
+        // Hidden ID field
+        $schema[] = Hidden::make('id')->dehydrated(false);
+
+        // Reference ID field - editable on create and edit
+        $schema[] = self::makeReferenceIdField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
+
+        // Element Type field (different handling for edit vs create/view)
+        $schema[] = self::makeElementTypeField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
+
+        // Description field
+        $schema[] = Textarea::make('description')
+            ->rows(3)
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
+
+        // Help text field
+        $schema[] = self::makeHelpTextField($disabled, $disabledCallback, $shouldShowTooltipsCallback);
+
+        // Visibility grid
+        $schema[] = self::makeVisibilityGrid($disabled, $disabledCallback);
+
+        // Required grid
+        $schema[] = self::makeRequiredGrid($disabled, $disabledCallback);
+
+        // Read Only grid
+        $schema[] = self::makeReadOnlyGrid($disabled, $disabledCallback);
+
+        // Template and Save On Submit toggles
+        $schema[] = Grid::make(2)
+            ->schema([
+                self::makeTemplateToggle($disabled, $disabledCallback, $shouldShowTooltipsCallback),
+                self::makeSaveOnSubmitToggle($disabled, $disabledCallback, $shouldShowTooltipsCallback),
+            ]);
+
+        // Tags field
+        $schema[] = self::makeTagsField($mode, $disabled, $disabledCallback, $shouldShowTooltipsCallback);
+
+        return $schema;
+    }
+
+    private static function makeTemplateField(?callable $shouldShowTooltipsCallback): Component
+    {
+        $field = Select::make('template_id')
+            ->label('Start from template')
+            ->placeholder('Select a template (optional)')
+            ->options(function () {
+                $templates = FormElement::templates()
+                    ->with('elementable')
+                    ->get();
+
+                $availableTypes = FormElement::getAvailableElementTypes();
+                $groupedOptions = [];
+
+                foreach ($templates as $template) {
+                    $elementType = $template->elementable_type;
+                    $groupName = $availableTypes[$elementType] ?? class_basename($elementType);
+                    $typeName = $availableTypes[$elementType] ?? class_basename($elementType);
+
+                    if (!isset($groupedOptions[$groupName])) {
+                        $groupedOptions[$groupName] = [];
+                    }
+
+                    $groupedOptions[$groupName][$template->id] = $template->name . ' (' . $typeName . ')';
+                }
+
+                // Sort groups alphabetically
+                ksort($groupedOptions);
+
+                return $groupedOptions;
+            })
+            ->live()
+            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                if (!$state) {
+                    return;
+                }
+
+                // Load the template element with its relationships
+                $template = FormElement::with(['elementable', 'tags'])->find($state);
+
+                if (!$template) {
+                    return;
+                }
+
+                // Prefill basic form element data
+                $set('name', $template->name);
+                $set('description', $template->description);
+                $set('help_text', $template->help_text);
+                $set('elementable_type', $template->elementable_type);
+                $set('is_required_toggle', $template->is_required !== null && $template->is_required !== '');
+                $set('is_required', $template->is_required);
+                $set('is_read_only_toggle', $template->is_read_only !== null && $template->is_read_only !== '');
+                $set('is_read_only', $template->is_read_only);
+                $set('visible_web', $template->visible_web);
+                $set('visible_pdf', $template->visible_pdf);
+                $set('is_template', false); // New element should not be a template by default
+    
+                // Prefill tags
+                if ($template->tags->isNotEmpty()) {
+                    $set('tags', $template->tags->pluck('id')->toArray());
+                }
+
+                // Prefill elementable data if it exists
+                if ($template->elementable) {
+                    $elementableData = $template->elementable->toArray();
+                    // Remove timestamps and primary key
+                    unset($elementableData['id'], $elementableData['created_at'], $elementableData['updated_at']);
+                    $set('elementable_data', $elementableData);
+                }
+            })
+            ->searchable()
+            ->columnSpanFull();
+
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Select a template to start with pre-configured settings. For containers, this will also clone all child elements.'
+        );
+    }
+
+    private static function makeNameField(
+        string $mode,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $field = TextInput::make('name')
             ->required()
             ->maxLength(255)
             ->label('Element Name')
@@ -126,32 +179,35 @@ class GeneralTabHelper
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add auto-generation logic for create mode
-        if ($isCreate) {
-            $nameField = $nameField
+        if ($mode === 'create') {
+            $field = $field
                 ->live(onBlur: true)
                 ->afterStateUpdated(function ($state, callable $set, callable $get) {
                     // Auto-generate reference_id if it's empty and we have a name
                     if (!empty($state) && empty($get('reference_id'))) {
                         // Replace slashes and backslashes with dashes before slugifying
                         $preparedState = preg_replace('/[\/\\\\]/', '-', $state);
-                        $slug = \Illuminate\Support\Str::slug($preparedState, '-');
+                        $slug = Str::slug($preparedState, '-');
                         $set('reference_id', $slug);
                     }
                 });
         }
 
         // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $nameField = $nameField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human friendly identifier to help you find and reference this element');
-            });
-        }
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Human friendly identifier to help you find and reference this element'
+        );
+    }
 
-        $schema[] = $nameField;
-        $schema[] = Hidden::make('id')->dehydrated(false);
-
-        // Reference ID field - editable on create and edit
-        $referenceIdField = TextInput::make('reference_id')
+    private static function makeReferenceIdField(
+        string $mode,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $field = TextInput::make('reference_id')
             ->label('Reference ID')
             ->rules(['alpha_dash'])
             ->live()
@@ -203,24 +259,21 @@ class GeneralTabHelper
             });
 
         // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $referenceIdField = $referenceIdField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Human-readable identifier to aid creating ICM data bindings');
-            });
-        }
+        $field = self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Human-readable identifier to aid creating ICM data bindings'
+        );
 
         // Add suffix and actions for edit mode
-        if ($isEdit) {
-            $schema[] = Hidden::make('reference_id_locked');
-            $referenceIdField = $referenceIdField
+        if ($mode === 'edit') {
+            // $schema[] = Hidden::make('reference_id_locked');
+            return $field
                 ->prefixAction(
                     Action::make('toggleLock')
                         ->icon(fn($get) => $get('reference_id_locked') ? 'heroicon-s-lock-open' : 'heroicon-s-lock-closed')
-                        ->tooltip(fn($get) => $get('reference_id_locked')
-                            ? ''
-                            : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings.')->action(function ($set, $get) {
-                            $set('reference_id_locked', true);
-                        })
+                        ->tooltip(fn($get) => $get('reference_id_locked') ? '' : 'Click to unlock and edit the Reference ID. Changing this value may break ICM data bindings, scripts, and/or styles.')
+                        ->action(fn($set) => $set('reference_id_locked', true))
                 )
                 ->disabled(fn($get) => !$get('reference_id_locked'))
                 ->suffix(function ($get) {
@@ -228,169 +281,50 @@ class GeneralTabHelper
                 })
                 ->autocomplete(false)
                 ->suffixActions([
-                    // Copy script format:  '<ref-uuid>' /* Name (Type) */
-                    Action::make('copyScript')
-                        ->icon('heroicon-s-clipboard')
-                        ->tooltip('Copy script snippet')
-                        ->action(function ($livewire, $state, $get) {
-                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
-
-                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
-                            $elementType = (string) ($get('elementable_type') ?? '');
-                            $availableTypes = FormElement::getAvailableElementTypes();
-                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
-
-                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
-                            $label = addslashes($label);
-                            $snippet = "'{$base}' /* {$label} */";
-
-                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
-                        }),
-
-                    // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
-                    Action::make('copyCss')
-                        ->icon('heroicon-s-code-bracket-square')
-                        ->tooltip('Copy CSS selector')
-                        ->action(function ($livewire, $state, $get) {
-                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
-
-                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
-                            $elementType = (string) ($get('elementable_type') ?? '');
-                            $availableTypes = FormElement::getAvailableElementTypes();
-                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
-
-                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
-                            $label = addslashes($label);
-                            $snippet = "[id='{$base}'] /* {$label} */";
-
-                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
-                        }),
+                    self::makeCopyScriptAction(),
+                    self::makeCopyCssAction(),
                 ])
-                ->extraAttributes([
-                    'x-data' => '{
-                        copyToClipboard(text) {
-                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                navigator.clipboard.writeText(text).then(() => {
-                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                }).catch(() => {
-                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                });
-                            } else {
-                                const textArea = document.createElement("textarea");
-                                textArea.value = text;
-                                textArea.style.position = "fixed";
-                                textArea.style.opacity = "0";
-                                document.body.appendChild(textArea);
-                                textArea.select();
-                                try {
-                                    document.execCommand("copy");
-                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                } catch (err) {
-                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                }
-                                document.body.removeChild(textArea);
-                            }
-                        }
-                    }',
-                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                ]);
-        } elseif ($isCreate) {
+                ->extraAttributes(self::getCopyToClipboardText());
+
+        } elseif ($mode === 'create') {
             // Add regenerate action for create mode
-            $referenceIdField = $referenceIdField->suffixAction(
+            return $field->suffixAction(
                 Action::make('regenerate_reference_id')
                     ->icon('heroicon-o-arrow-path')
                     ->tooltip('Regenerate from Element Name')
                     ->action(function (callable $set, callable $get) {
                         $name = $get('name');
                         if (!empty($name)) {
-                            $slug = \Illuminate\Support\Str::slug($name, '-');
+                            $slug = Str::slug($name, '-');
                             $set('reference_id', $slug);
                         }
                     })
             );
-        } elseif ($mode === 'view') {
+
+        } else { // $mode === 'view'
             // Add copy functionality for view mode
-            $referenceIdField = $referenceIdField
+            return $field
                 ->suffix(function ($get) {
                     return $get('uuid') ? $get('uuid') : '';
                 })
                 ->suffixActions([
-                    // Copy script format:  '<ref-uuid>' /* Name (Type) */
-                    Action::make('copyScript')
-                        ->icon('heroicon-s-clipboard')
-                        ->tooltip('Copy script snippet')
-                        ->action(function ($livewire, $state, $get) {
-                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
-
-                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
-                            $elementType = (string) ($get('elementable_type') ?? '');
-                            $availableTypes = FormElement::getAvailableElementTypes();
-                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
-
-                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
-                            $label = addslashes($label);
-                            $snippet = "'{$base}' /* {$label} */";
-
-                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
-                        }),
-
-                    // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
-                    Action::make('copyCss')
-                        ->icon('heroicon-s-code-bracket-square')
-                        ->tooltip('Copy CSS selector')
-                        ->action(function ($livewire, $state, $get) {
-                            $base = FormElement::buildFullReferenceId($state, $get('uuid'));
-
-                            $nameBase = (string) ($get('label') ?? $get('name') ?? '');
-                            $elementType = (string) ($get('elementable_type') ?? '');
-                            $availableTypes = FormElement::getAvailableElementTypes();
-                            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
-
-                            $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
-                            $label = addslashes($label);
-                            $snippet = "[id='{$base}'] /* {$label} */";
-
-                            $livewire->dispatch('copy-to-clipboard', text: $snippet);
-                        }),
+                    self::makeCopyScriptAction(),
+                    self::makeCopyCssAction(),
                 ])
-
-                ->extraAttributes([
-                    'x-data' => '{
-                        copyToClipboard(text) {
-                            if (navigator.clipboard && navigator.clipboard.writeText) {
-                                navigator.clipboard.writeText(text).then(() => {
-                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                }).catch(() => {
-                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                });
-                            } else {
-                                const textArea = document.createElement("textarea");
-                                textArea.value = text;
-                                textArea.style.position = "fixed";
-                                textArea.style.opacity = "0";
-                                document.body.appendChild(textArea);
-                                textArea.select();
-                                try {
-                                    document.execCommand("copy");
-                                    $tooltip("Copied to clipboard", { timeout: 1500 });
-                                } catch (err) {
-                                    $tooltip("Failed to copy", { timeout: 1500 });
-                                }
-                                document.body.removeChild(textArea);
-                            }
-                        }
-                    }',
-                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                ]);
+                ->extraAttributes(self::getCopyToClipboardText());
         }
+    }
 
-        $schema[] = $referenceIdField;
+    private static function makeElementTypeField(
+        string $mode,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $tooltip = 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML';
 
-        // Element type field (different handling for edit vs create/view)
-        if ($isEdit) {
-            // For edit mode, we need both hidden and display fields
-            $schema[] = Hidden::make('elementable_type');
-            $elementTypeField = TextInput::make('elementable_type_display')
+        if ($mode === 'edit') {
+            $field = TextInput::make('elementable_type_display')
                 ->label('Element Type')
                 ->disabled(true)
                 ->dehydrated(false)
@@ -398,17 +332,23 @@ class GeneralTabHelper
                     $elementType = $get('elementable_type');
                     return FormElement::getAvailableElementTypes()[$elementType] ?? $elementType;
                 });
-        } else {
-            // For create and view modes
-            $elementTypeField = $isCreate
-                ? ToggleButtons::make('elementable_type')
+
+            // For edit mode, we need both hidden and display fields
+            return Grid::make(1)
+                ->schema([
+                    Hidden::make('elementable_type'),
+                    self::withOptionalTooltip(
+                        $field,
+                        $shouldShowTooltipsCallback,
+                        $tooltip,
+                    ),
+                ]);
+
+        } else if ($mode === 'create') {
+            $field = ToggleButtons::make('elementable_type')
                 ->label(function (?string $state): string {
                     $elementType = $state ? FormElement::getElementTypeName($state) : '';
-                    if ($elementType) {
-                        return "Element Type: {$elementType}";
-                    } else {
-                        return 'Element Type';
-                    }
+                    return $elementType ? "Element Type: {$elementType}" : 'Element Type';
                 })
                 ->options(FormElement::getAvailableElementTypes())
                 ->inline()
@@ -433,52 +373,56 @@ class GeneralTabHelper
                 ->afterStateUpdated(function ($state, callable $set) {
                     // Clear existing elementable data when type changes
                     $set('elementable_data', []);
-
                     // Populate with defaults from the new element type
                     if ($state && class_exists($state)) {
                         $defaults = self::getElementTypeDefaults($state);
-
                         if (!empty($defaults)) {
                             $set('elementable_data', $defaults);
                         }
                     }
-                })
-                : TextInput::make('elementable_type')
+                });
+
+            return self::withOptionalTooltip(
+                $field,
+                $shouldShowTooltipsCallback,
+                $tooltip,
+            );
+
+        } else { // $mode === 'view'
+            $field = TextInput::make('elementable_type')
                 ->label('Element Type')
                 ->disabled(true);
+
+            // Add tooltip if callback is provided
+            return self::withOptionalTooltip(
+                $field,
+                $shouldShowTooltipsCallback,
+                $tooltip,
+            );
         }
+    }
 
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $elementTypeField = $elementTypeField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Various inputs, containers for grouping and repeating, text info for paragraphs, or custom HTML');
-            });
-        }
-
-        $schema[] = $elementTypeField;
-
-        // Description field
-        $schema[] = Textarea::make('description')
-            ->rows(3)
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        // Help text field
-        $helpTextField = TextInput::make('help_text')
+    private static function makeHelpTextField(
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $field = TextInput::make('help_text')
             ->maxLength(500)
             ->autocomplete(false)
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $helpTextField = $helpTextField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'This text is read aloud by screen readers to describe the element');
-            });
-        }
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'This text is read aloud by screen readers to describe the element',
+        );
+    }
 
-        $schema[] = $helpTextField;
-
-        // Visibility toggles
-        $schema[] = Grid::make(2)
+    private static function makeVisibilityGrid(bool $disabled, ?callable $disabledCallback): Component
+    {
+        return Grid::make(2)
             ->schema([
                 Toggle::make('visible_web')
                     ->label('Visible on Web')
@@ -489,103 +433,160 @@ class GeneralTabHelper
                     ->default(true)
                     ->disabled($disabled || ($disabledCallback && $disabledCallback())),
             ]);
+    }
 
-        // Required and Template toggles
-        $templateToggle = Toggle::make('is_template')
+    private static function makeRequiredGrid(bool $disabled, ?callable $disabledCallback): Component
+    {
+        $toggle = Toggle::make('is_required_toggle')
+            ->label('Is Required')
+            ->default(false)
+            ->live()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
+                $isRequired = $get('is_required');
+                // Set toggle to true if is_required has any non-null value ('always' or 'portal')
+                if ($isRequired !== null && $isRequired !== '') {
+                    $set('is_required_toggle', true);
+                }
+            });
+
+        $buttons = ToggleButtons::make('is_required')
+            ->label('Required When')
+            ->options([
+                'always' => 'Always',
+                'portal' => 'On Portal Forms'
+            ])
+            ->default('always')
+            ->inline()
+            ->disabled(fn($get) => !$get('is_required_toggle'))
+            ->afterStateHydrated(function (callable $set, callable $get) {
+                $value = $get('is_required');
+                if ($value === null || $value === '') {
+                    $set('is_required', 'always');
+                }
+            });
+
+        return Grid::make(2)
+            ->schema([
+                $toggle,
+                $buttons,
+            ]);
+    }
+
+    private static function makeReadOnlyGrid(bool $disabled, ?callable $disabledCallback): Component
+    {
+        $toggle = Toggle::make('is_read_only_toggle')
+            ->label('Is Read Only')
+            ->default(false)
+            ->live()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
+            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
+                $isReadOnly = $get('is_read_only');
+                // Set toggle to true if is_read_only has any non-null value ('always' or 'portal')
+                if ($isReadOnly !== null && $isReadOnly !== '') {
+                    $set('is_read_only_toggle', true);
+                }
+            });
+
+        $buttons = ToggleButtons::make('is_read_only')
+            ->label('Read Only When')
+            ->options([
+                'always' => 'Always',
+                'portal' => 'On Portal Forms'
+            ])
+            ->default('always')
+            ->inline()
+            ->disabled(fn($get) => !$get('is_read_only_toggle'))
+            ->afterStateHydrated(function (callable $set, callable $get) {
+                $value = $get('is_read_only');
+                if ($value === null || $value === '') {
+                    $set('is_read_only', 'always');
+                }
+            });
+
+        $customScript = TextArea::make('custom_read_only')
+            ->label('Custom Read Only Script')
+            ->visible(fn($get) => $get('is_read_only'))
+            ->reactive()
+            ->disabled(fn($get) => !$get('is_read_only_toggle'))
+            ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom read only script to control when this element is read only. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.')
+            ->columnSpanFull();
+
+        return Grid::make(2)
+            ->schema([
+                $toggle,
+                $buttons,
+                $customScript
+            ]);
+    }
+
+    private static function makeTemplateToggle(
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $toggle = Toggle::make('is_template')
             ->label('Is Template')
             ->default(false)
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $templateToggle = $templateToggle->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element should be a template for later reuse');
-            });
-        }
+        return self::withOptionalTooltip(
+            $toggle,
+            $shouldShowTooltipsCallback,
+            'If this element should be a template for later reuse',
+        );
+    }
 
-        $requirementToggle = Toggle::make('is_required')
-            ->label('Is Required')
-            ->default(false);
-
-        // For view mode or when disabled callback is true, disable the is_required toggle too
-        if ($disabled || ($disabledCallback && $disabledCallback())) {
-            $requirementToggle = $requirementToggle->disabled(true);
-        }
-
-        $schema[] = Grid::make(2)
-            ->schema([
-                $requirementToggle,
-                $templateToggle,
-            ]);
-
-        // Read Only and Save on Submit toggles
-        $readOnlyToggle = Toggle::make('is_read_only')
-            ->label('Is Read Only')
-            ->default(false)
-            ->live()
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
-
-        $saveOnSubmitToggle = Toggle::make('save_on_submit')
+    private static function makeSaveOnSubmitToggle(
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        // Save on Submit toggles
+        $toggle = Toggle::make('save_on_submit')
             ->label('Save on Submit')
             ->default(true)
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
         // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $saveOnSubmitToggle = $saveOnSubmitToggle->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'If this element\'s data should be saved when the form is submitted');
-            });
-        }
+        return self::withOptionalTooltip(
+            $toggle,
+            $shouldShowTooltipsCallback,
+            'If this element\'s data should be saved when the form is submitted',
+        );
+    }
 
-        $schema[] = Grid::make(2)
-            ->schema([
-                $readOnlyToggle,
-                $saveOnSubmitToggle,
-            ]);
-
-        $schema[] = Grid::make(1)
-            ->schema([
-                TextArea::make('custom_read_only')
-                    ->label('Custom Read Only Script')
-                    ->visible(fn($get) => $get('is_read_only'))
-                    ->reactive()
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-                    ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom read only script to control when this element is read only. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.'),
-            ]);
-
-
-        // Tags field
-        $tagsField = Select::make('tags')
+    private static function makeTagsField(
+        string $mode,
+        bool $disabled,
+        ?callable $disabledCallback,
+        ?callable $shouldShowTooltipsCallback
+    ): Component {
+        $field = Select::make('tags')
             ->label('Tags')
             ->multiple()
             ->searchable()
             ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
-        // Add tooltip if callback is provided
-        if ($shouldShowTooltipsCallback) {
-            $tagsField = $tagsField->when($shouldShowTooltipsCallback, function ($component) {
-                return $component->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Categorize related fields (use camelCase)');
-            });
-        }
-
         // Different handling for edit vs create modes
-        if ($isEdit || $mode === 'view') {
-            $tagsField = $tagsField->relationship('tags', 'name');
+        if ($mode === 'edit' || $mode === 'view') {
+            $field = $field->relationship('tags', 'name');
             if ($mode === 'view') {
-                $tagsField = $tagsField->preload();
+                $field = $field->preload();
             }
         }
 
-        if ($isCreate || $isEdit) {
-            $tagsField = $tagsField
+        if ($mode === 'create' || $mode === 'edit') {
+            $field = $field
                 ->options(fn() => FormElementTag::pluck('name', 'id')->toArray())
                 ->preload();
 
             // Only add createOptionAction for create mode to avoid modal stacking issues
-            if ($isCreate) {
-                $tagsField = $tagsField
+            if ($mode === 'create') {
+                $field = $field
                     ->createOptionAction(
-                        fn(Forms\Components\Actions\Action $action) => $action
+                        fn(Action $action) => $action
                             ->modalHeading('Create Tag')
                             ->modalWidth('md')
                     )
@@ -604,9 +605,12 @@ class GeneralTabHelper
             }
         }
 
-        $schema[] = $tagsField;
-
-        return $schema;
+        // Add tooltip if callback is provided
+        return self::withOptionalTooltip(
+            $field,
+            $shouldShowTooltipsCallback,
+            'Categorize related fields (use camelCase)',
+        );
     }
 
     /**
@@ -686,5 +690,89 @@ class GeneralTabHelper
         }
 
         return $defaults;
+    }
+
+    private static function withOptionalTooltip(
+        Component $component,
+        ?callable $shouldShowTooltipsCallback,
+        string $tooltip
+    ): Component {
+        return $shouldShowTooltipsCallback
+            ? $component->when($shouldShowTooltipsCallback, fn($c) => $c->hintIcon('heroicon-m-question-mark-circle', tooltip: $tooltip))
+            : $component;
+    }
+
+    private static function makeCopyScriptAction(): Action
+    {
+        // Copy script format:  '<ref-uuid>' /* Name (Type) */
+        return Action::make('copyScript')
+            ->icon('heroicon-s-clipboard')
+            ->tooltip('Copy script snippet')
+            ->action(function ($livewire, $state, $get) {
+                $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                $elementType = (string) ($get('elementable_type') ?? '');
+                $availableTypes = FormElement::getAvailableElementTypes();
+                $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                $label = addslashes($label);
+                $snippet = "'{$base}' /* {$label} */";
+
+                $livewire->dispatch('copy-to-clipboard', text: $snippet);
+            });
+    }
+
+    private static function makeCopyCssAction(): Action
+    {
+        // Copy CSS selector format:  [id='<ref-uuid>'] /* Name (Type) */
+        return Action::make('copyCss')
+            ->icon('heroicon-s-code-bracket-square')
+            ->tooltip('Copy CSS selector')
+            ->action(function ($livewire, $state, $get) {
+                $base = FormElement::buildFullReferenceId($state, $get('uuid'));
+
+                $nameBase = (string) ($get('label') ?? $get('name') ?? '');
+                $elementType = (string) ($get('elementable_type') ?? '');
+                $availableTypes = FormElement::getAvailableElementTypes();
+                $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+
+                $label = trim($nameBase) !== '' ? ($nameBase . ' (' . $typeDisplay . ')') : $typeDisplay;
+                $label = addslashes($label);
+                $snippet = "[id='{$base}'] /* {$label} */";
+
+                $livewire->dispatch('copy-to-clipboard', text: $snippet);
+            });
+    }
+
+    private static function getCopyToClipboardText(): array
+    {
+        return [
+            'x-data' => '{
+                copyToClipboard(text) {
+                    if (navigator.clipboard?.writeText) {
+                        navigator.clipboard.writeText(text)
+                            .then(() => $tooltip("Copied to clipboard", { timeout: 1500 }))
+                            .catch(() => $tooltip("Failed to copy", { timeout: 1500 }));
+                    } else {
+                        const textArea = document.createElement("textarea");
+                        textArea.value = text;
+                        textArea.style.position = "fixed";
+                        textArea.style.opacity = "0";
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        try {
+                            document.execCommand("copy");
+                            $tooltip("Copied to clipboard", { timeout: 1500 });
+                        } catch (err) {
+                            $tooltip("Failed to copy", { timeout: 1500 });
+                        }
+                        document.body.removeChild(textArea);
+                    }
+                }
+            }',
+            'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+        ];
     }
 }

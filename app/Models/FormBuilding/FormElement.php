@@ -43,8 +43,6 @@ class FormElement extends Model
     protected $casts = [
         'order' => 'integer',
         'parent_id' => 'integer',
-        'is_read_only' => 'boolean',
-        'is_required' => 'boolean',
         'save_on_submit' => 'boolean',
         'visible_web' => 'boolean',
         'visible_pdf' => 'boolean',
@@ -491,7 +489,7 @@ class FormElement extends Model
         return self::create($elementData);
     }
 
-/**
+    /**
      * Create a currency input form element
      */
     public static function createCurrency(array $elementData, array $currencyData): self
@@ -501,7 +499,7 @@ class FormElement extends Model
         $elementData['elementable_id'] = $currency->id;
 
         return self::create($elementData);
-    }    
+    }
 
     /**
      * Create a date select input form element

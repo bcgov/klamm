@@ -12,7 +12,13 @@ class ErrorEntitySeeder extends Seeder
      */
     public function run(): void
     {
-        ErrorEntity::create(['name' => 'Case']);
-        ErrorEntity::create(['name' => 'Contact']);
+        $entities = [
+            'Case',
+            'Contact',
+        ];
+
+        foreach ($entities as $name) {
+            ErrorEntity::firstOrCreate(['name' => $name]);
+        }
     }
 }

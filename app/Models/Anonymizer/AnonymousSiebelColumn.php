@@ -6,9 +6,11 @@ use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationColumnTag;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -22,13 +24,22 @@ class AnonymousSiebelColumn extends Model
 
     protected $fillable = [
         'column_name',
+        'qualfield',
         'column_id',
+        'pr_key',
+        'ref_tab_name',
+        'num_distinct',
+        'num_not_null',
+        'num_nulls',
+        'num_rows',
         'data_length',
         'data_precision',
         'data_scale',
         'nullable',
         'char_length',
         'column_comment',
+        'sbl_user_name',
+        'sbl_desc_text',
         'table_comment',
         'related_columns_raw',
         'related_columns',
@@ -48,6 +59,10 @@ class AnonymousSiebelColumn extends Model
 
     protected $casts = [
         'column_id' => 'integer',
+        'num_distinct' => 'integer',
+        'num_not_null' => 'integer',
+        'num_nulls' => 'integer',
+        'num_rows' => 'integer',
         'data_length' => 'integer',
         'data_precision' => 'integer',
         'data_scale' => 'integer',
@@ -100,13 +115,22 @@ class AnonymousSiebelColumn extends Model
             'table_id',
             'data_type_id',
             'column_name',
+            'qualfield',
             'column_id',
+            'pr_key',
+            'ref_tab_name',
+            'num_distinct',
+            'num_not_null',
+            'num_nulls',
+            'num_rows',
             'data_length',
             'data_precision',
             'data_scale',
             'nullable',
             'char_length',
             'column_comment',
+            'sbl_user_name',
+            'sbl_desc_text',
             'table_comment',
             'related_columns_raw',
             'related_columns',
@@ -208,6 +232,19 @@ class AnonymousSiebelColumn extends Model
             'anonymization_column_tag_column',
             'column_id',
             'tag_id'
+        )->withTimestamps();
+    }
+
+    /**
+     * The anonymization rule assigned to this column (via pivot, but enforced as one-to-one).
+     */
+    public function anonymizationRule(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationRule::class,
+            'anonymization_rule_column',
+            'column_id',
+            'rule_id'
         )->withTimestamps();
     }
 

@@ -17,11 +17,14 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Js;
 use Illuminate\Support\Str;
 use App\Constants\Fodig\Anonymizer\SiebelColumns;
 use App\Constants\Fodig\Anonymizer\SiebelMetadata;
+use App\Http\Middleware\CheckRole;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -82,53 +85,23 @@ class ImportSiebelMetadata extends Page implements HasForms
                                 ->inline(false),
                             Toggle::make('create_change_tickets')
                                 ->label('Create change tickets after import')
-                                ->helperText('When enabled, Klamm will create change tickets based on catalog differences detected by this upload.')
+                                ->helperText('When enabled, Klamm will create change tickets based on catalog differences detected by this upload. Validation warning tickets are always created when row-level CSV issues are found.')
                                 ->default(true),
+                            Toggle::make('override_anonymization_rules')
+                                ->label('Override anonymization rules from CSV')
+                                ->helperText('Admin only. When enabled, blank ANON_RULE / ANON_NOTE values clear existing anonymization required/method mappings for matched columns.')
+                                ->default(false)
+                                ->visible(fn(): bool => CheckRole::hasRole(request(), 'admin')),
                         ]),
-                    Wizard\Step::make('Partial Scope')
-                        ->disabled(fn(Get $get) => ($get('import_type') ?? 'partial') === 'full')
-                        ->columns(2)
-                        ->schema([
-                            Radio::make('partial_scope')
-                                ->label('Apply updates to')
-                                ->options([
-                                    'database' => 'Database',
-                                    'schema' => 'Schema',
-                                    'table' => 'Table',
-                                ])
-                                ->default('schema')
-                                ->inline(false),
-                            Radio::make('scope_select_mode')
-                                ->label('Scope selection')
-                                ->options([
-                                    'select' => 'Select existing',
-                                    'manual' => 'Enter manually',
-                                ])
-                                ->default('select')
-                                ->inline(false),
-                            \Filament\Forms\Components\Select::make('scope_existing')
-                                ->label('Existing name')
-                                ->options(function (Get $get) {
-                                    $scope = $get('partial_scope') ?? 'schema';
-                                    return $this->getExistingScopeOptions($scope);
-                                })
-                                ->visible(fn(Get $get) => ($get('scope_select_mode') ?? 'select') === 'select')
-                                ->searchable()
-                                ->preload(),
-                            \Filament\Forms\Components\TextInput::make('scope_manual')
-                                ->label('Manual name')
-                                ->visible(fn(Get $get) => ($get('scope_select_mode') ?? 'select') === 'manual')
-                                ->maxLength(255),
-                            \Filament\Forms\Components\Toggle::make('is_siebel_columns_format')
-                                ->label('CSV uses Siebel "Parent Table/Name" column format')
-                                ->helperText('Enable if your CSV looks like the Siebel Column export (all columns optional).')
-                                ->default(false),
-                        ]),
-                    Wizard\Step::make('Upload CSV')
+                    Wizard\Step::make('Upload File')
                         ->schema([
                             FileUpload::make('csv_file')
-                                ->label('Siebel Metadata CSV')
-                                ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv'])
+                                ->label('Siebel Metadata File')
+                                ->acceptedFileTypes([
+                                    'text/csv',
+                                    'text/plain',
+                                    'application/csv',
+                                ])
                                 ->maxSize(500 * 1024)
                                 ->storeFiles(false)
                                 ->required()
@@ -214,6 +187,7 @@ class ImportSiebelMetadata extends Page implements HasForms
                     'id' => $upload->id,
                     'original_name' => $upload->original_name ?: $upload->file_name,
                     'status' => $upload->status,
+                    'run_phase' => $upload->run_phase,
                     'status_detail' => $upload->status_detail,
                     'inserted' => $upload->inserted ?? 0,
                     'updated' => $upload->updated ?? 0,
@@ -240,13 +214,21 @@ class ImportSiebelMetadata extends Page implements HasForms
             $status = $upload['status'];
             $previousStatus = $this->notifiedStatuses[$id] ?? null;
 
-            if (in_array($status, ['completed', 'failed'], true) && $previousStatus !== $status) {
+            $isCancelled = $status === 'cancelled' || ($status === 'failed' && ($upload['run_phase'] ?? null) === 'cancelled');
+
+            if (in_array($status, ['completed', 'failed', 'cancelled'], true) && $previousStatus !== $status) {
                 $notification = Notification::make()
-                    ->title($status === 'completed' ? 'Import Completed' : 'Import Failed')
+                    ->title($isCancelled ? 'Import Cancelled' : match ($status) {
+                        'completed' => 'Import Completed',
+                        'failed' => 'Import Failed',
+                        default => 'Import Update',
+                    })
                     ->body($this->buildCompletionMessage($upload));
 
                 if ($status === 'completed') {
                     $notification->success();
+                } elseif ($isCancelled) {
+                    $notification->warning();
                 } else {
                     $notification->danger();
                 }
@@ -258,6 +240,44 @@ class ImportSiebelMetadata extends Page implements HasForms
         }
     }
 
+    public function cancelUpload(int $uploadId): void
+    {
+        $upload = AnonymousUpload::query()->find($uploadId);
+
+        if (! $upload) {
+            Notification::make()
+                ->danger()
+                ->title('Upload Not Found')
+                ->body('Could not find the selected upload.')
+                ->send();
+            return;
+        }
+
+        if (! in_array($upload->status, ['queued', 'processing'], true)) {
+            Notification::make()
+                ->warning()
+                ->title('Cannot Cancel Upload')
+                ->body('Only queued or processing uploads can be cancelled.')
+                ->send();
+            return;
+        }
+
+        $upload->update([
+            'status' => 'failed',
+            'status_detail' => 'Cancellation requested by user',
+            'run_phase' => 'cancelled',
+            'progress_updated_at' => now(),
+        ]);
+
+        $this->refreshUploads();
+
+        Notification::make()
+            ->success()
+            ->title('Cancellation Requested')
+            ->body('The upload will stop shortly.')
+            ->send();
+    }
+
     // Validate, store, and queue a background job to import the CSV.
     // If the CSV uses an alternate Siebel-column format, transform into expected CSV before storing.
     private function queueImport(array $data): void
@@ -266,11 +286,10 @@ class ImportSiebelMetadata extends Page implements HasForms
             $file = $this->resolveUploadedFile($data['csv_file'] ?? null);
             $importType = $data['import_type'] ?? 'partial';
             $createChangeTickets = (bool) ($data['create_change_tickets'] ?? true);
-            $isSiebelColumns = (bool) ($data['is_siebel_columns_format'] ?? false);
-            $scopeType = $data['partial_scope'] ?? null;
-            $scopeName = ($data['scope_select_mode'] ?? 'select') === 'select'
-                ? ($data['scope_existing'] ?? null)
-                : ($data['scope_manual'] ?? null);
+            $overrideAnonymizationRules = (bool) ($data['override_anonymization_rules'] ?? false);
+            $isSiebelColumns = false;
+            $scopeType = null;
+            $scopeName = null;
 
             $disk = config('filesystems.default', 'local');
             $directory = SiebelMetadata::IMPORT_DIRECTORY;
@@ -281,21 +300,17 @@ class ImportSiebelMetadata extends Page implements HasForms
             $header = $this->tryReadHeader($file);
             $looksSiebelColumns = $header !== null && $this->isSiebelColumnsHeader($this->normalizeHeader($header));
             if ($isSiebelColumns || $looksSiebelColumns) {
-                $transformScopeType = null;
-                $transformScopeName = null;
-                if ($importType === 'partial') {
-                    if (! $scopeName || ! in_array($scopeType, ['schema', 'database', 'table'], true)) {
-                        throw new RuntimeException('For Siebel-column CSVs, select a scope (Database/Schema/Table) and provide a name.');
-                    }
-                    $transformScopeType = $scopeType;
-                    $transformScopeName = $scopeName;
-                }
-
-                $csvTransformed = $this->transformSiebelColumnsCsv($file, $transformScopeType, $transformScopeName);
+                $csvTransformed = $this->transformSiebelColumnsCsv($file, null, null);
                 $storedPath = $directory . '/' . $filename;
-                Storage::disk($disk)->put($storedPath, $csvTransformed);
+                $stored = Storage::disk($disk)->put($storedPath, $csvTransformed);
+                if ($stored === false) {
+                    throw new RuntimeException('Unable to store transformed import file.');
+                }
             } else {
                 $storedPath = $file->storeAs($directory, $filename, $disk);
+                if (! is_string($storedPath) || $storedPath === '') {
+                    throw new RuntimeException('Unable to store uploaded import file.');
+                }
             }
 
             if (method_exists($file, 'delete')) {
@@ -309,7 +324,7 @@ class ImportSiebelMetadata extends Page implements HasForms
                 $fileSize = null;
             }
 
-            $upload = AnonymousUpload::create([
+            $uploadAttributes = [
                 'file_disk' => $disk,
                 'file_name' => $filename,
                 'path' => $storedPath,
@@ -330,7 +345,18 @@ class ImportSiebelMetadata extends Page implements HasForms
                 'processed_rows' => 0,
                 'progress_updated_at' => now(),
                 'error' => null,
-            ]);
+            ];
+
+            if (Schema::hasColumn('anonymization_uploads', 'override_anonymization_rules')) {
+                $uploadAttributes['override_anonymization_rules'] = $overrideAnonymizationRules;
+            } else {
+                Log::warning('Missing anonymization_uploads.override_anonymization_rules column; continuing upload without override flag.', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'path' => $storedPath,
+                ]);
+            }
+
+            $upload = AnonymousUpload::create($uploadAttributes);
 
             SyncAnonymousSiebelColumnsJob::dispatch($upload->id);
 
@@ -339,9 +365,11 @@ class ImportSiebelMetadata extends Page implements HasForms
             Notification::make()
                 ->success()
                 ->title('Import Queued')
-                ->body('The CSV has been queued for processing. Use refresh to monitor progress.')
+                ->body('The file has been queued for processing. Use refresh to monitor progress.')
                 ->send();
         } catch (Throwable $exception) {
+            report($exception);
+
             Notification::make()
                 ->danger()
                 ->title('Import Failed')
@@ -553,11 +581,31 @@ class ImportSiebelMetadata extends Page implements HasForms
             return $state;
         }
 
+        if ($state instanceof UploadedFile) {
+            return $state;
+        }
+
         if (is_string($state) && Str::isJson($state)) {
             $state = json_decode($state, true);
         }
 
         if (is_array($state)) {
+            if (isset($state[0]) && $state[0] instanceof TemporaryUploadedFile) {
+                return $state[0];
+            }
+
+            if (isset($state[0]) && $state[0] instanceof UploadedFile) {
+                return $state[0];
+            }
+
+            if (isset($state[0]) && is_string($state[0]) && $state[0] !== '') {
+                try {
+                    return TemporaryUploadedFile::createFromLivewire($state[0]);
+                } catch (Throwable $exception) {
+                    throw new RuntimeException('Unable to hydrate uploaded file from Livewire array payload.', 0, $exception);
+                }
+            }
+
             if (isset($state[0]) && is_array($state[0])) {
                 $state = $state[0];
             }
@@ -596,7 +644,7 @@ class ImportSiebelMetadata extends Page implements HasForms
             }
         }
 
-        throw new RuntimeException('No CSV file was provided.');
+        throw new RuntimeException('No import file was provided.');
     }
 
     // Destructive. Intended for local/dev use only. Deletes all anonymized Siebel metadata, plus any stored upload files.

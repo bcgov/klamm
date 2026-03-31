@@ -20,6 +20,11 @@ class AnonymousSiebelTableResource extends Resource
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Tables';
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -116,6 +121,7 @@ class AnonymousSiebelTableResource extends Resource
                     ->relationship('schema', 'schema_name'),
                 Tables\Filters\TrashedFilter::make(),
             ])
+
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
@@ -125,6 +131,7 @@ class AnonymousSiebelTableResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
+            ->paginated([10, 25, 50])
             ->defaultSort('table_name');
     }
 
@@ -139,7 +146,6 @@ class AnonymousSiebelTableResource extends Resource
     {
         return [
             'index' => Pages\ListAnonymousSiebelTables::route('/'),
-            'create' => Pages\CreateAnonymousSiebelTable::route('/create'),
             'view' => Pages\ViewAnonymousSiebelTable::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelTable::route('/{record}/edit'),
         ];
