@@ -18,7 +18,7 @@
         "mallardduck/blade-lucide-icons": "^1.23",
         "orangehill/iseed": "^3.0",
         "predis/predis": "^3.0",
-        "rmsramos/activitylog": "^1.0",
+        "rmsramos/activitylog": "^2.0",
         "solution-forest/filament-tree": "^2.1",
         "spatie/laravel-activitylog": "^4.10",
         "westacks/filament-monaco-editor": "^1.1"
