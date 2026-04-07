@@ -24,6 +24,7 @@ class SchemaHelper
                         ->label('Field Label')
                         ->disabled($disabled)
                         ->autocomplete(false)
+                        ->maxLength(255)
                         ->suffixAction(
                             Action::make('generate_label_text')
                                 ->icon('heroicon-o-arrow-path')
@@ -53,6 +54,7 @@ class SchemaHelper
         return TextInput::make('elementable_data.placeholder')
             ->label('Placeholder Text')
             ->autocomplete(false)
+            ->maxLength(255)
             ->disabled($disabled);
     }
 
@@ -60,6 +62,7 @@ class SchemaHelper
     {
         return TextInput::make('elementable_data.labelText')
             ->label('Field Label')
+            ->maxLength(255)
             ->suffixAction(
                 Action::make('generate_label_text')
                     ->icon('heroicon-o-arrow-path')
@@ -80,13 +83,6 @@ class SchemaHelper
             ->label('Hide Label')
             ->default(false)
             ->live()
-            ->disabled($disabled);
-    }
-
-    public static function getPlaceholderField(bool $disabled = false)
-    {
-        return TextInput::make('elementable_data.placeholder')
-            ->label('Placeholder Text')
             ->disabled($disabled);
     }
 

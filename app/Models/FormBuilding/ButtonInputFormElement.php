@@ -34,6 +34,7 @@ class ButtonInputFormElement extends Model
                 ->label('Button Text')
                 ->default('Submit')
                 ->required(true)
+                ->maxLength(255)
                 ->autocomplete(false)
                 ->disabled($disabled),
             SchemaHelper::getEnableVariableSubstitutionToggle($disabled),

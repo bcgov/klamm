@@ -48,22 +48,23 @@ class TextareaInputFormElement extends Model
                 Fieldset::make('Value')
                     ->schema([
                         SchemaHelper::getPlaceholderTextField($disabled),
-                    TextInput::make('elementable_data.rows')
-                        ->label('Number of Rows')
-                        ->numeric()
-                        ->default(3)
-                        ->disabled($disabled),
-                    TextInput::make('elementable_data.cols')
-                        ->label('Number of Columns')
-                        ->numeric()
-                        ->disabled($disabled),
-                    TextInput::make('elementable_data.maxCount')
-                        ->label('Maximum Character Count')
-                        ->numeric()
-                        ->disabled($disabled),
-                    TextInput::make('elementable_data.defaultValue')
-                        ->label('Default Value')
-                        ->disabled($disabled),
+                        TextInput::make('elementable_data.rows')
+                            ->label('Number of Rows')
+                            ->numeric()
+                            ->default(3)
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.cols')
+                            ->label('Number of Columns')
+                            ->numeric()
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.maxCount')
+                            ->label('Maximum Character Count')
+                            ->numeric()
+                            ->disabled($disabled),
+                        TextInput::make('elementable_data.defaultValue')
+                            ->label('Default Value')
+                            ->maxLength(255)
+                            ->disabled($disabled),
                     ])
                     ->columns(1),
             ]

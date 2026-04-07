@@ -50,6 +50,7 @@ class TextInputFormElement extends Model
                         SchemaHelper::getPlaceholderTextField($disabled),
                         TextInput::make('elementable_data.defaultValue')
                             ->label('Default Value')
+                            ->maxLength(255)
                             ->disabled($disabled),
                         TextInput::make('elementable_data.maxCount')
                             ->label('Maximum Character Count')
@@ -77,6 +78,7 @@ class TextInputFormElement extends Model
                         TextInput::make('elementable_data.mask')
                             ->label('Input Mask')
                             ->autocomplete(false)
+                            ->maxLength(255)
                             ->hint('Supports Maska syntax, regular expressions, or character classes like "a-zA-Z0-9"')
                             ->disabled($disabled),
                         TextInput::make('elementable_data.maskErrorMessage')

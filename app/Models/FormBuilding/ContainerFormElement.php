@@ -46,7 +46,8 @@ class ContainerFormElement extends Model
     protected static function formatInteger(string $target): Closure
     {
         return function ($state, callable $set, Get $get) use ($target) {
-            if ($state === null) return;
+            if ($state === null)
+                return;
 
             $raw = trim((string) $state);
 
@@ -101,6 +102,7 @@ class ContainerFormElement extends Model
                         ->columnSpan(2)
                         ->helperText('Label for individual repeater items (e.g., "Item", "Entry")')
                         ->disabled($disabled)
+                        ->maxLength(255)
                         ->visible(fn(callable $get) => $get('elementable_data.is_repeatable')),
                     TextInput::make('elementable_data.min_repeats')
                         ->label('Minimum Repeats')
@@ -167,7 +169,8 @@ class ContainerFormElement extends Model
                                     $set('elementable_data.legend', $name);
                                 }
                             }))
-                        ->disabled($disabled),
+                        ->disabled($disabled)
+                        ->maxLength(255),
                     SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
                 ])
                 ->columns(1),

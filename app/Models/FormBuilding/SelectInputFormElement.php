@@ -49,60 +49,62 @@ class SelectInputFormElement extends Model
                 ->columns(1),
             Fieldset::make('Values')
                 ->schema([
-                Select::make('elementable_data.defaultSelected')
-                    ->label('Default Selected Value')
-                    ->options(function (callable $get) {
-                        $options = $get('elementable_data.options') ?? [];
-                        $selectOptions = [];
-                        foreach ($options as $option) {
-                            if (!empty($option['value'])) {
-                                $selectOptions[$option['value']] = $option['label'] ?? $option['value'];
-                            }
-                        }
-                        return $selectOptions;
-                    })
-                    ->disabled($disabled),
-                Repeater::make('elementable_data.options')
-                    ->label('Options')
-                    ->schema([
-                        TextInput::make('label')
-                            ->label('Option Label')
-                            ->required()
-                            ->columnSpan(2)
-                            ->autocomplete(false)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                $value = $get('value');
-                                if (empty($value) && !empty($state)) {
-                                    $slug = \Illuminate\Support\Str::slug($state, '-');
-                                    $set('value', $slug);
+                    Select::make('elementable_data.defaultSelected')
+                        ->label('Default Selected Value')
+                        ->options(function (callable $get) {
+                            $options = $get('elementable_data.options') ?? [];
+                            $selectOptions = [];
+                            foreach ($options as $option) {
+                                if (!empty($option['value'])) {
+                                    $selectOptions[$option['value']] = $option['label'] ?? $option['value'];
                                 }
-                            }),
-                        TextInput::make('value')
-                            ->label('Option Value')
-                            ->required()
-                            ->columnSpan(2)
-                            ->suffixAction(
-                                \Filament\Forms\Components\Actions\Action::make('regenerate_value')
-                                    ->icon('heroicon-o-arrow-path')
-                                    ->tooltip('Regenerate from Option Label')
-                                    ->action(function (callable $set, callable $get) {
-                                        $label = $get('label');
-                                        if (!empty($label)) {
-                                            $slug = \Illuminate\Support\Str::slug($label, '-');
-                                            $set('value', $slug);
-                                        }
-                                    })
-                            ),
-                    ])
-                    ->columns(2)
-                    ->defaultItems(1)
-                    ->addActionLabel('Add Option')
-                    ->reorderableWithButtons()
-                    ->collapsible()
-                    ->itemLabel(fn(array $state): ?string => $state['label'] ?? 'Option')
-                    ->disabled($disabled)
-                    ->minItems(1),
+                            }
+                            return $selectOptions;
+                        })
+                        ->disabled($disabled),
+                    Repeater::make('elementable_data.options')
+                        ->label('Options')
+                        ->schema([
+                            TextInput::make('label')
+                                ->label('Option Label')
+                                ->required()
+                                ->maxLength(255)
+                                ->columnSpan(2)
+                                ->autocomplete(false)
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function (callable $set, callable $get, $state) {
+                                    $value = $get('value');
+                                    if (empty($value) && !empty($state)) {
+                                        $slug = \Illuminate\Support\Str::slug($state, '-');
+                                        $set('value', $slug);
+                                    }
+                                }),
+                            TextInput::make('value')
+                                ->label('Option Value')
+                                ->required()
+                                ->maxLength(255)
+                                ->columnSpan(2)
+                                ->suffixAction(
+                                    \Filament\Forms\Components\Actions\Action::make('regenerate_value')
+                                        ->icon('heroicon-o-arrow-path')
+                                        ->tooltip('Regenerate from Option Label')
+                                        ->action(function (callable $set, callable $get) {
+                                            $label = $get('label');
+                                            if (!empty($label)) {
+                                                $slug = \Illuminate\Support\Str::slug($label, '-');
+                                                $set('value', $slug);
+                                            }
+                                        })
+                                ),
+                        ])
+                        ->columns(2)
+                        ->defaultItems(1)
+                        ->addActionLabel('Add Option')
+                        ->reorderableWithButtons()
+                        ->collapsible()
+                        ->itemLabel(fn(array $state): ?string => $state['label'] ?? 'Option')
+                        ->disabled($disabled)
+                        ->minItems(1),
                 ])
                 ->columns(1),
         ];

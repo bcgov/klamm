@@ -89,6 +89,7 @@ class RadioInputFormElement extends Model
                             TextInput::make('label')
                                 ->label('Option Label')
                                 ->required()
+                                ->maxLength(255)
                                 ->columnSpan(2)
                                 ->autocomplete(false)
                                 ->live(onBlur: true)
@@ -102,6 +103,7 @@ class RadioInputFormElement extends Model
                             TextInput::make('value')
                                 ->label('Option Value')
                                 ->required()
+                                ->maxLength(255)
                                 ->columnSpan(2)
                                 ->suffixAction(
                                     \Filament\Forms\Components\Actions\Action::make('regenerate_value')
