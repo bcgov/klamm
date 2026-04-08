@@ -22,10 +22,7 @@ class SchemaHelper
             ->schema([
                 self::getLabelTextField($disabled, $labelRequired),
                 self::getEnableVariableSubstitutionToggle($disabled),
-                Toggle::make('elementable_data.hideLabel')
-                    ->label('Hide Label')
-                    ->default(false)
-                    ->disabled($disabled),
+                self::getHideLabelToggle($disabled),
             ])
             ->columns(1);
     }
