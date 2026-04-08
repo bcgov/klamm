@@ -157,19 +157,9 @@ class ContainerFormElement extends Model
                         ->nullable()
                         ->helperText('Optional level override for the label (e.g., h2, h3, etc.)')
                         ->disabled($disabled),
-                    TextInput::make('elementable_data.legend')
+                    SchemaHelper::getLabelTextField($disabled)
                         ->label('Legend/Title')
                         ->helperText('Optional title for the container')
-                        ->suffixAction(Action::make('generate_label_text')
-                            ->icon('heroicon-o-arrow-path')
-                            ->tooltip('Regenerate from Element Name')
-                            ->action(function (callable $set, callable $get) {
-                                $name = $get('name');
-                                if (!empty($name)) {
-                                    $set('elementable_data.legend', $name);
-                                }
-                            }))
-                        ->disabled($disabled)
                         ->maxLength(255),
                     SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
                 ])

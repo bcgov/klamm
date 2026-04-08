@@ -42,55 +42,53 @@ class TextInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return array_merge(
+        return [
             SchemaHelper::getCommonCarbonFields($disabled),
-            [
-                Fieldset::make('Value')
-                    ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled),
-                        TextInput::make('elementable_data.defaultValue')
-                            ->label('Default Value')
-                            ->maxLength(255)
-                            ->disabled($disabled),
-                        TextInput::make('elementable_data.maxCount')
-                            ->label('Maximum Character Count')
-                            ->numeric()
-                            ->disabled($disabled),
-                        ToggleButtons::make('elementable_data.maskType')
-                            ->label('Input Mask Type')
-                            ->options([
-                                'email' => 'Email',
-                                'phone' => 'Phone',
-                                'postal' => 'Postal Code',
-                                'custom' => 'Custom',
-                            ])
-                            ->inline()
-                            ->live()
-                            ->afterStateUpdated(function ($state, callable $set) {
-                                $maskPatterns = [
-                                    'email' => '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
-                                    'phone' => '### ###-####',
-                                    'postal' => '@#@ #@#',
-                                    'custom' => '',
-                                ];
-                                $set('elementable_data.mask', $maskPatterns[$state] ?? '');
-                            }),
-                        TextInput::make('elementable_data.mask')
-                            ->label('Input Mask')
-                            ->autocomplete(false)
-                            ->maxLength(255)
-                            ->hint('Supports Maska syntax, regular expressions, or character classes like "a-zA-Z0-9"')
-                            ->disabled($disabled),
-                        TextInput::make('elementable_data.maskErrorMessage')
-                            ->label('Validation Message')
-                            ->placeholder('e.g. Only letters and spaces are allowed')
-                            ->hint('Displayed when input doesn\'t match the mask')
-                            ->visible(fn($get) => $get('elementable_data.maskType') === 'custom')
-                            ->disabled($disabled),
-                    ])
-                    ->columns(1),
-            ]
-        );
+            Fieldset::make('Value')
+                ->schema([
+                    SchemaHelper::getPlaceholderTextField($disabled),
+                    TextInput::make('elementable_data.defaultValue')
+                        ->label('Default Value')
+                        ->maxLength(255)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.maxCount')
+                        ->label('Maximum Character Count')
+                        ->numeric()
+                        ->disabled($disabled),
+                    ToggleButtons::make('elementable_data.maskType')
+                        ->label('Input Mask Type')
+                        ->options([
+                            'email' => 'Email',
+                            'phone' => 'Phone',
+                            'postal' => 'Postal Code',
+                            'custom' => 'Custom',
+                        ])
+                        ->inline()
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $set) {
+                            $maskPatterns = [
+                                'email' => '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+                                'phone' => '### ###-####',
+                                'postal' => '@#@ #@#',
+                                'custom' => '',
+                            ];
+                            $set('elementable_data.mask', $maskPatterns[$state] ?? '');
+                        }),
+                    TextInput::make('elementable_data.mask')
+                        ->label('Input Mask')
+                        ->autocomplete(false)
+                        ->maxLength(255)
+                        ->hint('Supports Maska syntax, regular expressions, or character classes like "a-zA-Z0-9"')
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.maskErrorMessage')
+                        ->label('Validation Message')
+                        ->placeholder('e.g. Only letters and spaces are allowed')
+                        ->hint('Displayed when input doesn\'t match the mask')
+                        ->visible(fn($get) => $get('elementable_data.maskType') === 'custom')
+                        ->disabled($disabled),
+                ])
+                ->columns(1),
+        ];
     }
 
     /**

@@ -57,7 +57,6 @@ class RadioInputFormElement extends Model
                         ->default('right')
                         ->visible(fn(callable $get): bool => !$get('elementable_data.hideLabel'))
                         ->disabled($disabled),
-
                 ])
                 ->columns(1),
             Fieldset::make('Values')

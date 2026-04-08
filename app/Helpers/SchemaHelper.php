@@ -13,37 +13,21 @@ class SchemaHelper
      * Get the common Carbon Design System fields for form elements
      * 
      * @param bool $disabled Whether the fields should be disabled
+     * @param bool $labelRequired Whether the label text field should be required
      * @return array Array of Filament form components
      */
-    public static function getCommonCarbonFields(bool $disabled = false): array
+    public static function getCommonCarbonFields(bool $disabled = false, bool $labelRequired = false): Fieldset
     {
-        return [
-            Fieldset::make('Field Label')
-                ->schema([
-                    TextInput::make('elementable_data.labelText')
-                        ->label('Field Label')
-                        ->disabled($disabled)
-                        ->autocomplete(false)
-                        ->maxLength(255)
-                        ->suffixAction(
-                            Action::make('generate_label_text')
-                                ->icon('heroicon-o-arrow-path')
-                                ->tooltip('Regenerate from Element Name')
-                                ->action(function (callable $set, callable $get) {
-                                    $name = $get('name');
-                                    if (!empty($name)) {
-                                        $set('elementable_data.labelText', $name);
-                                    }
-                                }),
-                        ),
-                    SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
-                    Toggle::make('elementable_data.hideLabel')
-                        ->label('Hide Label')
-                        ->default(false)
-                        ->disabled($disabled),
-                ])
-                ->columns(1),
-        ];
+        return Fieldset::make('Field Label')
+            ->schema([
+                self::getLabelTextField($disabled, $labelRequired),
+                self::getEnableVariableSubstitutionToggle($disabled),
+                Toggle::make('elementable_data.hideLabel')
+                    ->label('Hide Label')
+                    ->default(false)
+                    ->disabled($disabled),
+            ])
+            ->columns(1);
     }
 
     /**
@@ -58,11 +42,13 @@ class SchemaHelper
             ->disabled($disabled);
     }
 
-    public static function getLabelTextField(bool $disabled = false)
+    public static function getLabelTextField(bool $disabled = false, bool $required = false)
     {
         return TextInput::make('elementable_data.labelText')
             ->label('Field Label')
             ->maxLength(255)
+            ->disabled($disabled)
+            ->required($required)
             ->suffixAction(
                 Action::make('generate_label_text')
                     ->icon('heroicon-o-arrow-path')
@@ -73,8 +59,7 @@ class SchemaHelper
                             $set('elementable_data.labelText', $name);
                         }
                     }),
-            )
-            ->disabled($disabled);
+            );
     }
 
     public static function getHideLabelToggle(bool $disabled = false)

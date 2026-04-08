@@ -41,13 +41,7 @@ class CheckboxGroupFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            Fieldset::make('Field Label')
-                ->schema([
-                    SchemaHelper::getLabelTextField($disabled)->required(),
-                    SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
-                    SchemaHelper::getHideLabelToggle($disabled),
-                ])
-                ->columns(1),
+            SchemaHelper::getCommonCarbonFields($disabled, true),
             Fieldset::make('Values')
                 ->schema([
                     Select::make('elementable_data.defaultSelected')
