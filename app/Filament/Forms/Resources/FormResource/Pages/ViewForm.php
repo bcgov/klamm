@@ -63,13 +63,16 @@ class ViewForm extends ViewRecord
         $actions = [];
 
         if (Gate::allows('admin') || Gate::allows('form-developer')) {
-            $actions[] = Actions\EditAction::make();
+            $actions[] = Actions\EditAction::make()
+                ->outlined()
+                ->icon('heroicon-s-pencil-square');
 
             if ($hasVersions) {
                 $actions[] = Actions\Action::make('view_latest_version')
                     ->label('View latest version')
-                    ->icon('heroicon-o-document-text')
+                    ->icon('heroicon-s-eye')
                     ->url(fn() => FormVersionResource::getUrl('view', ['record' => $latestVersion]))
+                    ->color('gray')
                     ->outlined();
 
                 $actions[] = Actions\Action::make('build_latest_version')
