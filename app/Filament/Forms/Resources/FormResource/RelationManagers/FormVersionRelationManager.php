@@ -7,15 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Forms\Resources\FormVersionResource;
-use App\Helpers\FormVersionHelper;
 use Filament\Forms\Components\DatePicker;
-use App\Models\FormBuilding\FormScript;
-use App\Models\FormBuilding\StyleSheet;
-use App\Models\FormBuilding\FormVersionFormDataSource;
-use App\Models\FormBuilding\FormElementDataBinding;
-use Illuminate\Support\Facades\Auth;
-use Filament\Tables\Actions\Action;
-use Illuminate\Support\Str;
 
 class FormVersionRelationManager extends RelationManager
 {
@@ -86,6 +78,10 @@ class FormVersionRelationManager extends RelationManager
                 Tables\Actions\EditAction::make()
                     ->url(fn(FormVersion $record) => FormVersionResource::getUrl('edit', ['record' => $record]))
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
+                Tables\Actions\Action::make('Build')
+                    ->url(fn(FormVersion $record) => FormVersionResource::getUrl('build', ['record' => $record]))
+                    ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer'))
+                    ->icon('heroicon-s-wrench-screwdriver'),
                 // Duplicate form version currently disabled due to ADO bugs 3302 and 3303
                 // Action::make('duplicate')
                 //     ->label('Duplicate')

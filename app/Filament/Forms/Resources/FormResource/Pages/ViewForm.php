@@ -71,6 +71,11 @@ class ViewForm extends ViewRecord
                     ->icon('heroicon-o-document-text')
                     ->url(fn() => FormVersionResource::getUrl('view', ['record' => $latestVersion]))
                     ->outlined();
+
+                $actions[] = Actions\Action::make('build_latest_version')
+                    ->label('Build latest version')
+                    ->icon('heroicon-s-wrench-screwdriver')
+                    ->url(fn() => FormVersionResource::getUrl('build', ['record' => $latestVersion]));
             }
         } else {
             // For regular users, show preview button if versions exist

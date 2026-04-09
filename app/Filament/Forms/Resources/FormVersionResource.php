@@ -130,8 +130,8 @@ class FormVersionResource extends Resource
                                     ->itemLabel(
                                         fn(array $state): ?string =>
                                         isset($state['form_data_source_id'])
-                                            ? FormDataSource::find($state['form_data_source_id'])?->name ?? 'New Data Source'
-                                            : 'New Data Source'
+                                        ? FormDataSource::find($state['form_data_source_id'])?->name ?? 'New Data Source'
+                                        : 'New Data Source'
                                     )
                                     ->addActionLabel('Add Data Source')
                                     ->collapsed()
@@ -315,13 +315,13 @@ class FormVersionResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('status')
-                ->options([
-                    'draft' => 'Draft',
-                    'under_review' => 'Under Review',
-                    'approved' => 'Approved',
-                    'published' => 'Published',
-                    'archived' => 'Archived',
-                ]),
+                    ->options([
+                        'draft' => 'Draft',
+                        'under_review' => 'Under Review',
+                        'approved' => 'Approved',
+                        'published' => 'Published',
+                        'archived' => 'Archived',
+                    ]),
                 TrashedFilter::make()
                     ->visible(fn() => Gate::allows('admin')),
             ])
@@ -329,10 +329,8 @@ class FormVersionResource extends Resource
                 ViewAction::make(),
                 EditAction::make()
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
-                Action::make('duplicate')
-                    ->label('Duplicate')
-                    ->icon('heroicon-o-document-duplicate')
-                    ->color('info')
+                Action::make('Build')
+                    ->url(fn(FormVersion $record) => FormVersionResource::getUrl('build', ['record' => $record]))
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer'))
                     ->icon('heroicon-s-wrench-screwdriver'),
                 // Action::make('duplicate')
@@ -455,7 +453,8 @@ class FormVersionResource extends Resource
                 25,
                 50,
                 100,
-            ]);;
+            ]);
+        ;
     }
 
     public static function getRelations(): array
