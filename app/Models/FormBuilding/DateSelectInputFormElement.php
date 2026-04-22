@@ -41,30 +41,28 @@ class DateSelectInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return array_merge(
+        return [
             SchemaHelper::getCommonCarbonFields($disabled),
-            [
-                Fieldset::make('Value')
-                    ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled),
-                        Select::make('elementable_data.dateFormat')
-                            ->label('Date Format')
-                            ->options(static::getDateFormats())
-                            ->default('YYYY-MMM-DD')
-                            ->required()
-                            ->disabled($disabled),
-                        DatePicker::make('elementable_data.minDate')
-                            ->label('Minimum Date')
-                            ->helperText('Earliest date users can select')
-                            ->disabled($disabled),
-                        DatePicker::make('elementable_data.maxDate')
-                            ->label('Maximum Date')
-                            ->helperText('Latest date users can select')
-                            ->disabled($disabled),
-                    ])
-                    ->columns(1),
-            ]
-        );
+            Fieldset::make('Value')
+                ->schema([
+                    SchemaHelper::getPlaceholderTextField($disabled),
+                    Select::make('elementable_data.dateFormat')
+                        ->label('Date Format')
+                        ->options(static::getDateFormats())
+                        ->default('YYYY-MMM-DD')
+                        ->required()
+                        ->disabled($disabled),
+                    DatePicker::make('elementable_data.minDate')
+                        ->label('Minimum Date')
+                        ->helperText('Earliest date users can select')
+                        ->disabled($disabled),
+                    DatePicker::make('elementable_data.maxDate')
+                        ->label('Maximum Date')
+                        ->helperText('Latest date users can select')
+                        ->disabled($disabled),
+                ])
+                ->columns(1),
+        ];
     }
 
     /**

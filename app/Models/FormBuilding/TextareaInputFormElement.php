@@ -42,12 +42,11 @@ class TextareaInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return array_merge(
+        return [
             SchemaHelper::getCommonCarbonFields($disabled),
-            [
-                Fieldset::make('Value')
-                    ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled),
+            Fieldset::make('Value')
+                ->schema([
+                    SchemaHelper::getPlaceholderTextField($disabled),
                     TextInput::make('elementable_data.rows')
                         ->label('Number of Rows')
                         ->numeric()
@@ -63,11 +62,11 @@ class TextareaInputFormElement extends Model
                         ->disabled($disabled),
                     TextInput::make('elementable_data.defaultValue')
                         ->label('Default Value')
+                        ->maxLength(255)
                         ->disabled($disabled),
-                    ])
-                    ->columns(1),
-            ]
-        );
+                ])
+                ->columns(1),
+        ];
     }
 
     /**
