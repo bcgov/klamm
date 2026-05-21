@@ -1166,7 +1166,8 @@ class AnonymizationJobScriptService
         foreach ($allMethods as $methodModel) {
             $requiredPackageRefs = $this->collectPackageRefsFromSqlBlock(
                 (string) ($methodModel->sql_block ?? ''),
-                $requiredPackageRefs
+                $requiredPackageRefs,
+                $rewriteContext
             );
         }
 
@@ -2588,7 +2589,7 @@ class AnonymizationJobScriptService
         }
 
         $rendered = $this->enforceDeterministicRandomUsage($rendered, $column, $rewriteContext);
-        $rendered = $this->rewriteAnonymizationPackageOwner($rendered);
+        $rendered = $this->rewriteAnonymizationPackageOwner($rendered, $rewriteContext);
 
         return $rendered;
     }
@@ -2927,7 +2928,8 @@ class AnonymizationJobScriptService
                     if ($method) {
                         $requiredPackageRefs = $this->collectPackageRefsFromSqlBlock(
                             (string) ($method->sql_block ?? ''),
-                            $requiredPackageRefs
+                            $requiredPackageRefs,
+                            $rewriteContext
                         );
                     }
 
@@ -3072,9 +3074,9 @@ class AnonymizationJobScriptService
         return $expression;
     }
 
-    protected function collectPackageRefsFromSqlBlock(string $sqlBlock, array $refs): array
+    protected function collectPackageRefsFromSqlBlock(string $sqlBlock, array $refs, array $rewriteContext = []): array
     {
-        $sqlBlock = $this->rewriteAnonymizationPackageOwner($sqlBlock);
+        $sqlBlock = $this->rewriteAnonymizationPackageOwner($sqlBlock, $rewriteContext);
 
         if (trim($sqlBlock) === '') {
             return $refs;
@@ -3174,33 +3176,41 @@ class AnonymizationJobScriptService
             return null;
         }
 
-        $preCtas = [
-            '-- Build deterministic reference map for ' . $sourceQualified . '.' . $columnName,
-            'BEGIN',
-            "  EXECUTE IMMEDIATE 'DROP TABLE {$lookupQualified} PURGE';",
-            'EXCEPTION',
-            '  WHEN OTHERS THEN',
-            '    IF SQLCODE != -942 THEN RAISE; END IF;',
-            'END;',
-            '/',
-            'CREATE TABLE ' . $lookupQualified . ' AS',
-            'SELECT DISTINCT',
-            '  TO_CHAR(' . $seedExprLookup . ') AS seed_key,',
-            '  ' . $lookupAlias . '.' . $columnName . ' AS old_value,',
-            '  ' . $lookupExpr . ' AS new_value',
-            'FROM ' . $sourceQualified . ' ' . $lookupAlias,
-            'WHERE ' . $lookupAlias . '.' . $columnName . ' IS NOT NULL;',
-            'BEGIN',
-            "  EXECUTE IMMEDIATE 'DROP INDEX {$targetSchema}.{$lookupIndexName}';",
-            'EXCEPTION',
-            '  WHEN OTHERS THEN',
-            '    IF SQLCODE != -1418 THEN RAISE; END IF;',
-            'END;',
-            '/',
-            'CREATE INDEX ' . $targetSchema . '.' . $lookupIndexName,
-            'ON ' . $lookupQualified . ' (seed_key, old_value);',
-            '',
-        ];
+        $preCtas = array_merge(
+            [
+                '-- Build deterministic reference map for ' . $sourceQualified . '.' . $columnName,
+                'BEGIN',
+                "  EXECUTE IMMEDIATE 'DROP TABLE {$lookupQualified} PURGE';",
+                'EXCEPTION',
+                '  WHEN OTHERS THEN',
+                '    IF SQLCODE != -942 THEN RAISE; END IF;',
+                'END;',
+                '/',
+            ],
+            $this->wrapDdlInExecuteImmediate([
+                'CREATE TABLE ' . $lookupQualified . ' AS',
+                'SELECT DISTINCT',
+                '  TO_CHAR(' . $seedExprLookup . ') AS seed_key,',
+                '  ' . $lookupAlias . '.' . $columnName . ' AS old_value,',
+                '  ' . $lookupExpr . ' AS new_value',
+                'FROM ' . $sourceQualified . ' ' . $lookupAlias,
+                'WHERE ' . $lookupAlias . '.' . $columnName . ' IS NOT NULL',
+            ]),
+            [
+                'BEGIN',
+                "  EXECUTE IMMEDIATE 'DROP INDEX {$targetSchema}.{$lookupIndexName}';",
+                'EXCEPTION',
+                '  WHEN OTHERS THEN',
+                '    IF SQLCODE != -1418 THEN RAISE; END IF;',
+                'END;',
+                '/',
+            ],
+            $this->wrapDdlInExecuteImmediate([
+                'CREATE INDEX ' . $targetSchema . '.' . $lookupIndexName,
+                'ON ' . $lookupQualified . ' (seed_key, old_value)',
+            ]),
+            [''],
+        );
 
         $joinClause = 'LEFT JOIN ' . $lookupQualified . ' ' . $joinAlias
             . ' ON ' . $joinAlias . '.seed_key = TO_CHAR(' . $seedExprSource . ')'
@@ -3731,17 +3741,17 @@ class AnonymizationJobScriptService
                 if (! is_string($selectList) || trim($selectList) === '') {
                     $lines[] = '-- Skipped: no non-LONG columns available for view.';
                 } elseif (trim($selectList) === '*' && (empty($longColumns))) {
-                    $lines[] = 'CREATE OR REPLACE VIEW ' . $target . ' AS';
-                    $lines[] = 'SELECT *';
-                    $fromLines = $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins);
-                    $lines = array_merge($lines, $fromLines);
-                    $lines[count($lines) - 1] .= ';';
+                    $ddlLines = array_merge(
+                        ['CREATE OR REPLACE VIEW ' . $target . ' AS', 'SELECT *'],
+                        $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                    );
+                    $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
                 } else {
-                    $lines[] = 'CREATE OR REPLACE VIEW ' . $target . ' AS';
-                    $lines[] = 'SELECT ' . $selectList;
-                    $fromLines = $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins);
-                    $lines = array_merge($lines, $fromLines);
-                    $lines[count($lines) - 1] .= ';';
+                    $ddlLines = array_merge(
+                        ['CREATE OR REPLACE VIEW ' . $target . ' AS', 'SELECT ' . $selectList],
+                        $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                    );
+                    $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
                 }
                 $lines[] = $this->commentDivider('=');
                 $lines[] = '';
@@ -3754,7 +3764,7 @@ class AnonymizationJobScriptService
                     $lines[] = '-- These methods cannot be expressed as inline SELECT expressions.';
                     $lines[] = $this->commentDivider('-');
                     foreach ($deferred as $stmt) {
-                        $lines[] = $stmt;
+                        $lines = array_merge($lines, $this->wrapDmlInBeginException($stmt));
                         $lines[] = '';
                     }
                 }
@@ -3801,17 +3811,17 @@ class AnonymizationJobScriptService
             if (! is_string($selectList) || trim($selectList) === '') {
                 $lines[] = '-- Skipped: no non-LONG columns available for CTAS.';
             } elseif (trim($selectList) === '*' && (empty($longColumns))) {
-                $lines[] = 'CREATE TABLE ' . $target . ' AS';
-                $lines[] = 'SELECT *';
-                $fromLines = $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins);
-                $lines = array_merge($lines, $fromLines);
-                $lines[count($lines) - 1] .= ';';
+                $ddlLines = array_merge(
+                    ['CREATE TABLE ' . $target . ' AS', 'SELECT *'],
+                    $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                );
+                $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
             } else {
-                $lines[] = 'CREATE TABLE ' . $target . ' AS';
-                $lines[] = 'SELECT ' . $selectList;
-                $fromLines = $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins);
-                $lines = array_merge($lines, $fromLines);
-                $lines[count($lines) - 1] .= ';';
+                $ddlLines = array_merge(
+                    ['CREATE TABLE ' . $target . ' AS', 'SELECT ' . $selectList],
+                    $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                );
+                $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
             }
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
@@ -3824,7 +3834,7 @@ class AnonymizationJobScriptService
                 $lines[] = '-- These methods cannot be expressed as inline SELECT expressions.';
                 $lines[] = $this->commentDivider('-');
                 foreach ($deferred as $stmt) {
-                    $lines[] = $stmt;
+                    $lines = array_merge($lines, $this->wrapDmlInBeginException($stmt));
                     $lines[] = '';
                 }
             }
@@ -3844,6 +3854,103 @@ class AnonymizationJobScriptService
 
             $lines[] = '       ' . trim($joinClause);
         }
+
+        return $lines;
+    }
+
+    /**
+     * Wraps DDL lines in a BEGIN / EXECUTE IMMEDIATE / EXCEPTION block that
+     * silently skips ORA-00942 (table or view does not exist), ORA-00904
+     * (invalid identifier / column not found), and ORA-00932 (inconsistent
+     * datatypes) so the script continues when the source table, a referenced
+     * column, or a type mismatch is encountered.
+     *
+     * Short statements (≤ 30,000 chars) use EXECUTE IMMEDIATE q'[...]'.
+     * Longer statements exceed the PL/SQL 32,767-byte string-literal limit
+     * (PLS-00172) and are fed to DBMS_SQL.PARSE via a VARCHAR2A array instead,
+     * which handles statements of arbitrary length. DBMS_SQL.PARSE executes DDL
+     * immediately upon parsing, so no separate EXECUTE call is needed.
+     */
+    protected function wrapDdlInExecuteImmediate(array $ddlLines): array
+    {
+        $ddlLines = array_map(function (string $line): string {
+            return rtrim(rtrim($line), ';');
+        }, $ddlLines);
+
+        $fullSql = implode("\n", $ddlLines);
+
+        if (strlen($fullSql) <= 30000) {
+            // Short path: simple EXECUTE IMMEDIATE q'[...]'
+            $lines = ['BEGIN'];
+            $lines[] = "  EXECUTE IMMEDIATE q'[";
+            foreach ($ddlLines as $line) {
+                $lines[] = $line !== '' ? ('    ' . $line) : '';
+            }
+            $lines[] = "  ]';";
+            $lines[] = 'EXCEPTION';
+            $lines[] = '  WHEN OTHERS THEN';
+            $lines[] = '    IF SQLCODE NOT IN (-942, -904, -932, -1841) THEN RAISE; END IF;';
+            $lines[] = 'END;';
+            $lines[] = '/';
+
+            return $lines;
+        }
+
+        // Long path: split the DDL across VARCHAR2A chunks and feed to DBMS_SQL.PARSE.
+        // DBMS_SQL.PARSE executes DDL immediately on parsing; no separate EXECUTE needed.
+        $lines = [
+            'DECLARE',
+            '  v_ddl_cur   INTEGER           := NULL;',
+            '  v_ddl_lines DBMS_SQL.VARCHAR2A;',
+            '  v_ddl_cnt   PLS_INTEGER        := 0;',
+            'BEGIN',
+        ];
+
+        foreach ($this->renderPlsqlExecuteChunkedStatement('v_ddl_lines', 'v_ddl_cnt', 'v_ddl_cur', $fullSql) as $inner) {
+            $lines[] = $inner;
+        }
+
+        $lines[] = 'EXCEPTION';
+        $lines[] = '  WHEN OTHERS THEN';
+        $lines[] = '    IF v_ddl_cur IS NOT NULL AND DBMS_SQL.IS_OPEN(v_ddl_cur) THEN';
+        $lines[] = '      DBMS_SQL.CLOSE_CURSOR(v_ddl_cur);';
+        $lines[] = '    END IF;';
+        $lines[] = '    IF SQLCODE NOT IN (-942, -904, -932, -1841) THEN RAISE; END IF;';
+        $lines[] = 'END;';
+        $lines[] = '/';
+
+        return $lines;
+    }
+
+    /**
+     * Wraps a DML statement (e.g. MERGE) in EXECUTE IMMEDIATE so that table
+     * names are resolved at runtime rather than at PL/SQL compile time.
+     *
+     * Static DML inside a BEGIN/END block is parsed by Oracle at compile time,
+     * meaning a missing target table causes ORA-06550 (PL/SQL compile error)
+     * before the EXCEPTION handler has any chance to fire. By moving the
+     * statement inside EXECUTE IMMEDIATE q'[...]', Oracle only resolves the
+     * table name at runtime, and ORA-00942 / ORA-00904 can be caught normally.
+     *
+     * The statement is accepted with or without a trailing semicolon; it is
+     * stripped before embedding because EXECUTE IMMEDIATE does not allow one.
+     */
+    protected function wrapDmlInBeginException(string $dmlStatement): array
+    {
+        // EXECUTE IMMEDIATE must not receive a statement with a trailing semicolon.
+        $dmlStatement = rtrim(rtrim($dmlStatement), ';');
+
+        $lines = ['BEGIN'];
+        $lines[] = "  EXECUTE IMMEDIATE q'[";
+        foreach (preg_split('/\R/', $dmlStatement) ?: [] as $line) {
+            $lines[] = '    ' . $line;
+        }
+        $lines[] = "  ]';";
+        $lines[] = 'EXCEPTION';
+        $lines[] = '  WHEN OTHERS THEN';
+        $lines[] = '    IF SQLCODE NOT IN (-942, -904, -932, -1841) THEN RAISE; END IF;';
+        $lines[] = 'END;';
+        $lines[] = '/';
 
         return $lines;
     }
@@ -4037,7 +4144,7 @@ class AnonymizationJobScriptService
 
         $lines[] = '';
         $lines[] = '  IF v_failures > 0 THEN';
-        $lines[] = "    RAISE_APPLICATION_ERROR(-20042, v_failures || ' source object(s) lack SELECT grants to ' || v_target_schema || '. Connect as " . str_replace("'", "''", $sourceSchemaSample) . " (source owner) and re-run, or ask a DBA to grant them.');";
+        $lines[] = "    DBMS_OUTPUT.PUT_LINE('Step 2: WARNING — ' || v_failures || ' source object(s) missing SELECT grants to ' || v_target_schema || '. Tables without grants will be skipped automatically during clone creation.');";
         $lines[] = '  ELSE';
         $lines[] = "    DBMS_OUTPUT.PUT_LINE('Step 2: all {$sourceCount} source object grants verified.');";
         $lines[] = '  END IF;';
@@ -4109,7 +4216,7 @@ class AnonymizationJobScriptService
             return strcmp(($a['owner'] ?? '') . '.' . ($a['package'] ?? ''), ($b['owner'] ?? '') . '.' . ($b['package'] ?? ''));
         });
 
-        $packageOwnerHint = str_replace("'", "''", $this->anonymizationPackageOwner());
+        $packageOwnerHint = str_replace("'", "''", $this->resolvePackageOwner($rewriteContext));
 
         $lines = [
             $this->commentDivider('='),
@@ -4246,6 +4353,9 @@ class AnonymizationJobScriptService
 
         foreach ($refs as $ref) {
             $owner = $this->mapAnonymizationPackageOwner((string) ($ref['owner'] ?? ''));
+            if ($owner === 'ANON_DATA') {
+                $owner = $this->resolvePackageOwner($rewriteContext);
+            }
             $packageName = strtoupper((string) ($ref['package'] ?? ''));
 
             if ($owner === '' || $packageName === '') {
@@ -4253,8 +4363,8 @@ class AnonymizationJobScriptService
             }
 
             $package = $packages->get($packageName);
-            $specSql = $this->rewriteAnonymizationPackageOwner(trim((string) ($package?->package_spec_sql ?? '')));
-            $bodySql = $this->rewriteAnonymizationPackageOwner(trim((string) ($package?->package_body_sql ?? '')));
+            $specSql = $this->rewriteAnonymizationPackageOwner(trim((string) ($package?->package_spec_sql ?? '')), $rewriteContext);
+            $bodySql = $this->rewriteAnonymizationPackageOwner(trim((string) ($package?->package_body_sql ?? '')), $rewriteContext);
 
             if ($specSql === '' || $bodySql === '') {
                 $lines[] = '-- Package bootstrap unavailable for ' . $owner . '.' . $packageName . ' (missing stored spec/body SQL).';
@@ -5068,7 +5178,7 @@ class AnonymizationJobScriptService
             $block = preg_replace('/\b' . preg_quote($tableName, '/') . '\b/', $prefixed, $block);
         }
 
-        return $this->rewriteAnonymizationPackageOwner($block);
+        return $this->rewriteAnonymizationPackageOwner($block, $rewriteContext);
     }
 
     protected function anonymizationPackageOwner(): string
@@ -5077,6 +5187,25 @@ class AnonymizationJobScriptService
         $owner = preg_replace('/[^A-Z0-9_$#]/', '', $owner) ?: '';
 
         return $owner !== '' ? $owner : 'ANON_DATA';
+    }
+
+    /**
+     * Resolve the schema that owns the anonymization packages for a given job.
+     * When the job's rewrite context carries a target_schema (the schema where
+     * anonymized table copies are created), packages belong there too.
+     * Falls back to the config-level package_owner only when no target schema
+     * is available (e.g. during offline previews without a job context).
+     */
+    protected function resolvePackageOwner(array $rewriteContext = []): string
+    {
+        $targetSchema = strtoupper(trim((string) ($rewriteContext['target_schema'] ?? '')));
+        $targetSchema = preg_replace('/[^A-Z0-9_$#]/', '', $targetSchema) ?: '';
+
+        if ($targetSchema !== '') {
+            return $targetSchema;
+        }
+
+        return $this->anonymizationPackageOwner();
     }
 
     protected function mapAnonymizationPackageOwner(string $owner): string
@@ -5090,9 +5219,9 @@ class AnonymizationJobScriptService
         return $owner;
     }
 
-    protected function rewriteAnonymizationPackageOwner(string $sql): string
+    protected function rewriteAnonymizationPackageOwner(string $sql, array $rewriteContext = []): string
     {
-        $owner = $this->anonymizationPackageOwner();
+        $owner = $this->resolvePackageOwner($rewriteContext);
         if ($owner === 'ANON_DATA' || trim($sql) === '') {
             return $sql;
         }
@@ -5259,19 +5388,22 @@ class AnonymizationJobScriptService
                 $lines[] = 'END;';
                 $lines[] = '/';
 
-                $lines[] = 'MERGE INTO ' . $seedMapTable . ' sm';
-                $lines[] = 'USING (';
-                $lines[] = '  SELECT DISTINCT';
-                $lines[] = '    ' . $sourceAlias . '.' . $providerColumn . ' AS old_value,';
-                $lines[] = '    ' . $seedExpr . ' AS new_value';
-                $lines[] = '  FROM ' . $providerTable . ' ' . $sourceAlias;
-                $lines[] = '  WHERE ' . $sourceAlias . '.' . $providerColumn . ' IS NOT NULL';
-                $lines[] = ') src';
-                $lines[] = 'ON (sm.old_value = src.old_value)';
-                $lines[] = 'WHEN MATCHED THEN';
-                $lines[] = '  UPDATE SET sm.new_value = src.new_value';
-                $lines[] = 'WHEN NOT MATCHED THEN';
-                $lines[] = '  INSERT (old_value, new_value) VALUES (src.old_value, src.new_value);';
+                // MERGE wrapped so a missing source table (ORA-00942) or column (ORA-00904)
+                // is skipped with a warning rather than aborting the entire script.
+                $mergeSql = 'MERGE INTO ' . $seedMapTable . ' sm' . PHP_EOL
+                    . 'USING (' . PHP_EOL
+                    . '  SELECT DISTINCT' . PHP_EOL
+                    . '    ' . $sourceAlias . '.' . $providerColumn . ' AS old_value,' . PHP_EOL
+                    . '    ' . $seedExpr . ' AS new_value' . PHP_EOL
+                    . '  FROM ' . $providerTable . ' ' . $sourceAlias . PHP_EOL
+                    . '  WHERE ' . $sourceAlias . '.' . $providerColumn . ' IS NOT NULL' . PHP_EOL
+                    . ') src' . PHP_EOL
+                    . 'ON (sm.old_value = src.old_value)' . PHP_EOL
+                    . 'WHEN MATCHED THEN' . PHP_EOL
+                    . '  UPDATE SET sm.new_value = src.new_value' . PHP_EOL
+                    . 'WHEN NOT MATCHED THEN' . PHP_EOL
+                    . '  INSERT (old_value, new_value) VALUES (src.old_value, src.new_value);';
+                $lines = array_merge($lines, $this->wrapDmlInBeginException($mergeSql));
                 $lines[] = '';
             } else {
                 $lines[] = 'BEGIN';
@@ -5281,12 +5413,23 @@ class AnonymizationJobScriptService
                 $lines[] = '    IF SQLCODE NOT IN (-942, -12083) THEN RAISE; END IF;';
                 $lines[] = 'END;';
                 $lines[] = '/';
-                $lines[] = 'CREATE TABLE ' . $seedMapTable . ' AS';
-                $lines[] = 'SELECT';
-                $lines[] = '  ' . $sourceAlias . '.' . $providerColumn . ' AS old_value,';
-                $lines[] = '  ' . $seedExpr . ' AS new_value';
-                $lines[] = 'FROM ' . $providerTable . ' ' . $sourceAlias;
-                $lines[] = 'WHERE ' . $sourceAlias . '.' . $providerColumn . ' IS NOT NULL;';
+
+                // CREATE TABLE AS SELECT wrapped so a missing source table (ORA-00942)
+                // or missing column (ORA-00904) is skipped with a warning.
+                $ctasLines = [
+                    'CREATE TABLE ' . $seedMapTable . ' AS',
+                    'SELECT',
+                    '  ' . $sourceAlias . '.' . $providerColumn . ' AS old_value,',
+                    '  ' . $seedExpr . ' AS new_value',
+                    'FROM ' . $providerTable . ' ' . $sourceAlias,
+                    'WHERE ' . $sourceAlias . '.' . $providerColumn . ' IS NOT NULL',
+                ];
+                $wrapped = $this->wrapDdlInExecuteImmediate($ctasLines);
+                // Inject a DBMS_OUTPUT warning line before the END so the skip is visible in output.
+                array_splice($wrapped, -2, 0, [
+                    "    DBMS_OUTPUT.PUT_LINE('WARNING: Seed map skipped for {$seedMapTable} — source table/column not found (ORA' || TO_CHAR(SQLCODE) || ')');",
+                ]);
+                $lines = array_merge($lines, $wrapped);
                 $lines[] = '';
             }
         }
