@@ -474,18 +474,25 @@ class FormResource extends Resource
                 Tables\Columns\TextColumn::make('decommissioned')
                     ->label('Status')
                     ->badge()
+                    ->sortable()
+                    ->searchable()
                     ->formatStateUsing(fn(bool $state): string => $state ? 'Inactive' : 'Active')
                     ->color(fn(bool $state): string => $state ? 'danger' : 'success'),
                 Tables\Columns\TextColumn::make('ministry.short_name')
                     ->searchable()
                     ->sortable()
+                    ->toggleable()
                     ->label('Ministry'),
                 Tables\Columns\TextColumn::make('businessAreas.name')
+                    ->label('Business Areas')
                     ->badge()
-                    ->label('Business Areas'),
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('form_purpose')
                     ->searchable()
                     ->limit(30)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->tooltip(function ($record): ?string {
                         $form_purpose = optional($record)->form_purpose ?? '';
                         return Str::length($form_purpose) > 30
@@ -494,8 +501,7 @@ class FormResource extends Resource
                     }),
                 Tables\Columns\TextColumn::make('notes')
                     ->searchable()
-                    ->toggleable()
-                    ->toggledHiddenByDefault(true)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->limit(30)
                     ->tooltip(function ($record): ?string {
                         $notes = optional($record)->notes ?? '';
@@ -504,31 +510,43 @@ class FormResource extends Resource
                             : null;
                     }),
                 Tables\Columns\TextColumn::make('formFrequency.name')
-                    ->label('Usage Frequency'),
+                    ->label('Usage Frequency')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('formReach.name')
-                    ->label('Audience Size'),
+                    ->label('Audience Size')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('icm_generated')
+                    ->label('ICM Generated')
                     ->badge()
                     ->formatStateUsing(fn($state) => $state ? 'Yes' : 'No')
                     ->color(fn($state) => $state ? 'success' : 'danger')
-                    ->label('ICM Generated'),
-                Tables\Columns\TextColumn::make('formSoftwareSources.name')
-                    ->badge()
-                    ->label('Software Sources'),
-                Tables\Columns\TextColumn::make('formLocations.name')
-                    ->badge()
-                    ->label('Published Locations'),
-                Tables\Columns\TextColumn::make('formTags.name')
-                    ->badge()
-                    ->label('Tags'),
-                Tables\Columns\TextColumn::make('dcv_material_number')
-                    ->searchable()
                     ->toggleable()
-                    ->toggledHiddenByDefault(true)
-                    ->label('DCV Material Number'),
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('formSoftwareSources.name')
+                    ->label('Software Sources')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('formLocations.name')
+                    ->label('Published Locations')
+                    ->badge()
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('formTags.name')
+                    ->label('Tags')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('dcv_material_number')
+                    ->label('DCV Material Number')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('migration2025_status')
                     ->label('Migration 2025 Status')
                     ->badge()
+                    ->toggleable()
+                    ->sortable()
+                    ->searchable()
                     ->getStateUsing(fn($record) => $record->migration2025_status)
                     ->color(function ($state) {
                         return match ($state) {
