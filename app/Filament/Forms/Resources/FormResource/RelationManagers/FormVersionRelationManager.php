@@ -30,7 +30,10 @@ class FormVersionRelationManager extends RelationManager
                     ->sortable(),
                 Tables\Columns\TextColumn::make('formatted_status')
                     ->label('Status')
-                    ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
+                    ->badge()
+                    ->color(fn($state) => FormVersion::getStatusColour($state))
+                    ->getStateUsing(fn($record) => $record->getFormattedStatusName())
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('formDeveloper.name')
                     ->label('Developer')
                     ->sortable(),
