@@ -2,19 +2,28 @@
 
 namespace App\Filament\Fodig\Resources;
 
+use App\Filament\Exports\AnonymousSiebelColumnExporter;
+use App\Filament\Exports\AnonymousSiebelColumnLegacyExporter;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\Pages;
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource\RelationManagers;
 use App\Filament\Fodig\RelationManagers\ActivityLogRelationManager;
+use App\Jobs\PrepareCsvExportWithProgress;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Models\Anonymizer\AnonymizationColumnTag;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
+use Filament\Actions\Exports\Enums\ExportFormat;
+use Filament\Actions\Exports\Models\Export;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\ExportAction;
+use Filament\Tables\Actions\ExportBulkAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -28,6 +37,11 @@ class AnonymousSiebelColumnResource extends Resource
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Columns';
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -35,8 +49,11 @@ class AnonymousSiebelColumnResource extends Resource
                 SoftDeletingScope::class,
             ])
             ->with([
+                'table.schema.database',
+                'dataType',
                 'tags',
                 'anonymizationMethods',
+                'anonymizationRule.methods',
             ]);
     }
 
@@ -46,6 +63,22 @@ class AnonymousSiebelColumnResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Details')
                     ->schema([
+                        Forms\Components\Placeholder::make('database_display')
+                            ->label('Database')
+                            ->content(function (Get $get, ?AnonymousSiebelColumn $record): string {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId
+                                        ? AnonymousSiebelTable::query()->withTrashed()->with('schema.database')->find($tableId)
+                                        : null;
+                                } else {
+                                    $table->loadMissing('schema.database');
+                                }
+
+                                return $table?->schema?->database?->database_name ?: '—';
+                            }),
                         Forms\Components\Placeholder::make('schema_display')
                             ->label('Schema')
                             ->content(function (Get $get, ?AnonymousSiebelColumn $record): string {
@@ -62,6 +95,20 @@ class AnonymousSiebelColumnResource extends Resource
 
                                 return $table?->schema?->schema_name ?: '—';
                             }),
+                        Forms\Components\Placeholder::make('table_display')
+                            ->label('Table')
+                            ->content(function (Get $get, ?AnonymousSiebelColumn $record): string {
+                                $table = $record?->getRelationValue('table');
+
+                                if (! $table) {
+                                    $tableId = $get('table_id');
+                                    $table = $tableId
+                                        ? AnonymousSiebelTable::query()->withTrashed()->find($tableId)
+                                        : null;
+                                }
+
+                                return $table?->table_name ?: '—';
+                            }),
                         Forms\Components\Select::make('table_id')
                             ->label('Table')
                             ->relationship('table', 'table_name')
@@ -69,13 +116,18 @@ class AnonymousSiebelColumnResource extends Resource
                             ->live()
                             ->preload()
                             ->required()
+                            ->hiddenOn('view')
                             ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\Placeholder::make('data_type_display')
+                            ->label('Data type')
+                            ->content(fn(?AnonymousSiebelColumn $record): string => $record?->dataType?->data_type_name ?: '—'),
                         Forms\Components\Select::make('data_type_id')
                             ->label('Data type')
                             ->relationship('dataType', 'data_type_name')
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->hiddenOn('view')
                             ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                         Forms\Components\TextInput::make('column_name')
                             ->required()
@@ -89,6 +141,43 @@ class AnonymousSiebelColumnResource extends Resource
                             ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
                     ])
                     ->columns(2),
+                Forms\Components\Section::make('Imported source metadata')
+                    ->schema([
+                        Forms\Components\TextInput::make('qualfield')
+                            ->label('QUALFIELD')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('pr_key')
+                            ->label('PR_KEY')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('ref_tab_name')
+                            ->label('REF_TAB_NAME')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_distinct')
+                            ->label('NUM_DISTINCT')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_not_null')
+                            ->label('NUM_NOT_NULL')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_nulls')
+                            ->label('NUM_NULLS')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('num_rows')
+                            ->label('NUM_ROWS')
+                            ->numeric()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\TextInput::make('sbl_user_name')
+                            ->label('SBL_USER_NAME')
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                        Forms\Components\Textarea::make('sbl_desc_text')
+                            ->label('SBL_DESC_TEXT')
+                            ->rows(3)
+                            ->columnSpanFull()
+                            ->disabled(fn(?AnonymousSiebelColumn $record) => (bool) $record?->exists),
+                    ])
+                    ->columns(3),
                 Forms\Components\Section::make('Dimensions')
                     ->schema([
                         Forms\Components\TextInput::make('data_length')
@@ -262,54 +351,106 @@ class AnonymousSiebelColumnResource extends Resource
                             ->dehydrateStateUsing(fn($state): bool => (bool) ($state ?? false)),
                         Forms\Components\Toggle::make('anonymization_required')
                             ->label('Anonymization required'),
-                        Forms\Components\Select::make('anonymizationMethods')
-                            ->label('Anonymization methods')
-                            ->relationship('anonymizationMethods', 'name', fn(Builder $query) => $query
-                                ->select([
-                                    'anonymization_methods.id',
-                                    'anonymization_methods.name',
-                                    'anonymization_methods.category',
-                                ])
-                                ->orderBy('anonymization_methods.name'))
-                            ->multiple()
-                            ->searchable()
-                            ->getOptionLabelFromRecordUsing(function (AnonymizationMethods $record): string {
-                                $summary = $record->categorySummary();
+                        // Forms\Components\Select::make('anonymizationMethods')
+                        //     ->label('Anonymization methods')
+                        //     ->relationship('anonymizationMethods', 'name', fn(Builder $query) => $query
+                        //         ->select([
+                        //             'anonymization_methods.id',
+                        //             'anonymization_methods.name',
+                        //             'anonymization_methods.category',
+                        //         ])
+                        //         ->orderBy('anonymization_methods.name'))
+                        //     ->multiple()
+                        //     ->searchable()
+                        //     ->getOptionLabelFromRecordUsing(function (AnonymizationMethods $record): string {
+                        //         $summary = $record->categorySummary();
 
-                                return $summary
-                                    ? ($record->name . ' — ' . $summary)
-                                    : $record->name;
-                            })
-                            ->preload()
-                            ->nullable()
-                            ->columnSpanFull(),
+                        //         return $summary
+                        //             ? ($record->name . ' — ' . $summary)
+                        //             : $record->name;
+                        //     })
+                        //     ->preload()
+                        //     ->nullable()
+                        //     ->columnSpanFull(),
 
                         Forms\Components\Placeholder::make('anonymization_method_links')
-                            ->label('Review methods')
+                            ->label('Methods (via rule)')
                             ->content(function (?AnonymousSiebelColumn $record): HtmlString {
                                 if (! $record) {
                                     return new HtmlString('—');
                                 }
 
-                                $methods = $record->getRelationValue('anonymizationMethods')
-                                    ?? $record->anonymizationMethods()->get(['anonymization_methods.id', 'anonymization_methods.name']);
+                                $rule = $record->anonymizationRule()->with('methods')->first();
 
-                                if (! $methods || $methods->isEmpty()) {
-                                    return new HtmlString('—');
+                                if (! $rule) {
+                                    return new HtmlString('<span class="text-gray-400">No rule assigned</span>');
+                                }
+
+                                $methods = $rule->methods;
+
+                                if ($methods->isEmpty()) {
+                                    return new HtmlString('<span class="text-gray-400">Rule has no methods</span>');
                                 }
 
                                 $links = $methods
-                                    ->sortBy('name')
+                                    ->sortByDesc('pivot.is_default')
                                     ->map(function (AnonymizationMethods $method): string {
                                         $url = AnonymizationMethodResource::getUrl('view', ['record' => $method->getKey()]);
                                         $name = e((string) $method->name);
+                                        $suffix = $method->pivot->is_default ? ' <span class="text-xs text-gray-500">(default)</span>' : '';
+                                        $strategyBadge = $method->pivot->strategy
+                                            ? ' <span class="text-xs text-gray-400">[' . e($method->pivot->strategy) . ']</span>'
+                                            : '';
 
-                                        return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>";
+                                        return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>{$suffix}{$strategyBadge}";
                                     })
                                     ->values()
                                     ->all();
 
                                 return new HtmlString(implode(', ', $links));
+                            })
+                            ->columnSpanFull()
+                            ->visibleOn(['view', 'edit']),
+
+                        Forms\Components\Select::make('anonymization_rule_id')
+                            ->label('Anonymization rule')
+                            ->options(fn() => AnonymizationRule::orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            ->columnSpanFull()
+                            ->helperText('Assign a rule to this column. Rules group anonymization methods and strategies for job composition.')
+                            ->afterStateHydrated(function (Forms\Components\Select $component, ?AnonymousSiebelColumn $record): void {
+                                if ($record) {
+                                    $rule = $record->anonymizationRule()->first();
+                                    $component->state($rule?->id);
+                                }
+                            })
+                            ->dehydrated(false)
+                            ->afterStateUpdated(function ($state, ?AnonymousSiebelColumn $record): void {
+                                // State saved via saveRelationshipsUsing below
+                            })
+                            ->saveRelationshipsUsing(function (AnonymousSiebelColumn $record, $state): void {
+                                if ($state) {
+                                    $record->anonymizationRule()->sync([$state]);
+                                } else {
+                                    $record->anonymizationRule()->detach();
+                                }
+                            }),
+
+                        Forms\Components\Placeholder::make('anonymization_rule_link')
+                            ->label('View rule')
+                            ->content(function (?AnonymousSiebelColumn $record): HtmlString {
+                                if (! $record) {
+                                    return new HtmlString('—');
+                                }
+                                $rules = $record->anonymizationRule;
+                                if ($rules->isEmpty()) {
+                                    return new HtmlString('—');
+                                }
+                                $rule = $rules->first();
+                                $url = AnonymizationRuleResource::getUrl('view', ['record' => $rule->getKey()]);
+                                return new HtmlString('<a href="' . $url . '" class="text-primary-600 hover:underline">' . e($rule->name) . '</a>');
                             })
                             ->columnSpanFull()
                             ->visibleOn(['view', 'edit']),
@@ -357,6 +498,11 @@ class AnonymousSiebelColumnResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('table.schema.database.database_name')
+                    ->label('Database')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('column_name')
                     ->label('Column')
                     ->sortable()
@@ -373,18 +519,75 @@ class AnonymousSiebelColumnResource extends Resource
                     ->label('Data type')
                     ->sortable()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('qualfield')
+                    ->label('QUALFIELD')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('column_id')
+                    ->label('COLUMN_ID')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('pr_key')
+                    ->label('PR_KEY')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('ref_tab_name')
+                    ->label('REF_TAB_NAME')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_distinct')
+                    ->label('NUM_DISTINCT')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_not_null')
+                    ->label('NUM_NOT_NULL')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_nulls')
+                    ->label('NUM_NULLS')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('num_rows')
+                    ->label('NUM_ROWS')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('anonymizationMethods.name')
                     ->label('Anonymization methods')
                     ->html()
                     ->getStateUsing(function (AnonymousSiebelColumn $record): string {
-                        $methods = $record->getRelationValue('anonymizationMethods')
+                        // Derive methods from the assigned rule
+                        $rules = $record->getRelationValue('anonymizationRule');
+                        $rule = $rules instanceof \Illuminate\Database\Eloquent\Collection ? $rules->first() : $rules;
+
+                        if ($rule) {
+                            $methods = $rule->getRelationValue('methods') ?? $rule->methods()->get();
+
+                            if ($methods->isNotEmpty()) {
+                                return $methods
+                                    ->sortByDesc('pivot.is_default')
+                                    ->map(function (AnonymizationMethods $method): string {
+                                        $url = AnonymizationMethodResource::getUrl('view', ['record' => $method->getKey()]);
+                                        $name = e((string) $method->name);
+                                        $badges = '';
+                                        if ($method->pivot->is_default) {
+                                            $badges .= ' <span class="text-xs text-gray-500">(default)</span>';
+                                        }
+                                        if ($method->pivot->strategy) {
+                                            $badges .= ' <span class="text-xs text-gray-400">[' . e($method->pivot->strategy) . ']</span>';
+                                        }
+
+                                        return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>{$badges}";
+                                    })
+                                    ->implode(', ');
+                            }
+                        }
+
+                        // Legacy fallback: direct method associations
+                        $directMethods = $record->getRelationValue('anonymizationMethods')
                             ?? $record->anonymizationMethods()->get(['anonymization_methods.id', 'anonymization_methods.name']);
 
-                        if (! $methods || $methods->isEmpty()) {
+                        if (! $directMethods || $directMethods->isEmpty()) {
                             return '—';
                         }
 
-                        return $methods
+                        return $directMethods
                             ->sortBy('name')
                             ->map(function (AnonymizationMethods $method): string {
                                 $url = AnonymizationMethodResource::getUrl('view', ['record' => $method->getKey()]);
@@ -392,7 +595,21 @@ class AnonymousSiebelColumnResource extends Resource
 
                                 return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>";
                             })
-                            ->implode(', ');
+                            ->implode(', ') . ' <span class="text-xs text-warning-500">(legacy)</span>';
+                    })
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('anonymizationRule.name')
+                    ->label('Rule')
+                    ->html()
+                    ->getStateUsing(function (AnonymousSiebelColumn $record): string {
+                        $rules = $record->getRelationValue('anonymizationRule');
+                        if (! $rules || $rules->isEmpty()) {
+                            return '—';
+                        }
+                        $rule = $rules->first();
+                        $url = AnonymizationRuleResource::getUrl('view', ['record' => $rule->getKey()]);
+                        $name = e((string) $rule->name);
+                        return "<a href=\"{$url}\" class=\"text-primary-600 hover:underline\">{$name}</a>";
                     })
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('tags')
@@ -527,6 +744,30 @@ class AnonymousSiebelColumnResource extends Resource
                 Tables\Columns\TextColumn::make('data_length')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('data_precision')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('data_scale')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('char_length')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('sbl_user_name')
+                    ->label('SBL_USER_NAME')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('sbl_desc_text')
+                    ->label('SBL_DESC_TEXT')
+                    ->limit(80)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('column_comment')
+                    ->label('COMMENTS')
+                    ->limit(80)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('table_comment')
+                    ->label('TABLE_COMMENT')
+                    ->limit(80)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('last_synced_at')
                     ->dateTime()
                     ->sortable(),
@@ -558,7 +799,8 @@ class AnonymousSiebelColumnResource extends Resource
                     ->searchable()
                     ->preload()
                     ->options(fn(): array => [
-                        '__any__' => 'Any method (not null)',
+                        '__any__' => 'Any method (via rule)',
+                        '__any_legacy__' => 'Any method (legacy/direct)',
                     ] + AnonymizationMethods::query()
                         ->select(['anonymization_methods.id', 'anonymization_methods.name'])
                         ->orderBy('anonymization_methods.name')
@@ -577,19 +819,30 @@ class AnonymousSiebelColumnResource extends Resource
                         }
 
                         $hasAny = in_array('__any__', $values, true);
-                        $methodIds = array_values(array_filter($values, fn($v) => $v !== '__any__'));
+                        $hasAnyLegacy = in_array('__any_legacy__', $values, true);
+                        $methodIds = array_values(array_filter($values, fn($v) => $v !== '__any__' && $v !== '__any_legacy__'));
 
-                        if ($hasAny && $methodIds === []) {
-                            return $query->whereHas('anonymizationMethods');
-                        }
+                        return $query->where(function (Builder $q) use ($hasAny, $hasAnyLegacy, $methodIds) {
+                            // Filter through rules (primary path)
+                            if ($hasAny) {
+                                $q->orWhereHas('anonymizationRule', function (Builder $rq) {
+                                    $rq->whereHas('methods');
+                                });
+                            }
 
-                        if ($methodIds !== []) {
-                            return $query->whereHas('anonymizationMethods', function (Builder $methodQuery) use ($methodIds) {
-                                $methodQuery->whereIn('anonymization_methods.id', $methodIds);
-                            });
-                        }
+                            if ($methodIds !== []) {
+                                $q->orWhereHas('anonymizationRule', function (Builder $rq) use ($methodIds) {
+                                    $rq->whereHas('methods', function (Builder $mq) use ($methodIds) {
+                                        $mq->whereIn('anonymization_methods.id', $methodIds);
+                                    });
+                                });
+                            }
 
-                        return $query;
+                            // Legacy direct method associations
+                            if ($hasAnyLegacy) {
+                                $q->orWhereHas('anonymizationMethods');
+                            }
+                        });
                     }),
                 Tables\Filters\SelectFilter::make('anonymization_method_categories')
                     ->label('Method category')
@@ -605,22 +858,77 @@ class AnonymousSiebelColumnResource extends Resource
                             return $query;
                         }
 
-                        return $query->whereHas('anonymizationMethods', function (Builder $methodQuery) use ($values) {
-                            $methodQuery->where(function (Builder $builder) use ($values) {
-                                foreach ($values as $category) {
-                                    if (! is_string($category) || trim($category) === '') {
-                                        continue;
+                        return $query->where(function (Builder $q) use ($values) {
+                            // Primary path: through rules
+                            $q->whereHas('anonymizationRule', function (Builder $rq) use ($values) {
+                                $rq->whereHas('methods', function (Builder $mq) use ($values) {
+                                    $mq->where(function (Builder $builder) use ($values) {
+                                        foreach ($values as $category) {
+                                            if (! is_string($category) || trim($category) === '') {
+                                                continue;
+                                            }
+
+                                            $category = trim($category);
+
+                                            $builder
+                                                ->orWhereJsonContains('anonymization_methods.categories', $category)
+                                                ->orWhere('anonymization_methods.category', $category);
+                                        }
+                                    });
+                                });
+                            });
+
+                            // Legacy fallback: direct method associations
+                            $q->orWhereHas('anonymizationMethods', function (Builder $methodQuery) use ($values) {
+                                $methodQuery->where(function (Builder $builder) use ($values) {
+                                    foreach ($values as $category) {
+                                        if (! is_string($category) || trim($category) === '') {
+                                            continue;
+                                        }
+
+                                        $category = trim($category);
+
+                                        $builder
+                                            ->orWhereJsonContains('anonymization_methods.categories', $category)
+                                            ->orWhere('anonymization_methods.category', $category);
                                     }
-
-                                    $category = trim($category);
-
-                                    $builder
-                                        ->orWhereJsonContains('anonymization_methods.categories', $category)
-                                        ->orWhere('anonymization_methods.category', $category);
-                                }
+                                });
                             });
                         });
                     }),
+
+                Tables\Filters\SelectFilter::make('anonymization_rule')
+                    ->label('Anonymization rule')
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->options(fn(): array => AnonymizationRule::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->query(function (Builder $query, array $data) {
+                        $values = $data['values'] ?? null;
+
+                        if (! is_array($values) || $values === []) {
+                            return $query;
+                        }
+
+                        $values = array_values(array_filter($values, fn($v) => $v !== null && trim((string) $v) !== ''));
+                        if ($values === []) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('anonymizationRule', function (Builder $rq) use ($values) {
+                            $rq->whereIn('anonymization_rules.id', $values);
+                        });
+                    }),
+                Tables\Filters\TernaryFilter::make('has_rule')
+                    ->label('Has anonymization rule')
+                    ->nullable()
+                    ->queries(
+                        true: fn(Builder $query) => $query->whereHas('anonymizationRule'),
+                        false: fn(Builder $query) => $query->whereDoesntHave('anonymizationRule'),
+                    ),
 
                 Tables\Filters\SelectFilter::make('tags')
                     ->label('Tags')
@@ -668,13 +976,46 @@ class AnonymousSiebelColumnResource extends Resource
                     ),
                 Tables\Filters\TrashedFilter::make(),
             ])
+            ->paginated([10, 25, 50])
             ->persistFiltersInSession()
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
+            ->headerActions([
+                ActionGroup::make([
+                    ExportAction::make('export_temp_format')
+                        ->label('Export currently filtered set')
+                        ->exporter(AnonymousSiebelColumnExporter::class)
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
+                        ->fileName(fn(Export $export): string => "Siebel-Columns-{$export->getKey()}"),
+                    ExportAction::make('export_legacy_format')
+                        ->label('Export Legacy Format')
+                        ->hidden(true) // hide from actions, but keep functionality during development
+                        ->exporter(AnonymousSiebelColumnLegacyExporter::class)
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
+                        ->fileName(fn(Export $export): string => "Siebel-Columns-Legacy-{$export->getKey()}"),
+                ])
+                    ->button()
+                    ->label('Export')
+                    ->icon('heroicon-m-arrow-down-tray')
+                    ->color('primary'),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    ExportBulkAction::make('export_selected_temp_format')
+                        ->label('Export selected')
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->exporter(AnonymousSiebelColumnExporter::class),
+                    ExportBulkAction::make('export_selected_legacy_format')
+                        ->label('Export selected (Legacy)')
+                        ->formats([ExportFormat::Csv, ExportFormat::Xlsx])
+                        ->hidden(true)
+                        ->job(PrepareCsvExportWithProgress::class)
+                        ->exporter(AnonymousSiebelColumnLegacyExporter::class),
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
@@ -694,7 +1035,6 @@ class AnonymousSiebelColumnResource extends Resource
     {
         return [
             'index' => Pages\ListAnonymousSiebelColumns::route('/'),
-            'create' => Pages\CreateAnonymousSiebelColumn::route('/create'),
             'view' => Pages\ViewAnonymousSiebelColumn::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelColumn::route('/{record}/edit'),
         ];

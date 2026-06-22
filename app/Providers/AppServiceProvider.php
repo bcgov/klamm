@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
-use App\Models\FormBuilding\FormVersion;
-use App\Observers\FormVersionObserver;
+use App\Observers\ExportObserver;
+use Filament\Actions\Exports\Models\Export;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -55,5 +55,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('form-developer', function (User $user) {
             return $user->hasRole('form-developer');
         });
+
+        Export::observe(ExportObserver::class);
     }
 }

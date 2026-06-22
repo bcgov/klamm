@@ -59,6 +59,10 @@ class GenerateAnonymizationJobSql implements ShouldQueue
 
     public function handle(AnonymizationJobScriptService $scriptService): void
     {
+        // Large schema jobs hydrate thousands of Eloquent models with eager-loaded
+        // relationships; 1 GB is not enough for full-scope jobs (5 000+ columns).
+        ini_set('memory_limit', '2G');
+
         // @var AnonymizationJobs|null $job
         $job = AnonymizationJobs::query()->find($this->jobId);
 
@@ -87,7 +91,18 @@ class GenerateAnonymizationJobSql implements ShouldQueue
             ->all()
             : DB::query()
             ->fromSub($this->scopedCatalogColumnsQuery($this->jobId), 'sc')
-            ->join('anonymization_method_column as amc', 'amc.column_id', '=', 'sc.id')
+            ->where(function ($q) {
+                $q->whereExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('anonymization_method_column as amc')
+                        ->whereColumn('amc.column_id', 'sc.id');
+                })
+                    ->orWhereExists(function ($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('anonymization_rule_column as arc')
+                            ->whereColumn('arc.column_id', 'sc.id');
+                    });
+            })
             ->distinct()
             ->orderBy('sc.id')
             ->pluck('sc.id')
@@ -358,6 +373,7 @@ class GenerateAnonymizationJobSql implements ShouldQueue
         $idsByEnumValue = [];
 
         foreach (array_chunk($columnIds, self::WHERE_IN_CHUNK_SIZE) as $chunk) {
+            // Check methods from direct column associations
             $rows = DB::table('anonymization_method_column as amc')
                 ->join('anonymization_methods as m', 'm.id', '=', 'amc.method_id')
                 ->whereIn('amc.column_id', $chunk)
@@ -369,7 +385,33 @@ class GenerateAnonymizationJobSql implements ShouldQueue
                 ])
                 ->get();
 
-            foreach ($rows as $row) {
+            // Also check methods from rule associations
+            $ruleRows = DB::table('anonymization_rule_column as arc')
+                ->join('anonymization_rule_methods as arm', 'arm.rule_id', '=', 'arc.rule_id')
+                ->join('anonymization_methods as m', 'm.id', '=', 'arm.method_id')
+                ->whereIn('arc.column_id', $chunk)
+                ->groupBy('arc.column_id')
+                ->select([
+                    'arc.column_id',
+                    DB::raw('MAX(CASE WHEN m.emits_seed = true THEN 1 ELSE 0 END) as emits_seed'),
+                    DB::raw('MAX(CASE WHEN m.requires_seed = true THEN 1 ELSE 0 END) as requires_seed'),
+                ])
+                ->get();
+
+            // Merge both result sets, keyed by column_id
+            $combined = collect($rows)->keyBy('column_id');
+            foreach ($ruleRows as $rr) {
+                $colId = $rr->column_id;
+                if ($combined->has($colId)) {
+                    $existing = $combined->get($colId);
+                    $existing->emits_seed = max((int) $existing->emits_seed, (int) $rr->emits_seed);
+                    $existing->requires_seed = max((int) $existing->requires_seed, (int) $rr->requires_seed);
+                } else {
+                    $combined->put($colId, $rr);
+                }
+            }
+
+            foreach ($combined as $row) {
                 $emits = (int) ($row->emits_seed ?? 0) === 1;
                 $requires = (int) ($row->requires_seed ?? 0) === 1;
 

@@ -5,6 +5,7 @@ namespace App\Models\Anonymizer;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationPackage;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Traits\LogsAnonymizerActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -186,6 +187,21 @@ class AnonymizationMethods extends Model
         )->withTimestamps();
     }
 
+    /**
+     * Rules that reference this method.
+     */
+    public function rules(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AnonymizationRule::class,
+            'anonymization_rule_methods',
+            'method_id',
+            'rule_id'
+        )
+            ->withPivot(['is_default', 'strategy'])
+            ->withTimestamps();
+    }
+
     public function getUsageCountAttribute(): int
     {
         $count = $this->getAttribute('columns_count');
@@ -224,7 +240,7 @@ class AnonymizationMethods extends Model
 
     public function isInUse(): bool
     {
-        return $this->columns()->exists() || $this->jobs()->exists();
+        return $this->rules()->exists() || $this->columns()->exists() || $this->jobs()->exists();
     }
 
     public function distinctJobUsageCount(): int

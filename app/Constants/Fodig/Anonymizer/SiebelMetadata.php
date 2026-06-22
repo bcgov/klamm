@@ -25,6 +25,31 @@ final class SiebelMetadata
         'RELATED_COLUMNS',
     ];
 
+    public const TEMP_HEADER_COLUMNS = [
+        'DB_INSTANCE',
+        'OWNER',
+        'QUALFIELD',
+        'COLUMN_ID',
+        'TABLE_NAME',
+        'COLUMN_NAME',
+        'ANON_RULE',
+        'ANON_NOTE',
+        'PR_KEY',
+        'REF_TAB_NAME',
+        'NUM_DISTINCT',
+        'NUM_NOT_NULL',
+        'NUM_NULLS',
+        'NUM_ROWS',
+        'DATA_TYPE',
+        'DATA_LENGTH',
+        'DATA_PRECISION',
+        'DATA_SCALE',
+        'COMMENTS',
+        'SBL_USER_NAME',
+        'SBL_DESC_TEXT',
+        'NULLABLE',
+    ];
+
     public const IMPORT_DIRECTORY = 'anonymous-siebel/imports';
 
     // Defaults applied when transforming Siebel-column CSVs without explicit scope

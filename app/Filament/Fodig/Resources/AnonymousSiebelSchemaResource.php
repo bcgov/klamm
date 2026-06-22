@@ -20,6 +20,11 @@ class AnonymousSiebelSchemaResource extends Resource
     protected static ?string $navigationGroup = 'Anonymizer';
     protected static ?string $navigationLabel = 'Siebel Schemas';
 
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -125,7 +130,6 @@ class AnonymousSiebelSchemaResource extends Resource
     {
         return [
             'index' => Pages\ListAnonymousSiebelSchemas::route('/'),
-            'create' => Pages\CreateAnonymousSiebelSchema::route('/create'),
             'view' => Pages\ViewAnonymousSiebelSchema::route('/{record}'),
             'edit' => Pages\EditAnonymousSiebelSchema::route('/{record}/edit'),
         ];

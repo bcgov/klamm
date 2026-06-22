@@ -93,6 +93,12 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             ->where('column_id', $col->id)
                             ->exists();
 
+                        $hasRuleDependency = DB::table('anonymization_rule_column')
+                            ->where('column_id', $col->id)
+                            ->exists();
+
+                        $hasDependency = $hasJobDependency || $hasRuleDependency;
+
                         $scopeName = "{$col->schema_name}.{$col->table_name}.{$col->column_name}";
                         $title = "Column changed: {$scopeName}";
 
@@ -116,8 +122,15 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             continue;
                         }
 
-                        $severity = $this->severityForChangedColumn($col->changed_fields, $hasJobDependency);
-                        $priority = $hasJobDependency ? 'high' : 'normal';
+                        $severity = $this->severityForChangedColumn($col->changed_fields, $hasDependency);
+                        $priority = $hasDependency ? 'high' : 'normal';
+
+                        $impactSummary = match (true) {
+                            $hasJobDependency && $hasRuleDependency => 'Column definition changed and is referenced by anonymization jobs via a rule. Review the assigned rule, its methods, and associated jobs for breakage.',
+                            $hasJobDependency => 'Column definition changed and is referenced by anonymization jobs. Review jobs and associated methods for breakage.',
+                            $hasRuleDependency => 'Column definition changed and has an anonymization rule assigned. Review the rule and its methods to confirm they still apply.',
+                            default => 'Column definition changed in latest upload. Consider assigning an anonymization rule if applicable.',
+                        };
 
                         ChangeTicket::create([
                             'title' => $title,
@@ -126,17 +139,15 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             'severity' => $severity,
                             'scope_type' => 'column',
                             'scope_name' => $scopeName,
-                            'impact_summary' => $hasJobDependency
-                                ? 'Column definition changed and is referenced by anonymization jobs. Review jobs/methods for breakage.'
-                                : 'Column definition changed in latest upload. Review anonymization method association.',
+                            'impact_summary' => $impactSummary,
                             'diff_payload' => $this->diffPayloadAsJsonString($col->changed_fields),
                             'upload_id' => $upload->id,
                         ]);
                         Log::info('GenerateChangeTicketsFromUpload: created ticket (changed column)', ['scope' => $scopeName]);
                         $changedCount++;
 
-                        // Emit a separate URGENT alert ticket only when the change looks breaking and a job explicitly references the column.
-                        if ($hasJobDependency && $this->diffIndicatesBreakingChange($col->changed_fields)) {
+                        // Emit a separate URGENT alert ticket only when the change looks breaking and a job or rule explicitly references the column.
+                        if ($hasDependency && $this->diffIndicatesBreakingChange($col->changed_fields)) {
                             $urgentTitle = "URGENT: Job dependency risk - Column changed: {$scopeName}";
                             $existsUrgent = ChangeTicket::query()
                                 ->where('scope_type', 'column')
@@ -153,7 +164,7 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                                     'severity' => 'high',
                                     'scope_type' => 'column',
                                     'scope_name' => $scopeName,
-                                    'impact_summary' => 'Breaking-ish schema/shape change detected on a column referenced by anonymization jobs. Regenerate and review job SQL before execution.',
+                                    'impact_summary' => 'Breaking schema/shape change detected on a column referenced by anonymization rules or jobs. Review the assigned rule and its methods, then regenerate and review job SQL before execution.',
                                     'diff_payload' => $this->diffPayloadAsJsonString($col->changed_fields),
                                     'upload_id' => $upload->id,
                                 ]);
@@ -201,7 +212,7 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             'severity' => 'low',
                             'scope_type' => 'column',
                             'scope_name' => $scopeName,
-                            'impact_summary' => 'Column was added in this upload. Review anonymization method association.',
+                            'impact_summary' => 'New column added in this upload. Review and assign an anonymization rule if this column contains sensitive data.',
                             'diff_payload' => json_encode([
                                 'catalog' => Arr::only($col->toArray(), [
                                     'id',
@@ -236,6 +247,12 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                                 ->where('column_id', $col->id)
                                 ->exists();
 
+                            $hasRuleDependency = DB::table('anonymization_rule_column')
+                                ->where('column_id', $col->id)
+                                ->exists();
+
+                            $hasDependency = $hasJobDependency || $hasRuleDependency;
+
                             $scopeName = "{$col->schema_name}.{$col->table_name}.{$col->column_name}";
                             $title = "Deleted column: {$scopeName}";
                             $exists = ChangeTicket::query()
@@ -261,13 +278,16 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                             ChangeTicket::create([
                                 'title' => $title,
                                 'status' => 'open',
-                                'priority' => $hasJobDependency ? 'high' : 'normal',
-                                'severity' => $hasJobDependency ? 'high' : 'medium',
+                                'priority' => $hasDependency ? 'high' : 'normal',
+                                'severity' => $hasDependency ? 'high' : 'medium',
                                 'scope_type' => 'column',
                                 'scope_name' => $scopeName,
-                                'impact_summary' => $hasJobDependency
-                                    ? 'Column missing from upload and referenced by anonymization jobs. Review and adjust jobs/methods.'
-                                    : 'Column missing from upload compared to catalog; verify removal is expected.',
+                                'impact_summary' => match (true) {
+                                    $hasJobDependency && $hasRuleDependency => 'Column removed from catalog and is referenced by anonymization rules and jobs. Review the rule assignment and adjust jobs.',
+                                    $hasJobDependency => 'Column missing from upload and referenced by anonymization jobs. Review and adjust jobs/methods.',
+                                    $hasRuleDependency => 'Column removed from catalog and has an anonymization rule assigned. The rule association may need cleanup.',
+                                    default => 'Column missing from upload compared to catalog; verify removal is expected.',
+                                },
                                 'diff_payload' => json_encode([
                                     'catalog' => Arr::only($col->toArray(), [
                                         'id',
@@ -282,10 +302,10 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                                 ]),
                                 'upload_id' => $upload->id,
                             ]);
-                            Log::info('GenerateChangeTicketsFromUpload: created ticket (deleted column)', ['scope' => $scopeName, 'priority' => $hasJobDependency ? 'high' : 'normal']);
+                            Log::info('GenerateChangeTicketsFromUpload: created ticket (deleted column)', ['scope' => $scopeName, 'priority' => $hasDependency ? 'high' : 'normal']);
                             $deletedCount++;
 
-                            if ($hasJobDependency) {
+                            if ($hasDependency) {
                                 $urgentTitle = "URGENT: Job dependency broken - Column deleted: {$scopeName}";
                                 $existsUrgent = ChangeTicket::query()
                                     ->where('scope_type', 'column')
@@ -302,7 +322,7 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
                                         'severity' => 'high',
                                         'scope_type' => 'column',
                                         'scope_name' => $scopeName,
-                                        'impact_summary' => 'A column referenced by anonymization jobs was removed from the catalog on a full import. Jobs that include this column will likely generate incomplete SQL until updated.',
+                                        'impact_summary' => 'A column referenced by anonymization rules or jobs was removed from the catalog on a full import. Review the rule assignment and regenerate job SQL.',
                                         'diff_payload' => json_encode([
                                             'catalog' => Arr::only($col->toArray(), [
                                                 'id',
@@ -467,9 +487,9 @@ class GenerateChangeTicketsFromUpload implements ShouldQueue
         return false;
     }
 
-    private function severityForChangedColumn(array|string|null $diffPayload, bool $hasJobDependency): string
+    private function severityForChangedColumn(array|string|null $diffPayload, bool $hasDependency): string
     {
-        if ($hasJobDependency) {
+        if ($hasDependency) {
             return 'high';
         }
 

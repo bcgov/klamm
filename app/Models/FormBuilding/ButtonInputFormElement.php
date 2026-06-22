@@ -30,12 +30,11 @@ class ButtonInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            TextInput::make('elementable_data.text')
+            SchemaHelper::getLabelTextField($disabled)
                 ->label('Button Text')
                 ->default('Submit')
-                ->required(true)
                 ->autocomplete(false)
-                ->disabled($disabled),
+                ->required(true),
             SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
             Select::make('elementable_data.kind')
                 ->label('Button Kind')

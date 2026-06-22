@@ -37,20 +37,11 @@ class CheckboxInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            Fieldset::make('Field Label')
-                ->schema([
-                    SchemaHelper::getLabelTextField($disabled)
-                        ->label('Checkbox Label')
-                        ->autocomplete(false)
-                        ->required(),
-                    SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
-                    SchemaHelper::getHideLabelToggle($disabled),
-                ])
-                ->columns(1),
-                Toggle::make('elementable_data.defaultChecked')
-                    ->label('Default Checked')
-                    ->default(false)
-                    ->disabled($disabled),
+            SchemaHelper::getCommonCarbonFields($disabled, true),
+            Toggle::make('elementable_data.defaultChecked')
+                ->label('Default Checked')
+                ->default(false)
+                ->disabled($disabled),
         ];
     }
 

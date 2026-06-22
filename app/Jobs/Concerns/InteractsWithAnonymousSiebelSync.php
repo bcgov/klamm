@@ -3,6 +3,9 @@
 namespace App\Jobs\Concerns;
 
 use App\Models\Anonymizer\AnonymousUpload;
+use App\Models\Anonymizer\ChangeTicket;
+use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymizationRule;
 use App\Jobs\Exceptions\AnonymousSiebelCsvValidationException;
 use App\Services\Anonymizer\AnonymizerActivityLogger;
 use Carbon\CarbonImmutable;
@@ -11,6 +14,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\QueryException;
 use RuntimeException;
 use App\Constants\Fodig\Anonymizer\SiebelMetadata;
 
@@ -31,6 +35,16 @@ trait InteractsWithAnonymousSiebelSync
     protected const CANONICAL_REQUIRED_HEADER_COLUMNS = SiebelMetadata::REQUIRED_HEADER_COLUMNS;
 
     protected const CANONICAL_OPTIONAL_HEADER_COLUMNS = SiebelMetadata::OPTIONAL_HEADER_COLUMNS;
+
+    protected const TEMP_HEADER_COLUMNS = SiebelMetadata::TEMP_HEADER_COLUMNS;
+
+    protected const TEMP_REQUIRED_HEADER_COLUMNS = [
+        'DB_INSTANCE',
+        'OWNER',
+        'TABLE_NAME',
+        'COLUMN_NAME',
+        'DATA_TYPE',
+    ];
 
 
     // Clears previous staging records and streams CSV rows into staging storage.
@@ -64,6 +78,10 @@ trait InteractsWithAnonymousSiebelSync
             && in_array('SCHEMA_NAME', $header, true)
             && in_array('TABLE_NAME', $header, true)
             && in_array('COLUMN_NAME', $header, true);
+        $isTempHeader = in_array('DB_INSTANCE', $header, true)
+            && in_array('OWNER', $header, true)
+            && in_array('TABLE_NAME', $header, true)
+            && in_array('COLUMN_NAME', $header, true);
         $isSiebelColumnsHeader = in_array('NAME', $header, true)
             && in_array('PARENT TABLE', $header, true);
 
@@ -71,13 +89,21 @@ trait InteractsWithAnonymousSiebelSync
             self::CANONICAL_REQUIRED_HEADER_COLUMNS,
             self::CANONICAL_OPTIONAL_HEADER_COLUMNS,
         )));
+        $allowedTempHeaders = array_values(array_unique(self::TEMP_HEADER_COLUMNS));
         $missingHeaderColumns = [];
         $unknownHeaderColumns = [];
+        $detectedFormat = 'unknown';
 
         if ($isCanonicalHeader) {
+            $detectedFormat = 'canonical';
             $missingHeaderColumns = array_values(array_diff(self::CANONICAL_REQUIRED_HEADER_COLUMNS, $header));
             $unknownHeaderColumns = array_values(array_diff($header, $allowedCanonicalHeaders));
+        } elseif ($isTempHeader) {
+            $detectedFormat = 'temp';
+            $missingHeaderColumns = array_values(array_diff(self::TEMP_REQUIRED_HEADER_COLUMNS, $header));
+            $unknownHeaderColumns = array_values(array_diff($header, $allowedTempHeaders));
         } elseif ($isSiebelColumnsHeader) {
+            $detectedFormat = 'siebel_columns';
             $missingHeaderColumns = [];
             $unknownHeaderColumns = [];
         } else {
@@ -94,7 +120,7 @@ trait InteractsWithAnonymousSiebelSync
                     [
                         'row' => 1,
                         'field' => 'HEADER',
-                        'message' => 'Unrecognized CSV header. Expected canonical Siebel metadata headers (e.g. DATABASE_NAME, SCHEMA_NAME, TABLE_NAME, COLUMN_NAME) or Siebel column export headers (e.g. NAME, PARENT TABLE).',
+                        'message' => 'Unrecognized CSV header. Expected canonical Siebel metadata headers (e.g. DATABASE_NAME, SCHEMA_NAME, TABLE_NAME, COLUMN_NAME), temp metadata headers (e.g. DB_INSTANCE, OWNER, TABLE_NAME, COLUMN_NAME), or Siebel column export headers (e.g. NAME, PARENT TABLE).',
                         'value' => null,
                     ],
                 ],
@@ -118,7 +144,7 @@ trait InteractsWithAnonymousSiebelSync
 
             $report = [
                 'upload_id' => $upload->id,
-                'format' => $isCanonicalHeader ? 'canonical' : 'siebel_columns',
+                'format' => $detectedFormat,
                 'header' => $header,
                 'missing_header_columns' => $missingHeaderColumns,
                 'unknown_header_columns' => $unknownHeaderColumns,
@@ -141,6 +167,13 @@ trait InteractsWithAnonymousSiebelSync
         if ($isSiebelColumnsHeader && ! $isCanonicalHeader) {
             foreach ($header as $i => $h) {
                 $siebelIndexMap[$h] = $i;
+            }
+        }
+
+        $tempIndexMap = [];
+        if ($isTempHeader) {
+            foreach ($header as $i => $h) {
+                $tempIndexMap[$h] = $i;
             }
         }
 
@@ -205,9 +238,11 @@ trait InteractsWithAnonymousSiebelSync
             $dataStart = null;
         }
         $validationErrors = [];
+        $skippedRowsByNumber = [];
         $validationErrorCount = 0;
         $hasValidationErrors = false;
-        $format = $isCanonicalHeader ? 'canonical' : 'siebel_columns';
+        $hasValidRows = false;
+        $format = $detectedFormat;
 
         $rules = [
             'DATABASE_NAME' => ['required', 'string', 'max:255'],
@@ -215,15 +250,26 @@ trait InteractsWithAnonymousSiebelSync
             'OBJECT_TYPE' => ['required', 'string', 'max:50'],
             'TABLE_NAME' => ['required', 'string', 'max:255'],
             'COLUMN_NAME' => ['required', 'string', 'max:255'],
+            'QUALFIELD' => ['nullable', 'string', 'max:512'],
             'COLUMN_ID' => ['nullable', 'integer', 'min:0'],
+            'PR_KEY' => ['nullable', 'string', 'max:32'],
+            'REF_TAB_NAME' => ['nullable', 'string', 'max:255'],
+            'NUM_DISTINCT' => ['nullable', 'integer', 'min:0'],
+            'NUM_NOT_NULL' => ['nullable', 'integer', 'min:0'],
+            'NUM_NULLS' => ['nullable', 'integer', 'min:0'],
+            'NUM_ROWS' => ['nullable', 'integer', 'min:0'],
             'DATA_TYPE' => ['required', 'string', 'max:255'],
             'DATA_LENGTH' => ['nullable', 'integer', 'min:0'],
             'DATA_PRECISION' => ['nullable', 'integer', 'min:0'],
             'DATA_SCALE' => ['nullable', 'integer', 'min:0'],
             'CHAR_LENGTH' => ['nullable', 'integer', 'min:0'],
             'NULLABLE' => ['nullable', 'string', 'in:Y,N,YES,NO,true,false,TRUE,FALSE,0,1'],
+            'ANON_RULE' => ['nullable', 'string', 'max:255'],
+            'ANON_NOTE' => ['nullable', 'string'],
             'TABLE_COMMENT' => ['nullable', 'string'],
             'COLUMN_COMMENT' => ['nullable', 'string'],
+            'SBL_USER_NAME' => ['nullable', 'string', 'max:255'],
+            'SBL_DESC_TEXT' => ['nullable', 'string'],
             'RELATED_COLUMNS' => ['nullable', 'string'],
         ];
 
@@ -233,15 +279,26 @@ trait InteractsWithAnonymousSiebelSync
             'OBJECT_TYPE' => 'OBJECT_TYPE',
             'TABLE_NAME' => 'TABLE_NAME',
             'COLUMN_NAME' => 'COLUMN_NAME',
+            'QUALFIELD' => 'QUALFIELD',
             'COLUMN_ID' => 'COLUMN_ID',
+            'PR_KEY' => 'PR_KEY',
+            'REF_TAB_NAME' => 'REF_TAB_NAME',
+            'NUM_DISTINCT' => 'NUM_DISTINCT',
+            'NUM_NOT_NULL' => 'NUM_NOT_NULL',
+            'NUM_NULLS' => 'NUM_NULLS',
+            'NUM_ROWS' => 'NUM_ROWS',
             'DATA_TYPE' => 'DATA_TYPE',
             'DATA_LENGTH' => 'DATA_LENGTH',
             'DATA_PRECISION' => 'DATA_PRECISION',
             'DATA_SCALE' => 'DATA_SCALE',
             'CHAR_LENGTH' => 'CHAR_LENGTH',
             'NULLABLE' => 'NULLABLE',
+            'ANON_RULE' => 'ANON_RULE',
+            'ANON_NOTE' => 'ANON_NOTE',
             'TABLE_COMMENT' => 'TABLE_COMMENT',
             'COLUMN_COMMENT' => 'COLUMN_COMMENT',
+            'SBL_USER_NAME' => 'SBL_USER_NAME',
+            'SBL_DESC_TEXT' => 'SBL_DESC_TEXT',
             'RELATED_COLUMNS' => 'RELATED_COLUMNS',
         ];
 
@@ -251,10 +308,28 @@ trait InteractsWithAnonymousSiebelSync
                 continue;
             }
 
+            $row = array_map(function ($value) {
+                return is_string($value) ? $this->normalizeUtf8String($value, false) : $value;
+            }, $row);
+
             $assoc = [];
             if ($isCanonicalHeader) {
                 foreach ($header as $i => $key) {
                     $assoc[$key] = $row[$i] ?? null;
+                }
+            } elseif ($isTempHeader) {
+                $assoc = $this->mapTempRowToCanonicalAssoc($row, $tempIndexMap);
+                if (($assoc['TABLE_NAME'] ?? '') === '' || ($assoc['COLUMN_NAME'] ?? '') === '') {
+                    continue;
+                }
+
+                // Apply upload-provided scope (database/schema/table) with resolved context to ensure catalog matches.
+                $assoc['DATABASE_NAME'] = $resolvedScope['database_name'] ?: ($assoc['DATABASE_NAME'] ?: SiebelMetadata::DEFAULT_DATABASE);
+                $assoc['SCHEMA_NAME'] = $resolvedScope['schema_name'] ?: ($assoc['SCHEMA_NAME'] ?: SiebelMetadata::DEFAULT_SCHEMA);
+                if ($resolvedScope['table_name']) {
+                    if ($this->norm((string) $assoc['TABLE_NAME']) !== $this->norm($resolvedScope['table_name'])) {
+                        continue;
+                    }
                 }
             } elseif ($isSiebelColumnsHeader) {
                 $assoc = $this->mapSiebelColumnsRowToCanonicalAssoc($row, $siebelIndexMap);
@@ -281,9 +356,11 @@ trait InteractsWithAnonymousSiebelSync
                     $normalized[$k] = null;
                     continue;
                 }
-                $val = is_string($v) ? trim($v) : $v;
+                $val = is_string($v)
+                    ? trim($this->normalizeUtf8String($v, false))
+                    : $v;
 
-                if (is_string($val) && in_array($k, ['COLUMN_ID', 'DATA_LENGTH', 'DATA_PRECISION', 'DATA_SCALE', 'CHAR_LENGTH'], true)) {
+                if (is_string($val) && in_array($k, ['COLUMN_ID', 'NUM_DISTINCT', 'NUM_NOT_NULL', 'NUM_NULLS', 'NUM_ROWS', 'DATA_LENGTH', 'DATA_PRECISION', 'DATA_SCALE', 'CHAR_LENGTH'], true)) {
                     // Accept common thousands separators from exports (e.g. "2,000").
                     $candidate = str_replace([',', ' '], '', $val);
                     if ($candidate !== '' && preg_match('/^\d+$/', $candidate)) {
@@ -298,6 +375,33 @@ trait InteractsWithAnonymousSiebelSync
             if ($validator->fails()) {
                 $hasValidationErrors = true;
                 $errorArrays = $validator->errors()->toArray();
+
+                if (! isset($skippedRowsByNumber[$rowNumber])) {
+                    $databaseName = (string) ($normalized['DATABASE_NAME'] ?? '');
+                    $schemaName = (string) ($normalized['SCHEMA_NAME'] ?? '');
+                    $tableName = (string) ($normalized['TABLE_NAME'] ?? '');
+                    $columnName = (string) ($normalized['COLUMN_NAME'] ?? '');
+
+                    $entry = trim(implode('.', array_filter([
+                        $databaseName,
+                        $schemaName,
+                        $tableName,
+                    ], static fn($part) => is_string($part) && trim($part) !== '')));
+
+                    if ($columnName !== '') {
+                        $entry = $entry !== '' ? ($entry . '.' . $columnName) : $columnName;
+                    }
+
+                    $skippedRowsByNumber[$rowNumber] = [
+                        'row' => $rowNumber,
+                        'entry' => $entry !== '' ? $entry : null,
+                        'database_name' => $databaseName !== '' ? $databaseName : null,
+                        'schema_name' => $schemaName !== '' ? $schemaName : null,
+                        'table_name' => $tableName !== '' ? $tableName : null,
+                        'column_name' => $columnName !== '' ? $columnName : null,
+                        'errors' => [],
+                    ];
+                }
 
                 foreach ($errorArrays as $field => $messages) {
                     foreach ($messages as $message) {
@@ -316,14 +420,17 @@ trait InteractsWithAnonymousSiebelSync
                             'message' => $message,
                             'value' => $value,
                         ];
+
+                        $skippedRowsByNumber[$rowNumber]['errors'][] = [
+                            'field' => $field,
+                            'message' => $message,
+                            'value' => $value,
+                        ];
+
                         $validationErrorCount++;
                     }
                 }
 
-                continue;
-            }
-
-            if ($hasValidationErrors) {
                 continue;
             }
 
@@ -334,7 +441,16 @@ trait InteractsWithAnonymousSiebelSync
                 'object_type' => strtolower(trim((string) ($normalized['OBJECT_TYPE'] ?? 'table'))),
                 'table_name' => trim((string) ($normalized['TABLE_NAME'] ?? '')),
                 'column_name' => trim((string) ($normalized['COLUMN_NAME'] ?? '')),
+                'qualfield' => $this->toNullOrString($normalized['QUALFIELD'] ?? null),
+                'anon_rule' => $this->toNullOrString($normalized['ANON_RULE'] ?? null),
+                'anon_note' => $this->toNullOrString($normalized['ANON_NOTE'] ?? null),
                 'column_id' => $this->toInt($normalized['COLUMN_ID'] ?? null),
+                'pr_key' => $this->toNullOrString($normalized['PR_KEY'] ?? null),
+                'ref_tab_name' => $this->toNullOrString($normalized['REF_TAB_NAME'] ?? null),
+                'num_distinct' => $this->toInt($normalized['NUM_DISTINCT'] ?? null),
+                'num_not_null' => $this->toInt($normalized['NUM_NOT_NULL'] ?? null),
+                'num_nulls' => $this->toInt($normalized['NUM_NULLS'] ?? null),
+                'num_rows' => $this->toInt($normalized['NUM_ROWS'] ?? null),
                 'data_type' => $this->toNullOrString($normalized['DATA_TYPE'] ?? null),
                 'data_length' => $this->toInt($normalized['DATA_LENGTH'] ?? null),
                 'data_precision' => $this->toInt($normalized['DATA_PRECISION'] ?? null),
@@ -342,6 +458,8 @@ trait InteractsWithAnonymousSiebelSync
                 'nullable' => $this->toNullOrString($normalized['NULLABLE'] ?? null),
                 'char_length' => $this->toInt($normalized['CHAR_LENGTH'] ?? null),
                 'column_comment' => $this->toNullOrString($normalized['COLUMN_COMMENT'] ?? null),
+                'sbl_user_name' => $this->toNullOrString($normalized['SBL_USER_NAME'] ?? null),
+                'sbl_desc_text' => $this->toNullOrString($normalized['SBL_DESC_TEXT'] ?? null),
                 'table_comment' => $this->toNullOrString($normalized['TABLE_COMMENT'] ?? null),
             ];
 
@@ -349,9 +467,14 @@ trait InteractsWithAnonymousSiebelSync
             $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
             // Add relationship fields after hash calculation
-            $rawRelationships = $normalized['RELATED_COLUMNS'] ?? null;
+            $rawRelationships = $normalized['RELATED_COLUMNS'] ?? ($normalized['REF_TAB_NAME'] ?? null);
             if ($rawRelationships !== null && $rawRelationships !== '') {
-                $rawRelationships = html_entity_decode((string) $rawRelationships);
+                $rawRelationships = html_entity_decode(
+                    (string) $rawRelationships,
+                    ENT_QUOTES | ENT_HTML5,
+                    'UTF-8'
+                );
+                $rawRelationships = $this->normalizeUtf8String($rawRelationships);
                 $parsedRelationships = $this->parseRelated($rawRelationships);
                 $payload['related_columns'] = $parsedRelationships ? json_encode($parsedRelationships, JSON_UNESCAPED_UNICODE) : null;
             } else {
@@ -375,6 +498,7 @@ trait InteractsWithAnonymousSiebelSync
             ]);
 
             $batch[$uniqueKey] = $payload;
+            $hasValidRows = true;
 
             if (count($batch) >= 1000) {
                 $count += $this->upsertStagingBatch(array_values($batch));
@@ -419,6 +543,7 @@ trait InteractsWithAnonymousSiebelSync
         fclose($stream);
 
         if ($hasValidationErrors) {
+            $errorReportPath = $this->csvErrorReportPath($upload);
             $report = [
                 'upload_id' => $upload->id,
                 'format' => $format,
@@ -433,10 +558,52 @@ trait InteractsWithAnonymousSiebelSync
             ];
             $this->writeCsvErrorReport($upload, $report);
 
-            throw new AnonymousSiebelCsvValidationException(
-                'CSV validation failed: ' . $validationErrorCount . ' row error(s). Download the error report for details.',
-                $report
-            );
+            $warnings = array_values(array_filter((array) ($upload->warnings ?? []), static fn($warning) => is_array($warning)));
+            $warnings[] = [
+                'phase' => 'staging',
+                'message' => 'CSV row validation reported ' . $validationErrorCount . ' error(s). Invalid rows were skipped.',
+                'error_count' => $validationErrorCount,
+                'error_report_path' => $errorReportPath,
+                'at' => CarbonImmutable::now()->toIso8601String(),
+            ];
+
+            $upload->forceFill([
+                'warnings_count' => count($warnings),
+                'warnings' => $warnings,
+                'status_detail' => 'CSV contained validation errors; invalid rows skipped',
+            ])->save();
+
+            $ticketTitle = 'Upload validation warnings: ' . ($upload->original_name ?: ('Upload #' . $upload->id));
+            $existingTicket = ChangeTicket::query()
+                ->where('upload_id', $upload->id)
+                ->where('scope_type', 'upload')
+                ->where('title', $ticketTitle)
+                ->whereIn('status', ['open', 'in_progress'])
+                ->exists();
+
+            if (! $existingTicket) {
+                $skippedRows = array_values($skippedRowsByNumber);
+                usort($skippedRows, static fn(array $a, array $b): int => (int) ($a['row'] ?? 0) <=> (int) ($b['row'] ?? 0));
+
+                ChangeTicket::create([
+                    'title' => $ticketTitle,
+                    'status' => 'open',
+                    'priority' => 'high',
+                    'severity' => 'high',
+                    'scope_type' => 'upload',
+                    'scope_name' => (string) ($upload->original_name ?: $upload->id),
+                    'impact_summary' => 'CSV validation detected ' . $validationErrorCount . ' issue(s) across ' . count($skippedRows) . ' skipped row(s). Import continued and invalid rows were skipped.',
+                    'diff_payload' => json_encode([
+                        'error_count' => $validationErrorCount,
+                        'error_report_path' => $errorReportPath,
+                        'format' => $format,
+                        'capped' => $validationErrorCount >= self::CSV_VALIDATION_ERROR_CAP,
+                        'skipped_row_count' => count($skippedRows),
+                        'skipped_rows' => $skippedRows,
+                    ]),
+                    'upload_id' => $upload->id,
+                ]);
+            }
         }
 
         if ($batch !== []) {
@@ -485,7 +652,12 @@ trait InteractsWithAnonymousSiebelSync
                 return null;
             }
             $val = $row[$idx[$key]] ?? null;
-            return $val === null ? null : trim((string) $val);
+
+            if ($val === null) {
+                return null;
+            }
+
+            return trim($this->normalizeUtf8String((string) $val, false));
         };
 
         $parentTable = $get('PARENT TABLE') ?? '';
@@ -517,6 +689,59 @@ trait InteractsWithAnonymousSiebelSync
         ];
     }
 
+    protected function mapTempRowToCanonicalAssoc(array $row, array $idx): array
+    {
+        $get = function (string $key) use ($row, $idx) {
+            if (! isset($idx[$key])) {
+                return null;
+            }
+
+            $val = $row[$idx[$key]] ?? null;
+
+            if ($val === null) {
+                return null;
+            }
+
+            return trim($this->normalizeUtf8String((string) $val, false));
+        };
+
+        $databaseName = $get('DB_INSTANCE');
+        $schemaName = $get('OWNER');
+        $tableName = $get('TABLE_NAME');
+        $columnName = $get('COLUMN_NAME');
+        $nullable = strtoupper((string) ($get('NULLABLE') ?? ''));
+        $related = $get('REF_TAB_NAME');
+
+        return [
+            'DATABASE_NAME' => $databaseName,
+            'SCHEMA_NAME' => $schemaName,
+            'OBJECT_TYPE' => 'TABLE',
+            'TABLE_NAME' => $tableName,
+            'COLUMN_NAME' => $columnName,
+            'QUALFIELD' => $get('QUALFIELD'),
+            'COLUMN_ID' => $get('COLUMN_ID'),
+            'ANON_RULE' => $get('ANON_RULE'),
+            'ANON_NOTE' => $get('ANON_NOTE'),
+            'PR_KEY' => $get('PR_KEY'),
+            'REF_TAB_NAME' => $related,
+            'NUM_DISTINCT' => $get('NUM_DISTINCT'),
+            'NUM_NOT_NULL' => $get('NUM_NOT_NULL'),
+            'NUM_NULLS' => $get('NUM_NULLS'),
+            'NUM_ROWS' => $get('NUM_ROWS'),
+            'DATA_TYPE' => $get('DATA_TYPE'),
+            'DATA_LENGTH' => $get('DATA_LENGTH'),
+            'DATA_PRECISION' => $get('DATA_PRECISION'),
+            'DATA_SCALE' => $get('DATA_SCALE'),
+            'NULLABLE' => $nullable ?: null,
+            'CHAR_LENGTH' => null,
+            'TABLE_COMMENT' => null,
+            'COLUMN_COMMENT' => $get('COMMENTS'),
+            'SBL_USER_NAME' => $get('SBL_USER_NAME'),
+            'SBL_DESC_TEXT' => $get('SBL_DESC_TEXT'),
+            'RELATED_COLUMNS' => $related,
+        ];
+    }
+
     protected function upsertStagingBatch(array $batch): int
     {
         if ($batch === []) {
@@ -526,33 +751,93 @@ trait InteractsWithAnonymousSiebelSync
         $now = now();
 
         foreach ($batch as &$row) {
+            foreach ($row as $key => $value) {
+                if (is_string($value)) {
+                    $row[$key] = $this->sanitizeUtf8ForDatabase($value);
+                }
+            }
+
             $row['updated_at'] = $now;
         }
 
         unset($row);
 
-        DB::table(self::STAGING_TABLE)->upsert(
-            $batch,
-            ['upload_id', 'database_name', 'schema_name', 'table_name', 'column_name'],
-            [
-                'object_type',
-                'column_id',
-                'data_type',
-                'data_length',
-                'data_precision',
-                'data_scale',
-                'nullable',
-                'char_length',
-                'column_comment',
-                'table_comment',
-                'related_columns_raw',
-                'related_columns',
-                'content_hash',
-                'updated_at',
-            ]
-        );
+        $uniqueBy = ['upload_id', 'database_name', 'schema_name', 'table_name', 'column_name'];
+        $updateColumns = [
+            'object_type',
+            'qualfield',
+            'anon_rule',
+            'anon_note',
+            'column_id',
+            'pr_key',
+            'ref_tab_name',
+            'num_distinct',
+            'num_not_null',
+            'num_nulls',
+            'num_rows',
+            'data_type',
+            'data_length',
+            'data_precision',
+            'data_scale',
+            'nullable',
+            'char_length',
+            'column_comment',
+            'sbl_user_name',
+            'sbl_desc_text',
+            'table_comment',
+            'related_columns_raw',
+            'related_columns',
+            'content_hash',
+            'updated_at',
+        ];
+
+        try {
+            DB::table(self::STAGING_TABLE)->upsert($batch, $uniqueBy, $updateColumns);
+        } catch (QueryException $exception) {
+            if (! $this->isUtf8EncodingError($exception)) {
+                throw $exception;
+            }
+
+            foreach ($batch as $row) {
+                $retryRow = $this->sanitizeStagingRowForRetry($row);
+
+                try {
+                    DB::table(self::STAGING_TABLE)->upsert([$retryRow], $uniqueBy, $updateColumns);
+                } catch (QueryException $rowException) {
+                    if (! $this->isUtf8EncodingError($rowException)) {
+                        throw $rowException;
+                    }
+
+                    $label = ($retryRow['database_name'] ?? '?')
+                        . '.' . ($retryRow['schema_name'] ?? '?')
+                        . '.' . ($retryRow['table_name'] ?? '?')
+                        . '.' . ($retryRow['column_name'] ?? '?');
+
+                    throw new RuntimeException('UTF-8 sanitization failed for staging row: ' . $label, 0, $rowException);
+                }
+            }
+        }
 
         return count($batch);
+    }
+
+    protected function sanitizeStagingRowForRetry(array $row): array
+    {
+        foreach ($row as $key => $value) {
+            if (is_string($value)) {
+                $row[$key] = $this->sanitizeUtf8ForDatabase($value);
+            }
+        }
+
+        return $row;
+    }
+
+    protected function isUtf8EncodingError(QueryException $exception): bool
+    {
+        $message = (string) $exception->getMessage();
+
+        return str_contains($message, 'SQLSTATE[22021]')
+            || str_contains($message, 'invalid byte sequence for encoding "UTF8"');
     }
 
     protected function chunkedUpsert(string $table, array $rows, array $uniqueBy, array $updateColumns, int $chunkSize = self::METADATA_UPSERT_CHUNK_SIZE): void
@@ -1090,23 +1375,25 @@ trait InteractsWithAnonymousSiebelSync
             return [];
         }
 
-        $tableIds = array_keys($tableColumns);
-        $columnNames = [];
-        foreach ($tableColumns as $columns) {
-            foreach ($columns as $columnName) {
-                $columnNames[] = $columnName;
-            }
-        }
-
-        $columnNames = array_values(array_unique($columnNames));
-
-        if ($columnNames === []) {
-            return [];
-        }
-
         $records = DB::table(self::COLUMNS_TABLE)
-            ->whereIn('table_id', $tableIds)
-            ->whereIn('column_name', $columnNames)
+            ->where(function ($query) use ($tableColumns) {
+                foreach ($tableColumns as $tableId => $columns) {
+                    $normalizedColumns = array_values(array_unique(array_filter(array_map(
+                        fn($name) => is_string($name) ? trim($name) : null,
+                        $columns
+                    ))));
+
+                    if ($normalizedColumns === []) {
+                        continue;
+                    }
+
+                    $query->orWhere(function ($nested) use ($tableId, $normalizedColumns) {
+                        $nested
+                            ->where('table_id', (int) $tableId)
+                            ->whereIn('column_name', $normalizedColumns);
+                    });
+                }
+            })
             ->get();
 
         $map = [];
@@ -1275,7 +1562,14 @@ trait InteractsWithAnonymousSiebelSync
                     $payload = [
                         'table_id' => $tableEntry['id'],
                         'column_name' => $columnName,
+                        'qualfield' => $row->qualfield,
                         'column_id' => $row->column_id,
+                        'pr_key' => $row->pr_key,
+                        'ref_tab_name' => $row->ref_tab_name,
+                        'num_distinct' => $row->num_distinct,
+                        'num_not_null' => $row->num_not_null,
+                        'num_nulls' => $row->num_nulls,
+                        'num_rows' => $row->num_rows,
                         'data_type_id' => $dataTypeId,
                         'data_length' => $row->data_length,
                         'data_precision' => $row->data_precision,
@@ -1283,12 +1577,18 @@ trait InteractsWithAnonymousSiebelSync
                         'nullable' => $nullableFlag,
                         'char_length' => $row->char_length,
                         'column_comment' => $row->column_comment,
+                        'sbl_user_name' => $row->sbl_user_name,
+                        'sbl_desc_text' => $row->sbl_desc_text,
                         'table_comment' => $row->table_comment,
                         'related_columns_raw' => $row->related_columns_raw,
                         'related_columns' => $row->related_columns,
                         'content_hash' => $row->content_hash,
                         'last_synced_at' => $runAt,
                     ];
+
+                    if ($existing) {
+                        $payload = $this->preserveExistingValuesForMissingImportData($existing, $payload);
+                    }
 
                     $rowForUpsert = array_merge($payload, [
                         'deleted_at' => null,
@@ -1371,39 +1671,75 @@ trait InteractsWithAnonymousSiebelSync
                 }
 
                 if ($rowsForUpsert !== []) {
-                    DB::table(self::COLUMNS_TABLE)->upsert(
-                        $rowsForUpsert,
-                        ['table_id', 'column_name'],
-                        [
-                            'column_id',
-                            'data_type_id',
-                            'data_length',
-                            'data_precision',
-                            'data_scale',
-                            'nullable',
-                            'char_length',
-                            'column_comment',
-                            'table_comment',
-                            'related_columns_raw',
-                            'related_columns',
-                            'content_hash',
-                            'last_synced_at',
-                            'changed_at',
-                            'changed_fields',
-                            'anonymization_requirement_reviewed',
-                            'deleted_at',
-                            'updated_at',
-                        ]
-                    );
+                    // Wrap upsert + post-upsert ID retrieval in a single transaction
+                    // to reduce per-statement fsync overhead in PostgreSQL.
+                    DB::beginTransaction();
+                    try {
+                        DB::table(self::COLUMNS_TABLE)->upsert(
+                            $rowsForUpsert,
+                            ['table_id', 'column_name'],
+                            [
+                                'qualfield',
+                                'column_id',
+                                'pr_key',
+                                'ref_tab_name',
+                                'num_distinct',
+                                'num_not_null',
+                                'num_nulls',
+                                'num_rows',
+                                'data_type_id',
+                                'data_length',
+                                'data_precision',
+                                'data_scale',
+                                'nullable',
+                                'char_length',
+                                'column_comment',
+                                'sbl_user_name',
+                                'sbl_desc_text',
+                                'table_comment',
+                                'related_columns_raw',
+                                'related_columns',
+                                'content_hash',
+                                'last_synced_at',
+                                'changed_at',
+                                'changed_fields',
+                                'anonymization_requirement_reviewed',
+                                'deleted_at',
+                                'updated_at',
+                            ]
+                        );
+
+                        DB::commit();
+                    } catch (\Throwable $e) {
+                        DB::rollBack();
+                        throw $e;
+                    }
                 }
 
                 if ($logCreated !== []) {
-                    $tableIds = array_unique(array_column($logCreated, 'table_id'));
-                    $columnNames = array_unique(array_column($logCreated, 'column_name'));
-
                     $insertedRecords = DB::table(self::COLUMNS_TABLE)
-                        ->whereIn('table_id', $tableIds)
-                        ->whereIn('column_name', $columnNames)
+                        ->where(function ($query) use ($logCreated) {
+                            $byTable = [];
+
+                            foreach ($logCreated as $entry) {
+                                $tableId = (int) ($entry['table_id'] ?? 0);
+                                $columnName = isset($entry['column_name']) ? trim((string) $entry['column_name']) : '';
+
+                                if ($tableId <= 0 || $columnName === '') {
+                                    continue;
+                                }
+
+                                $byTable[$tableId][$columnName] = true;
+                            }
+
+                            foreach ($byTable as $tableId => $columns) {
+                                $query->orWhere(function ($nested) use ($tableId, $columns) {
+                                    $nested
+                                        ->where('table_id', $tableId)
+                                        ->whereIn('column_name', array_keys($columns));
+                                });
+                            }
+                        })
                         ->get();
 
                     $insertedMap = [];
@@ -1457,6 +1793,9 @@ trait InteractsWithAnonymousSiebelSync
                     );
                 }
 
+                // Flush any buffered activity log events after each chunk
+                AnonymizerActivityLogger::flush();
+
                 $processedRows += count($rows);
 
                 // Proactive garbage collection every 10 chunks to prevent memory accumulation
@@ -1500,6 +1839,9 @@ trait InteractsWithAnonymousSiebelSync
             $this->flushColumnIdentities($tempColumnIdentitiesTable, $columnIdentitiesBatch);
         }
 
+        // Flush any remaining buffered activity log events
+        AnonymizerActivityLogger::flush();
+
         // Return temp table names instead of loading all data into memory
         // The consuming methods will query these tables in chunks
         return [
@@ -1510,6 +1852,32 @@ trait InteractsWithAnonymousSiebelSync
             'processedBytes' => $totalBytes ?? ($processedBytes ?? 0),
             'touchedColumnIdsTempTable' => $tempTableName,
         ];
+    }
+
+    protected function preserveExistingValuesForMissingImportData(object $existing, array $payload): array
+    {
+        $preservedAnyField = false;
+
+        foreach ($payload as $field => $value) {
+            if ($value !== null) {
+                continue;
+            }
+
+            if (in_array($field, ['table_id', 'column_name', 'last_synced_at'], true)) {
+                continue;
+            }
+
+            if (property_exists($existing, $field)) {
+                $payload[$field] = $existing->{$field};
+                $preservedAnyField = true;
+            }
+        }
+
+        if ($preservedAnyField && property_exists($existing, 'content_hash')) {
+            $payload['content_hash'] = $existing->content_hash;
+        }
+
+        return $payload;
     }
 
     /**
@@ -1538,6 +1906,387 @@ trait InteractsWithAnonymousSiebelSync
 
         DB::table($tempTableName)->insertOrIgnore(array_values($batch));
     }
+
+    protected function synchronizeAnonymizationRulesFromStaging(AnonymousUpload $upload, CarbonImmutable $runAt, ?callable $progressReporter = null): array
+    {
+        if (! (bool) ($upload->override_anonymization_rules ?? false)) {
+            return [
+                'changed_columns' => 0,
+            ];
+        }
+
+        $ruleIdsByName = AnonymizationRule::query()
+            ->select('id', 'name')
+            ->get()
+            ->mapWithKeys(fn(AnonymizationRule $rule) => [$this->norm((string) $rule->name) => (int) $rule->id])
+            ->all();
+
+        $baseQuery = DB::table(self::STAGING_TABLE . ' as s')
+            ->join(self::DATABASES_TABLE . ' as d', DB::raw('UPPER(TRIM(d.database_name))'), '=', DB::raw('UPPER(TRIM(s.database_name))'))
+            ->join(self::SCHEMAS_TABLE . ' as sc', function ($join) {
+                $join->on('sc.database_id', '=', 'd.id')
+                    ->whereRaw('UPPER(TRIM(sc.schema_name)) = UPPER(TRIM(s.schema_name))');
+            })
+            ->join(self::TABLES_TABLE . ' as t', function ($join) {
+                $join->on('t.schema_id', '=', 'sc.id')
+                    ->whereRaw('UPPER(TRIM(t.table_name)) = UPPER(TRIM(s.table_name))');
+            })
+            ->join(self::COLUMNS_TABLE . ' as c', function ($join) {
+                $join->on('c.table_id', '=', 't.id')
+                    ->whereRaw('UPPER(TRIM(c.column_name)) = UPPER(TRIM(s.column_name))');
+            })
+            ->where('s.upload_id', $upload->id);
+
+        $totalRuleRows = (int) (clone $baseQuery)->count();
+        $processedRuleRows = 0;
+        $metrics = [
+            'rows_with_rule_input' => 0,
+            'required_updates' => 0,
+            'rule_mapping_updates' => 0,
+            'rule_links_inserted' => 0,
+            'rule_links_deleted' => 0,
+            'unknown_rule_names' => 0,
+            'rows_noop' => 0,
+            'rows_invalid_column' => 0,
+        ];
+        $changedColumns = [];
+        $unknownRules = [];
+
+        if ($progressReporter) {
+            $initialStatus = $totalRuleRows > 0
+                ? sprintf('Applying anonymization rules (0/%d)', $totalRuleRows)
+                : 'Applying anonymization rules (no matching rows)';
+
+            $progressReporter([
+                'status_detail' => $initialStatus,
+                'run_phase' => 'applying_anonymization_rules',
+                'processed_rows' => 0,
+                'checkpoint' => [
+                    'anonymization_rules_total_rows' => $totalRuleRows,
+                    'anonymization_rules_processed_rows' => 0,
+                    'anonymization_rules_changed_columns' => 0,
+                    'anonymization_rules_rows_with_rule_input' => 0,
+                    'anonymization_rules_required_updates' => 0,
+                    'anonymization_rules_rule_mapping_updates' => 0,
+                    'anonymization_rules_rule_links_inserted' => 0,
+                    'anonymization_rules_rule_links_deleted' => 0,
+                    'anonymization_rules_unknown_rule_names' => 0,
+                    'anonymization_rules_rows_noop' => 0,
+                    'anonymization_rules_rows_invalid_column' => 0,
+                ],
+                'progress_updated_at' => CarbonImmutable::now(),
+            ]);
+        }
+
+        $query = $baseQuery
+            ->select('s.id as staging_id', 'c.id as column_id', 's.database_name', 's.schema_name', 's.table_name', 's.column_name', 's.anon_rule', 's.anon_note')
+            ->orderBy('s.id');
+
+        $query->chunkById(1000, function ($rows) use ($runAt, $ruleIdsByName, &$processedRuleRows, $totalRuleRows, $progressReporter, &$metrics, &$changedColumns, &$unknownRules): void {
+            $effectiveRowsByColumn = [];
+            foreach ($rows as $row) {
+                $columnId = (int) $row->column_id;
+                if ($columnId <= 0) {
+                    $metrics['rows_invalid_column']++;
+                    continue;
+                }
+
+                // Last row wins for duplicate staged entries of the same column within this chunk.
+                $effectiveRowsByColumn[$columnId] = $row;
+            }
+
+            $columnIds = array_keys($effectiveRowsByColumn);
+            $effectiveRows = array_values($effectiveRowsByColumn);
+
+            $processedRuleRows += $rows->count();
+
+            if ($progressReporter) {
+                $changedColumnCount = count($changedColumns);
+                $status = $totalRuleRows > 0
+                    ? sprintf(
+                        'Applying anonymization rules (%d/%d) · cols:%d req:%d map:%d links:+%d/-%d unknown:%d noop:%d',
+                        min($processedRuleRows, $totalRuleRows),
+                        $totalRuleRows,
+                        $changedColumnCount,
+                        $metrics['required_updates'],
+                        $metrics['rule_mapping_updates'],
+                        $metrics['rule_links_inserted'],
+                        $metrics['rule_links_deleted'],
+                        $metrics['unknown_rule_names'],
+                        $metrics['rows_noop']
+                    )
+                    : sprintf(
+                        'Applying anonymization rules (%d) · cols:%d req:%d map:%d links:+%d/-%d unknown:%d noop:%d',
+                        $processedRuleRows,
+                        $changedColumnCount,
+                        $metrics['required_updates'],
+                        $metrics['rule_mapping_updates'],
+                        $metrics['rule_links_inserted'],
+                        $metrics['rule_links_deleted'],
+                        $metrics['unknown_rule_names'],
+                        $metrics['rows_noop']
+                    );
+
+                $progressReporter([
+                    'status_detail' => $status,
+                    'run_phase' => 'applying_anonymization_rules',
+                    'processed_rows' => $processedRuleRows,
+                    'checkpoint' => [
+                        'anonymization_rules_total_rows' => $totalRuleRows,
+                        'anonymization_rules_processed_rows' => $processedRuleRows,
+                        'anonymization_rules_changed_columns' => $changedColumnCount,
+                        'anonymization_rules_rows_with_rule_input' => $metrics['rows_with_rule_input'],
+                        'anonymization_rules_required_updates' => $metrics['required_updates'],
+                        'anonymization_rules_rule_mapping_updates' => $metrics['rule_mapping_updates'],
+                        'anonymization_rules_rule_links_inserted' => $metrics['rule_links_inserted'],
+                        'anonymization_rules_rule_links_deleted' => $metrics['rule_links_deleted'],
+                        'anonymization_rules_unknown_rule_names' => $metrics['unknown_rule_names'],
+                        'anonymization_rules_rows_noop' => $metrics['rows_noop'],
+                        'anonymization_rules_rows_invalid_column' => $metrics['rows_invalid_column'],
+                    ],
+                    'progress_updated_at' => CarbonImmutable::now(),
+                ]);
+            }
+
+            if ($columnIds === []) {
+                return;
+            }
+
+            $existingColumns = DB::table(self::COLUMNS_TABLE)
+                ->whereIn('id', $columnIds)
+                ->select('id', 'anonymization_required', 'anonymization_requirement_reviewed', 'metadata_comment', 'changed_fields')
+                ->get();
+
+            $existingRequiredByColumn = [];
+            $existingReviewedByColumn = [];
+            $existingMetadataCommentByColumn = [];
+            $existingChangedFieldsByColumn = [];
+            foreach ($existingColumns as $existingColumn) {
+                $existingRequiredByColumn[(int) $existingColumn->id] = $existingColumn->anonymization_required;
+                $existingReviewedByColumn[(int) $existingColumn->id] = $existingColumn->anonymization_requirement_reviewed;
+                $existingMetadataCommentByColumn[(int) $existingColumn->id] = $this->toNullOrString($existingColumn->metadata_comment);
+                $existingChangedFieldsByColumn[(int) $existingColumn->id] = $this->normalizeChangedFieldsPayload($existingColumn->changed_fields);
+            }
+
+            $existingRuleRows = DB::table('anonymization_rule_column')
+                ->whereIn('column_id', $columnIds)
+                ->select('column_id', 'rule_id')
+                ->get();
+
+            $existingRuleIdByColumn = [];
+            foreach ($existingRuleRows as $ruleRow) {
+                $existingRuleIdByColumn[(int) $ruleRow->column_id] = (int) $ruleRow->rule_id;
+            }
+
+            foreach ($effectiveRows as $row) {
+                $columnId = (int) $row->column_id;
+                $rowChanged = false;
+
+                $anonRule = $this->toNullOrString($row->anon_rule);
+                $anonNote = $this->toNullOrString($row->anon_note);
+                $normalizedRule = $anonRule !== null ? $this->norm($anonRule) : null;
+
+                if ($anonRule !== null || $anonNote !== null) {
+                    $metrics['rows_with_rule_input']++;
+                }
+
+                $desiredRequired = false;
+                $desiredReviewed = false;
+                $requestedRuleId = null;
+
+                if ($anonRule !== null) {
+                    if ($normalizedRule === 'NO_CHANGE') {
+                        $desiredRequired = false;
+                        $desiredReviewed = true;
+                    } else {
+                        $desiredRequired = true;
+                        $desiredReviewed = true;
+
+                        $requestedRuleId = $ruleIdsByName[$this->norm($anonRule)] ?? null;
+
+                        if ($requestedRuleId === null) {
+                            $metrics['unknown_rule_names']++;
+
+                            $ruleKey = $this->norm($anonRule);
+                            $columnRef = implode('.', array_filter([
+                                trim((string) ($row->database_name ?? '')),
+                                trim((string) ($row->schema_name ?? '')),
+                                trim((string) ($row->table_name ?? '')),
+                                trim((string) ($row->column_name ?? '')),
+                            ], fn($part) => $part !== ''));
+
+                            if (! isset($unknownRules[$ruleKey])) {
+                                $unknownRules[$ruleKey] = [
+                                    'rule_name' => $anonRule,
+                                    'count' => 0,
+                                    'examples' => [],
+                                ];
+                            }
+
+                            $unknownRules[$ruleKey]['count']++;
+                            if ($columnRef !== '' && count($unknownRules[$ruleKey]['examples']) < 5) {
+                                $unknownRules[$ruleKey]['examples'][$columnRef] = true;
+                            }
+                        }
+                    }
+                }
+
+                $currentRequired = $existingRequiredByColumn[$columnId] ?? null;
+                $currentReviewed = $existingReviewedByColumn[$columnId] ?? null;
+                $currentMetadataComment = $existingMetadataCommentByColumn[$columnId] ?? null;
+                $currentRuleId = $existingRuleIdByColumn[$columnId] ?? null;
+
+                $changedFields = $existingChangedFieldsByColumn[$columnId] ?? [];
+                $columnUpdates = [
+                    'updated_at' => $runAt,
+                ];
+
+                if ($this->valuesDiffer($currentRequired, $desiredRequired)) {
+                    $changedFields['anonymization_required'] = [
+                        'old' => $currentRequired,
+                        'new' => $desiredRequired,
+                    ];
+
+                    $columnUpdates['anonymization_required'] = $desiredRequired;
+                    $existingRequiredByColumn[$columnId] = $desiredRequired;
+                    $metrics['required_updates']++;
+                    $rowChanged = true;
+                }
+
+                if ($this->valuesDiffer($currentReviewed, $desiredReviewed)) {
+                    $changedFields['anonymization_requirement_reviewed'] = [
+                        'old' => $currentReviewed,
+                        'new' => $desiredReviewed,
+                    ];
+
+                    $columnUpdates['anonymization_requirement_reviewed'] = $desiredReviewed;
+                    $existingReviewedByColumn[$columnId] = $desiredReviewed;
+                    $rowChanged = true;
+                }
+
+                if ($this->valuesDiffer($currentMetadataComment, $anonNote)) {
+                    $changedFields['metadata_comment'] = [
+                        'old' => $currentMetadataComment,
+                        'new' => $anonNote,
+                    ];
+
+                    $columnUpdates['metadata_comment'] = $anonNote;
+                    $existingMetadataCommentByColumn[$columnId] = $anonNote;
+                    $rowChanged = true;
+                }
+
+                // Sync rule assignment (one-to-one: column → rule via pivot)
+                if ($requestedRuleId !== $currentRuleId) {
+                    $changedFields['anonymization_rule'] = [
+                        'old' => $currentRuleId,
+                        'new' => $requestedRuleId,
+                    ];
+
+                    if ($currentRuleId !== null) {
+                        DB::table('anonymization_rule_column')
+                            ->where('column_id', $columnId)
+                            ->where('rule_id', $currentRuleId)
+                            ->delete();
+
+                        $metrics['rule_links_deleted']++;
+                    }
+
+                    if ($requestedRuleId !== null) {
+                        DB::table('anonymization_rule_column')->insert([
+                            'column_id' => $columnId,
+                            'rule_id' => $requestedRuleId,
+                            'created_at' => $runAt,
+                            'updated_at' => $runAt,
+                        ]);
+
+                        $metrics['rule_links_inserted']++;
+                    }
+
+                    $existingRuleIdByColumn[$columnId] = $requestedRuleId;
+                    $metrics['rule_mapping_updates']++;
+                    $rowChanged = true;
+                }
+
+                if ($rowChanged) {
+                    $columnUpdates['changed_at'] = $runAt;
+                    $columnUpdates['changed_fields'] = json_encode($changedFields, JSON_UNESCAPED_UNICODE);
+
+                    DB::table(self::COLUMNS_TABLE)
+                        ->where('id', $columnId)
+                        ->update($columnUpdates);
+
+                    $existingChangedFieldsByColumn[$columnId] = $changedFields;
+                    $changedColumns[$columnId] = true;
+                } else {
+                    $metrics['rows_noop']++;
+                }
+            }
+        }, 's.id', 'staging_id');
+
+        foreach ($unknownRules as $entry) {
+            $ruleName = (string) ($entry['rule_name'] ?? '');
+            if ($ruleName === '') {
+                continue;
+            }
+
+            $title = 'Missing anonymization rule from ANON_RULE: ' . $ruleName;
+            $exists = ChangeTicket::query()
+                ->where('upload_id', $upload->id)
+                ->where('scope_type', 'upload')
+                ->where('title', $title)
+                ->whereIn('status', ['open', 'in_progress'])
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            $examples = array_keys((array) ($entry['examples'] ?? []));
+            $comment = 'ANON_RULE requested anonymization rule "' . $ruleName . '" but no matching rule exists in the rule library. Create this rule and assign methods to it, then re-run/import to apply it.';
+
+            if ($examples !== []) {
+                $comment .= ' Example columns: ' . implode(', ', array_slice($examples, 0, 5)) . '.';
+            }
+
+            ChangeTicket::create([
+                'title' => $title,
+                'status' => 'open',
+                'priority' => 'high',
+                'severity' => 'medium',
+                'scope_type' => 'upload',
+                'scope_name' => (string) ($upload->original_name ?: $upload->id),
+                'impact_summary' => $comment,
+                'diff_payload' => json_encode([
+                    'requested_rule' => $ruleName,
+                    'requested_count' => (int) ($entry['count'] ?? 0),
+                    'example_columns' => $examples,
+                ]),
+                'upload_id' => $upload->id,
+            ]);
+        }
+
+        return [
+            'changed_columns' => count($changedColumns),
+            'required_updates' => (int) $metrics['required_updates'],
+            'rule_mapping_updates' => (int) $metrics['rule_mapping_updates'],
+        ];
+    }
+
+    protected function normalizeChangedFieldsPayload(mixed $payload): array
+    {
+        if (is_array($payload)) {
+            return $payload;
+        }
+
+        if (! is_string($payload) || trim($payload) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($payload, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
     protected function cleanupStaging(int $uploadId): void
     {
         DB::statement('DELETE FROM ' . self::STAGING_TABLE . ' WHERE upload_id = ?', [$uploadId]);
@@ -1800,7 +2549,14 @@ trait InteractsWithAnonymousSiebelSync
         $payload = [
             'table_id' => $tableId,
             'column_name' => $columnName,
+            'qualfield' => $row->qualfield,
             'column_id' => $row->column_id,
+            'pr_key' => $row->pr_key,
+            'ref_tab_name' => $row->ref_tab_name,
+            'num_distinct' => $row->num_distinct,
+            'num_not_null' => $row->num_not_null,
+            'num_nulls' => $row->num_nulls,
+            'num_rows' => $row->num_rows,
             'data_type_id' => $dataTypeId,
             'data_length' => $row->data_length,
             'data_precision' => $row->data_precision,
@@ -1808,6 +2564,8 @@ trait InteractsWithAnonymousSiebelSync
             'nullable' => $this->toNullableFlag($row->nullable),
             'char_length' => $row->char_length,
             'column_comment' => $row->column_comment,
+            'sbl_user_name' => $row->sbl_user_name,
+            'sbl_desc_text' => $row->sbl_desc_text,
             'table_comment' => $row->table_comment,
             'related_columns_raw' => $row->related_columns_raw,
             'related_columns' => $relationshipsJson,
@@ -2090,23 +2848,24 @@ trait InteractsWithAnonymousSiebelSync
                 break;
             }
 
+            $columnIds = $columnsToProcess->pluck('id')->map(fn($id) => (int) $id)->all();
+            $diff = [
+                'deleted_at' => [
+                    'old' => null,
+                    'new' => $now,
+                ],
+            ];
+
+            DB::table(self::COLUMNS_TABLE)
+                ->whereIn('id', $columnIds)
+                ->update([
+                    'deleted_at' => $now,
+                    'changed_at' => $now,
+                    'changed_fields' => json_encode($diff, JSON_UNESCAPED_UNICODE),
+                    'updated_at' => $now,
+                ]);
+
             foreach ($columnsToProcess as $column) {
-                $diff = [
-                    'deleted_at' => [
-                        'old' => null,
-                        'new' => $now,
-                    ],
-                ];
-
-                DB::table(self::COLUMNS_TABLE)
-                    ->where('id', $column->id)
-                    ->update([
-                        'deleted_at' => $now,
-                        'changed_at' => $now,
-                        'changed_fields' => json_encode($diff, JSON_UNESCAPED_UNICODE),
-                        'updated_at' => $now,
-                    ]);
-
                 AnonymizerActivityLogger::logColumnEvent(
                     (int) $column->id,
                     'deleted',
@@ -2119,6 +2878,9 @@ trait InteractsWithAnonymousSiebelSync
                 $lastDeletedId = $column->id;
                 ++$deleted;
             }
+
+            // Flush buffered activity log events after each deletion batch
+            AnonymizerActivityLogger::flush();
         } while (true);
 
         DB::statement("DROP TABLE IF EXISTS {$tempColumnsToDeleteTable}");
@@ -2378,7 +3140,9 @@ trait InteractsWithAnonymousSiebelSync
             $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]) ?? $header[0];
         }
 
-        return array_map(static fn($value) => strtoupper(trim((string) $value)), $header);
+        return array_map(function ($value) {
+            return strtoupper(trim($this->normalizeUtf8String((string) $value, false)));
+        }, $header);
     }
 
     /**
@@ -2386,7 +3150,7 @@ trait InteractsWithAnonymousSiebelSync
      */
     protected function parseRelated(string $raw): array
     {
-        $raw = trim(html_entity_decode($raw));
+        $raw = trim($this->normalizeUtf8String(html_entity_decode($raw), false));
         if ($raw === '') {
             return [];
         }
@@ -2493,9 +3257,113 @@ trait InteractsWithAnonymousSiebelSync
             return null;
         }
 
-        $value = trim((string) $value);
+        $value = trim($this->normalizeUtf8String((string) $value, false));
 
         return $value === '' ? null : $value;
+    }
+
+    protected function sanitizeUtf8ForDatabase(string $value): string
+    {
+        if ($value === '') {
+            return $value;
+        }
+
+        $result = $this->normalizeUtf8String($value);
+
+        // Common broken UTF-8 triplet seen in legacy exports (0xE2 0x80 0x20).
+        $result = str_replace("\xE2\x80\x20", ' ', $result);
+
+        if (preg_match('//u', $result) !== 1 && function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'UTF-8//IGNORE', $result);
+            if ($converted !== false) {
+                $result = $converted;
+            }
+        }
+
+        if (preg_match('//u', $result) !== 1 && function_exists('mb_convert_encoding')) {
+            $converted = mb_convert_encoding($result, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+            if (is_string($converted)) {
+                $result = $converted;
+            }
+        }
+
+        if (preg_match('//u', $result) !== 1) {
+            $ascii = '';
+            foreach (unpack('C*', $result) ?: [] as $byte) {
+                if (($byte >= 9 && $byte <= 13) || ($byte >= 32 && $byte <= 126)) {
+                    $ascii .= chr($byte);
+                }
+            }
+            $result = $ascii;
+        }
+
+        $result = str_replace("\u{FFFD}", '', $result);
+        $result = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $result) ?? '';
+
+        return preg_match('//u', $result) === 1 ? $result : '';
+    }
+
+    protected function normalizeUtf8String(string $value, bool $normalizeWhitespace = true): string
+    {
+        if ($value === '') {
+            return $value;
+        }
+
+        $result = str_replace("\xA0", ' ', $value);
+
+        if (preg_match('//u', $result) !== 1) {
+            if (function_exists('iconv')) {
+                $converted = iconv('Windows-1252', 'UTF-8//IGNORE', $result);
+                if ($converted !== false && preg_match('//u', $converted) === 1) {
+                    $result = $converted;
+                }
+            }
+
+            if (preg_match('//u', $result) !== 1 && function_exists('mb_convert_encoding')) {
+                $converted = mb_convert_encoding($result, 'UTF-8', 'Windows-1252, ISO-8859-1, UTF-8');
+                if (is_string($converted) && preg_match('//u', $converted) === 1) {
+                    $result = $converted;
+                }
+            }
+
+            if (preg_match('//u', $result) !== 1) {
+                $result = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\xFF]/', '', $result) ?? '';
+            }
+        }
+
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'UTF-8//IGNORE', $result);
+            if ($converted !== false) {
+                $result = $converted;
+            }
+        }
+
+        if (preg_match('//u', $result) !== 1 && function_exists('mb_convert_encoding')) {
+            $converted = mb_convert_encoding($result, 'UTF-8', 'UTF-8');
+            if (is_string($converted)) {
+                $result = $converted;
+            }
+        }
+
+        if (preg_match('//u', $result) !== 1) {
+            $result = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\xFF]/', '', $result) ?? '';
+        }
+
+        if (preg_match('//u', $result) !== 1) {
+            $ascii = '';
+            foreach (unpack('C*', $result) ?: [] as $byte) {
+                if (($byte >= 9 && $byte <= 13) || ($byte >= 32 && $byte <= 126)) {
+                    $ascii .= chr($byte);
+                }
+            }
+            $result = $ascii;
+        }
+
+        if ($normalizeWhitespace) {
+            $result = str_replace(["\xA0", "\xC2\xA0", "\u{00A0}"], ' ', $result);
+        }
+
+        return $result;
     }
 
     protected function toNullableFlag($value): ?bool
@@ -2558,18 +3426,57 @@ trait InteractsWithAnonymousSiebelSync
 
         $scope = strtolower((string) ($upload->scope_type ?? ''));
         $resolved = match ($scope) {
-            '' => $this->fetchAllTableIdentities(),
+            '' => $this->fetchTableIdentitiesForStagedScopes((int) $upload->id),
             'database' => $this->fetchTableIdentitiesForDatabase($upload->scope_name),
             'schema' => $this->fetchTableIdentitiesForSchema($upload->scope_name),
             'table' => $this->fetchTableIdentitiesForTable($upload->scope_name),
             default => $touchedTableIdentities,
         };
 
-        if ($scope === '' && $resolved === []) {
+        if ($resolved === []) {
             return $touchedTableIdentities;
         }
 
         return $resolved ?: $touchedTableIdentities;
+    }
+
+    protected function fetchTableIdentitiesForStagedScopes(int $uploadId): array
+    {
+        $stagedScopes = DB::table(self::STAGING_TABLE)
+            ->where('upload_id', $uploadId)
+            ->select('database_name', 'schema_name')
+            ->distinct()
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'database_name' => $this->norm((string) ($row->database_name ?? '')),
+                    'schema_name' => $this->norm((string) ($row->schema_name ?? '')),
+                ];
+            })
+            ->filter(fn(array $row) => $row['database_name'] !== '' && $row['schema_name'] !== '')
+            ->values()
+            ->all();
+
+        if ($stagedScopes === []) {
+            return [];
+        }
+
+        $query = DB::table(self::TABLES_TABLE . ' as t')
+            ->join(self::SCHEMAS_TABLE . ' as s', 't.schema_id', '=', 's.id')
+            ->join(self::DATABASES_TABLE . ' as d', 's.database_id', '=', 'd.id')
+            ->select('s.database_id', 's.schema_name', 't.table_name')
+            ->whereNull('t.deleted_at')
+            ->where(function ($where) use ($stagedScopes) {
+                foreach ($stagedScopes as $scope) {
+                    $where->orWhere(function ($nested) use ($scope) {
+                        $nested
+                            ->whereRaw('UPPER(TRIM(d.database_name)) = ?', [$scope['database_name']])
+                            ->whereRaw('UPPER(TRIM(s.schema_name)) = ?', [$scope['schema_name']]);
+                    });
+                }
+            });
+
+        return $this->mapTableIdentityRows($query->get());
     }
 
     protected function fetchAllTableIdentities(): array

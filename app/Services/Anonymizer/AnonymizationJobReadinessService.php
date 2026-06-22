@@ -37,10 +37,17 @@ class AnonymizationJobReadinessService
 
         $missingMethodRequired = (int) (clone $base)
             ->where('c.anonymization_required', true)
-            ->whereNotExists(function ($sub) {
-                $sub->selectRaw('1')
-                    ->from('anonymization_method_column as amc')
-                    ->whereColumn('amc.column_id', 'c.id');
+            ->where(function ($q) {
+                $q->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('anonymization_method_column as amc')
+                        ->whereColumn('amc.column_id', 'c.id');
+                })->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('anonymization_rule_column as arc')
+                        ->join('anonymization_rule_methods as arm', 'arm.rule_id', '=', 'arc.rule_id')
+                        ->whereColumn('arc.column_id', 'c.id');
+                });
             })
             ->distinct('c.id')
             ->count('c.id');
@@ -108,10 +115,17 @@ class AnonymizationJobReadinessService
 
                 $missingMethodRequired = (int) (clone $base)
                     ->where('c.anonymization_required', true)
-                    ->whereNotExists(function ($sub) {
-                        $sub->selectRaw('1')
-                            ->from('anonymization_method_column as amc')
-                            ->whereColumn('amc.column_id', 'c.id');
+                    ->where(function ($q) {
+                        $q->whereNotExists(function ($sub) {
+                            $sub->selectRaw('1')
+                                ->from('anonymization_method_column as amc')
+                                ->whereColumn('amc.column_id', 'c.id');
+                        })->whereNotExists(function ($sub) {
+                            $sub->selectRaw('1')
+                                ->from('anonymization_rule_column as arc')
+                                ->join('anonymization_rule_methods as arm', 'arm.rule_id', '=', 'arc.rule_id')
+                                ->whereColumn('arc.column_id', 'c.id');
+                        });
                     })
                     ->distinct('c.id')
                     ->count('c.id');
@@ -162,6 +176,7 @@ class AnonymizationJobReadinessService
                 ->whereIn('id', $columnIds)
                 ->where('anonymization_required', true)
                 ->whereDoesntHave('anonymizationMethods')
+                ->whereDoesntHave('anonymizationRule.methods')
                 ->count();
 
             $needsReview = AnonymousSiebelColumn::query()
@@ -194,6 +209,7 @@ class AnonymizationJobReadinessService
                 'table.schema.database',
                 'parentColumns.table.schema.database',
                 'anonymizationMethods.packages',
+                'anonymizationRule.methods',
             ])
             ->withCount('anonymizationMethods')
             ->whereIn('id', $columnIds)
@@ -207,7 +223,11 @@ class AnonymizationJobReadinessService
             ? $this->pivotMethodMap($jobId, $columns->pluck('id')->all())
             : collect();
 
-        return $this->buildReportFromColumns($columns, $pivotMethods, $limitIssues);
+        $jobScope = $jobId !== null
+            ? $this->jobScopeContext($jobId)
+            : null;
+
+        return $this->buildReportFromColumns($columns, $pivotMethods, $limitIssues, $jobScope);
     }
 
     public function reportForScope(array $scope, ?int $jobId = null, int $sampleIssues = 25): array
@@ -232,16 +252,29 @@ class AnonymizationJobReadinessService
                         $sub->selectRaw('1')
                             ->from('anonymization_method_column as amc')
                             ->whereColumn('amc.column_id', 'anonymous_siebel_columns.id');
+                    })
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('anonymization_rule_column as arc')
+                            ->join('anonymization_rule_methods as arm', 'arm.rule_id', '=', 'arc.rule_id')
+                            ->whereColumn('arc.column_id', 'anonymous_siebel_columns.id');
                     });
             })
             ->count('anonymous_siebel_columns.id');
 
         $missingMethodRequired = (clone $base)
             ->where('anonymous_siebel_columns.anonymization_required', true)
-            ->whereNotExists(function ($sub) {
-                $sub->selectRaw('1')
-                    ->from('anonymization_method_column as amc')
-                    ->whereColumn('amc.column_id', 'anonymous_siebel_columns.id');
+            ->where(function ($q) {
+                $q->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('anonymization_method_column as amc')
+                        ->whereColumn('amc.column_id', 'anonymous_siebel_columns.id');
+                })->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')
+                        ->from('anonymization_rule_column as arc')
+                        ->join('anonymization_rule_methods as arm', 'arm.rule_id', '=', 'arc.rule_id')
+                        ->whereColumn('arc.column_id', 'anonymous_siebel_columns.id');
+                });
             })
             ->count('anonymous_siebel_columns.id');
 
@@ -267,6 +300,12 @@ class AnonymizationJobReadinessService
                         $sub->selectRaw('1')
                             ->from('anonymization_method_column as amc')
                             ->whereColumn('amc.column_id', 'anonymous_siebel_columns.id');
+                    })
+                    ->orWhereExists(function ($sub) {
+                        $sub->selectRaw('1')
+                            ->from('anonymization_rule_column as arc')
+                            ->join('anonymization_rule_methods as arm', 'arm.rule_id', '=', 'arc.rule_id')
+                            ->whereColumn('arc.column_id', 'anonymous_siebel_columns.id');
                     });
             })
             ->orderByDesc('anonymous_siebel_columns.anonymization_required')
@@ -297,7 +336,7 @@ class AnonymizationJobReadinessService
         return $report;
     }
 
-    private function buildReportFromColumns(Collection $columns, Collection $pivotMethods, int $limitIssues): array
+    private function buildReportFromColumns(Collection $columns, Collection $pivotMethods, int $limitIssues, ?array $jobScope = null): array
     {
         $issues = [];
 
@@ -305,7 +344,14 @@ class AnonymizationJobReadinessService
             $qualified = $this->qualifiedColumnName($column);
             $url = AnonymousSiebelColumnResource::getUrl('edit', ['record' => $column]);
 
-            $methodCount = (int) ($column->anonymization_methods_count ?? 0);
+            $directMethodCount = (int) ($column->anonymization_methods_count ?? 0);
+            $ruleMethodCount = (int) ($column->anonymizationRule ?? collect())
+                ->flatMap(fn($rule) => $rule->methods ?? collect())
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->count();
+            $methodCount = $directMethodCount + $ruleMethodCount;
             $isRequired = (bool) ($column->anonymization_required ?? false);
             $reviewed = (bool) ($column->anonymization_requirement_reviewed ?? false);
 
@@ -328,13 +374,13 @@ class AnonymizationJobReadinessService
                     scopeType: 'column',
                     scopeName: $qualified,
                     title: 'Required column has no anonymization method',
-                    details: 'Job SQL will not include a masking statement for this required column until at least one method is attached.',
+                    details: 'Job SQL will not include a masking statement for this required column until at least one method is attached directly or via the column\'s anonymization rule.',
                     url: $url,
                 );
             }
 
             $pivotMethodId = $pivotMethods->get($column->id);
-            if ($pivotMethodId === null && $methodCount > 1) {
+            if ($pivotMethodId === null && $directMethodCount > 1) {
                 $methodNames = $column->anonymizationMethods->pluck('name')->filter()->take(5)->values()->all();
                 $issues[] = $this->issue(
                     severity: 'warning',
@@ -354,7 +400,15 @@ class AnonymizationJobReadinessService
             if ($parents->isNotEmpty()) {
                 $selectedLookup = $columns->keyBy('id');
                 $missingParents = $parents
-                    ->filter(fn(AnonymousSiebelColumn $p) => ! $selectedLookup->has($p->id))
+                    ->filter(function (AnonymousSiebelColumn $p) use ($selectedLookup, $jobScope): bool {
+                        if ($selectedLookup->has($p->id)) {
+                            return false;
+                        }
+
+                        // If the parent column's table is already in the job scope,
+                        // do not flag this as "missing dependency".
+                        return ! $this->columnInJobScope($p, $jobScope);
+                    })
                     ->take(5)
                     ->map(fn(AnonymousSiebelColumn $p) => $this->qualifiedColumnName($p))
                     ->values()
@@ -558,6 +612,79 @@ class AnonymizationJobReadinessService
         }
 
         return $query->distinct();
+    }
+
+    private function jobScopeContext(int $jobId): array
+    {
+        if ($jobId <= 0) {
+            return [
+                'databases' => [],
+                'schemas' => [],
+                'tables' => [],
+            ];
+        }
+
+        $databaseIds = DB::table('anonymization_job_databases')
+            ->where('job_id', $jobId)
+            ->pluck('database_id')
+            ->map(fn($id) => (int) $id)
+            ->filter(fn(int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        $schemaIds = DB::table('anonymization_job_schemas')
+            ->where('job_id', $jobId)
+            ->pluck('schema_id')
+            ->map(fn($id) => (int) $id)
+            ->filter(fn(int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        $tableIds = DB::table('anonymization_job_tables')
+            ->where('job_id', $jobId)
+            ->pluck('table_id')
+            ->map(fn($id) => (int) $id)
+            ->filter(fn(int $id) => $id > 0)
+            ->values()
+            ->all();
+
+        return [
+            'databases' => $databaseIds,
+            'schemas' => $schemaIds,
+            'tables' => $tableIds,
+        ];
+    }
+
+    private function columnInJobScope(AnonymousSiebelColumn $column, ?array $jobScope): bool
+    {
+        if (! is_array($jobScope)) {
+            return false;
+        }
+
+        $table = $column->getRelationValue('table');
+        $schema = $table?->getRelationValue('schema');
+
+        $tableId = (int) ($table?->id ?? 0);
+        $schemaId = (int) ($schema?->id ?? 0);
+        $databaseId = (int) ($schema?->database_id ?? 0);
+
+        $tableIds = $jobScope['tables'] ?? [];
+        $schemaIds = $jobScope['schemas'] ?? [];
+        $databaseIds = $jobScope['databases'] ?? [];
+
+        if ($tableId > 0 && in_array($tableId, $tableIds, true)) {
+            return true;
+        }
+
+        if ($schemaId > 0 && in_array($schemaId, $schemaIds, true)) {
+            return true;
+        }
+
+        if ($databaseId > 0 && in_array($databaseId, $databaseIds, true)) {
+            return true;
+        }
+
+        return false;
     }
 
     private function qualifiedColumnName(AnonymousSiebelColumn $column): string

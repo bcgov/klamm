@@ -121,6 +121,8 @@ services:
             - REDIS_HOST=redis
             - REDIS_PORT=6379
             - PHP_MEMORY_LIMIT=1024M
+            - DB_PERSISTENT=true
+            - DB_LOGGING=false
         networks:
             - sail
         depends_on:

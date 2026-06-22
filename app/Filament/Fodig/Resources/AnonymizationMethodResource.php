@@ -6,8 +6,10 @@ use App\Filament\Concerns\HasMonacoSql;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\Pages;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\ColumnsRelationManager;
 use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\JobsRelationManager;
+use App\Filament\Fodig\Resources\AnonymizationMethodResource\RelationManagers\RulesRelationManager;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymizationMethods;
+use App\Models\Anonymizer\AnonymousSiebelColumn;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\Grid;
@@ -460,8 +462,15 @@ class AnonymizationMethodResource extends Resource
                             ->label('Seed notes')
                             ->columnSpanFull()
                             ->placeholder('—'),
+                        TextEntry::make('rules_count')
+                            ->label('Rules using this method')
+                            ->getStateUsing(fn(AnonymizationMethods $record) => $record->rules()->count()),
+                        TextEntry::make('columns_via_rules_count')
+                            ->label('Columns (via rules)')
+                            ->getStateUsing(fn(AnonymizationMethods $record) => self::columnsViaRulesCount($record)),
                         TextEntry::make('usage_count')
-                            ->label('Columns using this method'),
+                            ->label('Columns (direct/legacy)')
+                            ->helperText('Direct column associations (legacy). New associations go through rules.'),
                         TextEntry::make('packages')
                             ->label('Packages included')
                             ->getStateUsing(fn(AnonymizationMethods $record) => $record->packages
@@ -476,15 +485,15 @@ class AnonymizationMethodResource extends Resource
                             ->label('Updated'),
                     ])
                     ->columns(3),
-                Section::make('Columns in Scope')
+                Section::make('Columns in Scope (via Rules)')
                     ->schema([
                         TextEntry::make('columns_preview')
                             ->label('Examples')
                             ->getStateUsing(fn(AnonymizationMethods $record) => self::columnsPreview($record))
                             ->columnSpanFull()
-                            ->placeholder('No columns reference this method yet.'),
+                            ->placeholder('No columns reference this method through rules.'),
                     ])
-                    ->visible(fn(AnonymizationMethods $record) => $record->usage_count > 0),
+                    ->visible(fn(AnonymizationMethods $record) => self::columnsViaRulesCount($record) > 0),
             ]);
     }
 
@@ -502,6 +511,7 @@ class AnonymizationMethodResource extends Resource
     {
         return [
             ColumnsRelationManager::class,
+            RulesRelationManager::class,
             JobsRelationManager::class,
             \App\Filament\Fodig\RelationManagers\ActivityLogRelationManager::class,
         ];
@@ -540,17 +550,39 @@ class AnonymizationMethodResource extends Resource
     }
 
 
+    /**
+     * Count columns connected to this method through rules.
+     */
+    protected static function columnsViaRulesCount(AnonymizationMethods $record): int
+    {
+        return (int) DB::table('anonymization_rule_column')
+            ->join('anonymization_rule_methods', 'anonymization_rule_column.rule_id', '=', 'anonymization_rule_methods.rule_id')
+            ->where('anonymization_rule_methods.method_id', $record->getKey())
+            ->distinct()
+            ->count('anonymization_rule_column.column_id');
+    }
+
+    /**
+     * Preview columns connected through rules (not direct legacy associations).
+     */
     protected static function columnsPreview(AnonymizationMethods $record): string
     {
-        $columns = $record->columns()
+        $columnIds = DB::table('anonymization_rule_column')
+            ->join('anonymization_rule_methods', 'anonymization_rule_column.rule_id', '=', 'anonymization_rule_methods.rule_id')
+            ->where('anonymization_rule_methods.method_id', $record->getKey())
+            ->distinct()
+            ->limit(8)
+            ->pluck('anonymization_rule_column.column_id');
+
+        if ($columnIds->isEmpty()) {
+            return 'No columns reference this method through rules.';
+        }
+
+        $columns = AnonymousSiebelColumn::query()
+            ->whereIn('id', $columnIds)
             ->with(['table.schema:id,schema_name', 'table:id,table_name,schema_id'])
             ->orderBy('column_name')
-            ->limit(8)
             ->get();
-
-        if ($columns->isEmpty()) {
-            return 'No columns reference this method yet.';
-        }
 
         $labels = $columns->map(function ($column) {
             $schema = $column->table?->schema?->schema_name;
@@ -561,7 +593,8 @@ class AnonymizationMethodResource extends Resource
         })->all();
 
         $preview = implode(', ', $labels);
-        $remaining = max(0, (int) $record->usage_count - count($labels));
+        $totalCount = self::columnsViaRulesCount($record);
+        $remaining = max(0, $totalCount - count($labels));
 
         if ($remaining > 0) {
             $preview .= ' +' . $remaining . ' more';
@@ -572,13 +605,23 @@ class AnonymizationMethodResource extends Resource
 
     protected static function methodUsageWarning(AnonymizationMethods $record): string
     {
-        $columnCount = (int) $record->usage_count;
+        $directColumnCount = (int) $record->usage_count;
+        $ruleColumnCount = self::columnsViaRulesCount($record);
+        $ruleCount = $record->rules()->count();
         $jobCount = $record->distinctJobUsageCount();
 
         $parts = [];
 
-        if ($columnCount > 0) {
-            $parts[] = "Referenced by {$columnCount} column" . ($columnCount === 1 ? '' : 's');
+        if ($ruleCount > 0) {
+            $parts[] = "Used by {$ruleCount} rule" . ($ruleCount === 1 ? '' : 's');
+        }
+
+        if ($ruleColumnCount > 0) {
+            $parts[] = "{$ruleColumnCount} column" . ($ruleColumnCount === 1 ? '' : 's') . ' (via rules)';
+        }
+
+        if ($directColumnCount > 0) {
+            $parts[] = "{$directColumnCount} direct column" . ($directColumnCount === 1 ? '' : 's') . ' (legacy)';
         }
 
         if ($jobCount > 0) {
@@ -586,9 +629,9 @@ class AnonymizationMethodResource extends Resource
         }
 
         if ($parts === []) {
-            return 'This method is not currently associated with any jobs or columns.';
+            return 'This method is not currently associated with any rules, jobs, or columns.';
         }
 
-        return implode(' • ', $parts) . '. Changes here can impact generated anonymization SQL. Consider using “New version” to preserve existing behavior.';
+        return implode(' • ', $parts) . '. Changes here can impact generated anonymization SQL. Consider using "New version" to preserve existing behavior.';
     }
 }

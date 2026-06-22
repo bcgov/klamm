@@ -22,6 +22,19 @@ class EditAnonymizationJob extends EditRecord
                 ->color('secondary')
                 ->outlined()
                 ->action(fn() => $this->downloadReadinessReportFromForm($this->record)),
+            Actions\Action::make('duplicate')
+                ->label('Duplicate')
+                ->icon('heroicon-o-document-duplicate')
+                ->color('info')
+                ->requiresConfirmation()
+                ->modalHeading('Duplicate anonymization job?')
+                ->modalDescription('This creates a new draft job with the same settings, scope, and column selections. The SQL script is regenerated for the new copy.')
+                ->modalSubmitActionLabel('Duplicate job')
+                ->action(function () {
+                    $duplicate = AnonymizationJobResource::duplicateJob($this->record);
+
+                    return $this->redirect(AnonymizationJobResource::getUrl('edit', ['record' => $duplicate]));
+                }),
             Actions\DeleteAction::make(),
         ];
     }
