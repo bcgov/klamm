@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
+use App\Services\Anonymizer\AnonymizationJobDependencyClosureService;
 use App\Services\Anonymizer\AnonymizationJobScriptService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -57,8 +58,10 @@ class GenerateAnonymizationJobSql implements ShouldQueue
         return self::REGENERATION_CACHE_PREFIX . $jobId;
     }
 
-    public function handle(AnonymizationJobScriptService $scriptService): void
-    {
+    public function handle(
+        AnonymizationJobScriptService $scriptService,
+        AnonymizationJobDependencyClosureService $dependencyClosureService
+    ): void {
         // Large schema jobs hydrate thousands of Eloquent models with eager-loaded
         // relationships; 1 GB is not enough for full-scope jobs (5 000+ columns).
         ini_set('memory_limit', '2G');
@@ -70,9 +73,26 @@ class GenerateAnonymizationJobSql implements ShouldQueue
             throw new ModelNotFoundException("AnonymizationJobs {$this->jobId} not found.");
         }
 
+        $dependencyClosureService->applyForJob($job);
+        $dependencyClosureService->syncJobDependencyAttributesFromDatabase($job);
+
+        $volumeAnchorCount = (int) DB::table('anonymization_job_tables')
+            ->where('job_id', $this->jobId)
+            ->where(function ($query) {
+                $query->where('row_multiplier', '>', 1)
+                    ->orWhere(function ($sub) {
+                        $sub->where('volume_mode', 'target')
+                            ->where('target_row_count', '>', 0);
+                    });
+            })
+            ->count();
+
         Log::info('GenerateAnonymizationJobSql: starting', [
             'job_id' => $this->jobId,
             'job_name' => $job->name,
+            'dependency_resolution_mode' => $job->dependency_resolution_mode,
+            'partial_baseline_declared' => (bool) $job->partial_uses_existing_full_anonymization,
+            'volume_anchor_count' => $volumeAnchorCount,
             'memory_limit' => ini_get('memory_limit'),
         ]);
 

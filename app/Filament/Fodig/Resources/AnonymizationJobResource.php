@@ -16,9 +16,11 @@ use App\Models\Anonymizer\AnonymousSiebelSchema;
 use App\Models\Anonymizer\AnonymousSiebelTable;
 use App\Services\Anonymizer\AnonymizationJobScriptService;
 use Filament\Forms;
+use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\ToggleButtons;
+use Filament\Forms\Components\View;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -45,11 +47,29 @@ class AnonymizationJobResource extends Resource
 
     protected static ?string $model = AnonymizationJobs::class;
 
-    protected const COLUMN_MODE_MANUAL = 'custom';
-    protected const COLUMN_MODE_FLAGGED = 'flagged';
-    protected const COLUMN_MODE_WITH_METHODS = 'with_methods';
-    protected const COLUMN_MODE_MISSING = 'missing';
-    protected const COLUMN_MODE_ENTIRE_SCOPE = 'all';
+    public const COLUMN_MODE_MANUAL = 'custom';
+    public const COLUMN_MODE_FLAGGED = 'flagged';
+    public const COLUMN_MODE_WITH_METHODS = 'with_methods';
+    public const COLUMN_MODE_MISSING = 'missing';
+    public const COLUMN_MODE_ENTIRE_SCOPE = 'all';
+
+    // Upper bound for the per-table row volume multiplier (data expansion factor).
+    public const MAX_ROW_MULTIPLIER = 1000;
+
+    public const MAX_TARGET_ROW_COUNT = 100_000_000;
+
+    public const VOLUME_MODE_MULTIPLIER = 'multiplier';
+
+    public const VOLUME_MODE_TARGET = 'target';
+
+    /** Max selected columns to hydrate into the Filament multi-select (avoids Livewire OOM). */
+    public const MAX_COLUMNS_FORM_HYDRATE = 250;
+
+    /** Max columns for which inline client-side SQL preview is generated on change. */
+    public const MAX_COLUMNS_INLINE_SQL_PREVIEW = 250;
+
+    /** Page size for the compact (paginated) column manager on edit. */
+    public const JOB_COLUMNS_PER_PAGE = 50;
 
     protected static array $packageDependencyCache = [];
 
@@ -94,6 +114,10 @@ class AnonymizationJobResource extends Resource
                 'anonymization_jobs.job_seed',
                 'anonymization_jobs.pre_mask_sql',
                 'anonymization_jobs.post_mask_sql',
+                'anonymization_jobs.partial_uses_existing_full_anonymization',
+                'anonymization_jobs.partial_baseline_reference',
+                'anonymization_jobs.dependency_resolution_mode',
+                'anonymization_jobs.dependency_resolution_metadata',
                 'anonymization_jobs.last_run_at',
                 'anonymization_jobs.duration_seconds',
                 'anonymization_jobs.created_at',
@@ -108,7 +132,7 @@ class AnonymizationJobResource extends Resource
      * Returns the full text when it is small, or the first + last portions
      * with a divider otherwise.  Never loads more than ~1 MB into PHP.
      */
-    protected static function loadSqlPreview(int $jobId, int $headBytes = 400000, int $tailBytes = 100000): string
+    public static function loadSqlPreview(int $jobId, int $headBytes = 400000, int $tailBytes = 100000): string
     {
         $meta = DB::table('anonymization_jobs')
             ->where('id', $jobId)
@@ -257,6 +281,17 @@ class AnonymizationJobResource extends Resource
                             ->password()
                             ->revealable()
                             ->helperText('Optional. Use in SQL blocks via {{JOB_SEED_LITERAL}} for stable deterministic hashing.'),
+                        Forms\Components\Toggle::make('partial_uses_existing_full_anonymization')
+                            ->label('This partial runs against an already fully anonymized dataset')
+                            ->visible(fn(Get $get) => $get('job_type') === AnonymizationJobs::TYPE_PARTIAL)
+                            ->live()
+                            ->helperText('Use only when the target database was already fully anonymized with the same job seed and compatible settings. Dependencies outside this partial job will not be generated.'),
+                        Forms\Components\Textarea::make('partial_baseline_reference')
+                            ->label('Existing full anonymization reference')
+                            ->rows(3)
+                            ->maxLength(2000)
+                            ->visible(fn(Get $get) => $get('job_type') === AnonymizationJobs::TYPE_PARTIAL && (bool) $get('partial_uses_existing_full_anonymization'))
+                            ->helperText('Optional audit note, such as the prior full job name/id, environment, and seed confirmation.'),
                         Forms\Components\Textarea::make('pre_mask_sql')
                             ->label('Pre-mask SQL')
                             ->rows(6)
@@ -284,9 +319,9 @@ class AnonymizationJobResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get): void {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
                                 self::pruneDependentScopeSelections($set, $get);
-                                self::handleScopeUpdated($set, $get);
+                                self::handleScopeUpdated($set, $get, $livewire);
                             })
                             ->placeholder('Pick one or more databases as the outer boundary for this job.'),
                         Select::make('schemas')
@@ -304,9 +339,9 @@ class AnonymizationJobResource extends Resource
                             ->getOptionLabelsUsing(fn(array $values, Get $get) => self::scopedSchemaPickerOptions(self::scopeContextFromForm($get), ids: $values))
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(function ($state, Set $set, Get $get): void {
+                            ->afterStateUpdated(function ($state, Set $set, Get $get, $livewire): void {
                                 self::pruneDependentScopeSelections($set, $get);
-                                self::handleScopeUpdated($set, $get);
+                                self::handleScopeUpdated($set, $get, $livewire);
                             })
                             ->placeholder('Optionally narrow the scope to individual schemas.'),
                         Select::make('tables')
@@ -317,6 +352,27 @@ class AnonymizationJobResource extends Resource
                                     ->select('anonymous_siebel_tables.id', 'anonymous_siebel_tables.table_name')
                                     ->orderBy('anonymous_siebel_tables.table_name')
                             )
+                            ->saveRelationshipsUsing(function (Select $component, AnonymizationJobs $record, array $state): void {
+                                $tableIds = array_values(array_filter(
+                                    array_map('intval', $state),
+                                    fn(int $id) => $id > 0
+                                ));
+
+                                $sync = self::buildTableSyncPayloadPreservingVolume((int) $record->getKey(), $tableIds);
+
+                                $volumeRows = self::volumeMultiplierRowsFromForm($component->getLivewire());
+                                if ($volumeRows !== null) {
+                                    foreach (self::normalizeVolumeAnchorRows($volumeRows) as $tableId => $config) {
+                                        $sync[(int) $tableId] = [
+                                            'row_multiplier' => (int) ($config['row_multiplier'] ?? 1),
+                                            'volume_mode' => (string) ($config['volume_mode'] ?? self::VOLUME_MODE_MULTIPLIER),
+                                            'target_row_count' => $config['target_row_count'] ?? null,
+                                        ];
+                                    }
+                                }
+
+                                $record->tables()->sync($sync);
+                            })
                             ->multiple()
                             ->searchable()
                             ->options(fn(Get $get) => self::scopedTablePickerOptions(self::scopeContextFromForm($get), limit: 100))
@@ -324,7 +380,7 @@ class AnonymizationJobResource extends Resource
                             ->getOptionLabelsUsing(fn(array $values, Get $get) => self::scopedTablePickerOptions(self::scopeContextFromForm($get), ids: $values))
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(fn($state, Set $set, Get $get) => self::handleScopeUpdated($set, $get))
+                            ->afterStateUpdated(fn($state, Set $set, Get $get, $livewire) => self::handleScopeUpdated($set, $get, $livewire))
                             ->getOptionLabelFromRecordUsing(function (AnonymousSiebelTable $record): string {
                                 $record->loadMissing('schema.database');
 
@@ -345,25 +401,68 @@ class AnonymizationJobResource extends Resource
                                     ->live()
                                     ->dehydrated(false)
                                     ->helperText('Use helper presets to auto-populate the column list based on catalog metadata. Switch back to Manual to take full control.')
-                                    ->afterStateUpdated(fn(?string $state, Set $set, Get $get) => self::handleColumnBuilderModeChange($state, $set, $get)),
+                                    ->afterStateUpdated(function (?string $state, Set $set, Get $get, $livewire): void {
+                                        if (
+                                            $livewire instanceof Pages\EditAnonymizationJob
+                                            && $livewire->usesCompactColumnSelection()
+                                        ) {
+                                            $livewire->applyColumnBuilderModeForCompactJob($state);
+
+                                            return;
+                                        }
+
+                                        self::handleColumnBuilderModeChange($state, $set, $get);
+                                    }),
                                 Forms\Components\Placeholder::make('column_selection_summary')
                                     ->label('Selection summary')
-                                    ->content(fn(Get $get) => self::columnSelectionSummary($get('columns'), $get('column_builder_mode')))
+                                    ->content(fn(Get $get, $livewire) => self::columnSelectionSummary(
+                                        $get('columns'),
+                                        $get('column_builder_mode'),
+                                        $livewire
+                                    ))
                                     ->columnSpanFull(),
                                 Forms\Components\Placeholder::make('package_selection_summary')
                                     ->label('Package dependencies')
-                                    ->content(fn(Get $get) => self::packageDependenciesSummary($get('columns'), $get('column_builder_mode')))
+                                    ->content(fn(Get $get, $livewire) => self::packageDependenciesSummary(
+                                        $get('columns'),
+                                        $get('column_builder_mode'),
+                                        $livewire
+                                    ))
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(1)
+                            ->columnSpanFull(),
+                        Forms\Components\Section::make('Readiness report')
+                            ->description('Evaluate blocking issues and warnings for the current selection. Loaded on demand to keep the edit page fast.')
+                            ->collapsed()
+                            ->collapsible()
+                            ->schema([
+                                Forms\Components\Hidden::make('readiness_report_loaded')
+                                    ->default(false)
+                                    ->dehydrated(false),
+                                Actions::make([
+                                    Actions\Action::make('loadReadinessReport')
+                                        ->label('Load readiness report')
+                                        ->icon('heroicon-o-chart-bar')
+                                        ->action(fn(Set $set) => $set('readiness_report_loaded', true))
+                                        ->visible(fn(Get $get) => ! (bool) $get('readiness_report_loaded')),
+                                ]),
+                                Forms\Components\Placeholder::make('readiness_load_hint')
+                                    ->label('')
+                                    ->content('Expand this section and click “Load readiness report” to compute readiness for the current selection.')
+                                    ->visible(fn(Get $get) => ! (bool) $get('readiness_report_loaded'))
                                     ->columnSpanFull(),
                                 Forms\Components\Placeholder::make('readiness_summary')
                                     ->label('Readiness summary')
                                     ->content(fn(Get $get, $livewire) => self::readinessSummary($get, $livewire->getRecord()))
+                                    ->visible(fn(Get $get) => (bool) $get('readiness_report_loaded'))
                                     ->columnSpanFull(),
                                 Forms\Components\Placeholder::make('readiness_issues')
                                     ->label('Readiness issues')
                                     ->content(fn(Get $get, $livewire) => self::readinessIssuesHtml($get, $livewire->getRecord()))
+                                    ->visible(fn(Get $get) => (bool) $get('readiness_report_loaded'))
                                     ->columnSpanFull(),
                             ])
-                            ->columns(1)
                             ->columnSpanFull(),
                         Select::make('columns')
                             ->label('Columns')
@@ -374,12 +473,23 @@ class AnonymizationJobResource extends Resource
                                     ->select('anonymous_siebel_columns.id', 'anonymous_siebel_columns.column_name')
                                     ->orderBy('anonymous_siebel_columns.column_name')
                             )
+                            ->loadStateFromRelationshipsUsing(function (Select $component, AnonymizationJobs $record): array {
+                                if (self::shouldUseCompactColumnSelection($record)) {
+                                    return [];
+                                }
+
+                                return $record->{$component->getRelationshipName()}()
+                                    ->pluck('anonymous_siebel_columns.id')
+                                    ->map(fn($id) => (int) $id)
+                                    ->all();
+                            })
                             ->multiple()
                             ->searchable()
                             ->options(fn(Get $get) => self::scopedColumnPickerOptions(self::scopeContextFromForm($get), limit: 50))
                             ->getSearchResultsUsing(fn(string $search, Get $get) => self::scopedColumnPickerOptions(self::scopeContextFromForm($get), search: $search, limit: 75))
                             ->getOptionLabelsUsing(fn(array $values, Get $get) => self::scopedColumnPickerOptions(self::scopeContextFromForm($get), ids: $values))
                             ->reactive()
+                            ->visible(fn($livewire, ?AnonymizationJobs $record) => ! self::usesCompactColumnSelectionOnPage($livewire, $record))
                             ->disabled(function (Get $get): bool {
                                 if (self::isEntireScopeMode($get('column_builder_mode'))) {
                                     return true;
@@ -401,19 +511,136 @@ class AnonymizationJobResource extends Resource
                                 return 'Fine-tune the generated list by searching or removing specific columns. The SQL preview updates automatically.';
                             })
                             ->getOptionLabelFromRecordUsing(fn(AnonymousSiebelColumn $record) => self::formatColumnLabel($record))
-                            ->afterStateHydrated(function ($state, callable $set, Get $get, $livewire) {
-                                $record = $livewire->getRecord();
-                                $existingScript = ($record && $record->getKey())
-                                    ? self::loadSqlPreview((int) $record->getKey())
-                                    : '';
-                                self::updateSqlPreviewFromSelection($state, $set, $get, $existingScript);
+                            ->afterStateHydrated(function ($state, callable $set, Get $get): void {
+                                if (self::shouldSkipSqlPreviewRebuildOnHydrate($get, $state)) {
+                                    return;
+                                }
+
+                                self::updateSqlPreviewFromSelection(
+                                    $state,
+                                    $set,
+                                    $get,
+                                    (string) ($get('sql_script') ?? '')
+                                );
                             })
-                            ->afterStateUpdated(function (?array $state, callable $set, Get $get) {
+                            ->afterStateUpdated(function (?array $state, callable $set, Get $get): void {
                                 self::updateSqlPreviewFromSelection($state, $set, $get);
                             })
                             ->placeholder('Optionally scope to columns'),
+                        Fieldset::make('Large selection manager')
+                            ->label('Saved columns')
+                            ->visible(fn($livewire, ?AnonymizationJobs $record) => self::usesCompactColumnSelectionOnPage($livewire, $record))
+                            ->schema([
+                                Select::make('columns_to_add')
+                                    ->label('Add columns')
+                                    ->multiple()
+                                    ->searchable()
+                                    ->dehydrated(false)
+                                    ->options(fn(Get $get) => self::scopedColumnPickerOptions(self::scopeContextFromForm($get), limit: 50))
+                                    ->getSearchResultsUsing(fn(string $search, Get $get) => self::scopedColumnPickerOptions(self::scopeContextFromForm($get), search: $search, limit: 75))
+                                    ->getOptionLabelsUsing(fn(array $values, Get $get) => self::scopedColumnPickerOptions(self::scopeContextFromForm($get), ids: $values))
+                                    ->disabled(fn(Get $get) => self::scopeContextFromForm($get)['tables'] === [])
+                                    ->helperText('Search and add columns without loading the full selection into the form.'),
+                                Actions::make([
+                                    Actions\Action::make('addSelectedColumns')
+                                        ->label('Add selected columns')
+                                        ->icon('heroicon-o-plus')
+                                        ->action(function (Get $get, $livewire): void {
+                                            if ($livewire instanceof Pages\EditAnonymizationJob) {
+                                                $livewire->addJobColumns((array) $get('columns_to_add'));
+                                            }
+                                        })
+                                        ->visible(fn($livewire) => $livewire instanceof Pages\EditAnonymizationJob),
+                                ]),
+                                View::make('filament.fodig.resources.anonymization-job-resource.forms.compact-columns')
+                                    ->viewData(fn($livewire) => ['livewire' => $livewire])
+                                    ->visible(fn($livewire) => $livewire instanceof Pages\EditAnonymizationJob),
+                            ])
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
+                Forms\Components\Section::make('Volume Expansion (optional)')
+                    ->description('Scale generated row volume per anchor table using a multiplier or an explicit target row count. Dependent child tables inherit sizing unless they have their own anchor. Foreign keys are remapped automatically. Leave empty for a normal 1:1 export.')
+                    ->collapsed()
+                    ->schema([
+                        Forms\Components\Repeater::make('table_volume_multipliers')
+                            ->label('Table volume anchors')
+                            ->dehydrated(false)
+                            ->reorderable(false)
+                            ->addActionLabel('Add table volume anchor')
+                            ->columns(2)
+                            ->schema([
+                                Select::make('table_id')
+                                    ->label('Anchor table')
+                                    ->required()
+                                    ->searchable()
+                                    ->live()
+                                    ->options(fn(Get $get) => self::volumeMultiplierTableOptions($get))
+                                    ->getSearchResultsUsing(fn(string $search, Get $get) => self::volumeMultiplierTableOptions($get, search: $search))
+                                    ->getOptionLabelUsing(fn($value) => self::scopedTablePickerOptions([], ids: [(int) $value])[(int) $value] ?? (string) $value),
+                                ToggleButtons::make('volume_mode')
+                                    ->label('Sizing mode')
+                                    ->options([
+                                        self::VOLUME_MODE_MULTIPLIER => 'Multiplier',
+                                        self::VOLUME_MODE_TARGET => 'Target rows',
+                                    ])
+                                    ->default(self::VOLUME_MODE_MULTIPLIER)
+                                    ->inline()
+                                    ->live()
+                                    ->columnSpanFull(),
+                                Forms\Components\TextInput::make('row_multiplier')
+                                    ->label('Multiplier (x)')
+                                    ->numeric()
+                                    ->default(10)
+                                    ->minValue(2)
+                                    ->maxValue(self::MAX_ROW_MULTIPLIER)
+                                    ->required(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_MULTIPLIER)
+                                    ->visible(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_MULTIPLIER)
+                                    ->helperText('Rows are multiplied by this factor (max ' . self::MAX_ROW_MULTIPLIER . ').'),
+                                Forms\Components\TextInput::make('target_row_count')
+                                    ->label('Target row count')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->maxValue(self::MAX_TARGET_ROW_COUNT)
+                                    ->required(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_TARGET)
+                                    ->visible(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_TARGET)
+                                    ->helperText('Desired output rows for this anchor. The effective multiplier is computed from catalog ROW_ID statistics at SQL generation time (max ' . number_format(self::MAX_TARGET_ROW_COUNT) . ').'),
+                                Forms\Components\Placeholder::make('target_row_estimate')
+                                    ->label('Estimated multiplier')
+                                    ->content(fn(Get $get) => self::volumeTargetMultiplierEstimate($get('table_id'), $get('target_row_count')))
+                                    ->visible(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_TARGET && (int) $get('table_id') > 0)
+                                    ->columnSpanFull(),
+                            ])
+                            ->afterStateHydrated(function (Forms\Components\Repeater $component, $livewire): void {
+                                $record = method_exists($livewire, 'getRecord') ? $livewire->getRecord() : null;
+
+                                if (! $record instanceof AnonymizationJobs || ! $record->getKey()) {
+                                    return;
+                                }
+
+                                $rows = DB::table('anonymization_job_tables')
+                                    ->where('job_id', $record->getKey())
+                                    ->where(function ($query) {
+                                        $query->where('row_multiplier', '>', 1)
+                                            ->orWhere(function ($sub) {
+                                                $sub->where('volume_mode', self::VOLUME_MODE_TARGET)
+                                                    ->where('target_row_count', '>', 0);
+                                            });
+                                    })
+                                    ->orderBy('table_id')
+                                    ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count']);
+
+                                $component->state(
+                                    $rows->map(fn($r) => [
+                                        'table_id' => (int) $r->table_id,
+                                        'volume_mode' => (string) ($r->volume_mode ?: self::VOLUME_MODE_MULTIPLIER),
+                                        'row_multiplier' => (int) $r->row_multiplier,
+                                        'target_row_count' => $r->target_row_count !== null ? (int) $r->target_row_count : null,
+                                    ])->all()
+                                );
+                            })
+                            ->helperText('Pick an anchor table (must be in scope). Child tables inherit sizing unless they have their own anchor. Referenced ancestor tables stay at their original size.'),
+                    ]),
                 Forms\Components\Section::make('Run Tracking')
                     ->schema([
                         Forms\Components\DateTimePicker::make('last_run_at')
@@ -444,16 +671,31 @@ class AnonymizationJobResource extends Resource
                                 ? ['wire:poll.5s' => 'refreshSqlPreview']
                                 : [])
                             ->dehydrated(false),
-                        Forms\Components\Hidden::make('sql_script')
-                            ->default(fn(?AnonymizationJobs $record) => $record ? self::loadSqlPreview((int) $record->getKey()) : null)
+                        Forms\Components\Hidden::make('_sql_preview_loaded')
+                            ->default(false)
                             ->dehydrated(false),
+                        Forms\Components\Hidden::make('sql_script')
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (callable $set, Get $get, $livewire): void {
+                                if ((bool) $get('_sql_preview_loaded')) {
+                                    return;
+                                }
+
+                                $record = method_exists($livewire, 'getRecord') ? $livewire->getRecord() : null;
+
+                                if (! $record instanceof AnonymizationJobs || ! $record->getKey()) {
+                                    return;
+                                }
+
+                                self::hydrateSqlPreviewFormState($set, (int) $record->getKey());
+                            }),
                         self::sqlEditor(
                             field: 'sql_script_preview',
                             label: 'Generated SQL',
                             height: '475px',
                             helperText: 'SQL is generated from anonymization methods linked to the selected columns. For large scripts, use the Download SQL button on the view page.',
                         )
-                            ->default(fn(?AnonymizationJobs $record) => $record ? self::loadSqlPreview((int) $record->getKey()) : null)
+                            ->default(fn(Get $get) => (string) ($get('sql_script_preview') ?? ''))
                             ->disabled()
                             ->live()
                             ->reactive()
@@ -526,6 +768,10 @@ class AnonymizationJobResource extends Resource
                 'job_seed',
                 'pre_mask_sql',
                 'post_mask_sql',
+                'partial_uses_existing_full_anonymization',
+                'partial_baseline_reference',
+                'dependency_resolution_mode',
+                'dependency_resolution_metadata',
                 'last_run_at',
                 'duration_seconds',
                 'created_at',
@@ -930,6 +1176,60 @@ class AnonymizationJobResource extends Resource
 
     // Keep the generated SQL preview synced to the current selection.
     // if "Entire scope" mode is selected, avoid generating a large SQL preview client-side
+    public static function countJobSelectedColumns(int $jobId): int
+    {
+        if ($jobId <= 0) {
+            return 0;
+        }
+
+        return (int) DB::table('anonymization_job_columns')
+            ->where('job_id', $jobId)
+            ->count();
+    }
+
+    public static function shouldUseCompactColumnSelection(?AnonymizationJobs $record): bool
+    {
+        if (! $record?->getKey()) {
+            return false;
+        }
+
+        return self::countJobSelectedColumns((int) $record->getKey()) > self::MAX_COLUMNS_FORM_HYDRATE;
+    }
+
+    public static function usesCompactColumnSelectionOnPage(mixed $livewire, ?AnonymizationJobs $record = null): bool
+    {
+        if ($livewire instanceof Pages\EditAnonymizationJob) {
+            return $livewire->usesCompactColumnSelection();
+        }
+
+        return self::shouldUseCompactColumnSelection($record);
+    }
+
+    public static function hydrateSqlPreviewFormState(Set | callable $set, int $jobId): void
+    {
+        $preview = self::loadSqlPreview($jobId);
+
+        $set('_sql_preview_loaded', true);
+        $set('sql_script', $preview);
+        $set(
+            'sql_script_preview',
+            $preview !== ''
+                ? $preview
+                : '-- No generated SQL yet. Save the job or use Regenerate SQL on the view page.'
+        );
+    }
+
+    protected static function shouldSkipSqlPreviewRebuildOnHydrate(Get $get, mixed $columnState): bool
+    {
+        if ((bool) $get('_sql_preview_loaded')) {
+            return true;
+        }
+
+        $columnIds = self::sanitizeIds(is_array($columnState) ? $columnState : ($columnState ? [$columnState] : []));
+
+        return count($columnIds) > self::MAX_COLUMNS_INLINE_SQL_PREVIEW;
+    }
+
     protected static function updateSqlPreviewFromSelection(
         mixed $state,
         Set | callable $set,
@@ -943,6 +1243,20 @@ class AnonymizationJobResource extends Resource
 
         $columnIds = is_array($state) ? $state : ($state ? [$state] : []);
         $columnIds = self::sanitizeIds($columnIds);
+
+        if (count($columnIds) > self::MAX_COLUMNS_INLINE_SQL_PREVIEW) {
+            if ($existingScript !== '') {
+                $set('sql_script', $existingScript);
+                $set('sql_script_preview', $existingScript);
+            } else {
+                $set(
+                    'sql_script_preview',
+                    '-- SQL preview is not generated inline for large selections. Save the job or open the view page to download the script.'
+                );
+            }
+
+            return;
+        }
 
         if ($columnIds === []) {
             $preview = $existingScript !== ''
@@ -1108,9 +1422,38 @@ class AnonymizationJobResource extends Resource
     }
 
     // When scope changes, keep column selection consistent
-    protected static function handleScopeUpdated(Set $set, Get $get): void
+    protected static function handleScopeUpdated(Set $set, Get $get, mixed $livewire = null): void
     {
         $mode = $get('column_builder_mode') ?? self::COLUMN_MODE_MANUAL;
+
+        if (
+            $livewire instanceof Pages\EditAnonymizationJob
+            && $livewire->usesCompactColumnSelection()
+        ) {
+            if ($mode === self::COLUMN_MODE_MANUAL) {
+                $context = self::scopeContextFromForm($get);
+                $hasScope = ($context['databases'] !== []) || ($context['schemas'] !== []) || ($context['tables'] !== []);
+                $hasSavedColumns = $livewire->getJobColumnsTotal() > 0;
+
+                if ($hasScope && ! $hasSavedColumns) {
+                    $set('column_builder_mode', self::COLUMN_MODE_ENTIRE_SCOPE);
+                    self::applyEntireScopePreview($set);
+                }
+
+                return;
+            }
+
+            if (self::isEntireScopeMode($mode)) {
+                self::applyEntireScopePreview($set);
+                $livewire->applyColumnBuilderModeForCompactJob($mode);
+
+                return;
+            }
+
+            $livewire->applyColumnBuilderModeForCompactJob($mode);
+
+            return;
+        }
 
         if ($mode === self::COLUMN_MODE_MANUAL) {
             $context = self::scopeContextFromForm($get);
@@ -1345,6 +1688,334 @@ class AnonymizationJobResource extends Resource
             ->all();
     }
 
+    /**
+     * Table options for the volume-expansion repeater. Reads the parent scope
+     * (two containers up from the repeater item) so the picker stays consistent
+     * with the job's selected databases/schemas/tables.
+     */
+    protected static function volumeMultiplierTableOptions(Get $get, ?string $search = null): array
+    {
+        $explicitTables = self::sanitizeIds($get('../../tables'));
+
+        // When specific scope tables are chosen, anchors must come from that set.
+        if ($explicitTables !== []) {
+            return self::scopedTablePickerOptions([], ids: $explicitTables);
+        }
+
+        $context = [
+            'databases' => self::sanitizeIds($get('../../databases')),
+            'schemas' => self::sanitizeIds($get('../../schemas')),
+            'tables' => [],
+        ];
+
+        return self::scopedTablePickerOptions($context, search: $search, limit: 200);
+    }
+
+    /**
+     * Human-readable estimate for target-row sizing in the volume repeater.
+     */
+    protected static function volumeTargetMultiplierEstimate(mixed $tableId, mixed $targetRowCount): string
+    {
+        $tableId = (int) $tableId;
+        $target = (int) $targetRowCount;
+
+        if ($tableId <= 0 || $target <= 0) {
+            return 'Enter a target row count to see the estimated multiplier.';
+        }
+
+        $sourceRows = self::catalogSourceRowCountForTable($tableId);
+
+        if ($sourceRows <= 0) {
+            return 'Catalog source row count is unavailable for this table (ROW_ID num_rows missing). SQL generation will assume 1 source row until metadata syncs.';
+        }
+
+        $factor = (int) min(self::MAX_ROW_MULTIPLIER, (int) ceil($target / $sourceRows));
+        $factor = max(2, $factor);
+
+        return sprintf(
+            'Estimated %sx from catalog source %s rows → ~%s output rows (target %s).',
+            number_format($factor),
+            number_format($sourceRows),
+            number_format($sourceRows * $factor),
+            number_format($target)
+        );
+    }
+
+    protected static function catalogSourceRowCountForTable(int $tableId): int
+    {
+        if ($tableId <= 0) {
+            return 0;
+        }
+
+        $numRows = DB::table('anonymous_siebel_columns')
+            ->where('table_id', $tableId)
+            ->whereRaw('UPPER(column_name) = ?', ['ROW_ID'])
+            ->max('num_rows');
+
+        return max(0, (int) $numRows);
+    }
+
+    /**
+     * Read volume-anchor repeater rows from a Filament edit/create page.
+     *
+     * Returns null when the form did not expose repeater state (preserve DB anchors).
+     * Returns an array (possibly empty) when the operator submitted the volume section.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    public static function volumeMultiplierRowsFromForm(mixed $livewire): ?array
+    {
+        if (is_object($livewire) && method_exists($livewire, 'form')) {
+            $form = $livewire->form;
+
+            if (is_object($form) && method_exists($form, 'getRawState')) {
+                $rawState = $form->getRawState();
+
+                if (is_array($rawState) && array_key_exists('table_volume_multipliers', $rawState)) {
+                    return array_values(array_filter(
+                        (array) ($rawState['table_volume_multipliers'] ?? []),
+                        fn($row) => is_array($row)
+                    ));
+                }
+            }
+        }
+
+        if (is_object($livewire)) {
+            $fromData = data_get($livewire, 'data.table_volume_multipliers');
+
+            if (is_array($fromData)) {
+                return array_values(array_filter($fromData, fn($row) => is_array($row)));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $multiplierRows
+     * @return array<int, array{volume_mode:string, row_multiplier:int, target_row_count:?int}>
+     */
+    public static function normalizeVolumeAnchorRows(array $multiplierRows): array
+    {
+        $normalized = [];
+
+        foreach ($multiplierRows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $tableId = (int) ($row['table_id'] ?? 0);
+            if ($tableId <= 0) {
+                continue;
+            }
+
+            $mode = strtolower(trim((string) ($row['volume_mode'] ?? self::VOLUME_MODE_MULTIPLIER)));
+
+            if ($mode === self::VOLUME_MODE_TARGET) {
+                $target = (int) ($row['target_row_count'] ?? 0);
+                $target = min(self::MAX_TARGET_ROW_COUNT, max(0, $target));
+                if ($target <= 0) {
+                    continue;
+                }
+
+                $candidate = [
+                    'volume_mode' => self::VOLUME_MODE_TARGET,
+                    'row_multiplier' => 1,
+                    'target_row_count' => $target,
+                    'strength' => $target,
+                ];
+            } else {
+                $factor = max(1, min(self::MAX_ROW_MULTIPLIER, (int) ($row['row_multiplier'] ?? 1)));
+                if ($factor <= 1) {
+                    continue;
+                }
+
+                $candidate = [
+                    'volume_mode' => self::VOLUME_MODE_MULTIPLIER,
+                    'row_multiplier' => $factor,
+                    'target_row_count' => null,
+                    'strength' => $factor,
+                ];
+            }
+
+            if (! isset($normalized[$tableId]) || $candidate['strength'] > ($normalized[$tableId]['strength'] ?? 0)) {
+                $normalized[$tableId] = $candidate;
+            }
+        }
+
+        $result = [];
+        foreach ($normalized as $tableId => $config) {
+            $result[(int) $tableId] = [
+                'volume_mode' => (string) $config['volume_mode'],
+                'row_multiplier' => (int) $config['row_multiplier'],
+                'target_row_count' => $config['target_row_count'],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Build a tables() sync payload that keeps configured volume anchors on pivot rows.
+     *
+     * @param  array<int, int>  $scopeTableIds
+     * @return array<int, array<string, mixed>>
+     */
+    public static function buildTableSyncPayloadPreservingVolume(int $jobId, array $scopeTableIds): array
+    {
+        $scopeTableIds = array_values(array_unique(array_filter(
+            array_map('intval', $scopeTableIds),
+            fn(int $id) => $id > 0
+        )));
+
+        $volumeAnchorTableIds = DB::table('anonymization_job_tables')
+            ->where('job_id', $jobId)
+            ->where(function ($query) {
+                $query->where('row_multiplier', '>', 1)
+                    ->orWhere(function ($sub) {
+                        $sub->where('volume_mode', self::VOLUME_MODE_TARGET)
+                            ->where('target_row_count', '>', 0);
+                    });
+            })
+            ->pluck('table_id')
+            ->map(fn($id) => (int) $id)
+            ->all();
+
+        $tableIds = array_values(array_unique(array_merge($scopeTableIds, $volumeAnchorTableIds)));
+
+        if ($tableIds === []) {
+            return [];
+        }
+
+        $existing = DB::table('anonymization_job_tables')
+            ->where('job_id', $jobId)
+            ->whereIn('table_id', $tableIds)
+            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count'])
+            ->keyBy('table_id');
+
+        $sync = [];
+        foreach ($tableIds as $tableId) {
+            $row = $existing->get($tableId);
+
+            if ($row) {
+                $sync[$tableId] = [
+                    'row_multiplier' => (int) ($row->row_multiplier ?? 1),
+                    'volume_mode' => (string) ($row->volume_mode ?: self::VOLUME_MODE_MULTIPLIER),
+                    'target_row_count' => $row->target_row_count !== null ? (int) $row->target_row_count : null,
+                ];
+
+                continue;
+            }
+
+            $sync[$tableId] = [
+                'row_multiplier' => 1,
+                'volume_mode' => self::VOLUME_MODE_MULTIPLIER,
+                'target_row_count' => null,
+            ];
+        }
+
+        return $sync;
+    }
+
+    /**
+     * @return array<int, array{table_id:int, volume_mode:string, row_multiplier:int, target_row_count:?int}>
+     */
+    public static function storedVolumeAnchorRowsForJob(int $jobId): array
+    {
+        if ($jobId <= 0) {
+            return [];
+        }
+
+        return DB::table('anonymization_job_tables')
+            ->where('job_id', $jobId)
+            ->where(function ($query) {
+                $query->where('row_multiplier', '>', 1)
+                    ->orWhere(function ($sub) {
+                        $sub->where('volume_mode', self::VOLUME_MODE_TARGET)
+                            ->where('target_row_count', '>', 0);
+                    });
+            })
+            ->orderBy('table_id')
+            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count'])
+            ->map(fn($row) => [
+                'table_id' => (int) $row->table_id,
+                'volume_mode' => (string) ($row->volume_mode ?: self::VOLUME_MODE_MULTIPLIER),
+                'row_multiplier' => (int) ($row->row_multiplier ?? 1),
+                'target_row_count' => $row->target_row_count !== null ? (int) $row->target_row_count : null,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Persist per-table volume anchors to the anonymization_job_tables pivot.
+     *
+     * Only call when {@see volumeMultiplierRowsFromForm()} returned an array (including []).
+     * When the repeater is intentionally cleared, previously configured anchors are reset.
+     *
+     * @param  array<int, array<string, mixed>>  $multiplierRows
+     */
+    public static function persistTableMultipliers(AnonymizationJobs $job, array $multiplierRows): void
+    {
+        $jobId = (int) $job->getKey();
+
+        if ($jobId <= 0) {
+            return;
+        }
+
+        $normalized = self::normalizeVolumeAnchorRows($multiplierRows);
+
+        // Reset any previously configured volume anchors so removals take effect.
+        DB::table('anonymization_job_tables')
+            ->where('job_id', $jobId)
+            ->where(function ($query) {
+                $query->where('row_multiplier', '>', 1)
+                    ->orWhere('target_row_count', '>', 0)
+                    ->orWhere('volume_mode', self::VOLUME_MODE_TARGET);
+            })
+            ->update([
+                'row_multiplier' => 1,
+                'volume_mode' => self::VOLUME_MODE_MULTIPLIER,
+                'target_row_count' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($normalized === []) {
+            return;
+        }
+
+        $now = now()->toDateTimeString();
+
+        foreach ($normalized as $tableId => $config) {
+            $payload = [
+                'row_multiplier' => (int) ($config['row_multiplier'] ?? 1),
+                'volume_mode' => (string) ($config['volume_mode'] ?? self::VOLUME_MODE_MULTIPLIER),
+                'target_row_count' => $config['target_row_count'] ?? null,
+                'updated_at' => $now,
+            ];
+
+            $exists = DB::table('anonymization_job_tables')
+                ->where('job_id', $jobId)
+                ->where('table_id', $tableId)
+                ->exists();
+
+            if ($exists) {
+                DB::table('anonymization_job_tables')
+                    ->where('job_id', $jobId)
+                    ->where('table_id', $tableId)
+                    ->update($payload);
+
+                continue;
+            }
+
+            DB::table('anonymization_job_tables')->insert(array_merge($payload, [
+                'job_id' => $jobId,
+                'table_id' => $tableId,
+                'created_at' => $now,
+            ]));
+        }
+    }
+
     protected static function scopedTablePickerOptions(array $context, ?string $search = null, ?array $ids = null, int $limit = 50): array
     {
         $query = AnonymousSiebelTable::query()
@@ -1415,11 +2086,22 @@ class AnonymizationJobResource extends Resource
     }
 
     // If a scope exists but no explicit columns, treat it as implicit full-scope behavior.
-    protected static function columnSelectionSummary($columnIds, ?string $mode = null): string
+    protected static function columnSelectionSummary($columnIds, ?string $mode = null, mixed $livewire = null): string
     {
         if (self::isEntireScopeMode($mode)) {
             return 'Entire scope selected — SQL will be generated for every in-scope column after save.';
         }
+
+        if ($livewire instanceof Pages\EditAnonymizationJob && $livewire->usesCompactColumnSelection()) {
+            $total = $livewire->getJobColumnsTotal();
+
+            return sprintf(
+                '%s %s saved on this job (paginated list below). Use search to add or remove individual columns.',
+                number_format($total),
+                Str::plural('column', $total)
+            );
+        }
+
         $ids = self::sanitizeIds($columnIds);
         if ($ids === []) {
             return 'No columns selected yet.';
@@ -1461,10 +2143,17 @@ class AnonymizationJobResource extends Resource
         );
     }
 
-    protected static function packageDependenciesSummary($columnIds, ?string $mode = null): string
+    protected static function packageDependenciesSummary($columnIds, ?string $mode = null, mixed $livewire = null): string
     {
         if (self::isEntireScopeMode($mode)) {
             return 'Entire scope selected — package requirements will be calculated from the scope on save.';
+        }
+
+        if ($livewire instanceof Pages\EditAnonymizationJob && $livewire->usesCompactColumnSelection()) {
+            return sprintf(
+                'Package dependencies apply to all %s saved columns. Open “View Selection” from the job view page for a full breakdown.',
+                number_format($livewire->getJobColumnsTotal())
+            );
         }
 
         $ids = self::sanitizeIds($columnIds);
@@ -1597,7 +2286,7 @@ class AnonymizationJobResource extends Resource
         $set('sql_script_preview', self::allScopePreviewMessage());
     }
 
-    protected static function isEntireScopeMode(?string $mode): bool
+    public static function isEntireScopeMode(?string $mode): bool
     {
         return $mode === self::COLUMN_MODE_ENTIRE_SCOPE;
     }
@@ -1620,8 +2309,59 @@ class AnonymizationJobResource extends Resource
             return;
         }
 
+        // Compact edit mode mutates anonymization_job_columns directly via Livewire actions.
+        if (self::shouldUseCompactColumnSelection($record)) {
+            return;
+        }
+
         $record->columns()->sync(Arr::wrap($state));
         GenerateAnonymizationJobSql::dispatch($record->getKey());
+    }
+
+    /**
+     * Replace a job's column pivot rows from a builder preset (compact edit path).
+     */
+    public static function syncJobColumnsForMode(AnonymizationJobs $job, string $mode, array $context): void
+    {
+        $jobId = (int) $job->getKey();
+
+        DB::table('anonymization_job_columns')->where('job_id', $jobId)->delete();
+
+        if (self::isScopeEmpty($context)) {
+            return;
+        }
+
+        $query = self::scopedColumnsQuery($context);
+
+        $query = match ($mode) {
+            self::COLUMN_MODE_FLAGGED => $query->where('anonymous_siebel_columns.anonymization_required', true),
+            self::COLUMN_MODE_MISSING => $query
+                ->whereDoesntHave('anonymizationMethods')
+                ->whereDoesntHave('anonymizationRule.methods'),
+            self::COLUMN_MODE_WITH_METHODS => $query->where(function (Builder $q) {
+                $q->whereHas('anonymizationMethods')
+                    ->orWhereHas('anonymizationRule.methods');
+            }),
+            'with_rules' => $query->whereHas('anonymizationRule'),
+            default => $query,
+        };
+
+        $selectQuery = $query
+            ->select('anonymous_siebel_columns.id')
+            ->orderBy('anonymous_siebel_columns.id');
+
+        $selectSql = $selectQuery->toSql();
+        $bindings = $selectQuery->getBindings();
+        $now = now()->toDateTimeString();
+
+        DB::statement(
+            'INSERT INTO anonymization_job_columns (job_id, column_id, anonymization_method_id, created_at, updated_at) '
+                . "SELECT {$jobId}, sub.id, NULL, '{$now}', '{$now}' "
+                . "FROM ({$selectSql}) AS sub",
+            $bindings
+        );
+
+        GenerateAnonymizationJobSql::dispatch($jobId);
     }
 
     public static function syncEntireScopeSelectionForJob(AnonymizationJobs $job, array $scope): void

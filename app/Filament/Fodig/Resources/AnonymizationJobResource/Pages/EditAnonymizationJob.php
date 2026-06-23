@@ -3,12 +3,15 @@
 namespace App\Filament\Fodig\Resources\AnonymizationJobResource\Pages;
 
 use App\Filament\Fodig\Resources\AnonymizationJobResource;
+use App\Filament\Fodig\Resources\AnonymizationJobResource\Pages\Concerns\ManagesCompactJobColumnSelection;
 use App\Filament\Fodig\Resources\AnonymizationJobResource\Pages\Concerns\SyncsAnonymizationJobSelection;
+use App\Models\Anonymizer\AnonymizationJobs;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditAnonymizationJob extends EditRecord
 {
+    use ManagesCompactJobColumnSelection;
     use SyncsAnonymizationJobSelection;
 
     protected static string $resource = AnonymizationJobResource::class;
@@ -42,6 +45,13 @@ class EditAnonymizationJob extends EditRecord
     protected function getSavedNotificationTitle(): ?string
     {
         return 'Anonymization job updated';
+    }
+
+    protected function beforeSave(): void
+    {
+        if ($this->record instanceof AnonymizationJobs && $this->record->exists) {
+            $this->captureVolumeAnchorSnapshot($this->record);
+        }
     }
 
     protected function afterSave(): void

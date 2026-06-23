@@ -70,6 +70,10 @@ class AnonymizationJobs extends Model
         'job_seed',
         'pre_mask_sql',
         'post_mask_sql',
+        'partial_uses_existing_full_anonymization',
+        'partial_baseline_reference',
+        'dependency_resolution_mode',
+        'dependency_resolution_metadata',
         'last_run_at',
         'duration_seconds',
         'sql_script',
@@ -79,6 +83,8 @@ class AnonymizationJobs extends Model
         'id' => 'integer',
         'last_run_at' => 'datetime',
         'duration_seconds' => 'integer',
+        'partial_uses_existing_full_anonymization' => 'boolean',
+        'dependency_resolution_metadata' => 'array',
     ];
 
     protected $attributes = ['status' => self::STATUS_DRAFT];
@@ -112,7 +118,7 @@ class AnonymizationJobs extends Model
             'anonymization_job_tables',
             'job_id',
             'table_id'
-        )->withTimestamps();
+        )->withPivot('row_multiplier', 'volume_mode', 'target_row_count')->withTimestamps();
     }
 
     public function columns(): BelongsToMany
@@ -179,7 +185,11 @@ class AnonymizationJobs extends Model
 
             $this->copySimplePivotRows('anonymization_job_databases', 'database_id', (int) $duplicate->getKey());
             $this->copySimplePivotRows('anonymization_job_schemas', 'schema_id', (int) $duplicate->getKey());
-            $this->copySimplePivotRows('anonymization_job_tables', 'table_id', (int) $duplicate->getKey());
+            $this->copySimplePivotRows('anonymization_job_tables', 'table_id', (int) $duplicate->getKey(), [
+                'row_multiplier',
+                'volume_mode',
+                'target_row_count',
+            ]);
             $this->copyColumnPivotRows((int) $duplicate->getKey());
 
             return $duplicate;
@@ -207,19 +217,25 @@ class AnonymizationJobs extends Model
         return $candidate;
     }
 
-    protected function copySimplePivotRows(string $table, string $foreignKeyColumn, int $newJobId): void
+    protected function copySimplePivotRows(string $table, string $foreignKeyColumn, int $newJobId, array $extraColumns = []): void
     {
         $timestamp = now()->toDateTimeString();
 
+        $extraColumns = array_values(array_filter($extraColumns, fn($column) => is_string($column) && $column !== ''));
+        $extraSelect = $extraColumns !== [] ? ', ' . implode(', ', $extraColumns) : '';
+
         DB::table($table)->insertUsing(
-            ['job_id', $foreignKeyColumn, 'created_at', 'updated_at'],
+            array_merge(['job_id', $foreignKeyColumn], $extraColumns, ['created_at', 'updated_at']),
             DB::table($table)
                 ->where('job_id', $this->getKey())
-                ->selectRaw('? as job_id, ' . $foreignKeyColumn . ', ? as created_at, ? as updated_at', [
-                    $newJobId,
-                    $timestamp,
-                    $timestamp,
-                ])
+                ->selectRaw(
+                    '? as job_id, ' . $foreignKeyColumn . $extraSelect . ', ? as created_at, ? as updated_at',
+                    [
+                        $newJobId,
+                        $timestamp,
+                        $timestamp,
+                    ]
+                )
         );
     }
 

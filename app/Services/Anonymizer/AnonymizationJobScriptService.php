@@ -3,6 +3,7 @@
 namespace App\Services\Anonymizer;
 
 use App\Services\Anonymizer\Concerns\BuildsDoubleSeededDeterministicOracleScripts;
+use App\Services\Anonymizer\Concerns\ExpandsRowVolume;
 use App\Enums\SeedContractMode;
 use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 class AnonymizationJobScriptService
 {
     use BuildsDoubleSeededDeterministicOracleScripts;
+    use ExpandsRowVolume;
 
     private const WHERE_IN_CHUNK_SIZE = 10000;
 
@@ -1155,12 +1157,24 @@ class AnonymizationJobScriptService
         $prefixLines = array_merge($prefixLines, $this->buildSourceAccessPreflightForClones($rewriteContext));
         $prefixLines = array_merge($prefixLines, $this->buildDeterministicRandomSeedSection($rewriteContext));
 
-        // Contract validation is deferred to chunk workers for very large jobs
-        // to avoid materializing all 258 K+ columns in the parent process.
-        $prefixLines[] = $this->commentDivider('-');
-        $prefixLines[] = '-- Note: Seed contract validation deferred to per-table chunk processing.';
-        $prefixLines[] = $this->commentDivider('-');
-        $prefixLines[] = '';
+        $chunkedContractReview = app(AnonymizationJobDependencyClosureService::class)
+            ->buildChunkedContractReview($columnIds, $job, $rewriteContext);
+        $halted = (bool) ($chunkedContractReview['halted'] ?? false);
+
+        if (($chunkedContractReview['lines'] ?? []) !== []) {
+            $prefixLines = array_merge($prefixLines, $chunkedContractReview['lines']);
+        } else {
+            // Contract validation is deferred to chunk workers for very large jobs
+            // to avoid materializing all 258 K+ columns in the parent process.
+            $prefixLines[] = $this->commentDivider('-');
+            $prefixLines[] = '-- Note: Seed contract validation deferred to per-table chunk processing.';
+            $prefixLines[] = $this->commentDivider('-');
+            $prefixLines[] = '';
+        }
+
+        if ($halted) {
+            $prefixLines[] = '-- SQL generation halted due to blocking seed contract violations.';
+        }
 
         $requiredPackageRefs = [];
         foreach ($allMethods as $methodModel) {
@@ -1254,7 +1268,7 @@ class AnonymizationJobScriptService
             'seed_provider_map' => $seedProviderMap,
             'rewrite_context' => $rewriteContext,
             'seed_map_context' => $seedMapContext,
-            'halted' => false,
+            'halted' => $halted,
         ];
     }
 
@@ -1643,6 +1657,12 @@ class AnonymizationJobScriptService
             'seed_map_hygiene_mode' => trim((string) ($job?->seed_map_hygiene_mode ?? '')),
             'job_seed' => (string) ($job?->job_seed ?? ''),
             'job_seed_literal' => $this->oracleStringLiteral($job?->job_seed),
+            'partial_uses_existing_full_anonymization' => (bool) ($job?->partial_uses_existing_full_anonymization ?? false),
+            'partial_baseline_reference' => trim((string) ($job?->partial_baseline_reference ?? '')),
+            'dependency_resolution_mode' => trim((string) ($job?->dependency_resolution_mode ?? '')),
+            'dependency_resolution_metadata' => is_array($job?->dependency_resolution_metadata ?? null)
+                ? $job->dependency_resolution_metadata
+                : [],
         ];
     }
 
@@ -1695,7 +1715,7 @@ class AnonymizationJobScriptService
 
         $lines = $this->buildHeaderLines($this->jobHeaderMetadata($job), $rewriteContext);
 
-        $contractReview = $this->validateSeedContracts($ordered, $seedProviders, $seedMapContext);
+        $contractReview = $this->validateSeedContracts($ordered, $seedProviders, $seedMapContext, $rewriteContext);
 
         if ($contractReview['errors']->isNotEmpty() || $contractReview['warnings']->isNotEmpty()) {
             $lines = array_merge($lines, $this->renderContractReview($contractReview));
@@ -1872,9 +1892,13 @@ class AnonymizationJobScriptService
         return false;
     }
 
-    protected function validateSeedContracts(Collection $columns, array $seedProviders = [], array $seedMapContext = []): array
+    protected function validateSeedContracts(Collection $columns, array $seedProviders = [], array $seedMapContext = [], array $rewriteContext = []): array
     {
         $selected = $columns->keyBy('id');
+        $selectedBySchemaTable = $this->indexColumnsBySchemaTable($columns);
+        $dependencyMode = (string) ($rewriteContext['dependency_resolution_mode'] ?? '');
+        $selfContainedPartial = $dependencyMode === 'self_contained';
+        $baselineDeclaredPartial = $dependencyMode === 'baseline_declared';
         $errors = collect();
         $warnings = collect();
         $issues = collect();
@@ -1950,6 +1974,28 @@ class AnonymizationJobScriptService
             $parents = $column->getRelationValue('parentColumns') ?? collect();
 
             if ($parents->isEmpty()) {
+                $missingRelationshipParents = $this->missingRelationshipParentLabels($column, $selectedBySchemaTable);
+
+                if ($missingRelationshipParents !== []) {
+                    $detail = $columnLabel . ': Requires parent '
+                        . implode(', ', $missingRelationshipParents)
+                        . ' but it is not included in this job.';
+
+                    if ($selfContainedPartial) {
+                        $detail .= ' Self-contained partial jobs must include parent ROW_ID providers, or explicitly mark the job as running against an already fully anonymized dataset.';
+                        $errors->push($detail);
+                        $pushIssue('blocking', $detail, 'missing_parent_selection');
+                        continue;
+                    }
+
+                    if ($baselineDeclaredPartial) {
+                        $detail .= ' The job is marked as baseline-backed, so the generated SQL assumes the existing full anonymized dataset already contains the matching parent remap.';
+                        $warnings->push($detail);
+                        $pushIssue('warning', $detail, 'baseline_parent_assumption');
+                        continue;
+                    }
+                }
+
                 $fallbackProvider = $this->inferSeedProviderFromSelection($column, $columns);
 
                 if ($fallbackProvider) {
@@ -1978,7 +2024,12 @@ class AnonymizationJobScriptService
                     if ($mandatory && $parentRelation->seed_contract_mode !== SeedContractMode::EXTERNAL) {
                         $fallbackProvider = $this->inferSeedProviderFromSelection($column, $columns);
 
-                        if ($fallbackProvider) {
+                        if ($selfContainedPartial) {
+                            $detail = $columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor
+                                . ' but it is not included in this self-contained partial job.';
+                            $errors->push($detail);
+                            $pushIssue('blocking', $detail, 'missing_parent_selection');
+                        } elseif ($fallbackProvider) {
                             $detail = $columnLabel . ': Requires parent ' . $parentLabel . $bundleDescriptor
                                 . ' but it is not included in this job; using inferred seed provider ' . $this->describeColumn($fallbackProvider) . ' instead.';
                             $warnings->push($detail);
@@ -2254,6 +2305,65 @@ class AnonymizationJobScriptService
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string, array<string, AnonymousSiebelColumn>>
+     */
+    protected function indexColumnsBySchemaTable(Collection $columns): array
+    {
+        $index = [];
+
+        foreach ($columns as $column) {
+            if (! $column instanceof AnonymousSiebelColumn) {
+                continue;
+            }
+
+            $table = $column->getRelationValue('table');
+            $schema = $table?->getRelationValue('schema');
+            $schemaName = strtoupper(trim((string) ($schema?->schema_name ?? '')));
+            $tableName = strtoupper(trim((string) ($table?->table_name ?? '')));
+            $columnName = strtoupper(trim((string) ($column->column_name ?? '')));
+
+            if ($schemaName === '' || $tableName === '' || $columnName === '') {
+                continue;
+            }
+
+            $index[$schemaName . '|' . $tableName][$columnName] = $column;
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param  array<string, array<string, AnonymousSiebelColumn>>  $selectedBySchemaTable
+     * @return array<int, string>
+     */
+    protected function missingRelationshipParentLabels(AnonymousSiebelColumn $column, array $selectedBySchemaTable): array
+    {
+        $missing = [];
+
+        foreach ($this->resolveForeignKeyRelationships($column) as $relationship) {
+            if (strtoupper((string) ($relationship['direction'] ?? 'OUTBOUND')) !== 'OUTBOUND') {
+                continue;
+            }
+
+            $schema = strtoupper(trim((string) ($relationship['schema'] ?? '')));
+            $table = strtoupper(trim((string) ($relationship['table'] ?? '')));
+            $parentColumn = strtoupper(trim((string) ($relationship['column'] ?? 'ROW_ID')));
+
+            if ($schema === '' || $table === '' || $parentColumn !== 'ROW_ID') {
+                continue;
+            }
+
+            if (($selectedBySchemaTable[$schema . '|' . $table]['ROW_ID'] ?? null) instanceof AnonymousSiebelColumn) {
+                continue;
+            }
+
+            $missing[] = $schema . '.' . $table . '.ROW_ID';
+        }
+
+        return array_values(array_unique($missing));
     }
 
     protected function defaultConsumerSeedExpression(AnonymousSiebelColumn $column): string
@@ -2903,6 +3013,8 @@ class AnonymizationJobScriptService
                 $selectParts = [];
                 $deferredStatements = [];
                 $selectedSourceColumns = [];
+                $tableFactor = (int) ($rewriteContext['tables_by_id'][$tableId]['row_multiplier'] ?? 1);
+                $scaledByIdentity = $rewriteContext['scaled_by_identity'] ?? [];
                 foreach ($tableColumns as $column) {
                     if ($this->isLongColumn($column)) {
                         continue;
@@ -2917,6 +3029,18 @@ class AnonymizationJobScriptService
                     if ($isSelected) {
                         $selectedSourceColumns[] = Str::upper($columnName);
                     }
+
+                    // Row-volume expansion: ROW_ID/FK columns on scaled tables get a
+                    // dup_n-aware derivation so copies stay unique and joinable.
+                    $volumeDerivation = $tableFactor > 1
+                        ? $this->resolveColumnVolumeDerivation($column, $tableFactor, $scaledByIdentity, $sourceAlias)
+                        : null;
+                    $emitSelect = function (string $baseExpr) use (&$selectParts, $columnName, $volumeDerivation, $rewriteContext): void {
+                        if ($volumeDerivation !== null) {
+                            $baseExpr = $this->wrapVolumeExpandedExpression($baseExpr, $volumeDerivation, $rewriteContext);
+                        }
+                        $selectParts[] = $baseExpr . ' ' . $columnName;
+                    };
 
                     if (! $isSelected && $nullUnselectedColumns) {
                         $selectParts[] = $this->oracleNullExpressionForColumn($column) . ' ' . $columnName;
@@ -2949,14 +3073,14 @@ class AnonymizationJobScriptService
 
                     // No-op: pass column through unchanged, no warning.
                     if ($expression === self::INLINE_NOOP) {
-                        $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
+                        $emitSelect($sourceAlias . '.' . $columnName);
                         continue;
                     }
 
                     // Deferred (MERGE/shuffle): pass column through in CTAS, collect
                     // the full statement for post-CTAS execution.
                     if ($expression !== null && str_starts_with($expression, self::INLINE_DEFERRED_PREFIX)) {
-                        $selectParts[] = $sourceAlias . '.' . $columnName . ' ' . $columnName;
+                        $emitSelect($sourceAlias . '.' . $columnName);
                         $rawBlock = substr($expression, strlen(self::INLINE_DEFERRED_PREFIX));
                         $deferredStatements[] = $this->applyPlaceholders(
                             $rawBlock,
@@ -2992,7 +3116,7 @@ class AnonymizationJobScriptService
                     );
 
                     if ($lookupPlan !== null) {
-                        $selectParts[] = $lookupPlan['select_expression'] . ' ' . $columnName;
+                        $emitSelect($lookupPlan['select_expression']);
 
                         $existingPreCtas = $rewriteContext['tables_by_id'][$tableId]['pre_ctas_statements'] ?? [];
                         $rewriteContext['tables_by_id'][$tableId]['pre_ctas_statements'] = array_merge(
@@ -3027,8 +3151,8 @@ class AnonymizationJobScriptService
                             $joinClause = 'LEFT JOIN ' . $smTable . ' ' . $smAlias
                                 . ' ON ' . $smAlias . '.old_value = ' . $sourceAlias . '.' . $columnName;
 
-                            $selectParts[] = 'NVL(' . $smAlias . '.new_value, '
-                                . $sourceAlias . '.' . $columnName . ') ' . $columnName;
+                            $emitSelect('NVL(' . $smAlias . '.new_value, '
+                                . $sourceAlias . '.' . $columnName . ')');
 
                             $existingJoins = $rewriteContext['tables_by_id'][$tableId]['post_source_joins'] ?? [];
                             $rewriteContext['tables_by_id'][$tableId]['post_source_joins'] = array_values(array_unique(array_merge(
@@ -3039,7 +3163,7 @@ class AnonymizationJobScriptService
                         }
                     }
 
-                    $selectParts[] = $expression . ' ' . $columnName;
+                    $emitSelect($expression);
                 }
 
                 // Store deferred (post-CTAS) statements for this table.
@@ -3347,6 +3471,15 @@ class AnonymizationJobScriptService
             uksort($rawReplace, fn($a, $b) => strlen($b) <=> strlen($a));
         }
 
+        // Resolve optional per-table row volume multipliers (data expansion). With
+        // no configured multipliers this is a no-op and every table stays at 1x.
+        $volume = $this->resolveRowMultipliersForScope($job, $tablesById);
+        $rowMultipliers = $volume['multipliers'] ?? [];
+        foreach ($tablesById as $tableId => &$mapping) {
+            $mapping['row_multiplier'] = (int) ($rowMultipliers[(int) $tableId] ?? 1);
+        }
+        unset($mapping);
+
         return [
             'target_schema' => $targetSchema,
             'table_prefix' => $tablePrefix,
@@ -3354,6 +3487,9 @@ class AnonymizationJobScriptService
             'target_relation_kind' => $defaultRelationKind,
             'table_scope_mode' => $hasExplicitColumns ? 'explicit-columns' : ($job?->job_type === AnonymizationJobs::TYPE_FULL ? 'full-schema' : 'selection-derived'),
             'tables_by_id' => $tablesById,
+            'row_multipliers' => $rowMultipliers,
+            'scaled_by_identity' => $volume['scaled_by_identity'] ?? [],
+            'volume_anchors' => $volume['volume_anchors'] ?? [],
             'grant_scope_table_ids' => array_values(array_keys($grantScopeTableIds)),
             'raw_replace' => $rawReplace,
             'seed_store_mode' => trim((string) ($job?->seed_store_mode ?? '')),
@@ -3362,6 +3498,12 @@ class AnonymizationJobScriptService
             'seed_map_hygiene_mode' => trim((string) ($job?->seed_map_hygiene_mode ?? '')),
             'job_seed' => (string) ($job?->job_seed ?? ''),
             'job_seed_literal' => $this->oracleStringLiteral($job?->job_seed),
+            'partial_uses_existing_full_anonymization' => (bool) ($job?->partial_uses_existing_full_anonymization ?? false),
+            'partial_baseline_reference' => trim((string) ($job?->partial_baseline_reference ?? '')),
+            'dependency_resolution_mode' => trim((string) ($job?->dependency_resolution_mode ?? '')),
+            'dependency_resolution_metadata' => is_array($job?->dependency_resolution_metadata ?? null)
+                ? $job->dependency_resolution_metadata
+                : [],
         ];
     }
 
@@ -3666,7 +3808,9 @@ class AnonymizationJobScriptService
             $lines = array_merge($lines, $this->buildConditionalPackageBootstrap($rewriteContext));
             $lines = array_merge($lines, $this->buildRequiredPackagePreflight($rewriteContext));
         }
-        foreach ($tablesById as $mapping) {
+        $volumeAnchors = $rewriteContext['volume_anchors'] ?? [];
+
+        foreach ($tablesById as $tableId => $mapping) {
             $source = $mapping['source_qualified'] ?? null;
             $target = $mapping['target_qualified'] ?? null;
             if (! $source || ! $target) {
@@ -3691,6 +3835,27 @@ class AnonymizationJobScriptService
             $sourceAlias = $inlineMasking ? ($rewriteContext['source_alias'] ?? 'src') : null;
             $preCtasStatements = $mapping['pre_ctas_statements'] ?? [];
             $postSourceJoins = $mapping['post_source_joins'] ?? [];
+
+            // Row-volume expansion: prepend the deterministic generator so each source
+            // row is emitted N times. Only valid in inline masking mode with an explicit
+            // select list, where ROW_ID / FK expressions carry the matching dup_n-aware
+            // derivation. A bare "SELECT *" would duplicate ROW_IDs and leak dup_n.
+            $rowMultiplier = (int) ($mapping['row_multiplier'] ?? 1);
+            $hasExplicitSelectList = is_string($selectList) && trim($selectList) !== '' && trim($selectList) !== '*';
+            $applyRowMultiplier = $inlineMasking && $rowMultiplier > 1 && $hasExplicitSelectList;
+            if ($applyRowMultiplier) {
+                $anchor = is_array($volumeAnchors) ? ($volumeAnchors[(int) $tableId] ?? null) : null;
+                $anchorMode = is_array($anchor) ? strtolower(trim((string) ($anchor['mode'] ?? ''))) : '';
+                $anchorTarget = is_array($anchor) ? (int) ($anchor['target_row_count'] ?? 0) : 0;
+
+                // Target-row anchors choose the factor at runtime by counting the source table.
+                // This allows "at least N rows" semantics even when catalog stats are stale.
+                $join = ($anchorMode === self::VOLUME_MODE_TARGET && $anchorTarget > 0)
+                    ? $this->rowGeneratorJoinClauseForTarget($source, $anchorTarget)
+                    : $this->rowGeneratorJoinClause($rowMultiplier);
+
+                $postSourceJoins = array_merge([$join], $postSourceJoins);
+            }
 
             if ($relationKind === 'view') {
                 if ($preCtasStatements !== []) {
@@ -5496,6 +5661,135 @@ class AnonymizationJobScriptService
         ];
     }
 
+    /**
+     * Summarise how partial-job dependencies were resolved for this generation.
+     *
+     * @return array<int, string>
+     */
+    protected function buildDependencyResolutionHeaderNotes(array $rewriteContext): array
+    {
+        $mode = trim((string) ($rewriteContext['dependency_resolution_mode'] ?? ''));
+        if ($mode === '') {
+            return [];
+        }
+
+        $metadata = is_array($rewriteContext['dependency_resolution_metadata'] ?? null)
+            ? $rewriteContext['dependency_resolution_metadata']
+            : [];
+
+        if ($mode === 'baseline_declared') {
+            $lines = [
+                '--',
+                '-- PARTIAL DEPENDENCY MODE: baseline-backed partial.',
+                '-- Operator confirmed this script runs against an existing full anonymized',
+                '-- dataset generated with the same job seed and compatible settings.',
+                '-- Dependencies outside this partial job are assumed to already exist.',
+            ];
+
+            $reference = trim((string) ($rewriteContext['partial_baseline_reference'] ?? ($metadata['baseline_reference'] ?? '')));
+            if ($reference !== '') {
+                $lines[] = '-- Baseline reference: ' . str_replace(["\r", "\n"], ' ', $reference);
+            }
+
+            return $lines;
+        }
+
+        if ($mode !== 'self_contained') {
+            return [];
+        }
+
+        $addedParents = is_array($metadata['added_parent_column_ids'] ?? null)
+            ? count($metadata['added_parent_column_ids'])
+            : 0;
+        $addedTables = is_array($metadata['added_parent_table_ids'] ?? null)
+            ? count($metadata['added_parent_table_ids'])
+            : 0;
+        $unresolved = is_array($metadata['unresolved'] ?? null)
+            ? count($metadata['unresolved'])
+            : 0;
+        $childCandidates = is_array($metadata['child_candidates'] ?? null)
+            ? count($metadata['child_candidates'])
+            : 0;
+
+        return [
+            '--',
+            '-- PARTIAL DEPENDENCY MODE: self-contained partial.',
+            '-- Dependency closure added ' . number_format($addedParents) . ' parent ROW_ID provider columns',
+            '-- across ' . number_format($addedTables) . ' parent tables before SQL generation.',
+            '-- Unresolved parent dependencies: ' . number_format($unresolved) . '.',
+            '-- Downstream child candidates identified for review: ' . number_format($childCandidates) . '.',
+        ];
+    }
+
+    /**
+     * Summarise any active row-volume expansion in the generated-SQL header so a
+     * reviewer can see which tables were scaled, by how much, and the caveats.
+     *
+     * @return array<int, string>
+     */
+    protected function buildVolumeExpansionHeaderNotes(array $rewriteContext): array
+    {
+        $multipliers = $rewriteContext['row_multipliers'] ?? [];
+        if (! is_array($multipliers) || $multipliers === []) {
+            return [];
+        }
+
+        $tablesById = $rewriteContext['tables_by_id'] ?? [];
+        $volumeAnchors = is_array($rewriteContext['volume_anchors'] ?? null)
+            ? $rewriteContext['volume_anchors']
+            : [];
+
+        $rows = [];
+        foreach ($multipliers as $tableId => $factor) {
+            $factor = (int) $factor;
+            if ($factor <= 1) {
+                continue;
+            }
+
+            $mapping = is_array($tablesById) ? ($tablesById[(int) $tableId] ?? null) : null;
+            $name = is_array($mapping)
+                ? trim((string) ($mapping['source_schema'] ?? '') . '.' . (string) ($mapping['source_table'] ?? ''), '.')
+                : ('table#' . (int) $tableId);
+
+            $anchor = is_array($volumeAnchors[(int) $tableId] ?? null) ? $volumeAnchors[(int) $tableId] : null;
+            $detail = $factor . 'x';
+
+            if (is_array($anchor) && ($anchor['mode'] ?? '') === self::VOLUME_MODE_TARGET) {
+                $target = (int) ($anchor['target_row_count'] ?? 0);
+                $source = (int) ($anchor['source_row_count'] ?? 0);
+                if ($target > 0) {
+                    $detail = $factor . 'x (target ' . number_format($target) . ' rows';
+                    if ($source > 0) {
+                        $detail .= ' from catalog estimate ' . number_format($source);
+                    } else {
+                        $detail .= '; catalog source row count unavailable — verify sizing';
+                    }
+                    $detail .= ')';
+                }
+            }
+
+            $rows[] = '--   ' . ($name !== '' ? $name : ('table#' . (int) $tableId)) . '  ->  ' . $detail;
+        }
+
+        if ($rows === []) {
+            return [];
+        }
+
+        $lines = [
+            '--',
+            '-- VOLUME EXPANSION ACTIVE: the following tables are generated with extra,',
+            '-- deterministically-derived rows (ROW_ID primary keys stay unique and foreign',
+            '-- keys into scaled tables remain referentially valid). Dependent child tables',
+            '-- inherit sizing unless they have their own multiplier/target anchor. Ancestor',
+            '-- tables referenced by foreign keys stay at their original size.',
+        ];
+        $lines = array_merge($lines, $rows);
+        $lines[] = '-- NOTE: copies share non-key attribute values; methods using DBMS_RANDOM';
+        $lines[] = '--       produce non-deterministic values across copies.';
+
+        return $lines;
+    }
+
     protected function buildHeaderLines(array $jobMeta, array $rewriteContext = []): array
     {
         $targetSchema = Str::upper(trim((string) ($rewriteContext['target_schema'] ?? '')));
@@ -5535,6 +5829,9 @@ class AnonymizationJobScriptService
             };
             $lines[] = '-- Table Scope: ' . $scopeLabel;
         }
+
+        $lines = array_merge($lines, $this->buildDependencyResolutionHeaderNotes($rewriteContext));
+        $lines = array_merge($lines, $this->buildVolumeExpansionHeaderNotes($rewriteContext));
 
         // Connection guidance
         if ($targetSchema !== '' && $sourceSchemas !== []) {

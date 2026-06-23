@@ -13,11 +13,23 @@ use Illuminate\Support\Facades\DB;
 
 use function Symfony\Component\Clock\now;
 
-// Builds deterministic Oracle anonymization scripts using a double-seeded approach.
-// The double-seeded strategy ensures:
-// 1. Reproducibility: Same job seed + original values produce identical masked results.
-// 2. Referential integrity: FK relationships are preserved via seed maps populated before dependents.
-// 3. Dependency ordering: Parent/seed-providing columns are masked before their consumers.
+/**
+ * Builds deterministic Oracle anonymization scripts using a double-seeded approach.
+ * The double-seeded strategy ensures:
+ * 1. Reproducibility: Same job seed + original values produce identical masked results.
+ * 2. Referential integrity: FK relationships are preserved via seed maps populated before dependents.
+ * 3. Dependency ordering: Parent/seed-providing columns are masked before their consumers.
+ *
+ * Volume-expansion helpers below are provided by the ExpandsRowVolume trait on the host service.
+ *
+ * @method bool isVolumeDerivedColumn(AnonymousSiebelColumn $column, array $rowMultipliers, array $scaledByIdentity)
+ * @method array|null resolveColumnVolumeDerivation(AnonymousSiebelColumn $column, int $tableFactor, array $scaledByIdentity, string $sourceAlias, ?string $ownTableIdentity = null)
+ * @method string wrapVolumeExpandedExpression(string $baseExpr, array $derivation, array $rewriteContext)
+ * @method string rowGeneratorJoinClause(int $factor)
+ * @method array buildDependencyResolutionHeaderNotes(array $rewriteContext)
+ * @method array validateSeedContracts(Collection $columns, array $seedProviders = [], array $seedMapContext = [], array $rewriteContext = [])
+ * @method array renderContractReview(array $review)
+ */
 trait BuildsDoubleSeededDeterministicOracleScripts
 {
     public function buildDoubleSeededDeterministicFromColumns(Collection $columns, AnonymizationJobs $job): string
@@ -55,6 +67,12 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             return '-- No SQL generated: unable to resolve job target schema.';
         }
 
+        // Optional per-table row volume multipliers. ROW_ID / FK keys on scaled
+        // tables are derived deterministically at clone time (see below) and are
+        // excluded from seed-map masking so they keep their unique per-copy values.
+        $scaledByIdentity = $rewriteContext['scaled_by_identity'] ?? [];
+        $rowMultipliers = $rewriteContext['row_multipliers'] ?? [];
+
         $seedPrefix = trim((string) ($job->seed_store_prefix ?? ''));
         if ($seedPrefix === '') {
             $seedPrefix = 'JOB';
@@ -85,6 +103,17 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         // Identify seed provider columns that need ORIGINAL_<column> tracking for deterministic masking.
         $seedProviderColumns = $this->identifySeedProviderColumns($ordered, $seedMapContext);
 
+        // Volume-derived key columns (ROW_ID / FK on scaled tables) are handled at
+        // clone time, so they must not also be treated as seed providers.
+        if ($scaledByIdentity !== []) {
+            $seedProviderColumns = $seedProviderColumns->reject(function ($provider) use ($ordered, $rowMultipliers, $scaledByIdentity) {
+                $column = $ordered->firstWhere('id', (int) ($provider['column_id'] ?? 0));
+
+                return $column instanceof AnonymousSiebelColumn
+                    && $this->isVolumeDerivedColumn($column, $rowMultipliers, $scaledByIdentity);
+            });
+        }
+
         $lines = [];
 
         // === Header ===
@@ -97,6 +126,17 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         $lines[] = '-- Tables: ' . count($tableMappings);
         $lines[] = $this->commentDivider('=');
         $lines[] = '';
+        $lines = array_merge($lines, $this->buildDependencyResolutionHeaderNotes($rewriteContext));
+
+        $contractReview = $this->validateSeedContracts($ordered, $seedProviders, $seedMapContext, $rewriteContext);
+        if ($contractReview['errors']->isNotEmpty() || $contractReview['warnings']->isNotEmpty()) {
+            $lines = array_merge($lines, $this->renderContractReview($contractReview));
+
+            if ($contractReview['errors']->isNotEmpty()) {
+                $lines[] = '-- SQL generation halted due to blocking seed contract violations.';
+                return trim(implode(PHP_EOL, $lines));
+            }
+        }
 
         // === Execution context ===
         $lines[] = $this->commentDivider('-');
@@ -157,20 +197,27 @@ trait BuildsDoubleSeededDeterministicOracleScripts
 
         foreach ($tableMappings as $index => $mapping) {
             $tableId = (int) ($mapping['table_id'] ?? 0);
+            $rowMultiplier = (int) ($rowMultipliers[$tableId] ?? 1);
+            $ownIdentity = strtoupper(trim((string) ($mapping['source_schema'] ?? '')) . '|' . trim((string) ($mapping['source_table'] ?? '')));
             $selectedSourceColumns = [];
             $selectList = $this->buildDoubleSeededCloneSelectList(
                 $tableColumns[$tableId] ?? collect(),
                 $selectedLookup,
                 $nullUnselectedColumns,
-                $selectedSourceColumns
+                $selectedSourceColumns,
+                $rowMultiplier,
+                $rewriteContext,
+                $ownIdentity
             );
 
             $tableMappings[$index]['selected_source_columns'] = $selectedSourceColumns;
             $tableMappings[$index]['null_unselected_columns'] = $nullUnselectedColumns;
+            $tableMappings[$index]['row_multiplier'] = $rowMultiplier;
             $lines = array_merge($lines, $this->renderStableCloneStatements(
                 $mapping['source_qualified'],
                 $mapping['target_qualified'],
-                $selectList
+                $selectList,
+                $rowMultiplier
             ));
 
             // Add ORIGINAL_<column> columns for each seed provider in this table.
@@ -235,7 +282,9 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                 $tableMappingsBySourceTable,
                 $jobSeedTable,
                 $jobKeyName,
-                $seedProviderColumns
+                $seedProviderColumns,
+                $rowMultipliers,
+                $scaledByIdentity
             ));
         }
 
@@ -248,7 +297,9 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                 $tableMappingsBySourceTable,
                 $jobSeedTable,
                 $jobKeyName,
-                $seedProviderColumns
+                $seedProviderColumns,
+                $rowMultipliers,
+                $scaledByIdentity
             ));
         }
 
@@ -429,12 +480,22 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         Collection $tableMappings,
         string $jobSeedTable,
         string $jobKeyName,
-        Collection $seedProviderColumns
+        Collection $seedProviderColumns,
+        array $rowMultipliers = [],
+        array $scaledByIdentity = []
     ): array {
         $lines = [];
         $seedMapsByColumnId = $seedMaps->keyBy('column_id');
 
         foreach ($columns as $column) {
+            // Volume-derived key columns are finalized during the clone; do not
+            // re-mask them or the unique per-copy values would be overwritten.
+            if ($scaledByIdentity !== [] && $this->isVolumeDerivedColumn($column, $rowMultipliers, $scaledByIdentity)) {
+                $lines[] = '-- Column: ' . $this->describeColumn($column) . ' (volume-expanded key; finalized during clone)';
+                $lines[] = '';
+                continue;
+            }
+
             $table = $column->getRelationValue('table');
             $sourceTable = $table?->table_name;
             $mapping = $sourceTable ? $tableMappings->get($sourceTable) : null;
@@ -666,7 +727,10 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         Collection $columns,
         array $selectedLookup,
         bool $nullUnselectedColumns,
-        array &$selectedSourceColumns = []
+        array &$selectedSourceColumns = [],
+        int $rowMultiplier = 1,
+        array $rewriteContext = [],
+        ?string $ownIdentity = null
     ): string {
         if ($columns->isEmpty()) {
             return '*';
@@ -674,6 +738,8 @@ trait BuildsDoubleSeededDeterministicOracleScripts
 
         $selectParts = [];
         $selectedSourceColumns = [];
+        $scaledByIdentity = $rewriteContext['scaled_by_identity'] ?? [];
+        $applyMultiplier = $rowMultiplier > 1 && $scaledByIdentity !== [];
 
         foreach ($columns as $column) {
             if ($this->isLongColumn($column)) {
@@ -695,6 +761,17 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                 continue;
             }
 
+            // Volume expansion: derive ROW_ID / FK keys per copy so generated rows
+            // stay unique and joinable. Other columns pass through unchanged.
+            if ($applyMultiplier) {
+                $derivation = $this->resolveColumnVolumeDerivation($column, $rowMultiplier, $scaledByIdentity, 'src', $ownIdentity);
+                if ($derivation !== null) {
+                    $base = 'src.' . $this->oracleIdentifier($columnName);
+                    $selectParts[] = $this->wrapVolumeExpandedExpression($base, $derivation, $rewriteContext) . ' ' . $columnName;
+                    continue;
+                }
+            }
+
             $selectParts[] = $columnName;
         }
 
@@ -705,7 +782,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return implode(', ', $selectParts);
     }
 
-    protected function renderStableCloneStatements(string $qualifiedSource, string $qualifiedTarget, string $selectList = '*'): array
+    protected function renderStableCloneStatements(string $qualifiedSource, string $qualifiedTarget, string $selectList = '*', int $rowMultiplier = 1): array
     {
         if (trim($selectList) === '') {
             return [
@@ -722,6 +799,14 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             ];
         }
 
+        // Row-volume expansion: a bare "SELECT *" cannot derive per-copy ROW_IDs,
+        // so only multiply when we have an explicit derived select list.
+        $applyMultiplier = $rowMultiplier > 1 && trim($selectList) !== '*';
+
+        $fromClause = $applyMultiplier
+            ? 'FROM ' . $qualifiedSource . ' src ' . $this->rowGeneratorJoinClause($rowMultiplier)
+            : 'FROM ' . $qualifiedSource;
+
         return [
             'BEGIN',
             "  EXECUTE IMMEDIATE 'DROP TABLE {$qualifiedTarget} CASCADE CONSTRAINTS PURGE';",
@@ -732,7 +817,8 @@ trait BuildsDoubleSeededDeterministicOracleScripts
             '/',
             '',
             'CREATE TABLE ' . $qualifiedTarget . ' AS',
-            'SELECT ' . $selectList . ' FROM ' . $qualifiedSource . ';',
+            'SELECT ' . $selectList,
+            $fromClause . ';',
             '',
         ];
     }

@@ -6,6 +6,7 @@ use App\Filament\Fodig\Resources\AnonymizationJobResource;
 use App\Filament\Fodig\Resources\AnonymizationJobResource\Support\AnonymizationJobReadinessHelper;
 use App\Jobs\GenerateAnonymizationJobSql;
 use App\Models\Anonymizer\AnonymizationJobs;
+use App\Services\Anonymizer\AnonymizationJobDependencyClosureService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -13,6 +14,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 trait SyncsAnonymizationJobSelection
 {
+    /**
+     * Snapshot of configured volume anchors captured before Filament relationship sync.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    protected array $volumeAnchorSnapshotRows = [];
+
     /**
      * Reconcile the in-form scope/column selections with the persisted job and enqueue SQL regeneration.
      *
@@ -69,6 +77,25 @@ trait SyncsAnonymizationJobSelection
             AnonymizationJobResource::syncEntireScopeSelectionForJob($jobRecord, $scope);
         }
 
+        // Persist per-table volume multipliers last so they survive scope sync.
+        // The repeater is dehydrated(false); only persist when raw form state is present.
+        $volumeRows = AnonymizationJobResource::volumeMultiplierRowsFromForm($this);
+        if ($volumeRows === null && $this->volumeAnchorSnapshotRows !== []) {
+            $volumeRows = $this->volumeAnchorSnapshotRows;
+        }
+        if ($volumeRows !== null) {
+            AnonymizationJobResource::persistTableMultipliers($jobRecord, $volumeRows);
+        }
+
+        $dependencyClosureService = app(AnonymizationJobDependencyClosureService::class);
+        $dependencyClosureService->applyForJob($jobRecord, [
+            'partial_uses_existing_full_anonymization' => (bool) ($state['partial_uses_existing_full_anonymization'] ?? false),
+            'partial_baseline_reference' => trim((string) ($state['partial_baseline_reference'] ?? '')),
+        ]);
+        $dependencyClosureService->syncJobDependencyAttributesFromDatabase($jobRecord);
+
+        $jobRecord->unsetRelations();
+
         GenerateAnonymizationJobSql::dispatch($jobRecord->getKey());
     }
 
@@ -98,6 +125,14 @@ trait SyncsAnonymizationJobSelection
     }
 
     /**
+     * Capture configured volume anchors before Filament syncs the tables relationship.
+     */
+    protected function captureVolumeAnchorSnapshot(AnonymizationJobs $job): void
+    {
+        $this->volumeAnchorSnapshotRows = AnonymizationJobResource::storedVolumeAnchorRowsForJob((int) $job->getKey());
+    }
+
+    /**
      * Explicitly sync scope relationships (databases, schemas, tables) to ensure they're persisted.
      */
     protected function syncScopeRelationships(AnonymizationJobs $job, array $scope): void
@@ -108,7 +143,17 @@ trait SyncsAnonymizationJobSelection
 
         $job->databases()->sync($databaseIds);
         $job->schemas()->sync($schemaIds);
-        $job->tables()->sync($tableIds);
+
+        $tableSync = AnonymizationJobResource::buildTableSyncPayloadPreservingVolume(
+            (int) $job->getKey(),
+            $tableIds
+        );
+
+        if ($tableSync !== []) {
+            $job->tables()->sync($tableSync);
+        } else {
+            $job->tables()->sync([]);
+        }
     }
 
     // Generate a report of the job details in md format for download.

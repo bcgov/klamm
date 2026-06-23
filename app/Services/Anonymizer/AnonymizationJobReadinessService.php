@@ -4,6 +4,7 @@ namespace App\Services\Anonymizer;
 
 use App\Filament\Fodig\Resources\AnonymousSiebelColumnResource;
 use App\Filament\Fodig\Resources\ChangeTicketResource;
+use App\Models\Anonymizer\AnonymizationJobs;
 use App\Models\Anonymizer\AnonymousSiebelColumn;
 use App\Models\Anonymizer\ChangeTicket;
 use Illuminate\Database\Eloquent\Builder;
@@ -92,6 +93,7 @@ class AnonymizationJobReadinessService
                 : 'Counts reflect the full job selection.',
         ]);
 
+        $report = $this->appendDependencyResolutionToReport($report, $jobId);
         $report['markdown'] = $this->renderMarkdown($report['summary'], $report['issues'] ?? []);
 
         return $report;
@@ -483,6 +485,87 @@ class AnonymizationJobReadinessService
             'issues' => [],
             'markdown' => "# Anonymization Job Readiness Report\n\n{$message}\n",
         ];
+    }
+
+    private function appendDependencyResolutionToReport(array $report, int $jobId): array
+    {
+        $job = AnonymizationJobs::query()
+            ->select([
+                'id',
+                'job_type',
+                'partial_uses_existing_full_anonymization',
+                'partial_baseline_reference',
+            ])
+            ->find($jobId);
+
+        if (! $job || $job->job_type !== AnonymizationJobs::TYPE_PARTIAL) {
+            return $report;
+        }
+
+        $preview = app(AnonymizationJobDependencyClosureService::class)->previewForJob($job);
+        $issues = is_array($report['issues'] ?? null) ? $report['issues'] : [];
+        $summary = is_array($report['summary'] ?? null) ? $report['summary'] : [];
+
+        $mode = (string) ($preview['mode'] ?? '');
+        $summary['dependency_resolution_mode'] = $mode;
+        $summary['dependency_parent_columns_to_add'] = count($preview['added_parent_column_ids'] ?? []);
+        $summary['dependency_unresolved_total'] = count($preview['unresolved'] ?? []);
+        $summary['dependency_child_candidates_total'] = count($preview['child_candidates'] ?? []);
+
+        if ($mode === AnonymizationJobDependencyClosureService::MODE_BASELINE_DECLARED) {
+            $reference = trim((string) ($preview['baseline_reference'] ?? ''));
+            $issues[] = $this->issue(
+                severity: 'warning',
+                type: 'baseline_backed_partial',
+                scopeType: 'job',
+                scopeName: 'partial dependency mode',
+                title: 'Partial assumes existing full anonymized baseline',
+                details: 'The job is marked as running against an already fully anonymized dataset with the same seed. External dependencies will not be auto-added.'
+                    . ($reference !== '' ? ' Reference: ' . $reference : ''),
+                url: null,
+            );
+        } else {
+            $addedParents = count($preview['added_parent_column_ids'] ?? []);
+            if ($addedParents > 0) {
+                $issues[] = $this->issue(
+                    severity: 'warning',
+                    type: 'dependency_closure_preview',
+                    scopeType: 'job',
+                    scopeName: 'partial dependency closure',
+                    title: 'Dependency closure will add parent ROW_ID providers',
+                    details: number_format($addedParents) . ' parent ROW_ID column(s) are required for self-contained FK seed mapping.',
+                    url: null,
+                );
+            }
+
+            foreach (array_slice((array) ($preview['unresolved'] ?? []), 0, 10) as $unresolved) {
+                if (! is_array($unresolved)) {
+                    continue;
+                }
+
+                $issues[] = $this->issue(
+                    severity: 'blocking',
+                    type: 'unresolved_dependency_parent',
+                    scopeType: 'column',
+                    scopeName: (string) ($unresolved['child'] ?? 'unknown'),
+                    title: 'Required FK parent could not be resolved',
+                    details: 'Parent: ' . (string) ($unresolved['parent'] ?? 'unknown') . '. The relationship metadata must resolve to a parent ROW_ID, or mark the partial as baseline-backed.',
+                    url: null,
+                );
+            }
+        }
+
+        $summary['blocking_total'] = collect($issues)->where('severity', 'blocking')->count();
+        $summary['warnings_total'] = collect($issues)->where('severity', 'warning')->count();
+        $summary['issues_total'] = count($issues);
+
+        $report['summary'] = $summary;
+        $report['issues'] = collect($issues)
+            ->sortBy(fn(array $i) => ($i['severity'] ?? '') === 'blocking' ? 0 : 1)
+            ->values()
+            ->all();
+
+        return $report;
     }
 
     private function issue(string $severity, string $type, string $scopeType, string $scopeName, string $title, string $details, ?string $url): array

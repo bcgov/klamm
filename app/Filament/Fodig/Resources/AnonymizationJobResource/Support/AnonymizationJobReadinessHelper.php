@@ -81,6 +81,15 @@ final class AnonymizationJobReadinessHelper
         $parts[] = 'Warnings: ' . number_format($warnings);
         $parts[] = 'Urgent alerts: ' . number_format($urgent);
 
+        $dependencyMode = (string) ($summary['dependency_resolution_mode'] ?? '');
+        if ($dependencyMode === 'baseline_declared') {
+            $parts[] = 'Dependency mode: baseline-backed partial';
+        } elseif ($dependencyMode === 'self_contained') {
+            $addedParents = (int) ($summary['dependency_parent_columns_to_add'] ?? 0);
+            $unresolved = (int) ($summary['dependency_unresolved_total'] ?? 0);
+            $parts[] = 'Dependency closure: ' . number_format($addedParents) . ' parent providers, ' . number_format($unresolved) . ' unresolved';
+        }
+
         if (! empty($summary['note'])) {
             $parts[] = (string) $summary['note'];
         }
