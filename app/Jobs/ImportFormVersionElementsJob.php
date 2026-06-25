@@ -544,7 +544,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $options[] = $optionData;
                 } else {
                     $optionData = [
-                        'label' => (string)$option,
+                        'label' => (string) $option,
                         'order' => $index + 1,
                         'description' => null,
                     ];
@@ -563,7 +563,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     ];
                 } else {
                     $options[] = [
-                        'label' => isset($item['value']) ? $item['value'] : (string)$item,
+                        'label' => isset($item['value']) ? $item['value'] : (string) $item,
                         'order' => $idx + 1,
                         'description' => null,
                     ];
@@ -604,10 +604,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
      */
     private function createSelectOptions($selectModel, array $options): void
     {
-        if (empty($options)) return;
+        if (empty($options))
+            return;
 
         foreach ($options as $index => $optionData) {
-            if (empty($optionData['label'])) continue; // Skip options without labels
+            if (empty($optionData['label']))
+                continue; // Skip options without labels
 
             try {
                 \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
@@ -627,10 +629,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function createRadioOptions($radioModel, array $options): void
     {
 
-        if (empty($options)) return;
+        if (empty($options))
+            return;
 
         foreach ($options as $index => $optionData) {
-            if (empty($optionData['label'])) continue; // Skip options without labels
+            if (empty($optionData['label']))
+                continue; // Skip options without labels
             try {
                 \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
             } catch (\Exception $e) {
@@ -678,7 +682,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                                     $formVersion,
                                     $processedElements,
                                     $totalElements,
-                                    $inRepeatableContainer /* or $childInRepeatable when present */,
+                                    $inRepeatableContainer /* or $childInRepeatable when present */ ,
                                     $inPlusContainer      /* or $childInPlusContainer when present */
                                 );
                             }
@@ -722,7 +726,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     }
                 }
 
-                if (!$type) continue;
+                if (!$type)
+                    continue;
 
                 $isRepeatableContainer = false;
                 if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
@@ -738,7 +743,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                             $formVersion,
                             $processedElements,
                             $totalElements,
-                            $inRepeatableContainer /* or $childInRepeatable when present */,
+                            $inRepeatableContainer /* or $childInRepeatable when present */ ,
                             $inPlusContainer      /* or $childInPlusContainer when present */
                         );
                     }
@@ -1122,29 +1127,29 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle both formats for repeatable containers
         if (isset($element['repeats'])) {
-            $attributes['is_repeatable'] = (bool)$element['repeats'];
-            $attributes['attributes']['is_repeatable'] = (bool)$element['repeats'];
+            $attributes['is_repeatable'] = (bool) $element['repeats'];
+            $attributes['attributes']['is_repeatable'] = (bool) $element['repeats'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         } elseif (isset($element['attributes']['isRepeatable'])) {
-            $attributes['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
-            $attributes['attributes']['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
+            $attributes['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
+            $attributes['attributes']['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         }
         // Handle min/max repeats
         if (isset($element['minRepeats'])) {
-            $attributes['min_repeats'] = (int)$element['minRepeats'];
+            $attributes['min_repeats'] = (int) $element['minRepeats'];
         } elseif (isset($element['min_repeats'])) {
-            $attributes['min_repeats'] = (int)$element['min_repeats'];
+            $attributes['min_repeats'] = (int) $element['min_repeats'];
         }
 
         if (isset($element['maxRepeats'])) {
-            $attributes['max_repeats'] = (int)$element['maxRepeats'];
+            $attributes['max_repeats'] = (int) $element['maxRepeats'];
         } elseif (isset($element['max_repeats'])) {
-            $attributes['max_repeats'] = (int)$element['max_repeats'];
+            $attributes['max_repeats'] = (int) $element['max_repeats'];
         }
 
         // Handle container type mapping
@@ -1156,10 +1161,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle collapsible properties
         if (isset($element['collapsible'])) {
-            $attributes['collapsible'] = (bool)$element['collapsible'];
+            $attributes['collapsible'] = (bool) $element['collapsible'];
         }
         if (isset($element['collapsedByDefault'])) {
-            $attributes['collapsed_by_default'] = (bool)$element['collapsedByDefault'];
+            $attributes['collapsed_by_default'] = (bool) $element['collapsedByDefault'];
         }
 
         $elementType = $element['elementType'] ?? $element['type'] ?? '';
