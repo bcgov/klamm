@@ -63,14 +63,51 @@ class GeneralTabHelper
         // Help text field
         $schema[] = self::makeHelpTextField($disabled, $disabledCallback, $shouldShowTooltipsCallback);
 
-        // Visibility grid
-        $schema[] = self::makeVisibilityGrid($disabled, $disabledCallback);
+        // Visibility button groups
+        $schema[] = Grid::make(2)
+            ->schema([
+                self::makeToggleButton(
+                    field: 'visible_web',
+                    label: 'Visible on Web',
+                    tooltip: 'Control when this element is visible on web forms',
+                    default: 'always',
+                    disabled: $disabled,
+                    disabledCallback: $disabledCallback,
+                    shouldShowTooltipsCallback: $shouldShowTooltipsCallback,
+                ),
+                self::makeToggleButton(
+                    field: 'visible_pdf',
+                    label: 'Visible on PDF',
+                    tooltip: 'Control when this element is visible on PDF forms',
+                    default: 'always',
+                    disabled: $disabled,
+                    disabledCallback: $disabledCallback,
+                    shouldShowTooltipsCallback: $shouldShowTooltipsCallback,
+                ),
+            ]);
 
-        // Required grid
-        $schema[] = self::makeRequiredGrid($disabled, $disabledCallback);
-
-        // Read Only grid
-        $schema[] = self::makeReadOnlyGrid($disabled, $disabledCallback);
+        // Required and read only button groups
+        $schema[] = Grid::make(2)
+            ->schema([
+                self::makeToggleButton(
+                    field: 'is_required',
+                    label: 'Required',
+                    tooltip: 'Control when this element is required',
+                    default: 'never',
+                    disabled: $disabled,
+                    disabledCallback: $disabledCallback,
+                    shouldShowTooltipsCallback: $shouldShowTooltipsCallback,
+                ),
+                self::makeToggleButton(
+                    field: 'is_read_only',
+                    label: 'Read-Only',
+                    tooltip: 'Control when this element is read-only',
+                    default: 'never',
+                    disabled: $disabled,
+                    disabledCallback: $disabledCallback,
+                    shouldShowTooltipsCallback: $shouldShowTooltipsCallback,
+                )
+            ]);
 
         // Template and Save On Submit toggles
         $schema[] = Grid::make(2)
@@ -133,12 +170,10 @@ class GeneralTabHelper
                 $set('description', $template->description);
                 $set('help_text', $template->help_text);
                 $set('elementable_type', $template->elementable_type);
-                $set('is_required_toggle', $template->is_required !== null && $template->is_required !== '');
-                $set('is_required', $template->is_required);
-                $set('is_read_only_toggle', $template->is_read_only !== null && $template->is_read_only !== '');
-                $set('is_read_only', $template->is_read_only);
                 $set('visible_web', $template->visible_web);
                 $set('visible_pdf', $template->visible_pdf);
+                $set('is_required', $template->is_required);
+                $set('is_read_only', $template->is_read_only);
                 $set('is_template', false); // New element should not be a template by default
     
                 // Prefill tags
@@ -420,104 +455,39 @@ class GeneralTabHelper
         );
     }
 
-    private static function makeVisibilityGrid(bool $disabled, ?callable $disabledCallback): Component
-    {
-        return Grid::make(2)
-            ->schema([
-                Toggle::make('visible_web')
-                    ->label('Visible on Web')
-                    ->default(true)
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
-                Toggle::make('visible_pdf')
-                    ->label('Visible on PDF')
-                    ->default(true)
-                    ->disabled($disabled || ($disabledCallback && $disabledCallback())),
-            ]);
-    }
-
-    private static function makeRequiredGrid(bool $disabled, ?callable $disabledCallback): Component
-    {
-        $toggle = Toggle::make('is_required_toggle')
-            ->label('Is Required')
-            ->default(false)
-            ->live()
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
-                $isRequired = $get('is_required');
-                // Set toggle to true if is_required has any non-null value ('always' or 'portal')
-                if ($isRequired !== null && $isRequired !== '') {
-                    $set('is_required_toggle', true);
-                }
-            });
-
-        $buttons = ToggleButtons::make('is_required')
-            ->label('Required When')
-            ->options([
-                'always' => 'Always',
-                'portal' => 'On Portal Forms'
-            ])
-            ->default('always')
+    /**
+     * Make ToggleButton group for selecting visibility, required, and read-only states
+     * @param string $field
+     * @param string $label
+     * @param string $tooltip
+     * @param string $default
+     * @param bool $disabled
+     * @param mixed $disabledCallback
+     * @param mixed $shouldShowTooltipsCallback
+     * @return Component
+     */
+    private static function makeToggleButton(
+        string $field,
+        string $label,
+        string $tooltip = '',
+        string $default = '',
+        bool $disabled = false,
+        ?callable $disabledCallback = null,
+        ?callable $shouldShowTooltipsCallback = null,
+    ): Component {
+        $buttonGroup = ToggleButtons::make($field)
+            ->label($label)
+            ->options(FormElement::getToggleButtonStates())
+            ->default($default)
             ->inline()
-            ->disabled(fn($get) => !$get('is_required_toggle'))
-            ->afterStateHydrated(function (callable $set, callable $get) {
-                $value = $get('is_required');
-                if ($value === null || $value === '') {
-                    $set('is_required', 'always');
-                }
-            });
+            ->grouped()
+            ->disabled($disabled || ($disabledCallback && $disabledCallback()));
 
-        return Grid::make(2)
-            ->schema([
-                $toggle,
-                $buttons,
-            ]);
-    }
-
-    private static function makeReadOnlyGrid(bool $disabled, ?callable $disabledCallback): Component
-    {
-        $toggle = Toggle::make('is_read_only_toggle')
-            ->label('Is Read Only')
-            ->default(false)
-            ->live()
-            ->disabled($disabled || ($disabledCallback && $disabledCallback()))
-            ->afterStateHydrated(function (Toggle $component, callable $set, callable $get) {
-                $isReadOnly = $get('is_read_only');
-                // Set toggle to true if is_read_only has any non-null value ('always' or 'portal')
-                if ($isReadOnly !== null && $isReadOnly !== '') {
-                    $set('is_read_only_toggle', true);
-                }
-            });
-
-        $buttons = ToggleButtons::make('is_read_only')
-            ->label('Read Only When')
-            ->options([
-                'always' => 'Always',
-                'portal' => 'On Portal Forms'
-            ])
-            ->default('always')
-            ->inline()
-            ->disabled(fn($get) => !$get('is_read_only_toggle'))
-            ->afterStateHydrated(function (callable $set, callable $get) {
-                $value = $get('is_read_only');
-                if ($value === null || $value === '') {
-                    $set('is_read_only', 'always');
-                }
-            });
-
-        $customScript = TextArea::make('custom_read_only')
-            ->label('Custom Read Only Script')
-            ->visible(fn($get) => $get('is_read_only'))
-            ->reactive()
-            ->disabled(fn($get) => !$get('is_read_only_toggle'))
-            ->hintIcon('heroicon-m-question-mark-circle', tooltip: 'Custom read only script to control when this element is read only. Use the format: "if (condition) { return true; } else { return false; }". This will be evaluated in the browser.')
-            ->columnSpanFull();
-
-        return Grid::make(2)
-            ->schema([
-                $toggle,
-                $buttons,
-                $customScript
-            ]);
+        return self::withOptionalTooltip(
+            $buttonGroup,
+            $shouldShowTooltipsCallback,
+            $tooltip,
+        );
     }
 
     private static function makeTemplateToggle(
