@@ -168,6 +168,24 @@ class ImportFormVersionElementsJob implements ShouldQueue
         return ['elements' => [], 'dataSources' => [], 'javascript' => [], 'stylesheets' => []];
     }
 
+    /**
+     * Normalize legacy boolean states to the new string enum states for visibility, required, and read-only fields.
+     * - true / 1 / '1' -> 'always'
+     * - false / 0 / '0' / null -> 'never'
+     * - existing strings ('always', 'icm', 'portal', 'never') are returned as-is
+     */
+    private function normalizeLegacyState($value): string
+    {
+        if ($value === true || $value === 1 || $value === '1') {
+            return 'always';
+        }
+
+        if ($value === false || $value === 0 || $value === '0' || $value === null) {
+            return 'never';
+        }
+
+        return (string) $value;
+    }
 
     /**
      * Extract JavaScript from formversion format
@@ -337,7 +355,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         // If keys look like types, emit one FormScript per type.
-        $knownTypes = ['web', 'pdf', 'portal', 'template'];
+        $knownTypes = ['web', 'pdf', 'template'];
         $typeKeys = array_intersect(array_keys($javascript), $knownTypes);
 
         try {
@@ -390,7 +408,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         // If keys look like types, emit one StyleSheet per type.
-        $knownTypes = ['web', 'pdf', 'portal', 'template'];
+        $knownTypes = ['web', 'pdf', 'template'];
         $typeKeys = array_intersect(array_keys($stylesheets), $knownTypes);
 
         try {
@@ -811,11 +829,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'reference_id' => $referenceId,
                     'description' => $attributes['description'] ?? '',
                     'help_text' => $attributes['help_text'] ?? '',
-                    'is_read_only' => $attributes['is_read_only'] ? true : false,
-                    'custom_read_only' => $attributes['is_read_only'] ? true : false,
-                    'visible_web' => $attributes['visible_web'] ?? true,
-                    'visible_pdf' => $attributes['visible_pdf'] ?? true,
-                    'is_required' => $attributes['is_required'] ?? false,
+                    'visible_web' => $this->normalizeLegacyState($attributes['visible_web'] ?? null),
+                    'visible_pdf' => $this->normalizeLegacyState($attributes['visible_pdf'] ?? null),
+                    'is_required' => $this->normalizeLegacyState($attributes['is_required'] ?? null),
+                    'is_read_only' => $this->normalizeLegacyState($attributes['is_read_only'] ?? null),
                     'save_on_submit' => $attributes['save_on_submit'] ?? true,
                 ];
 
