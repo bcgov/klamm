@@ -345,10 +345,10 @@ class FormVersionJsonService
             'name' => $element->name,
             'description' => $element->description,
             'help_text' => $element->help_text,
-            'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
-            'is_read_only' => $element->is_read_only && $element->custom_read_only ? $element->custom_read_only : $element->is_read_only,
+            'is_required' => $element->is_required,
+            'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
             'tags' => $this->getTags($element),
@@ -470,12 +470,8 @@ class FormVersionJsonService
         $elementData['repeater'] = false;
         $elementData['repeaterLabel'] = null;
 
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add validation rules
         $validation = $this->transformValidationRules($element);
@@ -520,12 +516,8 @@ class FormVersionJsonService
         $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'group')];
 
         // Add styles
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add validation rules
         $validation = $this->transformValidationRules($element);
@@ -583,12 +575,8 @@ class FormVersionJsonService
         $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'group')];
 
         // Add styles
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add validation rules
         $validation = $this->transformValidationRules($element);
@@ -635,12 +623,8 @@ class FormVersionJsonService
         $elementData['mask'] = null;
         $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'field')];
 
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add input type for specific elements
         if (in_array($originalType, ['text-input', 'text-area', 'textarea-input', 'number-input', 'date-input', 'date-select-input', 'file-input'])) {
@@ -752,8 +736,8 @@ class FormVersionJsonService
                 if ($element->elementable && method_exists($element->elementable, 'options')) {
                     $optionsCollection = $element->elementable->options()->ordered()->get();
                     $radioOptions = $optionsCollection->map(fn($option) => [
-                            'value' => $option->value ?? '',
-                            'text' => $option->label ?? '',
+                        'value' => $option->value ?? '',
+                        'text' => $option->label ?? '',
                     ])->toArray();
                 }
                 if (!empty($radioOptions)) {
@@ -767,9 +751,9 @@ class FormVersionJsonService
                 if ($element->elementable && method_exists($element->elementable, 'options')) {
                     $optionsCollection = $element->elementable->options()->ordered()->get();
                     $options = $optionsCollection->map(fn($option) => [
-                            'name' => $option->label ?? '',
-                            'text' => $option->label ?? '',
-                            'value' => $option->value ?? '',
+                        'name' => $option->label ?? '',
+                        'text' => $option->label ?? '',
+                        'value' => $option->value ?? '',
                     ])->toArray();
                 }
                 if (!empty($options))
@@ -901,18 +885,11 @@ class FormVersionJsonService
             'value' => $element->save_on_submit ? '{return true}' : '{return false}'
         ];
 
-        if (!empty($element->custom_read_only) && $element->is_read_only) {
-            $conditions[] = [
-                'type' => 'readOnly',
-                'value' => $element->custom_read_only
-            ];
-        } else {
-            // If no custom read-only condition, use the default read-only state
-            $conditions[] = [
-                'type' => 'readOnly',
-                'value' => $element->is_read_only ? '{return true}' : '{return false}'
-            ];
-        }
+        $isReadOnly = $this->isActive($element->is_read_only);
+        $conditions[] = [
+            'type' => 'readOnly',
+            'value' => $isReadOnly ? '{return true}' : '{return false}'
+        ];
 
         return $conditions;
     }
@@ -1190,5 +1167,13 @@ class FormVersionJsonService
     protected function remapAttributes(array $attributes): array
     {
         return $this->normalizeAttributes($attributes);
+    }
+
+    /**
+     * Check if a state string represents an "active" state (i.e., not 'never', '', null, or false).
+     */
+    protected function isActive($state): bool
+    {
+        return !in_array($state, FormElement::getActiveToggleButtonStates(), true);
     }
 }
