@@ -168,6 +168,24 @@ class ImportFormVersionElementsJob implements ShouldQueue
         return ['elements' => [], 'dataSources' => [], 'javascript' => [], 'stylesheets' => []];
     }
 
+    /**
+     * Normalize legacy boolean states to the new string enum states for visibility, required, and read-only fields.
+     * - true / 1 / '1' -> 'always'
+     * - false / 0 / '0' / null -> 'never'
+     * - existing strings ('always', 'icm', 'portal', 'never') are returned as-is
+     */
+    private function normalizeLegacyState($value): string
+    {
+        if ($value === true || $value === 1 || $value === '1') {
+            return 'always';
+        }
+
+        if ($value === false || $value === 0 || $value === '0' || $value === null) {
+            return 'never';
+        }
+
+        return (string) $value;
+    }
 
     /**
      * Extract JavaScript from formversion format
@@ -337,7 +355,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         // If keys look like types, emit one FormScript per type.
-        $knownTypes = ['web', 'pdf', 'portal', 'template'];
+        $knownTypes = ['web', 'pdf', 'template'];
         $typeKeys = array_intersect(array_keys($javascript), $knownTypes);
 
         try {
@@ -390,7 +408,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         // If keys look like types, emit one StyleSheet per type.
-        $knownTypes = ['web', 'pdf', 'portal', 'template'];
+        $knownTypes = ['web', 'pdf', 'template'];
         $typeKeys = array_intersect(array_keys($stylesheets), $knownTypes);
 
         try {
@@ -544,7 +562,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $options[] = $optionData;
                 } else {
                     $optionData = [
-                        'label' => (string)$option,
+                        'label' => (string) $option,
                         'order' => $index + 1,
                         'description' => null,
                     ];
@@ -563,7 +581,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     ];
                 } else {
                     $options[] = [
-                        'label' => isset($item['value']) ? $item['value'] : (string)$item,
+                        'label' => isset($item['value']) ? $item['value'] : (string) $item,
                         'order' => $idx + 1,
                         'description' => null,
                     ];
@@ -604,10 +622,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
      */
     private function createSelectOptions($selectModel, array $options): void
     {
-        if (empty($options)) return;
+        if (empty($options))
+            return;
 
         foreach ($options as $index => $optionData) {
-            if (empty($optionData['label'])) continue; // Skip options without labels
+            if (empty($optionData['label']))
+                continue; // Skip options without labels
 
             try {
                 \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
@@ -627,10 +647,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function createRadioOptions($radioModel, array $options): void
     {
 
-        if (empty($options)) return;
+        if (empty($options))
+            return;
 
         foreach ($options as $index => $optionData) {
-            if (empty($optionData['label'])) continue; // Skip options without labels
+            if (empty($optionData['label']))
+                continue; // Skip options without labels
             try {
                 \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
             } catch (\Exception $e) {
@@ -678,7 +700,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                                     $formVersion,
                                     $processedElements,
                                     $totalElements,
-                                    $inRepeatableContainer /* or $childInRepeatable when present */,
+                                    $inRepeatableContainer /* or $childInRepeatable when present */ ,
                                     $inPlusContainer      /* or $childInPlusContainer when present */
                                 );
                             }
@@ -722,7 +744,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     }
                 }
 
-                if (!$type) continue;
+                if (!$type)
+                    continue;
 
                 $isRepeatableContainer = false;
                 if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
@@ -738,7 +761,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                             $formVersion,
                             $processedElements,
                             $totalElements,
-                            $inRepeatableContainer /* or $childInRepeatable when present */,
+                            $inRepeatableContainer /* or $childInRepeatable when present */ ,
                             $inPlusContainer      /* or $childInPlusContainer when present */
                         );
                     }
@@ -806,11 +829,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'reference_id' => $referenceId,
                     'description' => $attributes['description'] ?? '',
                     'help_text' => $attributes['help_text'] ?? '',
-                    'is_read_only' => $attributes['is_read_only'] ? true : false,
-                    'custom_read_only' => $attributes['is_read_only'] ? true : false,
-                    'visible_web' => $attributes['visible_web'] ?? true,
-                    'visible_pdf' => $attributes['visible_pdf'] ?? true,
-                    'is_required' => $attributes['is_required'] ?? false,
+                    'visible_web' => $this->normalizeLegacyState($attributes['visible_web'] ?? null),
+                    'visible_pdf' => $this->normalizeLegacyState($attributes['visible_pdf'] ?? null),
+                    'is_required' => $this->normalizeLegacyState($attributes['is_required'] ?? null),
+                    'is_read_only' => $this->normalizeLegacyState($attributes['is_read_only'] ?? null),
                     'save_on_submit' => $attributes['save_on_submit'] ?? true,
                 ];
 
@@ -1122,29 +1144,29 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle both formats for repeatable containers
         if (isset($element['repeats'])) {
-            $attributes['is_repeatable'] = (bool)$element['repeats'];
-            $attributes['attributes']['is_repeatable'] = (bool)$element['repeats'];
+            $attributes['is_repeatable'] = (bool) $element['repeats'];
+            $attributes['attributes']['is_repeatable'] = (bool) $element['repeats'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         } elseif (isset($element['attributes']['isRepeatable'])) {
-            $attributes['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
-            $attributes['attributes']['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
+            $attributes['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
+            $attributes['attributes']['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         }
         // Handle min/max repeats
         if (isset($element['minRepeats'])) {
-            $attributes['min_repeats'] = (int)$element['minRepeats'];
+            $attributes['min_repeats'] = (int) $element['minRepeats'];
         } elseif (isset($element['min_repeats'])) {
-            $attributes['min_repeats'] = (int)$element['min_repeats'];
+            $attributes['min_repeats'] = (int) $element['min_repeats'];
         }
 
         if (isset($element['maxRepeats'])) {
-            $attributes['max_repeats'] = (int)$element['maxRepeats'];
+            $attributes['max_repeats'] = (int) $element['maxRepeats'];
         } elseif (isset($element['max_repeats'])) {
-            $attributes['max_repeats'] = (int)$element['max_repeats'];
+            $attributes['max_repeats'] = (int) $element['max_repeats'];
         }
 
         // Handle container type mapping
@@ -1156,10 +1178,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle collapsible properties
         if (isset($element['collapsible'])) {
-            $attributes['collapsible'] = (bool)$element['collapsible'];
+            $attributes['collapsible'] = (bool) $element['collapsible'];
         }
         if (isset($element['collapsedByDefault'])) {
-            $attributes['collapsed_by_default'] = (bool)$element['collapsedByDefault'];
+            $attributes['collapsed_by_default'] = (bool) $element['collapsedByDefault'];
         }
 
         $elementType = $element['elementType'] ?? $element['type'] ?? '';

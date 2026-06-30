@@ -3,6 +3,7 @@
 namespace App\Filament\Forms\Resources\ElementTemplateManagementResource\Pages;
 
 use App\Filament\Forms\Resources\ElementTemplateManagementResource;
+use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\GeneralTabHelper;
 use App\Models\FormBuilding\FormElement;
 use Filament\Actions;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Forms\Components\Actions\Action as FieldAction;
+use Illuminate\Support\Facades\Gate;
 
 class ViewElementTemplateManagement extends ViewRecord
 {
@@ -44,6 +46,14 @@ class ViewElementTemplateManagement extends ViewRecord
                 ->icon('heroicon-o-pencil-square')
                 ->url(ElementTemplateManagementResource::getUrl('edit', ['record' => $record]))
                 ->visible(!$isParented),
+
+            Actions\Action::make('build')
+                ->label('To Builder')
+                ->icon('heroicon-o-wrench-screwdriver')
+                ->url(fn() => FormVersionResource::getUrl('build', ['record' => $this->record->form_version_id]))
+                ->color('primary')
+                ->outlined()
+                ->visible(fn() => Gate::allows('form-developer')),
         ];
     }
 

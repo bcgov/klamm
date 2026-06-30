@@ -30,12 +30,11 @@ class FormElement extends Model
         'elementable_id',
         'help_text',
         'calculated_value',
-        'is_read_only',
-        'custom_read_only',
-        'is_required',
-        'save_on_submit',
         'visible_web',
         'visible_pdf',
+        'is_read_only',
+        'is_required',
+        'save_on_submit',
         'is_template',
         'source_element_id',
     ];
@@ -44,9 +43,11 @@ class FormElement extends Model
         'order' => 'integer',
         'parent_id' => 'integer',
         'save_on_submit' => 'boolean',
-        'visible_web' => 'boolean',
-        'visible_pdf' => 'boolean',
         'is_template' => 'boolean',
+        'visible_web' => 'string',
+        'visible_pdf' => 'string',
+        'is_required' => 'string',
+        'is_read_only' => 'string',
     ];
 
     protected static $logAttributes = [
@@ -57,6 +58,10 @@ class FormElement extends Model
         'form_version_id',
         'elementable_type',
         'help_text',
+        'visible_web',
+        'visible_pdf',
+        'is_required',
+        'is_read_only',
     ];
 
     public static function boot()
@@ -240,7 +245,9 @@ class FormElement extends Model
      */
     public function scopeVisible($query)
     {
-        return $query->where('visible_web', true);
+        return $query
+            ->whereIn('visible_web', self::getActiveToggleButtonStates())
+            ->orWhereIn('visible_pdf', self::getActiveToggleButtonStates());
     }
 
     /**
@@ -248,7 +255,7 @@ class FormElement extends Model
      */
     public function scopeVisibleWeb($query)
     {
-        return $query->where('visible_web', true);
+        return $query->whereIn('visible_web', self::getActiveToggleButtonStates());
     }
 
     /**
@@ -256,7 +263,7 @@ class FormElement extends Model
      */
     public function scopeVisiblePdf($query)
     {
-        return $query->where('visible_pdf', true);
+        return $query->whereIn('visible_pdf', self::getActiveToggleButtonStates());
     }
 
     /**
@@ -264,12 +271,12 @@ class FormElement extends Model
      */
     public function scopeReadOnly($query)
     {
-        return $query->where('is_read_only', true);
+        return $query->whereIn('is_read_only', self::getActiveToggleButtonStates());
     }
 
     public function scopeIsRequired($query)
     {
-        return $query->where('is_required', true);
+        return $query->where('is_required', self::getActiveToggleButtonStates());
     }
 
     /**
@@ -277,7 +284,7 @@ class FormElement extends Model
      */
     public function scopeEditable($query)
     {
-        return $query->where('is_read_only', false);
+        return $query->whereIn('is_read_only', self::getInactiveToggleButtonStates());
     }
 
     /**
@@ -660,15 +667,46 @@ class FormElement extends Model
     }
 
     /**
+     * Get all state options for ToggleButtons (required, read-only, visibility)
+     */
+    public static function getToggleButtonStates(): array
+    {
+        return [
+            'always' => 'Always',
+            'icm' => 'On ICM Forms',
+            'portal' => 'On Portal Forms',
+            'never' => 'Never',
+        ];
+    }
+
+    /**
+     * Get the ToggleButton keys that represent an "active" or "enabled" state
+     */
+    public static function getActiveToggleButtonStates(): array
+    {
+        return array_diff(array_keys(self::getToggleButtonStates()), ['never']);
+    }
+
+    /**
+     * Get the ToggleButton values that represent an "inactive" or "disabled" state
+     */
+    public static function getInactiveToggleButtonStates(): array
+    {
+        return ['never', ''];
+    }
+
+    /**
      * Check if element is visible for a specific platform
      */
     public function isVisibleFor(string $platform): bool
     {
-        return match ($platform) {
+        $value = match ($platform) {
             'web' => $this->visible_web,
             'pdf' => $this->visible_pdf,
-            default => false,
+            default => null,
         };
+
+        return in_array($value, self::getActiveToggleButtonStates(), true);
     }
 
     /**
@@ -676,17 +714,43 @@ class FormElement extends Model
      */
     public function shouldSaveOnSubmit(): bool
     {
-        return $this->save_on_submit && ($this->isVisibleFor('web') || $this->isVisibleFor('pdf')) && !$this->is_read_only;
+        $isReadOnly = in_array($this->is_read_only, self::getActiveToggleButtonStates(), true);
+        return $this->save_on_submit && ($this->isVisibleFor('web') || $this->isVisibleFor('pdf')) && !$isReadOnly;
     }
 
     /**
-     * Set visibility for specific platforms
+     * Set visibility for web
      */
-    public function setVisibilityFor(array $platforms): self
+    public function setVisibilityWeb(string $value): self
     {
-        $this->visible_web = in_array('web', $platforms);
-        $this->visible_pdf = in_array('pdf', $platforms);
+        $this->visible_web = $value;
+        return $this;
+    }
 
+    /**
+     * Set visibility for pdf
+     */
+    public function setVisibilityPdf(string $value): self
+    {
+        $this->visible_pdf = $value;
+        return $this;
+    }
+
+    /**
+     * Set required
+     */
+    public function setRequired(string $value): self
+    {
+        $this->is_required = $value;
+        return $this;
+    }
+
+    /**
+     * Set read-only for pdf
+     */
+    public function setReadOnly(string $value): self
+    {
+        $this->is_read_only = $value;
         return $this;
     }
 
