@@ -14,16 +14,21 @@ class FormSoftwareSourceSeeder extends Seeder
     public function run(): void
     {
         $softwareSources = [
-            'Livecycle',
-            'Adobe Acrobat',
-            'Orbeon',
-            'Microsoft Word',
-            'Microsoft PowerPoint',
-            'Klamm',
+            ['name' => 'Adobe Livecycle', 'description' => ''],
+            ['name' => 'Adobe Acrobat', 'description' => ''],
+            ['name' => 'Orbeon', 'description' => ''],
+            ['name' => 'Microsoft Word', 'description' => ''],
+            ['name' => 'Microsoft PowerPoint', 'description' => ''],
+            ['name' => 'Klamm', 'description' => 'Form is built in FormFoundry'],
+            ['name' => 'CHEFS', 'description' => ''],
+            ['name' => 'Microsoft Excel', 'description' => ''],
+            ['name' => 'Infopath', 'description' => ''],
+            ['name' => 'Adobe', 'description' => 'Adobe PDF form'],
+            ['name' => 'Unknown', 'description' => 'We have no way to verify the software source for this document'],
         ];
 
-        foreach ($softwareSources as $name) {
-            FormSoftwareSource::firstOrCreate(['name' => $name]);
+        foreach ($softwareSources as $source) {
+            FormSoftwareSource::firstOrCreate($source);
         }
     }
 }
