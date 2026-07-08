@@ -40,9 +40,17 @@ trait ExpandsRowVolume
 
     public const VOLUME_MODE_TARGET = 'target';
 
+    public const VOLUME_DIRECTION_EXPAND = 'expand';
+
+    public const VOLUME_DIRECTION_REDUCE = 'reduce';
+
+    public const REDUCTION_STRATEGY_HASH = 'deterministic_hash';
+
     protected const MAX_ROW_MULTIPLIER = 1000;
 
     protected const MAX_TARGET_ROW_COUNT = 100_000_000;
+
+    protected const REDUCTION_HASH_BUCKETS = 1_000_000;
 
     /**
      * Resolve effective row multipliers for every table in scope.
@@ -50,12 +58,14 @@ trait ExpandsRowVolume
      * @param  array<int, array<string, mixed>>  $tablesById  rewrite-context table map
      * @return array{
      *     multipliers: array<int, int>,
-     *     scaled_by_identity: array<string, array{factor:int, rowid_len:int, key:string}>
+     *     scaled_by_identity: array<string, array{factor:int, rowid_len:int, key:string}>,
+     *     partial_sizing: array<int, array<string, mixed>>,
+     *     volume_anchors: array<int, array<string, mixed>>
      * }
      */
     protected function resolveRowMultipliersForScope(?AnonymizationJobs $job, array $tablesById): array
     {
-        $empty = ['multipliers' => [], 'scaled_by_identity' => []];
+        $empty = ['multipliers' => [], 'scaled_by_identity' => [], 'partial_sizing' => [], 'volume_anchors' => []];
 
         if (! $job?->id || $tablesById === []) {
             return $empty;
@@ -73,17 +83,21 @@ trait ExpandsRowVolume
             return $empty;
         }
 
-        $sourceRowCounts = $this->resolveTableSourceRowCounts(array_keys($anchorConfigs));
+        $sourceRowCounts = $this->resolveTableSourceRowCounts($scopeIds);
         $anchorFactors = $this->resolveAnchorFactors($anchorConfigs, $sourceRowCounts);
-
-        if ($anchorFactors === []) {
-            return $empty;
-        }
 
         $childrenByParent = $this->buildDependentTableEdges($scopeIds);
 
-        $effective = $this->propagateRowMultipliers($anchorFactors, $childrenByParent);
-        if ($effective === []) {
+        $effective = $anchorFactors !== []
+            ? $this->propagateRowMultipliers($anchorFactors, $childrenByParent)
+            : [];
+
+        $partialAnchors = $this->resolveAnchorReductions($anchorConfigs, $sourceRowCounts);
+        $partialSizing = $partialAnchors !== []
+            ? $this->propagateRowReductions($partialAnchors, $childrenByParent, $this->buildParentTableEdges($childrenByParent))
+            : [];
+
+        if ($effective === [] && $partialSizing === []) {
             return $empty;
         }
 
@@ -92,34 +106,54 @@ trait ExpandsRowVolume
         return [
             'multipliers' => $effective,
             'scaled_by_identity' => $scaledByIdentity,
+            'partial_sizing' => $partialSizing,
             'volume_anchors' => $this->buildVolumeAnchorSummary($anchorConfigs, $anchorFactors, $sourceRowCounts),
         ];
     }
 
     /**
      * @param  array<int, int>  $scopeIds
-     * @return array<int, array{mode:string, row_multiplier:int, target_row_count:?int}>
+     * @return array<int, array{mode:string, row_multiplier:int, target_row_count:?int, direction:string, reduction_strategy:?string}>
      */
     protected function loadVolumeAnchorConfigs(int $jobId, array $scopeIds): array
     {
         $rows = DB::table('anonymization_job_tables')
             ->where('job_id', $jobId)
             ->whereIn('table_id', $scopeIds)
-            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count']);
+            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count', 'volume_direction', 'reduction_strategy']);
 
         $configs = [];
 
         foreach ($rows as $row) {
             $tableId = (int) $row->table_id;
             $mode = strtolower(trim((string) ($row->volume_mode ?? self::VOLUME_MODE_MULTIPLIER)));
+            $direction = strtolower(trim((string) ($row->volume_direction ?? self::VOLUME_DIRECTION_EXPAND)));
+            if (! in_array($direction, [self::VOLUME_DIRECTION_EXPAND, self::VOLUME_DIRECTION_REDUCE], true)) {
+                $direction = self::VOLUME_DIRECTION_EXPAND;
+            }
+
             $multiplier = max(1, (int) ($row->row_multiplier ?? 1));
             $target = (int) ($row->target_row_count ?? 0);
+
+            if ($direction === self::VOLUME_DIRECTION_REDUCE && $target > 0) {
+                $configs[$tableId] = [
+                    'mode' => self::VOLUME_MODE_TARGET,
+                    'row_multiplier' => 1,
+                    'target_row_count' => min(self::MAX_TARGET_ROW_COUNT, $target),
+                    'direction' => self::VOLUME_DIRECTION_REDUCE,
+                    'reduction_strategy' => self::REDUCTION_STRATEGY_HASH,
+                ];
+
+                continue;
+            }
 
             if ($mode === self::VOLUME_MODE_TARGET && $target > 0) {
                 $configs[$tableId] = [
                     'mode' => self::VOLUME_MODE_TARGET,
                     'row_multiplier' => 1,
                     'target_row_count' => min(self::MAX_TARGET_ROW_COUNT, $target),
+                    'direction' => self::VOLUME_DIRECTION_EXPAND,
+                    'reduction_strategy' => null,
                 ];
 
                 continue;
@@ -130,6 +164,8 @@ trait ExpandsRowVolume
                     'mode' => self::VOLUME_MODE_MULTIPLIER,
                     'row_multiplier' => min(self::MAX_ROW_MULTIPLIER, $multiplier),
                     'target_row_count' => null,
+                    'direction' => self::VOLUME_DIRECTION_EXPAND,
+                    'reduction_strategy' => null,
                 ];
             }
         }
@@ -171,7 +207,7 @@ trait ExpandsRowVolume
     }
 
     /**
-     * @param  array<int, array{mode:string, row_multiplier:int, target_row_count:?int}>  $anchorConfigs
+     * @param  array<int, array{mode:string, row_multiplier:int, target_row_count:?int, direction?:string}>  $anchorConfigs
      * @param  array<int, int>  $sourceRowCounts
      * @return array<int, int>  table_id => effective factor (>1 only)
      */
@@ -190,10 +226,14 @@ trait ExpandsRowVolume
     }
 
     /**
-     * @param  array{mode:string, row_multiplier:int, target_row_count:?int}  $config
+     * @param  array{mode:string, row_multiplier:int, target_row_count:?int, direction?:string}  $config
      */
     protected function resolveEffectiveFactorFromAnchor(array $config, int $sourceRows): int
     {
+        if (($config['direction'] ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_REDUCE) {
+            return 1;
+        }
+
         $mode = strtolower(trim((string) ($config['mode'] ?? self::VOLUME_MODE_MULTIPLIER)));
 
         if ($mode === self::VOLUME_MODE_TARGET) {
@@ -205,9 +245,9 @@ trait ExpandsRowVolume
             $target = min(self::MAX_TARGET_ROW_COUNT, $target);
             $source = max(1, $sourceRows);
 
-            // Always honour the requested target as a lower bound for sizing.
-            // Catalog statistics are used to approximate the multiplier, but a
-            // target below the catalog estimate no longer forces a 1x factor.
+            // Catalog statistics are only an estimate. Keep target anchors active
+            // so generated SQL can choose the final factor from the live source
+            // count at runtime; the join collapses to 1x when already at target.
             $factor = (int) ceil($target / $source);
 
             return max(2, min(self::MAX_ROW_MULTIPLIER, $factor));
@@ -259,6 +299,117 @@ trait ExpandsRowVolume
         }
 
         return array_filter($effective, fn($factor) => $factor > 1);
+    }
+
+    /**
+     * @param  array<int, array{mode:string, row_multiplier:int, target_row_count:?int, direction?:string}>  $anchorConfigs
+     * @param  array<int, int>  $sourceRowCounts
+     * @return array<int, array<string, mixed>>
+     */
+    protected function resolveAnchorReductions(array $anchorConfigs, array $sourceRowCounts): array
+    {
+        $reductions = [];
+
+        foreach ($anchorConfigs as $tableId => $config) {
+            if (($config['direction'] ?? self::VOLUME_DIRECTION_EXPAND) !== self::VOLUME_DIRECTION_REDUCE) {
+                continue;
+            }
+
+            $sourceRows = (int) ($sourceRowCounts[(int) $tableId] ?? 0);
+            $targetRows = (int) ($config['target_row_count'] ?? 0);
+
+            if ($sourceRows <= 0 || $targetRows <= 0 || $targetRows >= $sourceRows) {
+                continue;
+            }
+
+            $keepPerMillion = max(1, min(
+                self::REDUCTION_HASH_BUCKETS - 1,
+                (int) floor(($targetRows / max(1, $sourceRows)) * self::REDUCTION_HASH_BUCKETS)
+            ));
+
+            $reductions[(int) $tableId] = [
+                'direction' => self::VOLUME_DIRECTION_REDUCE,
+                'strategy' => self::REDUCTION_STRATEGY_HASH,
+                'target_row_count' => $targetRows,
+                'source_row_count' => $sourceRows,
+                'keep_per_million' => $keepPerMillion,
+                'hash_buckets' => self::REDUCTION_HASH_BUCKETS,
+            ];
+        }
+
+        return $reductions;
+    }
+
+    /**
+     * @param  array<int, array<int, int>>  $childrenByParent
+     * @return array<int, array<int, int>>
+     */
+    protected function buildParentTableEdges(array $childrenByParent): array
+    {
+        $parentsByChild = [];
+
+        foreach ($childrenByParent as $parent => $children) {
+            foreach ($children as $child) {
+                $parentsByChild[(int) $child][(int) $parent] = (int) $parent;
+            }
+        }
+
+        return array_map(fn(array $parents) => array_values($parents), $parentsByChild);
+    }
+
+    /**
+     * Propagate reduction anchors in both directions so connected parent/child
+     * tables receive the same deterministic proportional sampling directive.
+     *
+     * @param  array<int, array<string, mixed>>  $anchorReductions
+     * @param  array<int, array<int, int>>  $childrenByParent
+     * @param  array<int, array<int, int>>  $parentsByChild
+     * @return array<int, array<string, mixed>>
+     */
+    protected function propagateRowReductions(array $anchorReductions, array $childrenByParent, array $parentsByChild): array
+    {
+        $effective = [];
+
+        foreach ($anchorReductions as $rootAnchorId => $rootDirective) {
+            $stack = [[(int) $rootAnchorId, $rootDirective]];
+            $seen = [];
+
+            while ($stack !== []) {
+                [$node, $inheritedDirective] = array_pop($stack);
+                $node = (int) $node;
+                if (isset($seen[$node])) {
+                    continue;
+                }
+                $seen[$node] = true;
+
+                $nodeDirective = $anchorReductions[$node] ?? $inheritedDirective;
+                $effective[$node] = $this->strongestRowReduction($effective[$node] ?? null, $nodeDirective);
+
+                foreach (array_merge($childrenByParent[$node] ?? [], $parentsByChild[$node] ?? []) as $connected) {
+                    if (! isset($seen[(int) $connected])) {
+                        $stack[] = [(int) $connected, $nodeDirective];
+                    }
+                }
+            }
+        }
+
+        return array_filter($effective, fn($directive) => is_array($directive) && (int) ($directive['keep_per_million'] ?? self::REDUCTION_HASH_BUCKETS) < self::REDUCTION_HASH_BUCKETS);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $current
+     * @param  array<string, mixed>  $candidate
+     * @return array<string, mixed>
+     */
+    protected function strongestRowReduction(?array $current, array $candidate): array
+    {
+        if ($current === null) {
+            return $candidate;
+        }
+
+        return (int) ($candidate['keep_per_million'] ?? self::REDUCTION_HASH_BUCKETS) < (int) ($current['keep_per_million'] ?? self::REDUCTION_HASH_BUCKETS)
+            ? $candidate
+            : $current;
     }
 
     /**
@@ -448,6 +599,34 @@ trait ExpandsRowVolume
 
         return 'CROSS JOIN (SELECT LEVEL AS ' . self::ROW_GENERATOR_COLUMN
             . ' FROM dual CONNECT BY LEVEL <= ' . $factorExpr . ') ' . self::ROW_GENERATOR_ALIAS;
+    }
+
+    /**
+     * @param  array<string, mixed>  $directive
+     */
+    protected function rowReductionWhereClause(array $directive, string $sourceAlias, string $tableKey, array $rewriteContext): string
+    {
+        $keepPerMillion = max(1, min(
+            self::REDUCTION_HASH_BUCKETS - 1,
+            (int) ($directive['keep_per_million'] ?? self::REDUCTION_HASH_BUCKETS)
+        ));
+
+        $alias = trim($sourceAlias) !== '' ? trim($sourceAlias) : 'src';
+        $rowIdRef = $alias . '.' . $this->oracleIdentifier('ROW_ID');
+        $jobSeedLiteral = (string) ($rewriteContext['job_seed_literal'] ?? "''");
+        if (trim($jobSeedLiteral) === '') {
+            $jobSeedLiteral = "''";
+        }
+
+        $hashInput = $jobSeedLiteral
+            . " || '|PARTIAL|' || " . $this->oracleStringLiteral($tableKey)
+            . " || '|' || NVL(" . $rowIdRef . ", '~')";
+
+        $bucketExpr = 'MOD(TO_NUMBER(SUBSTR(LOWER(RAWTOHEX(STANDARD_HASH('
+            . $hashInput
+            . ", 'SHA256'))), 1, 8), 'xxxxxxxx'), " . self::REDUCTION_HASH_BUCKETS . ')';
+
+        return $rowIdRef . ' IS NOT NULL AND ' . $bucketExpr . ' < ' . $keepPerMillion;
     }
 
     /**

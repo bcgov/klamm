@@ -57,6 +57,16 @@ class AnonymizationJobScriptService
         return "'" . str_replace("'", "''", $value) . "'";
     }
 
+    protected function progressLogLines(string $message): array
+    {
+        return [
+            'BEGIN',
+            "  DBMS_OUTPUT.PUT_LINE(TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM') || ' | KLAMM | ' || " . $this->oracleStringLiteral($message) . ');',
+            'END;',
+            '/',
+        ];
+    }
+
     protected function oracleColumnTypeForColumn(AnonymousSiebelColumn $column): string
     {
         $typeName = strtolower(trim((string) ($column->getRelationValue('dataType')?->data_type_name ?? '')));
@@ -1173,7 +1183,10 @@ class AnonymizationJobScriptService
         }
 
         if ($halted) {
-            $prefixLines[] = '-- SQL generation halted due to blocking seed contract violations.';
+            $prefixLines[] = '-- WARNING: Seed contract review reported blocking issues.';
+            $prefixLines[] = '-- SQL generation continues so clone/masking sections are still emitted.';
+            $prefixLines[] = '-- Review unresolved dependencies above before relying on FK remap completeness.';
+            $prefixLines[] = '';
         }
 
         $requiredPackageRefs = [];
@@ -2823,9 +2836,37 @@ class AnonymizationJobScriptService
             return self::INLINE_DEFERRED_PREFIX . $sqlBlock;
         }
 
+        // Detect CASE expressions with nested SELECT statements (DOMAIN_COLLAPSE patterns).
+        // These are too complex to inline safely and should be deferred to post-CTAS.
+        if ($this->hasComplexNestedSelectInCaseExpression($sqlBlock)) {
+            \Illuminate\Support\Facades\Log::info(
+                'Complex nested SELECT detected in CASE expression; deferring to post-CTAS',
+                [
+                    'column' => $this->describeColumn($column),
+                    'method_id' => $method->id,
+                ]
+            );
+            return self::INLINE_DEFERRED_PREFIX . $sqlBlock;
+        }
+
         $expressionTemplate = $this->extractUpdateExpressionFromTemplate($sqlBlock);
         if (! $expressionTemplate) {
             return null;
+        }
+
+        // Validate expression syntax before attempting to inline:
+        // CASE statements must have balanced CASE/END keywords.
+        if (! $this->isExpressionSyntacticallyComplete($expressionTemplate)) {
+            // Log warning and defer to post-CTAS if syntax is incomplete.
+            \Illuminate\Support\Facades\Log::warning(
+                'Incomplete inline expression syntax; deferring to post-CTAS',
+                [
+                    'column' => $this->describeColumn($column),
+                    'method_id' => $method->id,
+                    'expression_preview' => substr($expressionTemplate, 0, 200),
+                ]
+            );
+            return self::INLINE_DEFERRED_PREFIX . $sqlBlock;
         }
 
         return $this->applyPlaceholders(
@@ -2837,6 +2878,61 @@ class AnonymizationJobScriptService
             $sourceAlias,
             true
         );
+    }
+
+    /**
+     * Detect if a method contains a CASE expression with nested SELECT statements.
+     * These patterns (typically DOMAIN_COLLAPSE) are too complex to inline safely
+     * and should be deferred to post-CTAS execution.
+     */
+    protected function hasComplexNestedSelectInCaseExpression(string $sqlBlock): bool
+    {
+        $upper = strtoupper($sqlBlock);
+
+        // Check if this is a CASE-based method with nested SELECT
+        if (stripos($sqlBlock, 'CASE') === false || stripos($sqlBlock, 'SELECT') === false) {
+            return false;
+        }
+
+        // Pattern: CASE ... WHEN ... THEN ... SELECT ... FROM
+        // This is complex and should be deferred.
+        if (preg_match('/\bCASE\b.+?\bWHEN\b.+?\bTHEN\b.+?\(\s*SELECT\b.+?\bFROM\b/is', $sqlBlock)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Validate that an extracted expression has balanced/complete SQL syntax.
+     * Specifically checks for balanced CASE/END and parentheses.
+     */
+    protected function isExpressionSyntacticallyComplete(string $expression): bool
+    {
+        $upper = strtoupper($expression);
+
+        // Count CASE and END keywords (simple heuristic, not foolproof).
+        $caseMatches = [];
+        $endMatches = [];
+        preg_match_all('/\bCASE\b/', $upper, $caseMatches);
+        preg_match_all('/\bEND\b/', $upper, $endMatches);
+
+        $caseCount = count($caseMatches[0] ?? []);
+        $endCount = count($endMatches[0] ?? []);
+
+        // If CASE/END are unbalanced, expression is incomplete.
+        if ($caseCount > 0 && $caseCount !== $endCount) {
+            return false;
+        }
+
+        // Check parentheses balance (very basic).
+        $openParen = substr_count($expression, '(');
+        $closeParen = substr_count($expression, ')');
+        if ($openParen !== $closeParen) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -2884,16 +2980,52 @@ class AnonymizationJobScriptService
     protected function extractUpdateExpressionFromTemplate(string $template): ?string
     {
         // Primary pattern: UPDATE ... SET {{COLUMN}} = <expr> WHERE {{COLUMN}} IS NOT NULL
-        $pattern = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)\s*where\s+\{\{COLUMN\}\}\s+is\s+not\s+null\b\s*;?/is';
+        // For CASE statements with nested SELECT...FROM...WHERE, we need to carefully extract
+        // the full expression without stopping at WHERE clauses inside the SELECT.
+
+        // Look for the SET assignment portion
+        $pattern = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)(?:\s+where\s+\{\{COLUMN\}\}\s+is\s+not\s+null|;|$)/is';
 
         if (preg_match($pattern, $template, $matches)) {
             $expression = trim((string) ($matches[1] ?? ''));
+            if ($expression === '') {
+                return null;
+            }
+
+            // If expression contains CASE, verify it's complete before returning
+            if (stripos($expression, 'CASE') !== false) {
+                // Count CASE/END to see if balanced
+                $caseCount = substr_count(strtoupper($expression), 'CASE');
+                $endCount = substr_count(strtoupper($expression), 'END');
+
+                // If not balanced, try to extract more by searching for the END that closes this CASE
+                if ($caseCount > $endCount) {
+                    // Try to find the complete expression by searching further in the template
+                    // Look for the closing END followed by WHERE {{COLUMN}}
+                    $searchFrom = strpos($template, $expression);
+                    if ($searchFrom !== false) {
+                        $remaining = substr($template, $searchFrom + strlen($expression));
+                        // Extract up to "WHERE {{COLUMN}}" or "WHERE" followed by other conditions
+                        if (preg_match('/^(.+?)\s+(?:where\s+\{\{COLUMN\}\}|;|$)/is', $remaining, $restMatches)) {
+                            $extension = trim((string) ($restMatches[1] ?? ''));
+                            $fuller = $expression . ' ' . $extension;
+
+                            // Recount to verify balance
+                            $caseCount2 = substr_count(strtoupper($fuller), 'CASE');
+                            $endCount2 = substr_count(strtoupper($fuller), 'END');
+                            if ($caseCount2 === $endCount2) {
+                                $expression = $fuller;
+                            }
+                        }
+                    }
+                }
+            }
+
             return $expression === '' ? null : $expression;
         }
 
-        // Fallback: UPDATE ... SET {{COLUMN}} = <expr> followed by WHERE on other
-        // conditions, or terminated by semicolon / end-of-string (e.g. nullable-safe).
-        $fallback = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)\s*(?:where\b|;|$)/is';
+        // Fallback: if primary pattern doesn't match, try looser matching for non-WHERE templates
+        $fallback = '/\bset\s+\{\{COLUMN\}\}\s*=\s*(.+?)(?:;|$)/is';
 
         if (preg_match($fallback, $template, $matches)) {
             $expression = trim((string) ($matches[1] ?? ''));
@@ -3475,8 +3607,12 @@ class AnonymizationJobScriptService
         // no configured multipliers this is a no-op and every table stays at 1x.
         $volume = $this->resolveRowMultipliersForScope($job, $tablesById);
         $rowMultipliers = $volume['multipliers'] ?? [];
+        $partialSizing = $volume['partial_sizing'] ?? [];
         foreach ($tablesById as $tableId => &$mapping) {
             $mapping['row_multiplier'] = (int) ($rowMultipliers[(int) $tableId] ?? 1);
+            if (is_array($partialSizing) && isset($partialSizing[(int) $tableId])) {
+                $mapping['partial_sizing'] = $partialSizing[(int) $tableId];
+            }
         }
         unset($mapping);
 
@@ -3488,6 +3624,7 @@ class AnonymizationJobScriptService
             'table_scope_mode' => $hasExplicitColumns ? 'explicit-columns' : ($job?->job_type === AnonymizationJobs::TYPE_FULL ? 'full-schema' : 'selection-derived'),
             'tables_by_id' => $tablesById,
             'row_multipliers' => $rowMultipliers,
+            'partial_sizing' => is_array($partialSizing) ? $partialSizing : [],
             'scaled_by_identity' => $volume['scaled_by_identity'] ?? [],
             'volume_anchors' => $volume['volume_anchors'] ?? [],
             'grant_scope_table_ids' => array_values(array_keys($grantScopeTableIds)),
@@ -3817,6 +3954,9 @@ class AnonymizationJobScriptService
                 continue;
             }
 
+            $lines = array_merge($lines, $this->progressLogLines('Table start: ' . $source . ' -> ' . $target));
+            $lines[] = '';
+
             $lines[] = $this->commentDivider('-');
             $lines[] = '-- Safety check: source and target must not be identical';
             $lines[] = $this->commentDivider('-');
@@ -3835,6 +3975,7 @@ class AnonymizationJobScriptService
             $sourceAlias = $inlineMasking ? ($rewriteContext['source_alias'] ?? 'src') : null;
             $preCtasStatements = $mapping['pre_ctas_statements'] ?? [];
             $postSourceJoins = $mapping['post_source_joins'] ?? [];
+            $sourceFilters = [];
 
             // Row-volume expansion: prepend the deterministic generator so each source
             // row is emitted N times. Only valid in inline masking mode with an explicit
@@ -3855,6 +3996,13 @@ class AnonymizationJobScriptService
                     : $this->rowGeneratorJoinClause($rowMultiplier);
 
                 $postSourceJoins = array_merge([$join], $postSourceJoins);
+            }
+
+            $partialSizing = $mapping['partial_sizing'] ?? null;
+            if (is_array($partialSizing) && (int) ($partialSizing['keep_per_million'] ?? 0) > 0) {
+                $sourceAlias = $sourceAlias ?: 'src';
+                $tableKey = strtoupper(trim((string) ($mapping['source_schema'] ?? '') . '.' . (string) ($mapping['source_table'] ?? ''), '.'));
+                $sourceFilters[] = $this->rowReductionWhereClause($partialSizing, $sourceAlias, $tableKey, $rewriteContext);
             }
 
             if ($relationKind === 'view') {
@@ -3908,13 +4056,13 @@ class AnonymizationJobScriptService
                 } elseif (trim($selectList) === '*' && (empty($longColumns))) {
                     $ddlLines = array_merge(
                         ['CREATE OR REPLACE VIEW ' . $target . ' AS', 'SELECT *'],
-                        $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                        $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins, $sourceFilters)
                     );
                     $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
                 } else {
                     $ddlLines = array_merge(
                         ['CREATE OR REPLACE VIEW ' . $target . ' AS', 'SELECT ' . $selectList],
-                        $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                        $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins, $sourceFilters)
                     );
                     $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
                 }
@@ -3932,7 +4080,12 @@ class AnonymizationJobScriptService
                         $lines = array_merge($lines, $this->wrapDmlInBeginException($stmt));
                         $lines[] = '';
                     }
+                    $lines = array_merge($lines, $this->progressLogLines('Post-create operations complete: ' . $target));
+                    $lines[] = '';
                 }
+
+                $lines = array_merge($lines, $this->progressLogLines('Table complete: ' . $target));
+                $lines[] = '';
                 continue;
             }
 
@@ -3945,8 +4098,12 @@ class AnonymizationJobScriptService
                     $lines[] = $stmt;
                 }
                 $lines[] = '';
+                $lines = array_merge($lines, $this->progressLogLines('Pre-CTAS map phase complete: ' . $target));
+                $lines[] = '';
             }
 
+            $lines = array_merge($lines, $this->progressLogLines('Drop target table start: ' . $target));
+            $lines[] = '';
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Drop target table if it exists';
             $lines[] = $this->commentDivider('=');
@@ -3962,6 +4119,11 @@ class AnonymizationJobScriptService
             $lines[] = $this->commentDivider('=');
             $lines[] = '';
 
+            $lines = array_merge($lines, $this->progressLogLines('Drop target table complete: ' . $target));
+            $lines[] = '';
+
+            $lines = array_merge($lines, $this->progressLogLines('Create anonymized working copy start: ' . $target));
+            $lines[] = '';
             $lines[] = $this->commentDivider('=');
             $lines[] = '-- Create anonymized working copy';
             $lines[] = '-- NOTE:';
@@ -3978,17 +4140,20 @@ class AnonymizationJobScriptService
             } elseif (trim($selectList) === '*' && (empty($longColumns))) {
                 $ddlLines = array_merge(
                     ['CREATE TABLE ' . $target . ' AS', 'SELECT *'],
-                    $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                    $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins, $sourceFilters)
                 );
                 $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
             } else {
                 $ddlLines = array_merge(
                     ['CREATE TABLE ' . $target . ' AS', 'SELECT ' . $selectList],
-                    $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins)
+                    $this->buildCloneFromLines($source, $sourceAlias, $postSourceJoins, $sourceFilters)
                 );
                 $lines = array_merge($lines, $this->wrapDdlInExecuteImmediate($ddlLines));
             }
             $lines[] = $this->commentDivider('=');
+            $lines[] = '';
+
+            $lines = array_merge($lines, $this->progressLogLines('Create anonymized working copy complete: ' . $target));
             $lines[] = '';
 
             // Emit deferred (post-CTAS) statements for this table (e.g. MERGE-based shuffles).
@@ -4002,13 +4167,18 @@ class AnonymizationJobScriptService
                     $lines = array_merge($lines, $this->wrapDmlInBeginException($stmt));
                     $lines[] = '';
                 }
+                $lines = array_merge($lines, $this->progressLogLines('Post-CTAS operations complete: ' . $target));
+                $lines[] = '';
             }
+
+            $lines = array_merge($lines, $this->progressLogLines('Table complete: ' . $target));
+            $lines[] = '';
         }
 
         return $lines;
     }
 
-    protected function buildCloneFromLines(string $source, ?string $sourceAlias, array $postSourceJoins = []): array
+    protected function buildCloneFromLines(string $source, ?string $sourceAlias, array $postSourceJoins = [], array $whereClauses = []): array
     {
         $lines = ['FROM   ' . $source . ($sourceAlias ? (' ' . $sourceAlias) : '')];
 
@@ -4018,6 +4188,11 @@ class AnonymizationJobScriptService
             }
 
             $lines[] = '       ' . trim($joinClause);
+        }
+
+        $whereClauses = array_values(array_filter($whereClauses, fn($clause) => is_string($clause) && trim($clause) !== ''));
+        foreach ($whereClauses as $index => $clause) {
+            $lines[] = ($index === 0 ? 'WHERE  ' : '  AND  ') . trim($clause);
         }
 
         return $lines;
@@ -5722,15 +5897,16 @@ class AnonymizationJobScriptService
     }
 
     /**
-     * Summarise any active row-volume expansion in the generated-SQL header so a
-     * reviewer can see which tables were scaled, by how much, and the caveats.
+     * Summarise active table sizing in the generated-SQL header so reviewers can
+     * see which tables were expanded or reduced and the deterministic caveats.
      *
      * @return array<int, string>
      */
     protected function buildVolumeExpansionHeaderNotes(array $rewriteContext): array
     {
         $multipliers = $rewriteContext['row_multipliers'] ?? [];
-        if (! is_array($multipliers) || $multipliers === []) {
+        $partialSizing = $rewriteContext['partial_sizing'] ?? [];
+        if ((! is_array($multipliers) || $multipliers === []) && (! is_array($partialSizing) || $partialSizing === [])) {
             return [];
         }
 
@@ -5739,7 +5915,7 @@ class AnonymizationJobScriptService
             ? $rewriteContext['volume_anchors']
             : [];
 
-        $rows = [];
+        $expandedRows = [];
         foreach ($multipliers as $tableId => $factor) {
             $factor = (int) $factor;
             if ($factor <= 1) {
@@ -5768,24 +5944,66 @@ class AnonymizationJobScriptService
                 }
             }
 
-            $rows[] = '--   ' . ($name !== '' ? $name : ('table#' . (int) $tableId)) . '  ->  ' . $detail;
+            $expandedRows[] = '--   ' . ($name !== '' ? $name : ('table#' . (int) $tableId)) . '  ->  ' . $detail;
         }
 
-        if ($rows === []) {
+        $reducedRows = [];
+        if (is_array($partialSizing)) {
+            foreach ($partialSizing as $tableId => $directive) {
+                if (! is_array($directive)) {
+                    continue;
+                }
+
+                $keepPerMillion = (int) ($directive['keep_per_million'] ?? 0);
+                if ($keepPerMillion <= 0 || $keepPerMillion >= self::REDUCTION_HASH_BUCKETS) {
+                    continue;
+                }
+
+                $mapping = is_array($tablesById) ? ($tablesById[(int) $tableId] ?? null) : null;
+                $name = is_array($mapping)
+                    ? trim((string) ($mapping['source_schema'] ?? '') . '.' . (string) ($mapping['source_table'] ?? ''), '.')
+                    : ('table#' . (int) $tableId);
+
+                $percent = round(($keepPerMillion / self::REDUCTION_HASH_BUCKETS) * 100, 4);
+                $target = (int) ($directive['target_row_count'] ?? 0);
+                $source = (int) ($directive['source_row_count'] ?? 0);
+                $detail = 'keep approximately ' . rtrim(rtrim(number_format($percent, 4), '0'), '.') . '%';
+                if ($target > 0) {
+                    $detail .= ' (target ' . number_format($target) . ' rows';
+                    if ($source > 0) {
+                        $detail .= ' from catalog estimate ' . number_format($source);
+                    }
+                    $detail .= ')';
+                }
+
+                $reducedRows[] = '--   ' . ($name !== '' ? $name : ('table#' . (int) $tableId)) . '  ->  ' . $detail;
+            }
+        }
+
+        if ($expandedRows === [] && $reducedRows === []) {
             return [];
         }
 
         $lines = [
             '--',
-            '-- VOLUME EXPANSION ACTIVE: the following tables are generated with extra,',
-            '-- deterministically-derived rows (ROW_ID primary keys stay unique and foreign',
-            '-- keys into scaled tables remain referentially valid). Dependent child tables',
-            '-- inherit sizing unless they have their own multiplier/target anchor. Ancestor',
-            '-- tables referenced by foreign keys stay at their original size.',
+            '-- TABLE SIZING ACTIVE: selected tables are generated at adjusted row counts.',
+            '-- Expansion adds deterministically-derived rows while keeping ROW_ID primary',
+            '-- keys unique and foreign keys into scaled tables referentially valid.',
+            '-- Partial sizing uses deterministic ROW_ID hash buckets to keep a best-effort',
+            '-- proportional subset across connected parent/child tables.',
         ];
-        $lines = array_merge($lines, $rows);
-        $lines[] = '-- NOTE: copies share non-key attribute values; methods using DBMS_RANDOM';
-        $lines[] = '--       produce non-deterministic values across copies.';
+        if ($expandedRows !== []) {
+            $lines[] = '-- Expanded tables:';
+            $lines = array_merge($lines, $expandedRows);
+        }
+        if ($reducedRows !== []) {
+            $lines[] = '-- Partial-sized tables:';
+            $lines = array_merge($lines, $reducedRows);
+        }
+        if ($expandedRows !== []) {
+            $lines[] = '-- NOTE: expanded copies share non-key attribute values; methods using';
+            $lines[] = '--       DBMS_RANDOM produce non-deterministic values across copies.';
+        }
 
         return $lines;
     }
@@ -5843,7 +6061,9 @@ class AnonymizationJobScriptService
 
         $lines[] = '-- SQL*Plus / SQLcl runtime settings';
         $lines[] = 'SET SERVEROUTPUT ON SIZE UNLIMITED';
+        $lines[] = 'SET TIMING ON';
         $lines[] = 'WHENEVER SQLERROR EXIT SQL.SQLCODE';
+        $lines[] = '-- Runtime progress is emitted with DBMS_OUTPUT at table/phase boundaries.';
 
         $lines[] = $this->commentDivider('=');
         $lines[] = '';

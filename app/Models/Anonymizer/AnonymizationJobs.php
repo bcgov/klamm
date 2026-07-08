@@ -118,7 +118,7 @@ class AnonymizationJobs extends Model
             'anonymization_job_tables',
             'job_id',
             'table_id'
-        )->withPivot('row_multiplier', 'volume_mode', 'target_row_count')->withTimestamps();
+        )->withPivot('row_multiplier', 'volume_mode', 'target_row_count', 'volume_direction', 'reduction_strategy')->withTimestamps();
     }
 
     public function columns(): BelongsToMany
@@ -189,6 +189,8 @@ class AnonymizationJobs extends Model
                 'row_multiplier',
                 'volume_mode',
                 'target_row_count',
+                'volume_direction',
+                'reduction_strategy',
             ]);
             $this->copyColumnPivotRows((int) $duplicate->getKey());
 

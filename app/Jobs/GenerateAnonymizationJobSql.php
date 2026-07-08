@@ -79,9 +79,21 @@ class GenerateAnonymizationJobSql implements ShouldQueue
         $volumeAnchorCount = (int) DB::table('anonymization_job_tables')
             ->where('job_id', $this->jobId)
             ->where(function ($query) {
-                $query->where('row_multiplier', '>', 1)
+                $query->where(function ($sub) {
+                    $sub->where(function ($expand) {
+                        $expand->whereNull('volume_direction')
+                            ->orWhere('volume_direction', 'expand');
+                    })
+                        ->where(function ($expand) {
+                            $expand->where('row_multiplier', '>', 1)
+                                ->orWhere(function ($target) {
+                                    $target->where('volume_mode', 'target')
+                                        ->where('target_row_count', '>', 0);
+                                });
+                        });
+                })
                     ->orWhere(function ($sub) {
-                        $sub->where('volume_mode', 'target')
+                        $sub->where('volume_direction', 'reduce')
                             ->where('target_row_count', '>', 0);
                     });
             })
@@ -162,21 +174,9 @@ class GenerateAnonymizationJobSql implements ShouldQueue
             $context = $scriptService->prepareChunkedContextForColumnIds($maskingColumnIds, $job);
 
             if (! empty($context['halted'])) {
-                $sql = (string) ($context['prefix_sql'] ?? '');
-                DB::table('anonymization_jobs')
-                    ->where('id', $this->jobId)
-                    ->update([
-                        'sql_script' => $sql,
-                        'updated_at' => now(),
-                    ]);
-
-                $this->clearRegenerationCache();
-
-                Log::warning('GenerateAnonymizationJobSql: halted due to contract review errors', [
+                Log::warning('GenerateAnonymizationJobSql: contract review reported blocking issues; continuing chunked SQL generation', [
                     'job_id' => $this->jobId,
                 ]);
-
-                return;
             }
 
             $orderedTableIds = $context['ordered_table_ids'] ?? [];

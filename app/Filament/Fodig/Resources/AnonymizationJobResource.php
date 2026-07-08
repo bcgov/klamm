@@ -62,6 +62,12 @@ class AnonymizationJobResource extends Resource
 
     public const VOLUME_MODE_TARGET = 'target';
 
+    public const VOLUME_DIRECTION_EXPAND = 'expand';
+
+    public const VOLUME_DIRECTION_REDUCE = 'reduce';
+
+    public const REDUCTION_STRATEGY_HASH = 'deterministic_hash';
+
     /** Max selected columns to hydrate into the Filament multi-select (avoids Livewire OOM). */
     public const MAX_COLUMNS_FORM_HYDRATE = 250;
 
@@ -367,6 +373,8 @@ class AnonymizationJobResource extends Resource
                                             'row_multiplier' => (int) ($config['row_multiplier'] ?? 1),
                                             'volume_mode' => (string) ($config['volume_mode'] ?? self::VOLUME_MODE_MULTIPLIER),
                                             'target_row_count' => $config['target_row_count'] ?? null,
+                                            'volume_direction' => (string) ($config['volume_direction'] ?? self::VOLUME_DIRECTION_EXPAND),
+                                            'reduction_strategy' => $config['reduction_strategy'] ?? null,
                                         ];
                                     }
                                 }
@@ -559,8 +567,8 @@ class AnonymizationJobResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
-                Forms\Components\Section::make('Volume Expansion (optional)')
-                    ->description('Scale generated row volume per anchor table using a multiplier or an explicit target row count. Dependent child tables inherit sizing unless they have their own anchor. Foreign keys are remapped automatically. Leave empty for a normal 1:1 export.')
+                Forms\Components\Section::make('Table Sizing (optional)')
+                    ->description('Scale generated row volume per anchor table. Expansion multiplies rows; partial sizing deterministically samples a smaller proportional subset across connected tables. Leave empty for a normal 1:1 export.')
                     ->collapsed()
                     ->schema([
                         Forms\Components\Repeater::make('table_volume_multipliers')
@@ -587,6 +595,17 @@ class AnonymizationJobResource extends Resource
                                     ->default(self::VOLUME_MODE_MULTIPLIER)
                                     ->inline()
                                     ->live()
+                                    ->visible(fn(Get $get) => ($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_EXPAND)
+                                    ->columnSpanFull(),
+                                ToggleButtons::make('volume_direction')
+                                    ->label('Direction')
+                                    ->options([
+                                        self::VOLUME_DIRECTION_EXPAND => 'Expand',
+                                        self::VOLUME_DIRECTION_REDUCE => 'Partial size',
+                                    ])
+                                    ->default(self::VOLUME_DIRECTION_EXPAND)
+                                    ->inline()
+                                    ->live()
                                     ->columnSpanFull(),
                                 Forms\Components\TextInput::make('row_multiplier')
                                     ->label('Multiplier (x)')
@@ -594,21 +613,25 @@ class AnonymizationJobResource extends Resource
                                     ->default(10)
                                     ->minValue(2)
                                     ->maxValue(self::MAX_ROW_MULTIPLIER)
-                                    ->required(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_MULTIPLIER)
-                                    ->visible(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_MULTIPLIER)
+                                    ->required(fn(Get $get) => ($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_EXPAND && $get('volume_mode') === self::VOLUME_MODE_MULTIPLIER)
+                                    ->visible(fn(Get $get) => ($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_EXPAND && $get('volume_mode') === self::VOLUME_MODE_MULTIPLIER)
                                     ->helperText('Rows are multiplied by this factor (max ' . self::MAX_ROW_MULTIPLIER . ').'),
                                 Forms\Components\TextInput::make('target_row_count')
                                     ->label('Target row count')
                                     ->numeric()
                                     ->minValue(1)
                                     ->maxValue(self::MAX_TARGET_ROW_COUNT)
-                                    ->required(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_TARGET)
-                                    ->visible(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_TARGET)
-                                    ->helperText('Desired output rows for this anchor. The effective multiplier is computed from catalog ROW_ID statistics at SQL generation time (max ' . number_format(self::MAX_TARGET_ROW_COUNT) . ').'),
+                                    ->required(fn(Get $get) => ($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_REDUCE || $get('volume_mode') === self::VOLUME_MODE_TARGET)
+                                    ->visible(fn(Get $get) => ($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_REDUCE || $get('volume_mode') === self::VOLUME_MODE_TARGET)
+                                    ->helperText(fn(Get $get) => ($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_REDUCE
+                                        ? 'Desired approximate rows for this anchor. The output is deterministic and proportionally applied to connected tables.'
+                                        : 'Desired output rows for this anchor. The effective multiplier is computed from catalog ROW_ID statistics at SQL generation time (max ' . number_format(self::MAX_TARGET_ROW_COUNT) . ').'),
+                                Forms\Components\Hidden::make('reduction_strategy')
+                                    ->default(self::REDUCTION_STRATEGY_HASH),
                                 Forms\Components\Placeholder::make('target_row_estimate')
                                     ->label('Estimated multiplier')
-                                    ->content(fn(Get $get) => self::volumeTargetMultiplierEstimate($get('table_id'), $get('target_row_count')))
-                                    ->visible(fn(Get $get) => $get('volume_mode') === self::VOLUME_MODE_TARGET && (int) $get('table_id') > 0)
+                                    ->content(fn(Get $get) => self::sizingTargetEstimate($get('table_id'), $get('target_row_count'), $get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND))
+                                    ->visible(fn(Get $get) => (($get('volume_direction') ?? self::VOLUME_DIRECTION_EXPAND) === self::VOLUME_DIRECTION_REDUCE || $get('volume_mode') === self::VOLUME_MODE_TARGET) && (int) $get('table_id') > 0)
                                     ->columnSpanFull(),
                             ])
                             ->afterStateHydrated(function (Forms\Components\Repeater $component, $livewire): void {
@@ -625,10 +648,14 @@ class AnonymizationJobResource extends Resource
                                             ->orWhere(function ($sub) {
                                                 $sub->where('volume_mode', self::VOLUME_MODE_TARGET)
                                                     ->where('target_row_count', '>', 0);
+                                            })
+                                            ->orWhere(function ($sub) {
+                                                $sub->where('volume_direction', self::VOLUME_DIRECTION_REDUCE)
+                                                    ->where('target_row_count', '>', 0);
                                             });
                                     })
                                     ->orderBy('table_id')
-                                    ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count']);
+                                    ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count', 'volume_direction', 'reduction_strategy']);
 
                                 $component->state(
                                     $rows->map(fn($r) => [
@@ -636,10 +663,12 @@ class AnonymizationJobResource extends Resource
                                         'volume_mode' => (string) ($r->volume_mode ?: self::VOLUME_MODE_MULTIPLIER),
                                         'row_multiplier' => (int) $r->row_multiplier,
                                         'target_row_count' => $r->target_row_count !== null ? (int) $r->target_row_count : null,
+                                        'volume_direction' => (string) ($r->volume_direction ?: self::VOLUME_DIRECTION_EXPAND),
+                                        'reduction_strategy' => (string) ($r->reduction_strategy ?: self::REDUCTION_STRATEGY_HASH),
                                     ])->all()
                                 );
                             })
-                            ->helperText('Pick an anchor table (must be in scope). Child tables inherit sizing unless they have their own anchor. Referenced ancestor tables stay at their original size.'),
+                            ->helperText('Pick an anchor table (must be in scope). Expansion affects dependent children; partial sizing applies deterministic proportional filters across connected parent and child tables.'),
                     ]),
                 Forms\Components\Section::make('Run Tracking')
                     ->schema([
@@ -1741,6 +1770,43 @@ class AnonymizationJobResource extends Resource
         );
     }
 
+    protected static function sizingTargetEstimate(mixed $tableId, mixed $targetRowCount, mixed $direction): string
+    {
+        if ((string) $direction !== self::VOLUME_DIRECTION_REDUCE) {
+            return self::volumeTargetMultiplierEstimate($tableId, $targetRowCount);
+        }
+
+        $tableId = (int) $tableId;
+        $target = (int) $targetRowCount;
+
+        if ($tableId <= 0 || $target <= 0) {
+            return 'Enter a target row count to see the estimated partial size.';
+        }
+
+        $sourceRows = self::catalogSourceRowCountForTable($tableId);
+
+        if ($sourceRows <= 0) {
+            return 'Catalog source row count is unavailable for this table (ROW_ID num_rows missing). SQL generation will leave this anchor at 1:1 until metadata syncs.';
+        }
+
+        if ($target >= $sourceRows) {
+            return sprintf(
+                'Target %s is not smaller than catalog source %s rows; this anchor will stay 1:1.',
+                number_format($target),
+                number_format($sourceRows)
+            );
+        }
+
+        $percent = max(0.0001, min(100, ($target / max(1, $sourceRows)) * 100));
+
+        return sprintf(
+            'Estimated deterministic sample keeps ~%s%% of catalog source %s rows -> ~%s output rows.',
+            rtrim(rtrim(number_format($percent, 4), '0'), '.'),
+            number_format($sourceRows),
+            number_format($target)
+        );
+    }
+
     protected static function catalogSourceRowCountForTable(int $tableId): int
     {
         if ($tableId <= 0) {
@@ -1793,7 +1859,7 @@ class AnonymizationJobResource extends Resource
 
     /**
      * @param  array<int, array<string, mixed>>  $multiplierRows
-     * @return array<int, array{volume_mode:string, row_multiplier:int, target_row_count:?int}>
+     * @return array<int, array{volume_mode:string, row_multiplier:int, target_row_count:?int, volume_direction:string, reduction_strategy:?string}>
      */
     public static function normalizeVolumeAnchorRows(array $multiplierRows): array
     {
@@ -1809,9 +1875,14 @@ class AnonymizationJobResource extends Resource
                 continue;
             }
 
+            $direction = strtolower(trim((string) ($row['volume_direction'] ?? self::VOLUME_DIRECTION_EXPAND)));
+            if (! in_array($direction, [self::VOLUME_DIRECTION_EXPAND, self::VOLUME_DIRECTION_REDUCE], true)) {
+                $direction = self::VOLUME_DIRECTION_EXPAND;
+            }
+
             $mode = strtolower(trim((string) ($row['volume_mode'] ?? self::VOLUME_MODE_MULTIPLIER)));
 
-            if ($mode === self::VOLUME_MODE_TARGET) {
+            if ($direction === self::VOLUME_DIRECTION_REDUCE) {
                 $target = (int) ($row['target_row_count'] ?? 0);
                 $target = min(self::MAX_TARGET_ROW_COUNT, max(0, $target));
                 if ($target <= 0) {
@@ -1822,6 +1893,23 @@ class AnonymizationJobResource extends Resource
                     'volume_mode' => self::VOLUME_MODE_TARGET,
                     'row_multiplier' => 1,
                     'target_row_count' => $target,
+                    'volume_direction' => self::VOLUME_DIRECTION_REDUCE,
+                    'reduction_strategy' => self::REDUCTION_STRATEGY_HASH,
+                    'strength' => self::MAX_TARGET_ROW_COUNT - $target,
+                ];
+            } elseif ($mode === self::VOLUME_MODE_TARGET) {
+                $target = (int) ($row['target_row_count'] ?? 0);
+                $target = min(self::MAX_TARGET_ROW_COUNT, max(0, $target));
+                if ($target <= 0) {
+                    continue;
+                }
+
+                $candidate = [
+                    'volume_mode' => self::VOLUME_MODE_TARGET,
+                    'row_multiplier' => 1,
+                    'target_row_count' => $target,
+                    'volume_direction' => self::VOLUME_DIRECTION_EXPAND,
+                    'reduction_strategy' => null,
                     'strength' => $target,
                 ];
             } else {
@@ -1834,6 +1922,8 @@ class AnonymizationJobResource extends Resource
                     'volume_mode' => self::VOLUME_MODE_MULTIPLIER,
                     'row_multiplier' => $factor,
                     'target_row_count' => null,
+                    'volume_direction' => self::VOLUME_DIRECTION_EXPAND,
+                    'reduction_strategy' => null,
                     'strength' => $factor,
                 ];
             }
@@ -1849,6 +1939,8 @@ class AnonymizationJobResource extends Resource
                 'volume_mode' => (string) $config['volume_mode'],
                 'row_multiplier' => (int) $config['row_multiplier'],
                 'target_row_count' => $config['target_row_count'],
+                'volume_direction' => (string) ($config['volume_direction'] ?? self::VOLUME_DIRECTION_EXPAND),
+                'reduction_strategy' => $config['reduction_strategy'] ?? null,
             ];
         }
 
@@ -1875,6 +1967,10 @@ class AnonymizationJobResource extends Resource
                     ->orWhere(function ($sub) {
                         $sub->where('volume_mode', self::VOLUME_MODE_TARGET)
                             ->where('target_row_count', '>', 0);
+                    })
+                    ->orWhere(function ($sub) {
+                        $sub->where('volume_direction', self::VOLUME_DIRECTION_REDUCE)
+                            ->where('target_row_count', '>', 0);
                     });
             })
             ->pluck('table_id')
@@ -1890,7 +1986,7 @@ class AnonymizationJobResource extends Resource
         $existing = DB::table('anonymization_job_tables')
             ->where('job_id', $jobId)
             ->whereIn('table_id', $tableIds)
-            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count'])
+            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count', 'volume_direction', 'reduction_strategy'])
             ->keyBy('table_id');
 
         $sync = [];
@@ -1902,6 +1998,8 @@ class AnonymizationJobResource extends Resource
                     'row_multiplier' => (int) ($row->row_multiplier ?? 1),
                     'volume_mode' => (string) ($row->volume_mode ?: self::VOLUME_MODE_MULTIPLIER),
                     'target_row_count' => $row->target_row_count !== null ? (int) $row->target_row_count : null,
+                    'volume_direction' => (string) ($row->volume_direction ?: self::VOLUME_DIRECTION_EXPAND),
+                    'reduction_strategy' => $row->reduction_strategy ?: null,
                 ];
 
                 continue;
@@ -1911,6 +2009,8 @@ class AnonymizationJobResource extends Resource
                 'row_multiplier' => 1,
                 'volume_mode' => self::VOLUME_MODE_MULTIPLIER,
                 'target_row_count' => null,
+                'volume_direction' => self::VOLUME_DIRECTION_EXPAND,
+                'reduction_strategy' => null,
             ];
         }
 
@@ -1933,15 +2033,21 @@ class AnonymizationJobResource extends Resource
                     ->orWhere(function ($sub) {
                         $sub->where('volume_mode', self::VOLUME_MODE_TARGET)
                             ->where('target_row_count', '>', 0);
+                    })
+                    ->orWhere(function ($sub) {
+                        $sub->where('volume_direction', self::VOLUME_DIRECTION_REDUCE)
+                            ->where('target_row_count', '>', 0);
                     });
             })
             ->orderBy('table_id')
-            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count'])
+            ->get(['table_id', 'row_multiplier', 'volume_mode', 'target_row_count', 'volume_direction', 'reduction_strategy'])
             ->map(fn($row) => [
                 'table_id' => (int) $row->table_id,
                 'volume_mode' => (string) ($row->volume_mode ?: self::VOLUME_MODE_MULTIPLIER),
                 'row_multiplier' => (int) ($row->row_multiplier ?? 1),
                 'target_row_count' => $row->target_row_count !== null ? (int) $row->target_row_count : null,
+                'volume_direction' => (string) ($row->volume_direction ?: self::VOLUME_DIRECTION_EXPAND),
+                'reduction_strategy' => $row->reduction_strategy ?: null,
             ])
             ->values()
             ->all();
@@ -1971,12 +2077,15 @@ class AnonymizationJobResource extends Resource
             ->where(function ($query) {
                 $query->where('row_multiplier', '>', 1)
                     ->orWhere('target_row_count', '>', 0)
-                    ->orWhere('volume_mode', self::VOLUME_MODE_TARGET);
+                    ->orWhere('volume_mode', self::VOLUME_MODE_TARGET)
+                    ->orWhere('volume_direction', self::VOLUME_DIRECTION_REDUCE);
             })
             ->update([
                 'row_multiplier' => 1,
                 'volume_mode' => self::VOLUME_MODE_MULTIPLIER,
                 'target_row_count' => null,
+                'volume_direction' => self::VOLUME_DIRECTION_EXPAND,
+                'reduction_strategy' => null,
                 'updated_at' => now(),
             ]);
 
@@ -1991,6 +2100,8 @@ class AnonymizationJobResource extends Resource
                 'row_multiplier' => (int) ($config['row_multiplier'] ?? 1),
                 'volume_mode' => (string) ($config['volume_mode'] ?? self::VOLUME_MODE_MULTIPLIER),
                 'target_row_count' => $config['target_row_count'] ?? null,
+                'volume_direction' => (string) ($config['volume_direction'] ?? self::VOLUME_DIRECTION_EXPAND),
+                'reduction_strategy' => $config['reduction_strategy'] ?? null,
                 'updated_at' => $now,
             ];
 

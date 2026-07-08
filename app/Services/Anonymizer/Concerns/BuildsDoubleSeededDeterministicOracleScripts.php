@@ -72,6 +72,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         // excluded from seed-map masking so they keep their unique per-copy values.
         $scaledByIdentity = $rewriteContext['scaled_by_identity'] ?? [];
         $rowMultipliers = $rewriteContext['row_multipliers'] ?? [];
+        $partialSizing = $rewriteContext['partial_sizing'] ?? [];
 
         $seedPrefix = trim((string) ($job->seed_store_prefix ?? ''));
         if ($seedPrefix === '') {
@@ -198,6 +199,7 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         foreach ($tableMappings as $index => $mapping) {
             $tableId = (int) ($mapping['table_id'] ?? 0);
             $rowMultiplier = (int) ($rowMultipliers[$tableId] ?? 1);
+            $partialDirective = is_array($partialSizing) ? ($partialSizing[$tableId] ?? null) : null;
             $ownIdentity = strtoupper(trim((string) ($mapping['source_schema'] ?? '')) . '|' . trim((string) ($mapping['source_table'] ?? '')));
             $selectedSourceColumns = [];
             $selectList = $this->buildDoubleSeededCloneSelectList(
@@ -217,7 +219,10 @@ trait BuildsDoubleSeededDeterministicOracleScripts
                 $mapping['source_qualified'],
                 $mapping['target_qualified'],
                 $selectList,
-                $rowMultiplier
+                $rowMultiplier,
+                is_array($partialDirective) ? $partialDirective : null,
+                $rewriteContext,
+                strtoupper(trim((string) ($mapping['source_schema'] ?? '') . '.' . (string) ($mapping['source_table'] ?? ''), '.'))
             ));
 
             // Add ORIGINAL_<column> columns for each seed provider in this table.
@@ -782,8 +787,15 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         return implode(', ', $selectParts);
     }
 
-    protected function renderStableCloneStatements(string $qualifiedSource, string $qualifiedTarget, string $selectList = '*', int $rowMultiplier = 1): array
-    {
+    protected function renderStableCloneStatements(
+        string $qualifiedSource,
+        string $qualifiedTarget,
+        string $selectList = '*',
+        int $rowMultiplier = 1,
+        ?array $partialDirective = null,
+        array $rewriteContext = [],
+        string $tableKey = ''
+    ): array {
         if (trim($selectList) === '') {
             return [
                 'BEGIN',
@@ -802,10 +814,19 @@ trait BuildsDoubleSeededDeterministicOracleScripts
         // Row-volume expansion: a bare "SELECT *" cannot derive per-copy ROW_IDs,
         // so only multiply when we have an explicit derived select list.
         $applyMultiplier = $rowMultiplier > 1 && trim($selectList) !== '*';
+        $applyReduction = is_array($partialDirective) && (int) ($partialDirective['keep_per_million'] ?? 0) > 0;
 
-        $fromClause = $applyMultiplier
-            ? 'FROM ' . $qualifiedSource . ' src ' . $this->rowGeneratorJoinClause($rowMultiplier)
-            : 'FROM ' . $qualifiedSource;
+        if ($applyMultiplier || $applyReduction) {
+            $fromClause = 'FROM ' . $qualifiedSource . ' src';
+            if ($applyMultiplier) {
+                $fromClause .= ' ' . $this->rowGeneratorJoinClause($rowMultiplier);
+            }
+            if ($applyReduction) {
+                $fromClause .= PHP_EOL . 'WHERE ' . $this->rowReductionWhereClause($partialDirective, 'src', $tableKey, $rewriteContext);
+            }
+        } else {
+            $fromClause = 'FROM ' . $qualifiedSource;
+        }
 
         return [
             'BEGIN',
