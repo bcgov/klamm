@@ -18,20 +18,20 @@ class SelectInputFormElement extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
-        'defaultSelected',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
+        'default_selected',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'labelText' => '',
-        'defaultSelected' => null,
+        'hide_label' => false,
+        'label_text' => '',
+        'default_selected' => null,
     ];
 
     /**
@@ -64,10 +64,10 @@ class SelectInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
-            'defaultSelected' => $this->defaultSelected,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
+            'default_selected' => $this->default_selected,
         ];
     }
 
@@ -85,10 +85,10 @@ class SelectInputFormElement extends Model
     public static function getDefaultData(): array
     {
         return [
-            'hideLabel' => false,
-            'labelText' => '',
-            'enableVarSub' => false,
-            'defaultSelected' => null,
+            'hide_label' => false,
+            'label_text' => '',
+            'enable_var_sub' => false,
+            'default_selected' => null,
             'options' => [
                 ['label' => 'True', 'value' => 'true'],
                 ['label' => 'False', 'value' => 'false'],

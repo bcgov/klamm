@@ -19,23 +19,23 @@ class CurrencyInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
         'min',
         'max',
-        'defaultValue',
+        'default_value',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
         'min' => 'integer',
         'max' => 'integer',
-        'defaultValue' => 'float',
+        'default_value' => 'float',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
+        'hide_label' => false,
     ];
 
     /*
@@ -153,13 +153,13 @@ class CurrencyInputFormElement extends Model
                 ->schema([
                     SchemaHelper::getPlaceholderTextField($disabled)
                         ->columnSpan(3),
-                    TextInput::make('elementable_data.defaultValue')
+                    TextInput::make('elementable_data.default_value')
                         ->label('Default Value')
                         ->numeric()
                         ->nullable()
                         ->step(.01)
                         ->live(onBlur: true)
-                        ->afterStateUpdated(self::formatCurrency('elementable_data.defaultValue'))
+                        ->afterStateUpdated(self::formatCurrency('elementable_data.default_value'))
                         ->rules([$currencyRegex, $noSci])
                         ->rule(NumericRules::compareWith(
                             minPath: 'elementable_data.min',
@@ -224,12 +224,12 @@ class CurrencyInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
             'min' => $this->min,
             'max' => $this->max,
-            'defaultValue' => $this->defaultValue,
+            'default_value' => $this->default_value,
         ];
     }
 
@@ -240,12 +240,12 @@ class CurrencyInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => '',
-            'hideLabel' => false,
-            'enableVarSub' => false,
+            'label_text' => '',
+            'hide_label' => false,
+            'enable_var_sub' => false,
             'min' => null,
             'max' => null,
-            'defaultValue' => null,
+            'default_value' => null,
         ];
     }
 }

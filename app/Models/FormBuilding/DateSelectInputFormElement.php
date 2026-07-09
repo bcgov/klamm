@@ -17,23 +17,23 @@ class DateSelectInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
-        'minDate',
-        'maxDate',
-        'dateFormat',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
+        'min_date',
+        'max_date',
+        'date_format',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
-        'minDate' => 'date',
-        'maxDate' => 'date',
+        'hide_label' => 'boolean',
+        'min_date' => 'date',
+        'max_date' => 'date',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'dateFormat' => 'YYYY-MMM-DD',
+        'hide_label' => false,
+        'date_format' => 'YYYY-MMM-DD',
     ];
 
     /**
@@ -46,17 +46,17 @@ class DateSelectInputFormElement extends Model
             Fieldset::make('Value')
                 ->schema([
                     SchemaHelper::getPlaceholderTextField($disabled),
-                    Select::make('elementable_data.dateFormat')
+                    Select::make('elementable_data.date_format')
                         ->label('Date Format')
                         ->options(static::getDateFormats())
                         ->default('YYYY-MMM-DD')
                         ->required()
                         ->disabled($disabled),
-                    DatePicker::make('elementable_data.minDate')
+                    DatePicker::make('elementable_data.min_date')
                         ->label('Minimum Date')
                         ->helperText('Earliest date users can select')
                         ->disabled($disabled),
-                    DatePicker::make('elementable_data.maxDate')
+                    DatePicker::make('elementable_data.max_date')
                         ->label('Maximum Date')
                         ->helperText('Latest date users can select')
                         ->disabled($disabled),
@@ -80,12 +80,12 @@ class DateSelectInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
-            'minDate' => $this->minDate,
-            'maxDate' => $this->maxDate,
-            'dateFormat' => $this->dateFormat,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
+            'min_date' => $this->min_date,
+            'max_date' => $this->max_date,
+            'date_format' => $this->date_format,
         ];
     }
 
@@ -195,12 +195,12 @@ class DateSelectInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => 'Date Select Input',
-            'hideLabel' => false,
-            'enableVarSub' => false,
-            'minDate' => null,
-            'maxDate' => null,
-            'dateFormat' => 'YYYY-MMM-DD',
+            'label_text' => 'Date Select Input',
+            'hide_label' => false,
+            'enable_var_sub' => false,
+            'min_date' => null,
+            'max_date' => null,
+            'date_format' => 'YYYY-MMM-DD',
         ];
     }
 }

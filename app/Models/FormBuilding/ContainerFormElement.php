@@ -28,7 +28,7 @@ class ContainerFormElement extends Model
         'min_repeats',
         'max_repeats',
         'legend',
-        'enableVarSub',
+        'enable_var_sub',
         'level'
     ];
 
@@ -187,7 +187,7 @@ class ContainerFormElement extends Model
             'min_repeats' => $this->min_repeats,
             'max_repeats' => $this->max_repeats,
             'legend' => $this->legend,
-            'enableVarSub' => $this->enableVarSub,
+            'enable_var_sub' => $this->enable_var_sub,
             'level' => $this->level,
         ];
     }
@@ -215,7 +215,7 @@ class ContainerFormElement extends Model
             'container_type' => 'section',
             'is_repeatable' => false,
             'legend' => '',
-            'enableVarSub' => false,
+            'enable_var_sub' => false,
             'repeater_item_label' => '',
             'min_repeats' => null,
             'max_repeats' => null,

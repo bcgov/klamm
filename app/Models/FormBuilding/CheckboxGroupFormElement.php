@@ -18,21 +18,21 @@ class CheckboxGroupFormElement extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
-        'defaultSelected',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
+        'default_selected',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
-        'defaultSelected' => 'array',
+        'hide_label' => 'boolean',
+        'default_selected' => 'array',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'labelText' => '',
-        'defaultSelected' => null,
+        'hide_label' => false,
+        'label_text' => '',
+        'default_selected' => null,
     ];
 
     /**
@@ -65,10 +65,10 @@ class CheckboxGroupFormElement extends Model
     public function getData(): array
     {
         return [
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
-            'defaultSelected' => $this->defaultSelected ?? [],
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
+            'default_selected' => $this->default_selected ?? [],
         ];
     }
 
@@ -86,10 +86,10 @@ class CheckboxGroupFormElement extends Model
     public static function getDefaultData(): array
     {
         return [
-            'hideLabel' => false,
-            'labelText' => '',
-            'enableVarSub' => false,
-            'defaultSelected' => [],
+            'hide_label' => false,
+            'label_text' => '',
+            'enable_var_sub' => false,
+            'default_selected' => [],
             'options' => [
                 ['label' => 'Option 1', 'value' => 'option_1'],
                 ['label' => 'Option 2', 'value' => 'option_2'],

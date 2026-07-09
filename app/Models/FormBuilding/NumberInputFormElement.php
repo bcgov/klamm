@@ -20,28 +20,28 @@ class NumberInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
         'min',
         'max',
         'step',
-        'defaultValue',
-        'maskType',
+        'default_value',
+        'mask_type',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
         'min' => 'integer',
         'max' => 'integer',
         'step' => 'float',
-        'defaultValue' => 'float',
+        'default_value' => 'float',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
+        'hide_label' => false,
         'step' => 1,
-        'maskType' => 'integer',
+        'mask_type' => 'integer',
     ];
 
     /**
@@ -54,7 +54,7 @@ class NumberInputFormElement extends Model
                 return;
 
             $raw = trim((string) $state);
-            $mask = strtolower((string) ($get('elementable_data.maskType') ?? 'integer')); // 'integer' | 'decimal'
+            $mask = strtolower((string) ($get('elementable_data.mask_type') ?? 'integer')); // 'integer' | 'decimal'
 
             // Do not "fix" scientific notation or thousands separators; let validation reject them.
             if (preg_match('/[eE, ]/', $state)) {
@@ -153,7 +153,7 @@ class NumberInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
 
-        $isDecimal = fn(Get $get) => strtolower($get('elementable_data.maskType') ?? 'integer') === 'decimal';
+        $isDecimal = fn(Get $get) => strtolower($get('elementable_data.mask_type') ?? 'integer') === 'decimal';
 
         $noSci = 'not_regex:/[eE]/';                       // forbid scientific notation
         $plainDecimal = 'regex:/^-?\d+(\.\d+)?$/';         // allow optional leading '-', digits, and one dot
@@ -165,13 +165,13 @@ class NumberInputFormElement extends Model
                 ->schema([
                     SchemaHelper::getPlaceholderTextField($disabled)
                         ->columnSpan(6),
-                    TextInput::make('elementable_data.defaultValue')
+                    TextInput::make('elementable_data.default_value')
                         ->label('Default Value')
                         ->numeric()
                         ->nullable()
                         ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
                         ->live(onBlur: true)
-                        ->afterStateUpdated(self::formatNumberByMask('elementable_data.defaultValue'))
+                        ->afterStateUpdated(self::formatNumberByMask('elementable_data.default_value'))
                         ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
                             $rules = $isDecimal($get)
                                 ? ['numeric', $noSci, $plainDecimal]
@@ -222,7 +222,7 @@ class NumberInputFormElement extends Model
                         ))
                         ->columnSpan(2)
                         ->disabled($disabled),
-                    ToggleButtons::make('elementable_data.maskType')
+                    ToggleButtons::make('elementable_data.mask_type')
                         ->label('Input Mask Type')
                         ->options([
                             'integer' => 'Integer',
@@ -238,7 +238,7 @@ class NumberInputFormElement extends Model
                                 $set('elementable_data.step', 1);
 
                                 // Coerce existing values to integers (if set)
-                                foreach (['defaultValue', 'min', 'max'] as $key) {
+                                foreach (['default_value', 'min', 'max'] as $key) {
                                     $path = "elementable_data.$key";
                                     $val = $get($path);
                                     if (filled($val)) {
@@ -290,14 +290,14 @@ class NumberInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
             'min' => $this->min,
             'max' => $this->max,
             'step' => $this->step,
-            'defaultValue' => $this->defaultValue,
-            'maskType' => $this->maskType,
+            'default_value' => $this->default_value,
+            'mask_type' => $this->mask_type,
         ];
     }
 
@@ -308,14 +308,14 @@ class NumberInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => '',
-            'hideLabel' => false,
-            'enableVarSub' => false,
+            'label_text' => '',
+            'hide_label' => false,
+            'enable_var_sub' => false,
             'min' => null,
             'max' => null,
             'step' => 1,
-            'defaultValue' => null,
-            'maskType' => 'integer',
+            'default_value' => null,
+            'mask_type' => 'integer',
         ];
     }
 }
