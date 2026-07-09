@@ -679,6 +679,30 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
     }
 
+    /**
+     * Create checkbox group options for CheckboxGroupFormElement
+     */
+    private function createCheckboxGroupOptions($checkboxGroupModel, array $options): void
+    {
+        if (empty($options))
+            return;
+
+        foreach ($options as $index => $optionData) {
+            if (empty($optionData['label']))
+                continue; // Skip options without labels
+
+            try {
+                SelectOptionFormElement::createForCheckboxGroup($checkboxGroupModel, $optionData);
+            } catch (\Exception $e) {
+                Log::error('Failed to create checkbox group option', [
+                    'option_data' => $optionData,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        }
+    }
+
     // Updated to include progress tracking
     protected function importElementsRecursive(array $elements, $parentId, $formVersion, $processedElements = 0, $totalElements = 0, $inRepeatableContainer = false, $inPlusContainer = false)
     {
