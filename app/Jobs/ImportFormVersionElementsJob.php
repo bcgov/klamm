@@ -13,9 +13,23 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Bus\Dispatchable;
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormBuilding\ButtonInputFormElement;
+use App\Models\FormBuilding\CheckboxGroupFormElement;
+use App\Models\FormBuilding\CheckboxInputFormElement;
+use App\Models\FormBuilding\ContainerFormElement;
+use App\Models\FormBuilding\CurrencyInputFormElement;
+use App\Models\FormBuilding\DateSelectInputFormElement;
 use App\Models\FormBuilding\FormElementDataBinding;
 use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\HTMLFormElement;
+use App\Models\FormBuilding\NumberInputFormElement;
+use App\Models\FormBuilding\RadioInputFormElement;
+use App\Models\FormBuilding\SelectInputFormElement;
+use App\Models\FormBuilding\SelectOptionFormElement;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\TextareaInputFormElement;
+use App\Models\FormBuilding\TextInfoFormElement;
+use App\Models\FormBuilding\TextInputFormElement;
 use App\Models\FormMetadata\FormDataSource;
 
 use Filament\Notifications\Notification;
@@ -321,7 +335,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $host = $dataSourceData['host'] ?? null;
 
                 // Create or find the data source
-                $dataSource = \App\Models\FormMetadata\FormDataSource::firstOrCreate([
+                $dataSource = FormDataSource::firstOrCreate([
                     'name' => $name,
                     'type' => $type,
                 ], [
@@ -485,7 +499,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
      */
     private function isButtonElement($elementType): bool
     {
-        return $elementType === \App\Models\FormBuilding\ButtonInputFormElement::class ||
+        return $elementType === ButtonInputFormElement::class ||
             $elementType === 'ButtonInputFormElements' ||
             $elementType === 'button';
     }
@@ -515,7 +529,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
     {
         $containerTypes = [
             'ContainerFormElements',
-            \App\Models\FormBuilding\ContainerFormElement::class,
+            ContainerFormElement::class,
             'container',
             'section',
             'group',
@@ -529,7 +543,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Check the actual resolved type
         $resolvedType = $this->resolveElementableType($elementType);
-        if ($resolvedType === \App\Models\FormBuilding\ContainerFormElement::class) {
+        if ($resolvedType === ContainerFormElement::class) {
             return true;
         }
 
@@ -630,7 +644,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 continue; // Skip options without labels
 
             try {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
+                SelectOptionFormElement::createForSelect($selectModel, $optionData);
             } catch (\Exception $e) {
                 Log::error('Failed to create select option', [
                     'option_data' => $optionData,
@@ -654,7 +668,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
             if (empty($optionData['label']))
                 continue; // Skip options without labels
             try {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
+                SelectOptionFormElement::createForRadio($radioModel, $optionData);
             } catch (\Exception $e) {
                 Log::error('Failed to create radio option', [
                     'option_data' => $optionData,
@@ -713,31 +727,31 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 // Fallback for lowercase/short types
                 if (!$type) {
                     $typeMap = [
-                        'container' => \App\Models\FormBuilding\ContainerFormElement::class,
-                        'group' => \App\Models\FormBuilding\ContainerFormElement::class,
-                        'text-input' => \App\Models\FormBuilding\TextInputFormElement::class,
-                        'textarea' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-                        'textarea-input' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-                        'radio' => \App\Models\FormBuilding\RadioInputFormElement::class,
-                        'radio-input' => \App\Models\FormBuilding\RadioInputFormElement::class,
-                        'dropdown' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'dropdown-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'select' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'select-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'checkbox' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-                        'checkbox-input' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-                        'checkbox-group' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
-                        'checkbox-group-input' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
-                        'date' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-                        'date-select-input' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-                        'number' => \App\Models\FormBuilding\NumberInputFormElement::class,
-                        'number-input' => \App\Models\FormBuilding\NumberInputFormElement::class,
-                        'currency' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
-                        'currency-input' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
-                        'html' => \App\Models\FormBuilding\HTMLFormElement::class,
-                        'text-info' => \App\Models\FormBuilding\TextInfoFormElement::class,
-                        'button' => \App\Models\FormBuilding\ButtonInputFormElement::class,
-                        'button-input' => \App\Models\FormBuilding\ButtonInputFormElement::class,
+                        'container' => ContainerFormElement::class,
+                        'group' => ContainerFormElement::class,
+                        'text-input' => TextInputFormElement::class,
+                        'textarea' => TextareaInputFormElement::class,
+                        'textarea-input' => TextareaInputFormElement::class,
+                        'radio' => RadioInputFormElement::class,
+                        'radio-input' => RadioInputFormElement::class,
+                        'dropdown' => SelectInputFormElement::class,
+                        'dropdown-input' => SelectInputFormElement::class,
+                        'select' => SelectInputFormElement::class,
+                        'select-input' => SelectInputFormElement::class,
+                        'checkbox' => CheckboxInputFormElement::class,
+                        'checkbox-input' => CheckboxInputFormElement::class,
+                        'checkbox-group' => CheckboxGroupFormElement::class,
+                        'checkbox-group-input' => CheckboxGroupFormElement::class,
+                        'date' => DateSelectInputFormElement::class,
+                        'date-select-input' => DateSelectInputFormElement::class,
+                        'number' => NumberInputFormElement::class,
+                        'number-input' => NumberInputFormElement::class,
+                        'currency' => CurrencyInputFormElement::class,
+                        'currency-input' => CurrencyInputFormElement::class,
+                        'html' => HTMLFormElement::class,
+                        'text-info' => TextInfoFormElement::class,
+                        'button' => ButtonInputFormElement::class,
+                        'button-input' => ButtonInputFormElement::class,
                     ];
                     if (isset($typeMap[$elementType])) {
                         $type = $typeMap[$elementType];
@@ -748,7 +762,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     continue;
 
                 $isRepeatableContainer = false;
-                if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
+                if ($type === ContainerFormElement::class) {
                     $isRepeatableContainer = $this->isRepeatableContainer($element);
                 }
 
@@ -780,7 +794,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $humanReadableLabel = null;
 
                 // Special handling for TextInfo elements - use content if it's short
-                if ($type === \App\Models\FormBuilding\TextInfoFormElement::class && isset($element['content'])) {
+                if ($type === TextInfoFormElement::class && isset($element['content'])) {
                     $content = trim($element['content']);
                     if (!empty($content) && strlen($content) <= 30) {
                         $humanReadableLabel = $content;
@@ -844,58 +858,59 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $formElement = null;
 
-                if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
-                    $containerModel = \App\Models\FormBuilding\ContainerFormElement::updateOrCreate($attributes['attributes']);
+                if ($type === ContainerFormElement::class) {
+                    $containerModel = ContainerFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $containerModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\TextInputFormElement::class) {
-                    $textInputModel = \App\Models\FormBuilding\TextInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === TextInputFormElement::class) {
+                    $textInputModel = TextInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $textInputModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\TextareaInputFormElement::class) {
-                    $textareModel = \App\Models\FormBuilding\TextareaInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === TextareaInputFormElement::class) {
+                    $textareModel = TextareaInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $textareModel->id;
                     $formElement = FormElement::create($elementData);
-                } elseif ($type === \App\Models\FormBuilding\TextInfoFormElement::class) {
-                    $textInfoModel = \App\Models\FormBuilding\TextInfoFormElement::updateOrCreate($attributes['attributes']);
+                } elseif ($type === TextInfoFormElement::class) {
+                    $textInfoModel = TextInfoFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $textInfoModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\DateSelectInputFormElement::class) {
-                    $dateSelectModel = \App\Models\FormBuilding\DateSelectInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === DateSelectInputFormElement::class) {
+                    $dateSelectModel = DateSelectInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $dateSelectModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\CheckboxInputFormElement::class) {
-                    $checkboxInputModel = \App\Models\FormBuilding\CheckboxInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === CheckboxInputFormElement::class) {
+                    $checkboxInputModel = CheckboxInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $checkboxInputModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\CheckboxGroupFormElement::class) {
-                    $checkboxGroupModel = \App\Models\FormBuilding\CheckboxGroupFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === CheckboxGroupFormElement::class) {
+                    $checkboxGroupModel = CheckboxGroupFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $checkboxGroupModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
-                    $selectModel = \App\Models\FormBuilding\SelectInputFormElement::updateOrCreate($attributes['attributes']);
+$this->createCheckboxGroupOptions($checkboxGroupModel, $options);
+                } else if ($type === SelectInputFormElement::class) {
+                    $selectModel = SelectInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $selectModel->id;
                     $formElement = FormElement::create($elementData);
                     $this->createSelectOptions($selectModel, $options);
-                } elseif ($type === \App\Models\FormBuilding\RadioInputFormElement::class) {
-                    $radioModel = \App\Models\FormBuilding\RadioInputFormElement::updateOrCreate($attributes['attributes']);
+                } elseif ($type === RadioInputFormElement::class) {
+                    $radioModel = RadioInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $radioModel->id;
                     $formElement = FormElement::create($elementData);
                     $this->createRadioOptions($radioModel, $options);
-                } else if ($type === \App\Models\FormBuilding\NumberInputFormElement::class) {
-                    $numberInputModel = \App\Models\FormBuilding\NumberInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === NumberInputFormElement::class) {
+                    $numberInputModel = NumberInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $numberInputModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\CurrencyInputFormElement::class) {
-                    $currencyInputModel = \App\Models\FormBuilding\CurrencyInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === CurrencyInputFormElement::class) {
+                    $currencyInputModel = CurrencyInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $currencyInputModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\ButtonInputFormElement::class) {
-                    $buttonModel = \App\Models\FormBuilding\ButtonInputFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === ButtonInputFormElement::class) {
+                    $buttonModel = ButtonInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $buttonModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\HTMLFormElement::class) {
-                    $htmlModel = \App\Models\FormBuilding\HTMLFormElement::updateOrCreate($attributes['attributes']);
+                } else if ($type === HTMLFormElement::class) {
+                    $htmlModel = HTMLFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $htmlModel->id;
                     $formElement = FormElement::create($elementData);
                 } else {
@@ -1085,19 +1100,19 @@ class ImportFormVersionElementsJob implements ShouldQueue
     private function resolveElementableType(string $elementType): ?string
     {
         $map = [
-            'TextInputFormElements' => \App\Models\FormBuilding\TextInputFormElement::class,
-            'TextareaInputFormElements' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-            'TextInfoFormElements' => \App\Models\FormBuilding\TextInfoFormElement::class,
-            'DateSelectInputFormElements' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-            'CheckboxInputFormElements' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-            'CheckboxGroupFormElements' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
-            'SelectInputFormElements' => \App\Models\FormBuilding\SelectInputFormElement::class,
-            'RadioInputFormElements' => \App\Models\FormBuilding\RadioInputFormElement::class,
-            'NumberInputFormElements' => \App\Models\FormBuilding\NumberInputFormElement::class,
-            'CurrencyInputFormElements' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
-            'ButtonInputFormElements' => \App\Models\FormBuilding\ButtonInputFormElement::class,
-            'HTMLFormElements' => \App\Models\FormBuilding\HTMLFormElement::class,
-            'ContainerFormElements' => \App\Models\FormBuilding\ContainerFormElement::class,
+            'TextInputFormElements' => TextInputFormElement::class,
+            'TextareaInputFormElements' => TextareaInputFormElement::class,
+            'TextInfoFormElements' => TextInfoFormElement::class,
+            'DateSelectInputFormElements' => DateSelectInputFormElement::class,
+            'CheckboxInputFormElements' => CheckboxInputFormElement::class,
+            'CheckboxGroupFormElements' => CheckboxGroupFormElement::class,
+            'SelectInputFormElements' => SelectInputFormElement::class,
+            'RadioInputFormElements' => RadioInputFormElement::class,
+            'NumberInputFormElements' => NumberInputFormElement::class,
+            'CurrencyInputFormElements' => CurrencyInputFormElement::class,
+            'ButtonInputFormElements' => ButtonInputFormElement::class,
+            'HTMLFormElements' => HTMLFormElement::class,
+            'ContainerFormElements' => ContainerFormElement::class,
         ];
 
         if (isset($map[$elementType])) {
