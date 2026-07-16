@@ -20,6 +20,7 @@ class FormSeeder extends Seeder
             FormUserTypeTableSeeder::class,
             FormWorkbenchPathsTableSeeder::class,
             FormBusinessAreaTableSeeder::class,
+            BulkFormMetadataUpdateSeeder::class,
         ]);
     }
 }
