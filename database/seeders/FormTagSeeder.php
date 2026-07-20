@@ -13,8 +13,6 @@ class FormTagSeeder extends Seeder
      */
     public function run(): void
     {
-        FormTag::truncate();
-
         $tags = [
             'BCMailPlus',
             'MySS',
@@ -24,10 +22,14 @@ class FormTagSeeder extends Seeder
             'JAWS',
             'MIS',
             'ServiceCanada',
+            'storeXML',
+            'Digital Signature',
+            'migration2025',
+            'CHEFSCandidate',
         ];
 
         foreach ($tags as $tag) {
-            FormTag::create(['name' => $tag]);
+            FormTag::firstOrCreate(['name' => $tag]);
         }
     }
 }
