@@ -342,111 +342,169 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Process JavaScript from the normalized schema
+     * Process JavaScript from the normalized schema. Handles form scripts and templates
      */
     private function processJavaScript(array $normalizedSchema, $formVersion): void
     {
         $javascript = $normalizedSchema['javascript'] ?? [];
-        if (!$javascript || !is_array($javascript)) {
+        if (empty($javascript))
             return;
-        }
 
-        // If keys look like types, emit one FormScript per type.
-        $knownTypes = ['web', 'pdf', 'template'];
-        $typeKeys = array_intersect(array_keys($javascript), $knownTypes);
+        foreach (['web', 'pdf', 'template'] as $type) {
+            if (!isset($javascript[$type]))
+                continue;
 
-        try {
-            if (!class_exists(FormScript::class)) {
-                throw new \Exception('FormScript class not found');
-            }
-
-            if (!empty($typeKeys)) {
-                foreach ($typeKeys as $t) {
-                    if ($t === 'template') {
-                        // Filenames are saved as content
-                        $filenames = $javascript[$t];
-                        // Find template by filename and attach to formVersion
-                        foreach ($filenames as $filename) {
-                            $id = FormScript::where('filename', $filename)->value('id');
-                            $formVersion->formScripts()->syncWithoutDetaching($id);
-                        }
-                    } else {
-                        $content = trim((string) ($javascript[$t] ?? ''));
-                        FormScript::createFormScript($formVersion, $content, $t);
-                    }
+            if ($type === 'template') {
+                foreach ($javascript[$type] as $templateData) {
+                    $this->processTemplateScript($formVersion, $templateData);
                 }
             } else {
-                // Fallback: treat as “sections” and combine into a single web script
-                $combined = "// Imported JavaScript from template\n\n";
-                foreach ($javascript as $sectionName => $jsContent) {
-                    if (!empty($jsContent)) {
-                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
-                    }
-                }
-                FormScript::createFormScript($formVersion, trim($combined), 'web');
+                FormScript::createFormScript($formVersion, trim($javascript[$type]), $type);
             }
-        } catch (\Exception $e) {
-            Log::error('Failed to create JavaScript form script(s)', [
-                'form_version_id' => $formVersion->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
         }
     }
 
     /**
-     * Process stylesheets from the normalized schema
+     * Process stylesheets from the normalized schema. Handles form styles and templates
      */
     private function processStyleSheets(array $normalizedSchema, $formVersion): void
     {
         $stylesheets = $normalizedSchema['stylesheets'] ?? [];
-        if (!$stylesheets || !is_array($stylesheets)) {
+        if (empty($stylesheets))
             return;
-        }
 
-        // If keys look like types, emit one StyleSheet per type.
-        $knownTypes = ['web', 'pdf', 'template'];
-        $typeKeys = array_intersect(array_keys($stylesheets), $knownTypes);
+        foreach (['web', 'pdf', 'template'] as $type) {
+            if (!isset($stylesheets[$type]))
+                continue;
 
-        try {
-            if (!class_exists(StyleSheet::class)) {
-                throw new \Exception('StyleSheet class not found');
-            }
-
-            if (!empty($typeKeys)) {
-                foreach ($typeKeys as $t) {
-                    if ($t === 'template') {
-                        // Filenames are saved as content
-                        $filenames = $stylesheets[$t];
-                        // Find template by filename and attach to formVersion
-                        foreach ($filenames as $filename) {
-                            $id = StyleSheet::where('filename', $filename)->value('id');
-                            $formVersion->styleSheets()->syncWithoutDetaching($id);
-                        }
-                    } else {
-                        $content = trim((string) ($stylesheets[$t] ?? ''));
-                        StyleSheet::createStyleSheet($formVersion, $content, $t);
-                    }
+            if ($type === 'template') {
+                foreach ($stylesheets[$type] as $templateData) {
+                    $this->processTemplateStyleSheet($formVersion, $templateData);
                 }
             } else {
-                // Fallback: treat as “sections” and combine into a single web stylesheet
-                $combined = "// Imported StyleSheet from template\n\n";
-                foreach ($stylesheets as $sectionName => $jsContent) {
-                    if (!empty($jsContent)) {
-                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
-                    }
-                }
-                StyleSheet::createStyleSheet($formVersion, trim($combined), 'web');
+                StyleSheet::createStyleSheet($formVersion, trim($stylesheets[$type]), $type);
             }
-        } catch (\Exception $e) {
-            Log::error('Failed to create StyleSheet form stylesheet(s)', [
-                'form_version_id' => $formVersion->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
         }
     }
 
+    /**
+     * Process a template script as a transaction. 
+     * Includes conflict resolution for when records exist with the same filename but different content.
+     */
+    private function processTemplateScript($formVersion, array $templateData): void
+    {
+        $filename = $templateData['filename'];
+        $incomingContent = $templateData['content'] ?? '';
+
+        DB::transaction(function () use ($formVersion, $filename, $incomingContent) {
+            $existing = FormScript::where('filename', $filename)->where('type', 'template')->first();
+
+            if ($existing) {
+                // Read content from disk to compare
+                if ($existing->getJsContent() === $incomingContent) {
+                    // Content matches - use existing template
+                    $this->syncTemplate('script', $formVersion, $existing->id);
+                    return;
+                }
+
+                // Content differs - CONFLICT! Use existing but record the conflict
+                $this->syncTemplate('script', $formVersion, $existing->id);
+                $this->recordTemplateConflict($filename, $existing->id, 'script');
+
+                Log::warning('Template script conflict detected during import', [
+                    'filename' => $filename,
+                    'existing_template_id' => $existing->id,
+                    'form_version_id' => $formVersion->id,
+                    'message' => 'Template exists with different content. Using existing template.'
+                ]);
+            } else {
+                // Template doesn't exist - create it
+                $new = FormScript::create(['filename' => $filename, 'type' => 'template']);
+
+                // Save content to disk
+                if (!$new->saveJsContent($incomingContent)) {
+                    throw new \Exception('Failed to save template JS content to file');
+                }
+
+                $this->syncTemplate('script', $formVersion, $new->id);
+            }
+        });
+    }
+
+    /**
+     * Process a template stylesheet as a transaction. 
+     * Includes conflict resolution for when records exist with the same filename but different content.
+     */
+    private function processTemplateStyleSheet($formVersion, array $templateData): void
+    {
+        $filename = $templateData['filename'];
+        $incomingContent = $templateData['content'] ?? '';
+
+        DB::transaction(function () use ($formVersion, $filename, $incomingContent) {
+            $existing = StyleSheet::where('filename', $filename)->where('type', 'template')->first();
+
+            if ($existing) {
+                // Read content from disk to compare
+                if ($existing->getCssContent() === $incomingContent) {
+                    // Content matches - use existing template
+                    $this->syncTemplate('stylesheet', $formVersion, $existing->id);
+                    return;
+                }
+
+                // Content differs - CONFLICT! Use existing but record the conflict
+                $this->syncTemplate('stylesheet', $formVersion, $existing->id);
+                $this->recordTemplateConflict($filename, $existing->id, 'stylesheet');
+
+                Log::warning('Template stylesheet conflict detected during import', [
+                    'filename' => $filename,
+                    'existing_template_id' => $existing->id,
+                    'form_version_id' => $formVersion->id,
+                    'message' => 'Template exists with different content. Using existing template.'
+                ]);
+            } else {
+                // Template doesn't exist - create it
+                $new = StyleSheet::create(['filename' => $filename, 'type' => 'template']);
+
+                // Save content to disk
+                if (!$new->saveCssContent($incomingContent)) {
+                    throw new \Exception('Failed to save template CSS content to file');
+                }
+
+                $this->syncTemplate('stylesheet', $formVersion, $new->id);
+            }
+        });
+    }
+
+    /**
+     * Sync a template to the form version relationship
+     * Encapsulates the mapping between template type and relationship method
+     */
+    private function syncTemplate(string $type, $formVersion, int $templateId): void
+    {
+        if ($type === 'script') {
+            $formVersion->formScripts()->syncWithoutDetaching($templateId);
+        } else {
+            $formVersion->styleSheets()->syncWithoutDetaching($templateId);
+        }
+    }
+
+    /**
+     * Record script and stylesheet template conflicts for later notification
+     */
+    private function recordTemplateConflict(string $filename, int $existingTemplateId, string $type = 'script'): void
+    {
+        $conflicts = Cache::get($this->cacheKey . '_template_conflicts', []);
+        $ids = array_column($conflicts, 'id');
+
+        if (!in_array($existingTemplateId, $ids)) {
+            $conflicts[] = [
+                'filename' => $filename,
+                'id' => $existingTemplateId,
+                'type' => $type,
+            ];
+            Cache::put($this->cacheKey . '_template_conflicts', $conflicts, 3600);
+        }
+    }
 
     /**
      * Return child elements for any container/group regardless of key naming.
