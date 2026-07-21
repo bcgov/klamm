@@ -113,73 +113,18 @@ class ImportFormVersionElementsJob implements ShouldQueue
      */
     private function normalizeSchema(array $parsed): array
     {
-        // Format 1: formversion structure
-        if (isset($parsed['formversion'])) {
-            return [
-                'elements' => $parsed['formversion']['elements'] ?? [],
-                'dataSources' => $parsed['formversion']['dataSources'] ?? [],
-                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion']),
-                'stylesheets' => $this->extractStyleSheetsFromFormversion($parsed['formversion']),
-            ];
+        if (!isset($parsed['formversion'])) {
+            throw new \Exception("Only 'formversion' format is supported");
         }
 
-        // Format 2: data structure
-        if (isset($parsed['data'])) {
-            $data = $parsed['data'];
+        $formVersion = $parsed['formversion'];
 
-            // Accept both "elements" and "items"
-            $elements = $data['elements'] ?? $data['items'] ?? [];
-
-            // Prefer "javascript" but gracefully convert "scripts" -> sections
-            $javascript = $data['javascript'] ?? [];
-            if ((!$javascript || !is_array($javascript)) && !empty($data['scripts']) && is_array($data['scripts'])) {
-                $javascript = [];
-                foreach ($data['scripts'] as $script) {
-                    $type = $script['type'] ?? 'web';
-                    $content = $script['content'] ?? '';
-                    if ($content !== '') {
-                        $javascript[$type] = ($javascript[$type] ?? '');
-                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
-                    }
-                }
-            }
-            // Ensure styles array exists
-            $data['styles'] ?? $data['styles'] = [];
-
-            return [
-                'elements' => is_array($elements) ? $elements : [],
-                'dataSources' => $data['dataSources'] ?? ($parsed['dataSources'] ?? []),
-                'javascript' => is_array($javascript) ? $javascript : [],
-                'stylesheets' => is_array($data['styles']) ? $data['styles'] : [],
-            ];
-        }
-
-        // Format 3: direct structure (legacy)
-        if (isset($parsed['elements']) || isset($parsed['items'])) {
-            $elements = $parsed['elements'] ?? $parsed['items'] ?? [];
-            $javascript = $parsed['javascript'] ?? [];
-            if ((!$javascript || !is_array($javascript)) && !empty($parsed['scripts']) && is_array($parsed['scripts'])) {
-                $javascript = [];
-                foreach ($parsed['scripts'] as $script) {
-                    $type = $script['type'] ?? 'web';
-                    $content = $script['content'] ?? '';
-                    if ($content !== '') {
-                        $javascript[$type] = ($javascript[$type] ?? '');
-                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
-                    }
-                }
-            }
-
-            return [
-                'elements' => is_array($elements) ? $elements : [],
-                'dataSources' => $parsed['dataSources'] ?? [],
-                'javascript' => is_array($javascript) ? $javascript : [],
-                'stylesheets' => $parsed['styles'] ?? [],
-            ];
-        }
-
-        Log::warning('Unknown schema format, returning empty structure');
-        return ['elements' => [], 'dataSources' => [], 'javascript' => [], 'stylesheets' => []];
+        return [
+            'elements' => $formVersion['elements'] ?? [],
+            'dataSources' => $formVersion['dataSources'] ?? [],
+            'javascript' => $this->normalizeCodeAssets($formVersion['scripts'] ?? []),
+            'stylesheets' => $this->normalizeCodeAssets($formVersion['styles'] ?? []),
+        ];
     }
 
     /**
@@ -199,6 +144,44 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         return (string) $value;
+    }
+
+    /**
+     * Normalize code assets (scripts/stylesheets) into a standard structure.
+     * Transforms the JSON array format into a structure that matches our storage model:
+     * - Web/PDF assets are concatenated into single strings
+     * - Script templates remain as individual objects with filename and content
+     */
+    private function normalizeCodeAssets(array $assets): array
+    {
+        $normalized = [];
+
+        foreach ($assets as $asset) {
+            $type = $asset['type'] ?? 'web';
+            $content = $asset['content'] ?? '';
+            $filename = $asset['filename'] ?? null;
+
+            if ($type === 'template') {
+                // Templates need to remain as individual objects for separate file creation
+                if ($filename && $filename !== '') {
+                    if (!array_key_exists($type, $normalized)) {
+                        $normalized[$type] = [];
+                    }
+                    $normalized[$type][] = [
+                        'filename' => $filename,
+                        'content' => $content,
+                    ];
+                }
+            } else {
+                // Web/PDF assets get concatenated into a single string
+                if ($content !== '') {
+                    $normalized[$type] = ($normalized[$type] ?? '');
+                    $normalized[$type] .= ($normalized[$type] ? "\n" : "") . $content;
+                }
+            }
+        }
+
+        return $normalized;
     }
 
     /**
@@ -910,7 +893,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     $checkboxGroupModel = CheckboxGroupFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $checkboxGroupModel->id;
                     $formElement = FormElement::create($elementData);
-$this->createCheckboxGroupOptions($checkboxGroupModel, $options);
+                    $this->createCheckboxGroupOptions($checkboxGroupModel, $options);
                 } else if ($type === SelectInputFormElement::class) {
                     $selectModel = SelectInputFormElement::create($attributes['attributes']);
                     $elementData['elementable_id'] = $selectModel->id;
