@@ -781,7 +781,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 }
             } catch (\Exception $e) {
                 Log::error('Failed to import individual element', [
-                    'element' => $element['name'],
+                    'element' => $element['name'] ?? 'unknown',
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
@@ -1066,9 +1066,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $attributes['attributes']['html_content'] = $element['attributes']['htmlContent'];
         }
 
-        // Ensure $attributes['attributes] exists
-        if (!isset($attributes['attributes'])) {
-            $attributes['attributes'] = [];
+        // Convert all keys in $attributes['attributes'] to snake_case
+        if (is_array($attributes['attributes'])) {
+            $snakeAttributes = [];
+            foreach ($attributes['attributes'] as $key => $value) {
+                $snakeAttributes[\Illuminate\Support\Str::snake($key)] = $value;
+            }
+            $attributes['attributes'] = $snakeAttributes;
         }
 
         return $attributes;
