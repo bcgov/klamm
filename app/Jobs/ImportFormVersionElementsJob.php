@@ -1035,24 +1035,24 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle container type mapping
         if (isset($element['containerType'])) {
-            $attributes['container_type'] = $element['containerType'];
+            $attributes['attributes']['container_type'] = $element['containerType'];
         } elseif (isset($element['attributes']['containerType'])) {
             $attributes['attributes']['container_type'] = $element['attributes']['containerType'];
         }
 
         // Handle collapsible properties
         if (isset($element['collapsible'])) {
-            $attributes['collapsible'] = (bool) $element['collapsible'];
+            $attributes['attributes']['collapsible'] = (bool) $element['collapsible'];
         }
         if (isset($element['collapsedByDefault'])) {
-            $attributes['collapsed_by_default'] = (bool) $element['collapsedByDefault'];
+            $attributes['attributes']['collapsed_by_default'] = (bool) $element['collapsedByDefault'];
         }
 
         $elementType = $element['elementType'] ?? $element['type'] ?? '';
 
         // For TextInfo elements, ensure content is properly mapped
         if ($elementType === 'TextInfoFormElements' && isset($element['content'])) {
-            $attributes['content'] = $element['content'];
+            $attributes['attributes']['content'] = $element['content'];
         }
 
         // For Button elements, ensure label is properly mapped
@@ -1060,32 +1060,26 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $attributes['attributes']['text'] = $element['label'];
         }
 
-        // Handle options/list items (both formats)
-        // if (isset($element['listItems'])) {
-        //     $attributes['listItems'] = $element['listItems'];
-        // } elseif (isset($element['options'])) {
-        //     $attributes['options'] = $element['options'];
-        // }
-
         // Handle default values
         if (isset($element['attributes']['value'])) {
-            $attributes['attributes']['defaultValue'] = $element['attributes']['value'];
+            $attributes['attributes']['default_value'] = $element['attributes']['value'];
+        } elseif (isset($element['attributes']['defaultValue'])) {
+            $attributes['attributes']['default_value'] = $element['attributes']['defaultValue'];
         }
 
         // Handle date format
         if (isset($element['dateFormat'])) {
-            $attributes['dateFormat'] = \App\Models\FormBuilding\DateSelectInputFormElement::convertFromFlatpickrFormat($element['dateFormat']);
+            $attributes['attributes']['date_format'] = DateSelectInputFormElement::convertFromFlatpickrFormat($element['dateFormat']);
         } else if (isset($element['attributes']['dateFormat'])) {
-            $attributes['attributes']['dateFormat'] = \App\Models\FormBuilding\DateSelectInputFormElement::convertFromFlatpickrFormat($element['attributes']['dateFormat']);
+            $attributes['attributes']['date_format'] = DateSelectInputFormElement::convertFromFlatpickrFormat($element['attributes']['dateFormat']);
         }
 
         // Handle HTML content
         if (isset($element['htmlContent'])) {
-            $attributes['html_content'] = $element['htmlContent'];
+            $attributes['attributes']['html_content'] = $element['htmlContent'];
         } else if (isset($element['attributes']['htmlContent'])) {
             $attributes['attributes']['html_content'] = $element['attributes']['htmlContent'];
         }
-
 
         // Ensure $attributes['attributes] exists
         if (!isset($attributes['attributes'])) {
