@@ -707,72 +707,34 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Create select options for SelectInputFormElement
+     * Create options for Select, Radio, and CheckboxGroup elements
      */
-    private function createSelectOptions($selectModel, array $options): void
+    private function createOptionsForElement($model, string $type, array $options): void
     {
         if (empty($options))
             return;
 
-        foreach ($options as $index => $optionData) {
-            if (empty($optionData['label']))
-                continue; // Skip options without labels
+        $methodMap = [
+            SelectInputFormElement::class => 'createForSelect',
+            RadioInputFormElement::class => 'createForRadio',
+            CheckboxGroupFormElement::class => 'createForCheckboxGroup',
+        ];
 
-            try {
-                SelectOptionFormElement::createForSelect($selectModel, $optionData);
-            } catch (\Exception $e) {
-                Log::error('Failed to create select option', [
-                    'option_data' => $optionData,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Create radio options for RadioInputFormElement
-     */
-    private function createRadioOptions($radioModel, array $options): void
-    {
-
-        if (empty($options))
+        $method = $methodMap[$type] ?? null;
+        if (!$method)
             return;
 
-        foreach ($options as $index => $optionData) {
+        foreach ($options as $optionData) {
             if (empty($optionData['label']))
-                continue; // Skip options without labels
-            try {
-                SelectOptionFormElement::createForRadio($radioModel, $optionData);
-            } catch (\Exception $e) {
-                Log::error('Failed to create radio option', [
-                    'option_data' => $optionData,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Create checkbox group options for CheckboxGroupFormElement
-     */
-    private function createCheckboxGroupOptions($checkboxGroupModel, array $options): void
-    {
-        if (empty($options))
-            return;
-
-        foreach ($options as $index => $optionData) {
-            if (empty($optionData['label']))
-                continue; // Skip options without labels
+                continue;
 
             try {
-                SelectOptionFormElement::createForCheckboxGroup($checkboxGroupModel, $optionData);
+                SelectOptionFormElement::$method($model, $optionData);
             } catch (\Exception $e) {
-                Log::error('Failed to create checkbox group option', [
+                Log::error('Failed to create option', [
+                    'type' => $type,
                     'option_data' => $optionData,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
                 ]);
             }
         }
@@ -957,69 +919,23 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $formElement = null;
 
-                if ($type === ContainerFormElement::class) {
-                    $containerModel = ContainerFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $containerModel->id;
+                // Check if the class exists and is an Eloquent model
+                if (class_exists($type) && is_subclass_of($type, \Illuminate\Database\Eloquent\Model::class)) {
+                    $elementableModel = $type::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $elementableModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === TextInputFormElement::class) {
-                    $textInputModel = TextInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $textInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === TextareaInputFormElement::class) {
-                    $textareModel = TextareaInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $textareModel->id;
-                    $formElement = FormElement::create($elementData);
-                } elseif ($type === TextInfoFormElement::class) {
-                    $textInfoModel = TextInfoFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $textInfoModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === DateSelectInputFormElement::class) {
-                    $dateSelectModel = DateSelectInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $dateSelectModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === CheckboxInputFormElement::class) {
-                    $checkboxInputModel = CheckboxInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $checkboxInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === CheckboxGroupFormElement::class) {
-                    $checkboxGroupModel = CheckboxGroupFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $checkboxGroupModel->id;
-                    $formElement = FormElement::create($elementData);
-                    $this->createCheckboxGroupOptions($checkboxGroupModel, $options);
-                } else if ($type === SelectInputFormElement::class) {
-                    $selectModel = SelectInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $selectModel->id;
-                    $formElement = FormElement::create($elementData);
-                    $this->createSelectOptions($selectModel, $options);
-                } elseif ($type === RadioInputFormElement::class) {
-                    $radioModel = RadioInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $radioModel->id;
-                    $formElement = FormElement::create($elementData);
-                    $this->createRadioOptions($radioModel, $options);
-                } else if ($type === NumberInputFormElement::class) {
-                    $numberInputModel = NumberInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $numberInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === CurrencyInputFormElement::class) {
-                    $currencyInputModel = CurrencyInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $currencyInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === ButtonInputFormElement::class) {
-                    $buttonModel = ButtonInputFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $buttonModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === HTMLFormElement::class) {
-                    $htmlModel = HTMLFormElement::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $htmlModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else {
-                    if (method_exists($type, 'create')) {
-                        $elementableModel = $type::create($attributes['attributes']);
-                        $elementData['elementable_id'] = $elementableModel->id;
-                    }
-                    $formElement = FormElement::create($elementData);
-                }
 
+                    // Handle options for Select, Radio, and CheckboxGroup elements
+                    if (
+                        in_array($type, [
+                            SelectInputFormElement::class,
+                            RadioInputFormElement::class,
+                            CheckboxGroupFormElement::class
+                        ])
+                    ) {
+                        $this->createOptionsForElement($elementableModel, $type, $options);
+                    }
+                }
 
                 if ($formElement) {
                     // Create data binding
@@ -1259,29 +1175,28 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle both formats for repeatable containers
         if (isset($element['repeats'])) {
-            $attributes['is_repeatable'] = (bool) $element['repeats'];
             $attributes['attributes']['is_repeatable'] = (bool) $element['repeats'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         } elseif (isset($element['attributes']['isRepeatable'])) {
-            $attributes['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
             $attributes['attributes']['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         }
+
         // Handle min/max repeats
         if (isset($element['minRepeats'])) {
-            $attributes['min_repeats'] = (int) $element['minRepeats'];
+            $attributes['attributes']['min_repeats'] = (int) $element['minRepeats'];
         } elseif (isset($element['min_repeats'])) {
-            $attributes['min_repeats'] = (int) $element['min_repeats'];
+            $attributes['attributes']['min_repeats'] = (int) $element['min_repeats'];
         }
 
         if (isset($element['maxRepeats'])) {
-            $attributes['max_repeats'] = (int) $element['maxRepeats'];
+            $attributes['attributes']['max_repeats'] = (int) $element['maxRepeats'];
         } elseif (isset($element['max_repeats'])) {
-            $attributes['max_repeats'] = (int) $element['max_repeats'];
+            $attributes['attributes']['max_repeats'] = (int) $element['max_repeats'];
         }
 
         // Handle container type mapping
