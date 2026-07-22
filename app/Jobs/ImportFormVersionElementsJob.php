@@ -472,13 +472,13 @@ class ImportFormVersionElementsJob implements ShouldQueue
     {
         $options = [];
 
-        // Format 1: formversion format with options array
+        // Handle formversion format with options array
         if (!empty($element['options']) && is_array($element['options'])) {
-
             foreach ($element['options'] as $index => $option) {
                 if (is_array($option)) {
                     $optionData = [
                         'label' => $option['label'] ?? '',
+                        'value' => $option['value'] ?? null,
                         'order' => $option['order'] ?? ($index + 1),
                         'description' => $option['description'] ?? null,
                     ];
@@ -486,40 +486,11 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 } else {
                     $optionData = [
                         'label' => (string) $option,
+                        'value' => (string) $option,
                         'order' => $index + 1,
                         'description' => null,
                     ];
                     $options[] = $optionData;
-                }
-            }
-        }
-        // Format 2: listItems array
-        elseif (!empty($element['listItems']) && is_array($element['listItems'])) {
-            foreach ($element['listItems'] as $idx => $item) {
-                if (is_array($item)) {
-                    $options[] = [
-                        'label' => $item['label'] ?? $item['text'] ?? $item['name'] ?? $item['value'] ?? '',
-                        'order' => $item['order'] ?? ($idx + 1),
-                        'description' => $item['description'] ?? null,
-                    ];
-                } else {
-                    $options[] = [
-                        'label' => isset($item['value']) ? $item['value'] : (string) $item,
-                        'order' => $idx + 1,
-                        'description' => null,
-                    ];
-                }
-            }
-        }
-        // Format 3: attributes.options
-        elseif (!empty($element['attributes']['options']) && is_array($element['attributes']['options'])) {
-            foreach ($element['attributes']['options'] as $idx => $option) {
-                if (is_array($option)) {
-                    $options[] = [
-                        'label' => $option['label'] ?? '',
-                        'order' => $option['order'] ?? ($idx + 1),
-                        'description' => $option['description'] ?? null,
-                    ];
                 }
             }
         }
