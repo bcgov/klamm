@@ -94,6 +94,40 @@ class ImportFormVersionElementsJob implements ShouldQueue
             Cache::put($this->cacheKey . '_progress', "Completed: {$processedElements}/{$totalElements} elements", 3600);
             Cache::put($this->cacheKey . '_status', 'complete', 3600);
 
+            // Check for template conflicts and send database notification
+            $templateConflicts = Cache::get($this->cacheKey . '_template_conflicts', []);
+            if (!empty($templateConflicts)) {
+                $user = \App\Models\User::find($this->userId);
+                if ($user) {
+                    $filenames = array_column($templateConflicts, 'filename');
+                    $conflictList = implode(', ', $filenames);
+                    $count = count($templateConflicts);
+                    // Construct action buttons for notification
+                    $actions = [];
+                    foreach ($templateConflicts as $conflict) {
+                        // Choose the route based on the template type
+                        $routeName = $conflict['type'] === 'stylesheet'
+                            ? 'filament.forms.resources.style-sheets.view'
+                            : 'filament.forms.resources.form-scripts.view';
+
+                        $actions[] = \Filament\Notifications\Actions\Action::make('view_template_' . $conflict['id'])
+                            ->button()
+                            ->label("View '{$conflict['filename']}'")
+                            ->url(route($routeName, ['record' => $conflict['id']]));
+                    }
+
+                    Notification::make()
+                        ->title('Template Conflicts Detected')
+                        ->warning()
+                        ->body(
+                            "During import of {$formVersion->form->form_id} version {$formVersion->version_number}, {$count} template(s) already existed with different content. "
+                            . "The existing versions were kept: {$conflictList}"
+                        )
+                        ->actions($actions)
+                        ->sendToDatabase($user);
+                }
+            }
+
             FormVersionUpdateEvent::dispatch(
                 $formVersion->id,
                 $formVersion->form_id,
@@ -1029,11 +1063,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         if ($this->defaultDataSourceError) {
-            Notification::make()
-                ->title("Failed to create the default data source 'Imported Data Source'")
-                ->body("Please reseed the form_data_sources table using the following command: sail artisan db:seed --class=FormDataSourceSeeder")
-                ->warning()
-                ->send();
+            Cache::put(
+                $this->cacheKey . '_warning',
+                "Failed to create the default data source. 
+                Please reseed the form_data_sources table using the following command: sail artisan db:seed --class=FormDataSourceSeeder",
+                3600
+            );
         }
 
         return $processedElements;
