@@ -72,7 +72,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
             // Normalize format
             $normalizedSchema = $this->normalizeSchema($parsed);
 
-            // Process data sources,  javascript, and stylesheets
+            // Process data sources, javascript, and stylesheets
             $this->processDataSources($normalizedSchema, $formVersion);
             $this->processJavaScript($normalizedSchema, $formVersion);
             $this->processStyleSheets($normalizedSchema, $formVersion);
@@ -143,7 +143,8 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Normalize different schema formats into a consistent structure
+     * Normalize the schema (Format 1 only - formversion structure)
+     * Format 2 and 3 are not supported
      */
     private function normalizeSchema(array $parsed): array
     {
@@ -450,7 +451,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         return is_array($kids) ? $kids : [];
     }
 
-    // Add method to count total elements for progress tracking
+    /**
+     * Count total elements recursively for progress tracking
+     */
     protected function countElementsRecursive(array $elements): int
     {
         $count = 0;
@@ -545,7 +548,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
     }
 
-    // Updated to include progress tracking
+    /**
+     * Import elements recursively with progress tracking
+     */
     protected function importElementsRecursive(array $elements, $parentId, $formVersion, $processedElements = 0, $totalElements = 0, $inRepeatableContainer = false, $inPlusContainer = false)
     {
         foreach ($elements as $element) {
@@ -918,6 +923,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
     }
 
+    /**
+     * Resolve element type string to fully qualified class name
+     */
     private function resolveElementableType(string $elementType): ?string
     {
         $map = [
@@ -949,6 +957,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         return null;
     }
 
+    /**
+     * Extract element attributes from the element array
+     */
     private function extractElementAttributes(array $element): array
     {
         $exclude = [
@@ -971,6 +982,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
             'listItems'
         ];
         $attributes = [];
+
+        // Initialize the nested array immediately so we don't get null errors
+        $attributes['attributes'] = [];
 
         foreach ($element as $key => $value) {
             if (!in_array($key, $exclude, true)) {
@@ -1061,7 +1075,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Determine if the given element is a repeatable container.
+     * Determine if the given element is a repeatable container
      */
     private function isRepeatableContainer(array $element): bool
     {
@@ -1075,12 +1089,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Determine if the given type is a text field element.
+     * Determine if the given type is a text field element
      */
     private function isTextField($type): bool
     {
         $textFieldTypes = [
-            \App\Models\FormBuilding\TextInfoFormElement::class,
+            TextInfoFormElement::class,
         ];
         return in_array($type, $textFieldTypes, true);
     }
