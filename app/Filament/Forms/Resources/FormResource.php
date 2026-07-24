@@ -545,8 +545,6 @@ class FormResource extends Resource
                     ->label('Migration 2025 Status')
                     ->badge()
                     ->toggleable()
-                    ->sortable()
-                    ->searchable()
                     ->getStateUsing(fn($record) => $record->migration2025_status)
                     ->color(function ($state) {
                         return match ($state) {
