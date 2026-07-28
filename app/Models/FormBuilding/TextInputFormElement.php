@@ -17,24 +17,24 @@ class TextInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
-        'maskType',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
+        'mask_type',
         'mask',
-        'maskErrorMessage',
-        'maxCount',
-        'defaultValue',
+        'mask_error_message',
+        'max_count',
+        'default_value',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
-        'maxCount' => 'integer',
+        'hide_label' => 'boolean',
+        'max_count' => 'integer',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'maskType' => 'custom',
+        'hide_label' => false,
+        'mask_type' => 'custom',
     ];
 
     /**
@@ -47,15 +47,15 @@ class TextInputFormElement extends Model
             Fieldset::make('Value')
                 ->schema([
                     SchemaHelper::getPlaceholderTextField($disabled),
-                    TextInput::make('elementable_data.defaultValue')
+                    TextInput::make('elementable_data.default_value')
                         ->label('Default Value')
                         ->maxLength(255)
                         ->disabled($disabled),
-                    TextInput::make('elementable_data.maxCount')
+                    TextInput::make('elementable_data.max_count')
                         ->label('Maximum Character Count')
                         ->numeric()
                         ->disabled($disabled),
-                    ToggleButtons::make('elementable_data.maskType')
+                    ToggleButtons::make('elementable_data.mask_type')
                         ->label('Input Mask Type')
                         ->options([
                             'email' => 'Email',
@@ -80,11 +80,11 @@ class TextInputFormElement extends Model
                         ->maxLength(255)
                         ->hint('Supports Maska syntax, regular expressions, or character classes like "a-zA-Z0-9"')
                         ->disabled($disabled),
-                    TextInput::make('elementable_data.maskErrorMessage')
+                    TextInput::make('elementable_data.mask_error_message')
                         ->label('Validation Message')
                         ->placeholder('e.g. Only letters and spaces are allowed')
                         ->hint('Displayed when input doesn\'t match the mask')
-                        ->visible(fn($get) => $get('elementable_data.maskType') === 'custom')
+                        ->visible(fn($get) => $get('elementable_data.mask_type') === 'custom')
                         ->disabled($disabled),
                 ])
                 ->columns(1),
@@ -106,13 +106,13 @@ class TextInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
             'mask' => $this->mask,
-            'maskErrorMessage' => $this->maskErrorMessage,
-            'maxCount' => $this->maxCount,
-            'defaultValue' => $this->defaultValue,
+            'mask_error_message' => $this->mask_error_message,
+            'max_count' => $this->max_count,
+            'default_value' => $this->default_value,
         ];
     }
 
@@ -123,13 +123,13 @@ class TextInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => '',
-            'hideLabel' => false,
-            'enableVarSub' => false,
+            'label_text' => '',
+            'hide_label' => false,
+            'enable_var_sub' => false,
             'mask' => '',
-            'maskErrorMessage' => '',
-            'maxCount' => null,
-            'defaultValue' => '',
+            'mask_error_message' => '',
+            'max_count' => null,
+            'default_value' => '',
         ];
     }
 }

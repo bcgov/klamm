@@ -17,7 +17,7 @@ class ButtonInputFormElement extends Model
     protected $fillable = [
         'text',
         'kind',
-        'enableVarSub',
+        'enable_var_sub',
     ];
 
     protected $casts = [
@@ -60,7 +60,7 @@ class ButtonInputFormElement extends Model
         return [
             'text' => $this->text,
             'kind' => $this->kind,
-            'enableVarSub' => $this->enableVarSub,
+            'enable_var_sub' => $this->enable_var_sub,
         ];
     }
 
@@ -88,7 +88,7 @@ class ButtonInputFormElement extends Model
         return [
             'text' => 'Submit',
             'kind' => 'primary',
-            'enableVarSub' => false,
+            'enable_var_sub' => false,
         ];
     }
 }

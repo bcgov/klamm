@@ -15,20 +15,20 @@ class CheckboxInputFormElement extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'labelText',
-        'hideLabel',
-        'defaultChecked',
-        'enableVarSub',
+        'label_text',
+        'hide_label',
+        'default_checked',
+        'enable_var_sub',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
-        'defaultChecked' => 'boolean',
+        'hide_label' => 'boolean',
+        'default_checked' => 'boolean',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'defaultChecked' => false,
+        'hide_label' => false,
+        'default_checked' => false,
     ];
 
     /**
@@ -38,7 +38,7 @@ class CheckboxInputFormElement extends Model
     {
         return [
             SchemaHelper::getCommonCarbonFields($disabled, true),
-            Toggle::make('elementable_data.defaultChecked')
+            Toggle::make('elementable_data.default_checked')
                 ->label('Default Checked')
                 ->default(false)
                 ->disabled($disabled),
@@ -59,10 +59,10 @@ class CheckboxInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'defaultChecked' => $this->defaultChecked,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'default_checked' => $this->default_checked,
+            'enable_var_sub' => $this->enable_var_sub,
         ];
     }
 
@@ -72,10 +72,10 @@ class CheckboxInputFormElement extends Model
     public static function getDefaultData(): array
     {
         return [
-            'hideLabel' => false,
-            'defaultChecked' => false,
-            'labelText' => '',
-            'enableVarSub' => false,
+            'hide_label' => false,
+            'default_checked' => false,
+            'label_text' => '',
+            'enable_var_sub' => false,
         ];
     }
 }

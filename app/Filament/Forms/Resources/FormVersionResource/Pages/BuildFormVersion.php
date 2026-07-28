@@ -310,14 +310,14 @@ class BuildFormVersion extends Page implements HasForms
                         // Refresh the page to update the tree
                         $this->redirect($this->getResource()::getUrl('build', ['record' => $this->record]));
                     } catch (\InvalidArgumentException $e) {
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->danger()
                             ->title('Cannot Create Element')
                             ->body($e->getMessage())
                             ->persistent()
                             ->send();
                     } catch (\Exception $e) {
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->danger()
                             ->title('Error Creating Element')
                             ->body('An unexpected error occurred: ' . $e->getMessage())
@@ -394,10 +394,8 @@ class BuildFormVersion extends Page implements HasForms
                 }),
 
             ActionGroup::make([
-                $this->makeDownloadJsonAction('download_old_json', 'Download v1', 1),
-                $this->makeDownloadJsonAction('download_json', 'Download v2', 2),
-                $this->makeCopyJsonAction('copy_json_v1', 'Copy v1 to Clipboard', 1),
-                $this->makeCopyJsonAction('copy_json_v2', 'Copy v2 to Clipboard', 2),
+                $this->makeDownloadJsonAction('download_json', 'Download', 2),
+                $this->makeCopyJsonAction('copy_json_v2', 'Copy to Clipboard', 2),
             ])
                 ->label('Download JSON')
                 ->icon('heroicon-m-ellipsis-vertical')
@@ -532,8 +530,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-                . nl2br(e($payload)) .
-                '</div>'
+            . nl2br(e($payload)) .
+            '</div>'
         );
 
         Notification::make()
@@ -594,7 +592,7 @@ class BuildFormVersion extends Page implements HasForms
     {
         // Prevent saving if not editable
         if (!$this->isEditable()) {
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->warning()
                 ->title('Cannot Save Changes')
                 ->body('Form versions can only be saved when in draft status.')
@@ -629,9 +627,9 @@ class BuildFormVersion extends Page implements HasForms
         $this->getSavedNotification()?->send();
     }
 
-    protected function getSavedNotification(?string $message = null): ?\Filament\Notifications\Notification
+    protected function getSavedNotification(?string $message = null): ?Notification
     {
-        return \Filament\Notifications\Notification::make()
+        return Notification::make()
             ->success()
             ->title('Saved')
             ->body($message ?? 'The form builder changes have been saved successfully.');
@@ -770,7 +768,7 @@ class BuildFormVersion extends Page implements HasForms
             'js_content_pdf' => $data['js_content_pdf'] ?? '',
         ], $updateType, false);
 
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->success()
             ->title('Update Broadcasted')
             ->body('Form version update has been broadcasted to all connected clients.')
@@ -1064,8 +1062,8 @@ class BuildFormVersion extends Page implements HasForms
 
         $bodyHtml = new HtmlString(
             '<div class="text-xs leading-5 whitespace-pre-wrap break-words max-w-full">'
-                . nl2br(e($payload))
-                . '</div>'
+            . nl2br(e($payload))
+            . '</div>'
         );
 
         Notification::make()
@@ -1083,7 +1081,7 @@ class BuildFormVersion extends Page implements HasForms
     {
         $schemaContent = $this->importWizard['schema_content'] ?? null;
         if (empty($schemaContent)) {
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->danger()
                 ->title('No Parsed Schema')
                 ->body('No schema content found to import.')
@@ -1110,7 +1108,7 @@ class BuildFormVersion extends Page implements HasForms
             'cacheKey' => $cacheKey,
         ];
 
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->info()
             ->title('Import Started')
             ->body('The import is being processed in the background. This page will refresh when it is complete.')
@@ -1135,7 +1133,7 @@ class BuildFormVersion extends Page implements HasForms
             session()->forget('import_job_cache_key');
             $this->importJobStatus['done'] = true;
             $this->importJobStatus['status'] = 'complete';
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->success()
                 ->title('Import Complete')
                 ->body('Form elements have been successfully imported. The page will refresh to show the new elements.')
@@ -1151,7 +1149,7 @@ class BuildFormVersion extends Page implements HasForms
             $this->importJobStatus['done'] = true;
             $this->importJobStatus['status'] = 'error';
 
-            \Filament\Notifications\Notification::make()
+            Notification::make()
                 ->danger()
                 ->title('Import Failed')
                 ->body($error ?: 'An error occurred during import.')

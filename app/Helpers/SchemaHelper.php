@@ -43,7 +43,7 @@ class SchemaHelper
 
     public static function getLabelTextField(bool $disabled = false, bool $required = false)
     {
-        return TextInput::make('elementable_data.labelText')
+        return TextInput::make('elementable_data.label_text')
             ->label('Field Label')
             ->maxLength(255)
             ->disabled($disabled)
@@ -55,7 +55,7 @@ class SchemaHelper
                     ->action(function (callable $set, callable $get) {
                         $name = $get('name');
                         if (!empty($name)) {
-                            $set('elementable_data.labelText', $name);
+                            $set('elementable_data.label_text', $name);
                         }
                     }),
             );
@@ -63,7 +63,7 @@ class SchemaHelper
 
     public static function getHideLabelToggle(bool $disabled = false)
     {
-        return Toggle::make('elementable_data.hideLabel')
+        return Toggle::make('elementable_data.hide_label')
             ->label('Hide Label')
             ->default(false)
             ->live()
@@ -72,7 +72,7 @@ class SchemaHelper
 
     public static function getEnableVariableSubstitutionToggle(bool $disabled = false)
     {
-        return Toggle::make('elementable_data.enableVarSub')
+        return Toggle::make('elementable_data.enable_var_sub')
             ->label('Enable Variable Substitution')
             ->helperText('Use {{variableName}} syntax in the label to dynamically insert values from other form fields. 
                 Make sure you also insert the Moustache library in the Scripts tab and register the variable.')
@@ -129,7 +129,7 @@ class SchemaHelper
 
     public static function getOptionsDefaultSelectedSelect(bool $disabled = false, bool $multiple = false, string $label = 'Default Selected Value'): Select
     {
-        $select = Select::make('elementable_data.defaultSelected')
+        $select = Select::make('elementable_data.default_selected')
             ->label($label)
             ->options(function (callable $get) {
                 $options = $get('elementable_data.options') ?? [];

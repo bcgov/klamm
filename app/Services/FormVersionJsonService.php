@@ -618,7 +618,7 @@ class FormVersionJsonService
         // Basic properties for all standard elements
         $attributes = $this->getElementAttributes($element);
 
-        $elementData['label'] = (isset($attributes['hideLabel']) && $attributes['hideLabel']) ? '' : ($attributes['labelText'] ?? '');
+        $elementData['label'] = (isset($attributes['hide_label']) && $attributes['hide_label']) ? '' : ($attributes['label_text'] ?? '');
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
         $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'field')];
