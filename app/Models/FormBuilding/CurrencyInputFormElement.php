@@ -19,32 +19,33 @@ class CurrencyInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
         'min',
         'max',
-        'defaultValue',
+        'default_value',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
         'min' => 'integer',
         'max' => 'integer',
-        'defaultValue' => 'float',
+        'default_value' => 'float',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
+        'hide_label' => false,
     ];
 
     /*
      * Format the value as currency
-    */
+     */
     protected static function formatCurrency(string $target): Closure
     {
         return function ($state, callable $set) use ($target): void {
-            if ($state === null) return;
+            if ($state === null)
+                return;
 
             $raw = trim((string) $state);
 
@@ -56,17 +57,20 @@ class CurrencyInputFormElement extends Model
             // Collapse lone sign/dot or all-zero forms to "0.00"
             $isZeroish = static function (string $s): bool {
                 $s = trim($s);
-                if ($s === '') return false;
+                if ($s === '')
+                    return false;
 
                 // remove leading sign
                 $s = ltrim($s, "+-");
 
                 // empty after sign or just a dot -> zero-ish
-                if ($s === '' || $s === '.') return true;
+                if ($s === '' || $s === '.')
+                    return true;
 
                 // keep only digits and a single dot
                 $clean = preg_replace('/[^\d.]/', '', $s) ?? '';
-                if ($clean === '' || substr_count($clean, '.') > 1) return false;
+                if ($clean === '' || substr_count($clean, '.') > 1)
+                    return false;
 
                 // if all remaining digits are zeros, it's zero-ish
                 $digitsOnly = str_replace('.', '', $clean);
@@ -86,11 +90,11 @@ class CurrencyInputFormElement extends Model
             }
 
             // Extract sign once; operate on a signless body
-            $neg  = ($raw !== '' && $raw[0] === '-');
+            $neg = ($raw !== '' && $raw[0] === '-');
             $body = ltrim($raw, '+-');
 
             // Split into integer + fractional segments
-            $int  = $body;
+            $int = $body;
             $frac = '';
             if (strpos($body, '.') !== false) {
                 [$int, $frac] = explode('.', $body, 2);
@@ -98,7 +102,8 @@ class CurrencyInputFormElement extends Model
 
             // Normalize integer: strip extra leading zeros, keep at least one '0'
             $int = ltrim($int, '0');
-            if ($int === '') $int = '0';
+            if ($int === '')
+                $int = '0';
 
             // Fraction handling:
             // - If <= 2 digits: pad to exactly 2
@@ -142,68 +147,66 @@ class CurrencyInputFormElement extends Model
         $noSci = 'not_regex:/[eE]/'; // forbid scientific notation
         $currencyRegex = 'regex:/^-?\d+(\.\d{1,2})?$/';
 
-        return array_merge(
+        return [
             SchemaHelper::getCommonCarbonFields($disabled),
-            [
-                Fieldset::make('Value')
-                    ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled)
-                            ->columnSpan(3),
-                        TextInput::make('elementable_data.defaultValue')
-                            ->label('Default Value')
-                            ->numeric()
-                            ->nullable()
-                            ->step(.01)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(self::formatCurrency('elementable_data.defaultValue'))
-                            ->rules([$currencyRegex, $noSci])
-                            ->rule(NumericRules::compareWith(
-                                minPath: 'elementable_data.min',
-                                maxPath: 'elementable_data.max',
-                                options: [
-                                    'format' => fn(float $n) => number_format($n, 2, '.', ''),
-                                ]
-                            ))
-                            ->columnSpan(1)
-                            ->disabled($disabled),
-                        TextInput::make('elementable_data.min')
-                            ->label('Minimum Value')
-                            ->numeric()
-                            ->nullable()
-                            ->step(.01)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(self::formatCurrency('elementable_data.min'))
-                            ->rules([$currencyRegex, $noSci])
-                            ->rule(NumericRules::compareWith(
-                                minPath: null,
-                                maxPath: 'elementable_data.max',
-                                options: [
-                                    'format' => fn(float $n) => number_format($n, 2, '.', ''),
-                                ]
-                            ))
-                            ->columnSpan(1)
-                            ->disabled($disabled),
-                        TextInput::make('elementable_data.max')
-                            ->label('Maximum Value')
-                            ->numeric()
-                            ->nullable()
-                            ->step(.01)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(self::formatCurrency('elementable_data.max'))
-                            ->rules([$currencyRegex, $noSci])
-                            ->rule(NumericRules::compareWith(
-                                minPath: 'elementable_data.min',
-                                maxPath: null,
-                                options: [
-                                    'format' => fn(float $n) => number_format($n, 2, '.', ''),
-                                ]
-                            ))
-                            ->columnSpan(1)
-                            ->disabled($disabled),
-                    ])
-                    ->columns(3),
-            ]
-        );
+            Fieldset::make('Value')
+                ->schema([
+                    SchemaHelper::getPlaceholderTextField($disabled)
+                        ->columnSpan(3),
+                    TextInput::make('elementable_data.default_value')
+                        ->label('Default Value')
+                        ->numeric()
+                        ->nullable()
+                        ->step(.01)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(self::formatCurrency('elementable_data.default_value'))
+                        ->rules([$currencyRegex, $noSci])
+                        ->rule(NumericRules::compareWith(
+                            minPath: 'elementable_data.min',
+                            maxPath: 'elementable_data.max',
+                            options: [
+                                'format' => fn(float $n) => number_format($n, 2, '.', ''),
+                            ]
+                        ))
+                        ->columnSpan(1)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.min')
+                        ->label('Minimum Value')
+                        ->numeric()
+                        ->nullable()
+                        ->step(.01)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(self::formatCurrency('elementable_data.min'))
+                        ->rules([$currencyRegex, $noSci])
+                        ->rule(NumericRules::compareWith(
+                            minPath: null,
+                            maxPath: 'elementable_data.max',
+                            options: [
+                                'format' => fn(float $n) => number_format($n, 2, '.', ''),
+                            ]
+                        ))
+                        ->columnSpan(1)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.max')
+                        ->label('Maximum Value')
+                        ->numeric()
+                        ->nullable()
+                        ->step(.01)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(self::formatCurrency('elementable_data.max'))
+                        ->rules([$currencyRegex, $noSci])
+                        ->rule(NumericRules::compareWith(
+                            minPath: 'elementable_data.min',
+                            maxPath: null,
+                            options: [
+                                'format' => fn(float $n) => number_format($n, 2, '.', ''),
+                            ]
+                        ))
+                        ->columnSpan(1)
+                        ->disabled($disabled),
+                ])
+                ->columns(3),
+        ];
     }
 
     /**
@@ -221,12 +224,12 @@ class CurrencyInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
             'min' => $this->min,
             'max' => $this->max,
-            'defaultValue' => $this->defaultValue,
+            'default_value' => $this->default_value,
         ];
     }
 
@@ -237,12 +240,12 @@ class CurrencyInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => '',
-            'hideLabel' => false,
-            'enableVarSub' => false,
+            'label_text' => '',
+            'hide_label' => false,
+            'enable_var_sub' => false,
             'min' => null,
             'max' => null,
-            'defaultValue' => null,
+            'default_value' => null,
         ];
     }
 }

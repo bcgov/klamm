@@ -90,7 +90,7 @@ class StyleSheetResource extends Resource
                             ),
 
                         CustomMonacoEditor::make('content')
-                            ->label('Script Content')
+                            ->label('Style Sheet Content')
                             ->language('css')
                             ->theme('vs-dark')
                             ->live()

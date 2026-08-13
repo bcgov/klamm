@@ -18,21 +18,21 @@ class CheckboxGroupFormElement extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
-        'defaultSelected',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
+        'default_selected',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
-        'defaultSelected' => 'array',
+        'hide_label' => 'boolean',
+        'default_selected' => 'array',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'labelText' => '',
-        'defaultSelected' => null,
+        'hide_label' => false,
+        'label_text' => '',
+        'default_selected' => null,
     ];
 
     /**
@@ -41,72 +41,11 @@ class CheckboxGroupFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            Fieldset::make('Field Label')
-                ->schema([
-                    SchemaHelper::getLabelTextField($disabled)->required(),
-                    SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
-                    SchemaHelper::getHideLabelToggle($disabled),
-                ])
-                ->columns(1),
+            SchemaHelper::getCommonCarbonFields($disabled, true),
             Fieldset::make('Values')
                 ->schema([
-                Select::make('elementable_data.defaultSelected')
-                    ->label('Default Selected Value')
-                    ->multiple()
-                    ->nullable()
-                    ->live()
-                    ->options(function (callable $get) {
-                        $options = $get('elementable_data.options') ?? [];
-                        $selectOptions = [];
-                        foreach ($options as $option) {
-                            if (!empty($option['value'])) {
-                                $selectOptions[$option['value']] = $option['label'] ?? $option['value'];
-                            }
-                        }
-                        return $selectOptions;
-                    })
-                    ->disabled($disabled),
-                Repeater::make('elementable_data.options')
-                    ->label('Options')
-                    ->schema([
-                        TextInput::make('label')
-                            ->label('Option Label')
-                            ->required()
-                            ->columnSpan(2)
-                            ->autocomplete(false)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                $value = $get('value');
-                                if (empty($value) && !empty($state)) {
-                                    $slug = \Illuminate\Support\Str::slug($state, '-');
-                                    $set('value', $slug);
-                                }
-                            }),
-                        TextInput::make('value')
-                            ->label('Option Value')
-                            ->required()
-                            ->columnSpan(2)
-                            ->suffixAction(
-                                \Filament\Forms\Components\Actions\Action::make('regenerate_value')
-                                    ->icon('heroicon-o-arrow-path')
-                                    ->tooltip('Regenerate from Option Label')
-                                    ->action(function (callable $set, callable $get) {
-                                        $label = $get('label');
-                                        if (!empty($label)) {
-                                            $slug = \Illuminate\Support\Str::slug($label, '-');
-                                            $set('value', $slug);
-                                        }
-                                    })
-                            ),
-                    ])
-                    ->columns(2)
-                    ->defaultItems(1)
-                    ->addActionLabel('Add Option')
-                    ->reorderableWithButtons()
-                    ->collapsible()
-                    ->itemLabel(fn(array $state): ?string => $state['label'] ?? 'Option')
-                    ->disabled($disabled)
-                    ->minItems(1),
+                    SchemaHelper::getOptionsDefaultSelectedSelect($disabled, true),
+                    SchemaHelper::getOptionsRepeater($disabled),
                 ])
                 ->columns(1),
         ];
@@ -126,10 +65,10 @@ class CheckboxGroupFormElement extends Model
     public function getData(): array
     {
         return [
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
-            'defaultSelected' => $this->defaultSelected ?? [],
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
+            'default_selected' => $this->default_selected ?? [],
         ];
     }
 
@@ -147,10 +86,10 @@ class CheckboxGroupFormElement extends Model
     public static function getDefaultData(): array
     {
         return [
-            'hideLabel' => false,
-            'labelText' => '',
-            'enableVarSub' => false,
-            'defaultSelected' => [],
+            'hide_label' => false,
+            'label_text' => '',
+            'enable_var_sub' => false,
+            'default_selected' => [],
             'options' => [
                 ['label' => 'Option 1', 'value' => 'option_1'],
                 ['label' => 'Option 2', 'value' => 'option_2'],

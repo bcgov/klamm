@@ -13,9 +13,23 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Bus\Dispatchable;
 use App\Models\FormBuilding\FormElement;
 use App\Events\FormVersionUpdateEvent;
+use App\Models\FormBuilding\ButtonInputFormElement;
+use App\Models\FormBuilding\CheckboxGroupFormElement;
+use App\Models\FormBuilding\CheckboxInputFormElement;
+use App\Models\FormBuilding\ContainerFormElement;
+use App\Models\FormBuilding\CurrencyInputFormElement;
+use App\Models\FormBuilding\DateSelectInputFormElement;
 use App\Models\FormBuilding\FormElementDataBinding;
 use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\HTMLFormElement;
+use App\Models\FormBuilding\NumberInputFormElement;
+use App\Models\FormBuilding\RadioInputFormElement;
+use App\Models\FormBuilding\SelectInputFormElement;
+use App\Models\FormBuilding\SelectOptionFormElement;
 use App\Models\FormBuilding\StyleSheet;
+use App\Models\FormBuilding\TextareaInputFormElement;
+use App\Models\FormBuilding\TextInfoFormElement;
+use App\Models\FormBuilding\TextInputFormElement;
 use App\Models\FormMetadata\FormDataSource;
 
 use Filament\Notifications\Notification;
@@ -58,7 +72,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
             // Normalize format
             $normalizedSchema = $this->normalizeSchema($parsed);
 
-            // Process data sources,  javascript, and stylesheets
+            // Process data sources, javascript, and stylesheets
             $this->processDataSources($normalizedSchema, $formVersion);
             $this->processJavaScript($normalizedSchema, $formVersion);
             $this->processStyleSheets($normalizedSchema, $formVersion);
@@ -80,6 +94,40 @@ class ImportFormVersionElementsJob implements ShouldQueue
             Cache::put($this->cacheKey . '_progress', "Completed: {$processedElements}/{$totalElements} elements", 3600);
             Cache::put($this->cacheKey . '_status', 'complete', 3600);
 
+            // Check for template conflicts and send database notification
+            $templateConflicts = Cache::get($this->cacheKey . '_template_conflicts', []);
+            if (!empty($templateConflicts)) {
+                $user = \App\Models\User::find($this->userId);
+                if ($user) {
+                    $filenames = array_column($templateConflicts, 'filename');
+                    $conflictList = implode(', ', $filenames);
+                    $count = count($templateConflicts);
+                    // Construct action buttons for notification
+                    $actions = [];
+                    foreach ($templateConflicts as $conflict) {
+                        // Choose the route based on the template type
+                        $routeName = $conflict['type'] === 'stylesheet'
+                            ? 'filament.forms.resources.style-sheets.view'
+                            : 'filament.forms.resources.form-scripts.view';
+
+                        $actions[] = \Filament\Notifications\Actions\Action::make('view_template_' . $conflict['id'])
+                            ->button()
+                            ->label("View '{$conflict['filename']}'")
+                            ->url(route($routeName, ['record' => $conflict['id']]));
+                    }
+
+                    Notification::make()
+                        ->title('Template Conflicts Detected')
+                        ->warning()
+                        ->body(
+                            "During import of {$formVersion->form->form_id} version {$formVersion->version_number}, {$count} template(s) already existed with different content. "
+                            . "The existing versions were kept: {$conflictList}"
+                        )
+                        ->actions($actions)
+                        ->sendToDatabase($user);
+                }
+            }
+
             FormVersionUpdateEvent::dispatch(
                 $formVersion->id,
                 $formVersion->form_id,
@@ -95,182 +143,80 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Normalize different schema formats into a consistent structure
+     * Normalize the schema (Format 1 only - formversion structure)
+     * Format 2 and 3 are not supported
      */
     private function normalizeSchema(array $parsed): array
     {
-        // Format 1: formversion structure
-        if (isset($parsed['formversion'])) {
-            return [
-                'elements' => $parsed['formversion']['elements'] ?? [],
-                'dataSources' => $parsed['formversion']['dataSources'] ?? [],
-                'javascript' => $this->extractJavaScriptFromFormversion($parsed['formversion']),
-                'stylesheets' => $this->extractStyleSheetsFromFormversion($parsed['formversion']),
-            ];
+        if (!isset($parsed['formversion'])) {
+            throw new \Exception("Only 'formversion' format is supported");
         }
 
-        // Format 2: data structure
-        if (isset($parsed['data'])) {
-            $data = $parsed['data'];
+        $formVersion = $parsed['formversion'];
 
-            // Accept both "elements" and "items"
-            $elements = $data['elements'] ?? $data['items'] ?? [];
-
-            // Prefer "javascript" but gracefully convert "scripts" -> sections
-            $javascript = $data['javascript'] ?? [];
-            if ((!$javascript || !is_array($javascript)) && !empty($data['scripts']) && is_array($data['scripts'])) {
-                $javascript = [];
-                foreach ($data['scripts'] as $script) {
-                    $type = $script['type'] ?? 'web';
-                    $content = $script['content'] ?? '';
-                    if ($content !== '') {
-                        $javascript[$type] = ($javascript[$type] ?? '');
-                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
-                    }
-                }
-            }
-            // Ensure styles array exists
-            $data['styles'] ?? $data['styles'] = [];
-
-            return [
-                'elements' => is_array($elements) ? $elements : [],
-                'dataSources' => $data['dataSources'] ?? ($parsed['dataSources'] ?? []),
-                'javascript' => is_array($javascript) ? $javascript : [],
-                'stylesheets' => is_array($data['styles']) ? $data['styles'] : [],
-            ];
-        }
-
-        // Format 3: direct structure (legacy)
-        if (isset($parsed['elements']) || isset($parsed['items'])) {
-            $elements = $parsed['elements'] ?? $parsed['items'] ?? [];
-            $javascript = $parsed['javascript'] ?? [];
-            if ((!$javascript || !is_array($javascript)) && !empty($parsed['scripts']) && is_array($parsed['scripts'])) {
-                $javascript = [];
-                foreach ($parsed['scripts'] as $script) {
-                    $type = $script['type'] ?? 'web';
-                    $content = $script['content'] ?? '';
-                    if ($content !== '') {
-                        $javascript[$type] = ($javascript[$type] ?? '');
-                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
-                    }
-                }
-            }
-
-            return [
-                'elements' => is_array($elements) ? $elements : [],
-                'dataSources' => $parsed['dataSources'] ?? [],
-                'javascript' => is_array($javascript) ? $javascript : [],
-                'stylesheets' => $parsed['styles'] ?? [],
-            ];
-        }
-
-        Log::warning('Unknown schema format, returning empty structure');
-        return ['elements' => [], 'dataSources' => [], 'javascript' => [], 'stylesheets' => []];
+        return [
+            'elements' => $formVersion['elements'] ?? [],
+            'dataSources' => $formVersion['dataSources'] ?? [],
+            'javascript' => $this->normalizeCodeAssets($formVersion['scripts'] ?? []),
+            'stylesheets' => $this->normalizeCodeAssets($formVersion['styles'] ?? []),
+        ];
     }
 
+    /**
+     * Normalize legacy boolean states to the new string enum states for visibility, required, and read-only fields.
+     * - true / 1 / '1' -> 'always'
+     * - false / 0 / '0' / null -> 'never'
+     * - existing strings ('always', 'icm', 'portal', 'never') are returned as-is
+     */
+    private function normalizeLegacyState($value): string
+    {
+        if ($value === true || $value === 1 || $value === '1') {
+            return 'always';
+        }
+
+        if ($value === false || $value === 0 || $value === '0' || $value === null) {
+            return 'never';
+        }
+
+        return (string) $value;
+    }
 
     /**
-     * Extract JavaScript from formversion format
+     * Normalize code assets (scripts/stylesheets) into a standard structure.
+     * Transforms the JSON array format into a structure that matches our storage model:
+     * - Web/PDF assets are concatenated into single strings
+     * - Script templates remain as individual objects with filename and content
      */
-    private function extractJavaScriptFromFormversion(array $formversion): array
+    private function normalizeCodeAssets(array $assets): array
     {
-        $javascript = [];
+        $normalized = [];
 
-        // Check for scripts array in formversion format
-        if (!empty($formversion['scripts']) && is_array($formversion['scripts'])) {
-            foreach ($formversion['scripts'] as $script) {
-                $type = $script['type'] ?? 'web';
-                $content = $script['content'] ?? '';
-                if ($type === 'template') {
-                    // Pass the template's filename as content so it can be attached
-                    $content = $script['filename'];
+        foreach ($assets as $asset) {
+            $type = $asset['type'] ?? 'web';
+            $content = $asset['content'] ?? '';
+            $filename = $asset['filename'] ?? null;
+
+            if ($type === 'template') {
+                // Templates need to remain as individual objects for separate file creation
+                if ($filename && $filename !== '') {
+                    if (!array_key_exists($type, $normalized)) {
+                        $normalized[$type] = [];
+                    }
+                    $normalized[$type][] = [
+                        'filename' => $filename,
+                        'content' => $content,
+                    ];
                 }
+            } else {
+                // Web/PDF assets get concatenated into a single string
                 if ($content !== '') {
-                    if ($type === 'template') {
-                        if (!array_key_exists($type, $javascript)) {
-                            $javascript[$type] = [];
-                        }
-                        array_push($javascript[$type], $content);
-                    } else {
-                        // concatenate if multiple blocks of the same type exist
-                        $javascript[$type] = ($javascript[$type] ?? '');
-                        $javascript[$type] .= ($javascript[$type] ? "\n" : "") . $content;
-                    }
+                    $normalized[$type] = ($normalized[$type] ?? '');
+                    $normalized[$type] .= ($normalized[$type] ? "\n" : "") . $content;
                 }
             }
         }
 
-        return $javascript;
-    }
-
-    /**
-     * Extract stylesheets from formversion format
-     */
-    private function extractStyleSheetsFromFormversion(array $formversion): array
-    {
-        $stylesheets = [];
-
-        // Check for styles array in formversion format
-        if (!empty($formversion['styles']) && is_array($formversion['styles'])) {
-            foreach ($formversion['styles'] as $stylesheet) {
-                $type = $stylesheet['type'] ?? 'web';
-                $content = $stylesheet['content'] ?? '';
-                if ($type === 'template') {
-                    // Pass the template's filename as content so it can be attached
-                    $content = $stylesheet['filename'];
-                }
-                if ($content !== '') {
-                    if ($type === 'template') {
-                        if (!array_key_exists($type, $stylesheets)) {
-                            $stylesheets[$type] = [];
-                        }
-                        array_push($stylesheets[$type], $content);
-                    } else {
-                        // concatenate if multiple blocks of the same type exist
-                        $stylesheets[$type] = ($stylesheets[$type] ?? '');
-                        $stylesheets[$type] .= ($stylesheets[$type] ? "\n" : "") . $content;
-                    }
-                }
-            }
-        }
-        return $stylesheets;
-    }
-
-    /**
-     * Parse JavaScript content to extract individual sections
-     */
-    private function parseJavaScriptSections(string $content): array
-    {
-        $sections = [];
-
-        // Split by section comments (// Section: sectionName)
-        $lines = explode("\n", $content);
-        $currentSection = null;
-        $currentCode = [];
-
-        foreach ($lines as $line) {
-            // Check if this is a section header
-            if (preg_match('/\/\/ Section: (.+)/', trim($line), $matches)) {
-                // Save previous section if exists
-                if ($currentSection && !empty($currentCode)) {
-                    $sections[$currentSection] = implode("\n", $currentCode);
-                }
-
-                // Start new section
-                $currentSection = trim($matches[1]);
-                $currentCode = [];
-            } elseif ($currentSection && trim($line) !== '') {
-                // Add line to current section (skip empty lines at start)
-                $currentCode[] = $line;
-            }
-        }
-
-        // Save the last section
-        if ($currentSection && !empty($currentCode)) {
-            $sections[$currentSection] = implode("\n", $currentCode);
-        }
-
-        return $sections;
+        return $normalized;
     }
 
     /**
@@ -303,7 +249,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $host = $dataSourceData['host'] ?? null;
 
                 // Create or find the data source
-                $dataSource = \App\Models\FormMetadata\FormDataSource::firstOrCreate([
+                $dataSource = FormDataSource::firstOrCreate([
                     'name' => $name,
                     'type' => $type,
                 ], [
@@ -327,111 +273,169 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Process JavaScript from the normalized schema
+     * Process JavaScript from the normalized schema. Handles form scripts and templates
      */
     private function processJavaScript(array $normalizedSchema, $formVersion): void
     {
         $javascript = $normalizedSchema['javascript'] ?? [];
-        if (!$javascript || !is_array($javascript)) {
+        if (empty($javascript))
             return;
-        }
 
-        // If keys look like types, emit one FormScript per type.
-        $knownTypes = ['web', 'pdf', 'portal', 'template'];
-        $typeKeys = array_intersect(array_keys($javascript), $knownTypes);
+        foreach (['web', 'pdf', 'template'] as $type) {
+            if (!isset($javascript[$type]))
+                continue;
 
-        try {
-            if (!class_exists(FormScript::class)) {
-                throw new \Exception('FormScript class not found');
-            }
-
-            if (!empty($typeKeys)) {
-                foreach ($typeKeys as $t) {
-                    if ($t === 'template') {
-                        // Filenames are saved as content
-                        $filenames = $javascript[$t];
-                        // Find template by filename and attach to formVersion
-                        foreach ($filenames as $filename) {
-                            $id = FormScript::where('filename', $filename)->value('id');
-                            $formVersion->formScripts()->syncWithoutDetaching($id);
-                        }
-                    } else {
-                        $content = trim((string) ($javascript[$t] ?? ''));
-                        FormScript::createFormScript($formVersion, $content, $t);
-                    }
+            if ($type === 'template') {
+                foreach ($javascript[$type] as $templateData) {
+                    $this->processTemplateScript($formVersion, $templateData);
                 }
             } else {
-                // Fallback: treat as “sections” and combine into a single web script
-                $combined = "// Imported JavaScript from template\n\n";
-                foreach ($javascript as $sectionName => $jsContent) {
-                    if (!empty($jsContent)) {
-                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
-                    }
-                }
-                FormScript::createFormScript($formVersion, trim($combined), 'web');
+                FormScript::createFormScript($formVersion, trim($javascript[$type]), $type);
             }
-        } catch (\Exception $e) {
-            Log::error('Failed to create JavaScript form script(s)', [
-                'form_version_id' => $formVersion->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
         }
     }
 
     /**
-     * Process stylesheets from the normalized schema
+     * Process stylesheets from the normalized schema. Handles form styles and templates
      */
     private function processStyleSheets(array $normalizedSchema, $formVersion): void
     {
         $stylesheets = $normalizedSchema['stylesheets'] ?? [];
-        if (!$stylesheets || !is_array($stylesheets)) {
+        if (empty($stylesheets))
             return;
-        }
 
-        // If keys look like types, emit one StyleSheet per type.
-        $knownTypes = ['web', 'pdf', 'portal', 'template'];
-        $typeKeys = array_intersect(array_keys($stylesheets), $knownTypes);
+        foreach (['web', 'pdf', 'template'] as $type) {
+            if (!isset($stylesheets[$type]))
+                continue;
 
-        try {
-            if (!class_exists(StyleSheet::class)) {
-                throw new \Exception('StyleSheet class not found');
-            }
-
-            if (!empty($typeKeys)) {
-                foreach ($typeKeys as $t) {
-                    if ($t === 'template') {
-                        // Filenames are saved as content
-                        $filenames = $stylesheets[$t];
-                        // Find template by filename and attach to formVersion
-                        foreach ($filenames as $filename) {
-                            $id = StyleSheet::where('filename', $filename)->value('id');
-                            $formVersion->styleSheets()->syncWithoutDetaching($id);
-                        }
-                    } else {
-                        $content = trim((string) ($stylesheets[$t] ?? ''));
-                        StyleSheet::createStyleSheet($formVersion, $content, $t);
-                    }
+            if ($type === 'template') {
+                foreach ($stylesheets[$type] as $templateData) {
+                    $this->processTemplateStyleSheet($formVersion, $templateData);
                 }
             } else {
-                // Fallback: treat as “sections” and combine into a single web stylesheet
-                $combined = "// Imported StyleSheet from template\n\n";
-                foreach ($stylesheets as $sectionName => $jsContent) {
-                    if (!empty($jsContent)) {
-                        $combined .= "// Section: {$sectionName}\n{$jsContent}\n\n";
-                    }
-                }
-                StyleSheet::createStyleSheet($formVersion, trim($combined), 'web');
+                StyleSheet::createStyleSheet($formVersion, trim($stylesheets[$type]), $type);
             }
-        } catch (\Exception $e) {
-            Log::error('Failed to create StyleSheet form stylesheet(s)', [
-                'form_version_id' => $formVersion->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
         }
     }
 
+    /**
+     * Process a template script as a transaction. 
+     * Includes conflict resolution for when records exist with the same filename but different content.
+     */
+    private function processTemplateScript($formVersion, array $templateData): void
+    {
+        $filename = $templateData['filename'];
+        $incomingContent = $templateData['content'] ?? '';
+
+        DB::transaction(function () use ($formVersion, $filename, $incomingContent) {
+            $existing = FormScript::where('filename', $filename)->where('type', 'template')->first();
+
+            if ($existing) {
+                // Read content from disk to compare
+                if ($existing->getJsContent() === $incomingContent) {
+                    // Content matches - use existing template
+                    $this->syncTemplate('script', $formVersion, $existing->id);
+                    return;
+                }
+
+                // Content differs - CONFLICT! Use existing but record the conflict
+                $this->syncTemplate('script', $formVersion, $existing->id);
+                $this->recordTemplateConflict($filename, $existing->id, 'script');
+
+                Log::warning('Template script conflict detected during import', [
+                    'filename' => $filename,
+                    'existing_template_id' => $existing->id,
+                    'form_version_id' => $formVersion->id,
+                    'message' => 'Template exists with different content. Using existing template.'
+                ]);
+            } else {
+                // Template doesn't exist - create it
+                $new = FormScript::create(['filename' => $filename, 'type' => 'template']);
+
+                // Save content to disk
+                if (!$new->saveJsContent($incomingContent)) {
+                    throw new \Exception('Failed to save template JS content to file');
+                }
+
+                $this->syncTemplate('script', $formVersion, $new->id);
+            }
+        });
+    }
+
+    /**
+     * Process a template stylesheet as a transaction. 
+     * Includes conflict resolution for when records exist with the same filename but different content.
+     */
+    private function processTemplateStyleSheet($formVersion, array $templateData): void
+    {
+        $filename = $templateData['filename'];
+        $incomingContent = $templateData['content'] ?? '';
+
+        DB::transaction(function () use ($formVersion, $filename, $incomingContent) {
+            $existing = StyleSheet::where('filename', $filename)->where('type', 'template')->first();
+
+            if ($existing) {
+                // Read content from disk to compare
+                if ($existing->getCssContent() === $incomingContent) {
+                    // Content matches - use existing template
+                    $this->syncTemplate('stylesheet', $formVersion, $existing->id);
+                    return;
+                }
+
+                // Content differs - CONFLICT! Use existing but record the conflict
+                $this->syncTemplate('stylesheet', $formVersion, $existing->id);
+                $this->recordTemplateConflict($filename, $existing->id, 'stylesheet');
+
+                Log::warning('Template stylesheet conflict detected during import', [
+                    'filename' => $filename,
+                    'existing_template_id' => $existing->id,
+                    'form_version_id' => $formVersion->id,
+                    'message' => 'Template exists with different content. Using existing template.'
+                ]);
+            } else {
+                // Template doesn't exist - create it
+                $new = StyleSheet::create(['filename' => $filename, 'type' => 'template']);
+
+                // Save content to disk
+                if (!$new->saveCssContent($incomingContent)) {
+                    throw new \Exception('Failed to save template CSS content to file');
+                }
+
+                $this->syncTemplate('stylesheet', $formVersion, $new->id);
+            }
+        });
+    }
+
+    /**
+     * Sync a template to the form version relationship
+     * Encapsulates the mapping between template type and relationship method
+     */
+    private function syncTemplate(string $type, $formVersion, int $templateId): void
+    {
+        if ($type === 'script') {
+            $formVersion->formScripts()->syncWithoutDetaching($templateId);
+        } else {
+            $formVersion->styleSheets()->syncWithoutDetaching($templateId);
+        }
+    }
+
+    /**
+     * Record script and stylesheet template conflicts for later notification
+     */
+    private function recordTemplateConflict(string $filename, int $existingTemplateId, string $type = 'script'): void
+    {
+        $conflicts = Cache::get($this->cacheKey . '_template_conflicts', []);
+        $ids = array_column($conflicts, 'id');
+
+        if (!in_array($existingTemplateId, $ids)) {
+            $conflicts[] = [
+                'filename' => $filename,
+                'id' => $existingTemplateId,
+                'type' => $type,
+            ];
+            Cache::put($this->cacheKey . '_template_conflicts', $conflicts, 3600);
+        }
+    }
 
     /**
      * Return child elements for any container/group regardless of key naming.
@@ -447,7 +451,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         return is_array($kids) ? $kids : [];
     }
 
-    // Add method to count total elements for progress tracking
+    /**
+     * Count total elements recursively for progress tracking
+     */
     protected function countElementsRecursive(array $elements): int
     {
         $count = 0;
@@ -463,122 +469,31 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Check if element is a button type
-     */
-    private function isButtonElement($elementType): bool
-    {
-        return $elementType === \App\Models\FormBuilding\ButtonInputFormElement::class ||
-            $elementType === 'ButtonInputFormElements' ||
-            $elementType === 'button';
-    }
-
-    /**
-     * Check if button element has '+' or '-' label
-     */
-    private function isPlusMinusButton(array $element): bool
-    {
-        $label = trim($element['label'] ?? $element['name'] ?? '');
-        return $label === '+' || $label === '-';
-    }
-
-    /**
-     * Check if container element has '+' or '-' label
-     */
-    private function isPlusMinusContainer(array $element): bool
-    {
-        $label = trim($element['label'] ?? $element['name'] ?? '');
-        return $label === '+' || $label === '-';
-    }
-
-    /**
-     * Check if element is a container (should not create form field)
-     */
-    private function isContainerElement(string $elementType, array $element): bool
-    {
-        $containerTypes = [
-            'ContainerFormElements',
-            \App\Models\FormBuilding\ContainerFormElement::class,
-            'container',
-            'section',
-            'group',
-            'fieldset'
-        ];
-
-        // Check element type directly
-        if (in_array($elementType, $containerTypes)) {
-            return true;
-        }
-
-        // Check the actual resolved type
-        $resolvedType = $this->resolveElementableType($elementType);
-        if ($resolvedType === \App\Models\FormBuilding\ContainerFormElement::class) {
-            return true;
-        }
-
-        // Check container type property
-        if (isset($element['containerType'])) {
-            return true;
-        }
-
-        return false;
-    }
-
-
-    /**
      * Extract options from different element formats
      */
     private function extractOptions(array $element): array
     {
         $options = [];
 
-        // Format 1: formversion format with options array
+        // Handle formversion format with options array
         if (!empty($element['options']) && is_array($element['options'])) {
-
             foreach ($element['options'] as $index => $option) {
                 if (is_array($option)) {
                     $optionData = [
                         'label' => $option['label'] ?? '',
+                        'value' => $option['value'] ?? null,
                         'order' => $option['order'] ?? ($index + 1),
                         'description' => $option['description'] ?? null,
                     ];
                     $options[] = $optionData;
                 } else {
                     $optionData = [
-                        'label' => (string)$option,
+                        'label' => (string) $option,
+                        'value' => (string) $option,
                         'order' => $index + 1,
                         'description' => null,
                     ];
                     $options[] = $optionData;
-                }
-            }
-        }
-        // Format 2: listItems array
-        elseif (!empty($element['listItems']) && is_array($element['listItems'])) {
-            foreach ($element['listItems'] as $idx => $item) {
-                if (is_array($item)) {
-                    $options[] = [
-                        'label' => $item['label'] ?? $item['text'] ?? $item['name'] ?? $item['value'] ?? '',
-                        'order' => $item['order'] ?? ($idx + 1),
-                        'description' => $item['description'] ?? null,
-                    ];
-                } else {
-                    $options[] = [
-                        'label' => isset($item['value']) ? $item['value'] : (string)$item,
-                        'order' => $idx + 1,
-                        'description' => null,
-                    ];
-                }
-            }
-        }
-        // Format 3: attributes.options
-        elseif (!empty($element['attributes']['options']) && is_array($element['attributes']['options'])) {
-            foreach ($element['attributes']['options'] as $idx => $option) {
-                if (is_array($option)) {
-                    $options[] = [
-                        'label' => $option['label'] ?? '',
-                        'order' => $option['order'] ?? ($idx + 1),
-                        'description' => $option['description'] ?? null,
-                    ];
                 }
             }
         }
@@ -600,50 +515,42 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Create select options for SelectInputFormElement
+     * Create options for Select, Radio, and CheckboxGroup elements
      */
-    private function createSelectOptions($selectModel, array $options): void
+    private function createOptionsForElement($model, string $type, array $options): void
     {
-        if (empty($options)) return;
+        if (empty($options))
+            return;
 
-        foreach ($options as $index => $optionData) {
-            if (empty($optionData['label'])) continue; // Skip options without labels
+        $methodMap = [
+            SelectInputFormElement::class => 'createForSelect',
+            RadioInputFormElement::class => 'createForRadio',
+            CheckboxGroupFormElement::class => 'createForCheckboxGroup',
+        ];
+
+        $method = $methodMap[$type] ?? null;
+        if (!$method)
+            return;
+
+        foreach ($options as $optionData) {
+            if (empty($optionData['label']))
+                continue;
 
             try {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForSelect($selectModel, $optionData);
+                SelectOptionFormElement::$method($model, $optionData);
             } catch (\Exception $e) {
-                Log::error('Failed to create select option', [
+                Log::error('Failed to create option', [
+                    'type' => $type,
                     'option_data' => $optionData,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
                 ]);
             }
         }
     }
 
     /**
-     * Create radio options for RadioInputFormElement
+     * Import elements recursively with progress tracking
      */
-    private function createRadioOptions($radioModel, array $options): void
-    {
-
-        if (empty($options)) return;
-
-        foreach ($options as $index => $optionData) {
-            if (empty($optionData['label'])) continue; // Skip options without labels
-            try {
-                \App\Models\FormBuilding\SelectOptionFormElement::createForRadio($radioModel, $optionData);
-            } catch (\Exception $e) {
-                Log::error('Failed to create radio option', [
-                    'option_data' => $optionData,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-            }
-        }
-    }
-
-    // Updated to include progress tracking
     protected function importElementsRecursive(array $elements, $parentId, $formVersion, $processedElements = 0, $totalElements = 0, $inRepeatableContainer = false, $inPlusContainer = false)
     {
         foreach ($elements as $element) {
@@ -678,7 +585,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                                     $formVersion,
                                     $processedElements,
                                     $totalElements,
-                                    $inRepeatableContainer /* or $childInRepeatable when present */,
+                                    $inRepeatableContainer /* or $childInRepeatable when present */ ,
                                     $inPlusContainer      /* or $childInPlusContainer when present */
                                 );
                             }
@@ -691,41 +598,42 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 // Fallback for lowercase/short types
                 if (!$type) {
                     $typeMap = [
-                        'container' => \App\Models\FormBuilding\ContainerFormElement::class,
-                        'group' => \App\Models\FormBuilding\ContainerFormElement::class,
-                        'text-input' => \App\Models\FormBuilding\TextInputFormElement::class,
-                        'textarea' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-                        'textarea-input' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-                        'radio' => \App\Models\FormBuilding\RadioInputFormElement::class,
-                        'radio-input' => \App\Models\FormBuilding\RadioInputFormElement::class,
-                        'dropdown' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'dropdown-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'select' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'select-input' => \App\Models\FormBuilding\SelectInputFormElement::class,
-                        'checkbox' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-                        'checkbox-input' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-                        'checkbox-group' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
-                        'checkbox-group-input' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
-                        'date' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-                        'date-select-input' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-                        'number' => \App\Models\FormBuilding\NumberInputFormElement::class,
-                        'number-input' => \App\Models\FormBuilding\NumberInputFormElement::class,
-                        'currency' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
-                        'currency-input' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
-                        'html' => \App\Models\FormBuilding\HTMLFormElement::class,
-                        'text-info' => \App\Models\FormBuilding\TextInfoFormElement::class,
-                        'button' => \App\Models\FormBuilding\ButtonInputFormElement::class,
-                        'button-input' => \App\Models\FormBuilding\ButtonInputFormElement::class,
+                        'container' => ContainerFormElement::class,
+                        'group' => ContainerFormElement::class,
+                        'text-input' => TextInputFormElement::class,
+                        'textarea' => TextareaInputFormElement::class,
+                        'textarea-input' => TextareaInputFormElement::class,
+                        'radio' => RadioInputFormElement::class,
+                        'radio-input' => RadioInputFormElement::class,
+                        'dropdown' => SelectInputFormElement::class,
+                        'dropdown-input' => SelectInputFormElement::class,
+                        'select' => SelectInputFormElement::class,
+                        'select-input' => SelectInputFormElement::class,
+                        'checkbox' => CheckboxInputFormElement::class,
+                        'checkbox-input' => CheckboxInputFormElement::class,
+                        'checkbox-group' => CheckboxGroupFormElement::class,
+                        'checkbox-group-input' => CheckboxGroupFormElement::class,
+                        'date' => DateSelectInputFormElement::class,
+                        'date-select-input' => DateSelectInputFormElement::class,
+                        'number' => NumberInputFormElement::class,
+                        'number-input' => NumberInputFormElement::class,
+                        'currency' => CurrencyInputFormElement::class,
+                        'currency-input' => CurrencyInputFormElement::class,
+                        'html' => HTMLFormElement::class,
+                        'text-info' => TextInfoFormElement::class,
+                        'button' => ButtonInputFormElement::class,
+                        'button-input' => ButtonInputFormElement::class,
                     ];
                     if (isset($typeMap[$elementType])) {
                         $type = $typeMap[$elementType];
                     }
                 }
 
-                if (!$type) continue;
+                if (!$type)
+                    continue;
 
                 $isRepeatableContainer = false;
-                if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
+                if ($type === ContainerFormElement::class) {
                     $isRepeatableContainer = $this->isRepeatableContainer($element);
                 }
 
@@ -738,7 +646,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                             $formVersion,
                             $processedElements,
                             $totalElements,
-                            $inRepeatableContainer /* or $childInRepeatable when present */,
+                            $inRepeatableContainer /* or $childInRepeatable when present */ ,
                             $inPlusContainer      /* or $childInPlusContainer when present */
                         );
                     }
@@ -757,7 +665,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 $humanReadableLabel = null;
 
                 // Special handling for TextInfo elements - use content if it's short
-                if ($type === \App\Models\FormBuilding\TextInfoFormElement::class && isset($element['content'])) {
+                if ($type === TextInfoFormElement::class && isset($element['content'])) {
                     $content = trim($element['content']);
                     if (!empty($content) && strlen($content) <= 30) {
                         $humanReadableLabel = $content;
@@ -806,11 +714,10 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     'reference_id' => $referenceId,
                     'description' => $attributes['description'] ?? '',
                     'help_text' => $attributes['help_text'] ?? '',
-                    'is_read_only' => $attributes['is_read_only'] ? true : false,
-                    'custom_read_only' => $attributes['is_read_only'] ? true : false,
-                    'visible_web' => $attributes['visible_web'] ?? true,
-                    'visible_pdf' => $attributes['visible_pdf'] ?? true,
-                    'is_required' => $attributes['is_required'] ?? false,
+                    'visible_web' => $this->normalizeLegacyState($attributes['visible_web'] ?? null),
+                    'visible_pdf' => $this->normalizeLegacyState($attributes['visible_pdf'] ?? null),
+                    'is_required' => $this->normalizeLegacyState($attributes['is_required'] ?? null),
+                    'is_read_only' => $this->normalizeLegacyState($attributes['is_read_only'] ?? null),
                     'save_on_submit' => $attributes['save_on_submit'] ?? true,
                 ];
 
@@ -822,68 +729,23 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
                 $formElement = null;
 
-                if ($type === \App\Models\FormBuilding\ContainerFormElement::class) {
-                    $containerModel = \App\Models\FormBuilding\ContainerFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $containerModel->id;
+                // Check if the class exists and is an Eloquent model
+                if (class_exists($type) && is_subclass_of($type, \Illuminate\Database\Eloquent\Model::class)) {
+                    $elementableModel = $type::create($attributes['attributes']);
+                    $elementData['elementable_id'] = $elementableModel->id;
                     $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\TextInputFormElement::class) {
-                    $textInputModel = \App\Models\FormBuilding\TextInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $textInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\TextareaInputFormElement::class) {
-                    $textareModel = \App\Models\FormBuilding\TextareaInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $textareModel->id;
-                    $formElement = FormElement::create($elementData);
-                } elseif ($type === \App\Models\FormBuilding\TextInfoFormElement::class) {
-                    $textInfoModel = \App\Models\FormBuilding\TextInfoFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $textInfoModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\DateSelectInputFormElement::class) {
-                    $dateSelectModel = \App\Models\FormBuilding\DateSelectInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $dateSelectModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\CheckboxInputFormElement::class) {
-                    $checkboxInputModel = \App\Models\FormBuilding\CheckboxInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $checkboxInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\CheckboxGroupFormElement::class) {
-                    $checkboxGroupModel = \App\Models\FormBuilding\CheckboxGroupFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $checkboxGroupModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\SelectInputFormElement::class) {
-                    $selectModel = \App\Models\FormBuilding\SelectInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $selectModel->id;
-                    $formElement = FormElement::create($elementData);
-                    $this->createSelectOptions($selectModel, $options);
-                } elseif ($type === \App\Models\FormBuilding\RadioInputFormElement::class) {
-                    $radioModel = \App\Models\FormBuilding\RadioInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $radioModel->id;
-                    $formElement = FormElement::create($elementData);
-                    $this->createRadioOptions($radioModel, $options);
-                } else if ($type === \App\Models\FormBuilding\NumberInputFormElement::class) {
-                    $numberInputModel = \App\Models\FormBuilding\NumberInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $numberInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\CurrencyInputFormElement::class) {
-                    $currencyInputModel = \App\Models\FormBuilding\CurrencyInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $currencyInputModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\ButtonInputFormElement::class) {
-                    $buttonModel = \App\Models\FormBuilding\ButtonInputFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $buttonModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else if ($type === \App\Models\FormBuilding\HTMLFormElement::class) {
-                    $htmlModel = \App\Models\FormBuilding\HTMLFormElement::updateOrCreate($attributes['attributes']);
-                    $elementData['elementable_id'] = $htmlModel->id;
-                    $formElement = FormElement::create($elementData);
-                } else {
-                    if (method_exists($type, 'create')) {
-                        $elementableModel = $type::create($attributes['attributes']);
-                        $elementData['elementable_id'] = $elementableModel->id;
-                    }
-                    $formElement = FormElement::create($elementData);
-                }
 
+                    // Handle options for Select, Radio, and CheckboxGroup elements
+                    if (
+                        in_array($type, [
+                            SelectInputFormElement::class,
+                            RadioInputFormElement::class,
+                            CheckboxGroupFormElement::class
+                        ])
+                    ) {
+                        $this->createOptionsForElement($elementableModel, $type, $options);
+                    }
+                }
 
                 if ($formElement) {
                     // Create data binding
@@ -919,7 +781,7 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 }
             } catch (\Exception $e) {
                 Log::error('Failed to import individual element', [
-                    'element' => $element['name'],
+                    'element' => $element['name'] ?? 'unknown',
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
                 ]);
@@ -927,11 +789,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
 
         if ($this->defaultDataSourceError) {
-            Notification::make()
-                ->title("Failed to create the default data source 'Imported Data Source'")
-                ->body("Please reseed the form_data_sources table using the following command: sail artisan db:seed --class=FormDataSourceSeeder")
-                ->warning()
-                ->send();
+            Cache::put(
+                $this->cacheKey . '_warning',
+                "Failed to create the default data source. 
+                Please reseed the form_data_sources table using the following command: sail artisan db:seed --class=FormDataSourceSeeder",
+                3600
+            );
         }
 
         return $processedElements;
@@ -1060,22 +923,25 @@ class ImportFormVersionElementsJob implements ShouldQueue
         }
     }
 
+    /**
+     * Resolve element type string to fully qualified class name
+     */
     private function resolveElementableType(string $elementType): ?string
     {
         $map = [
-            'TextInputFormElements' => \App\Models\FormBuilding\TextInputFormElement::class,
-            'TextareaInputFormElements' => \App\Models\FormBuilding\TextareaInputFormElement::class,
-            'TextInfoFormElements' => \App\Models\FormBuilding\TextInfoFormElement::class,
-            'DateSelectInputFormElements' => \App\Models\FormBuilding\DateSelectInputFormElement::class,
-            'CheckboxInputFormElements' => \App\Models\FormBuilding\CheckboxInputFormElement::class,
-            'CheckboxGroupFormElements' => \App\Models\FormBuilding\CheckboxGroupFormElement::class,
-            'SelectInputFormElements' => \App\Models\FormBuilding\SelectInputFormElement::class,
-            'RadioInputFormElements' => \App\Models\FormBuilding\RadioInputFormElement::class,
-            'NumberInputFormElements' => \App\Models\FormBuilding\NumberInputFormElement::class,
-            'CurrencyInputFormElements' => \App\Models\FormBuilding\CurrencyInputFormElement::class,
-            'ButtonInputFormElements' => \App\Models\FormBuilding\ButtonInputFormElement::class,
-            'HTMLFormElements' => \App\Models\FormBuilding\HTMLFormElement::class,
-            'ContainerFormElements' => \App\Models\FormBuilding\ContainerFormElement::class,
+            'TextInputFormElements' => TextInputFormElement::class,
+            'TextareaInputFormElements' => TextareaInputFormElement::class,
+            'TextInfoFormElements' => TextInfoFormElement::class,
+            'DateSelectInputFormElements' => DateSelectInputFormElement::class,
+            'CheckboxInputFormElements' => CheckboxInputFormElement::class,
+            'CheckboxGroupFormElements' => CheckboxGroupFormElement::class,
+            'SelectInputFormElements' => SelectInputFormElement::class,
+            'RadioInputFormElements' => RadioInputFormElement::class,
+            'NumberInputFormElements' => NumberInputFormElement::class,
+            'CurrencyInputFormElements' => CurrencyInputFormElement::class,
+            'ButtonInputFormElements' => ButtonInputFormElement::class,
+            'HTMLFormElements' => HTMLFormElement::class,
+            'ContainerFormElements' => ContainerFormElement::class,
         ];
 
         if (isset($map[$elementType])) {
@@ -1091,6 +957,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         return null;
     }
 
+    /**
+     * Extract element attributes from the element array
+     */
     private function extractElementAttributes(array $element): array
     {
         $exclude = [
@@ -1114,6 +983,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
         ];
         $attributes = [];
 
+        // Initialize the nested array immediately so we don't get null errors
+        $attributes['attributes'] = [];
+
         foreach ($element as $key => $value) {
             if (!in_array($key, $exclude, true)) {
                 $attributes[$key] = $value;
@@ -1122,51 +994,50 @@ class ImportFormVersionElementsJob implements ShouldQueue
 
         // Handle both formats for repeatable containers
         if (isset($element['repeats'])) {
-            $attributes['is_repeatable'] = (bool)$element['repeats'];
-            $attributes['attributes']['is_repeatable'] = (bool)$element['repeats'];
+            $attributes['attributes']['is_repeatable'] = (bool) $element['repeats'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         } elseif (isset($element['attributes']['isRepeatable'])) {
-            $attributes['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
-            $attributes['attributes']['is_repeatable'] = (bool)$element['attributes']['isRepeatable'];
+            $attributes['attributes']['is_repeatable'] = (bool) $element['attributes']['isRepeatable'];
             if (isset($element['attributes']['repeaterItemLabel'])) {
                 $attributes['attributes']['repeater_item_label'] = $element['attributes']['repeaterItemLabel'];
             }
         }
+
         // Handle min/max repeats
         if (isset($element['minRepeats'])) {
-            $attributes['min_repeats'] = (int)$element['minRepeats'];
+            $attributes['attributes']['min_repeats'] = (int) $element['minRepeats'];
         } elseif (isset($element['min_repeats'])) {
-            $attributes['min_repeats'] = (int)$element['min_repeats'];
+            $attributes['attributes']['min_repeats'] = (int) $element['min_repeats'];
         }
 
         if (isset($element['maxRepeats'])) {
-            $attributes['max_repeats'] = (int)$element['maxRepeats'];
+            $attributes['attributes']['max_repeats'] = (int) $element['maxRepeats'];
         } elseif (isset($element['max_repeats'])) {
-            $attributes['max_repeats'] = (int)$element['max_repeats'];
+            $attributes['attributes']['max_repeats'] = (int) $element['max_repeats'];
         }
 
         // Handle container type mapping
         if (isset($element['containerType'])) {
-            $attributes['container_type'] = $element['containerType'];
+            $attributes['attributes']['container_type'] = $element['containerType'];
         } elseif (isset($element['attributes']['containerType'])) {
             $attributes['attributes']['container_type'] = $element['attributes']['containerType'];
         }
 
         // Handle collapsible properties
         if (isset($element['collapsible'])) {
-            $attributes['collapsible'] = (bool)$element['collapsible'];
+            $attributes['attributes']['collapsible'] = (bool) $element['collapsible'];
         }
         if (isset($element['collapsedByDefault'])) {
-            $attributes['collapsed_by_default'] = (bool)$element['collapsedByDefault'];
+            $attributes['attributes']['collapsed_by_default'] = (bool) $element['collapsedByDefault'];
         }
 
         $elementType = $element['elementType'] ?? $element['type'] ?? '';
 
         // For TextInfo elements, ensure content is properly mapped
         if ($elementType === 'TextInfoFormElements' && isset($element['content'])) {
-            $attributes['content'] = $element['content'];
+            $attributes['attributes']['content'] = $element['content'];
         }
 
         // For Button elements, ensure label is properly mapped
@@ -1174,43 +1045,41 @@ class ImportFormVersionElementsJob implements ShouldQueue
             $attributes['attributes']['text'] = $element['label'];
         }
 
-        // Handle options/list items (both formats)
-        // if (isset($element['listItems'])) {
-        //     $attributes['listItems'] = $element['listItems'];
-        // } elseif (isset($element['options'])) {
-        //     $attributes['options'] = $element['options'];
-        // }
-
         // Handle default values
         if (isset($element['attributes']['value'])) {
-            $attributes['attributes']['defaultValue'] = $element['attributes']['value'];
+            $attributes['attributes']['default_value'] = $element['attributes']['value'];
+        } elseif (isset($element['attributes']['defaultValue'])) {
+            $attributes['attributes']['default_value'] = $element['attributes']['defaultValue'];
         }
 
         // Handle date format
         if (isset($element['dateFormat'])) {
-            $attributes['dateFormat'] = \App\Models\FormBuilding\DateSelectInputFormElement::convertFromFlatpickrFormat($element['dateFormat']);
+            $attributes['attributes']['date_format'] = DateSelectInputFormElement::convertFromFlatpickrFormat($element['dateFormat']);
         } else if (isset($element['attributes']['dateFormat'])) {
-            $attributes['attributes']['dateFormat'] = \App\Models\FormBuilding\DateSelectInputFormElement::convertFromFlatpickrFormat($element['attributes']['dateFormat']);
+            $attributes['attributes']['date_format'] = DateSelectInputFormElement::convertFromFlatpickrFormat($element['attributes']['dateFormat']);
         }
 
         // Handle HTML content
         if (isset($element['htmlContent'])) {
-            $attributes['html_content'] = $element['htmlContent'];
+            $attributes['attributes']['html_content'] = $element['htmlContent'];
         } else if (isset($element['attributes']['htmlContent'])) {
             $attributes['attributes']['html_content'] = $element['attributes']['htmlContent'];
         }
 
-
-        // Ensure $attributes['attributes] exists
-        if (!isset($attributes['attributes'])) {
-            $attributes['attributes'] = [];
+        // Convert all keys in $attributes['attributes'] to snake_case
+        if (is_array($attributes['attributes'])) {
+            $snakeAttributes = [];
+            foreach ($attributes['attributes'] as $key => $value) {
+                $snakeAttributes[\Illuminate\Support\Str::snake($key)] = $value;
+            }
+            $attributes['attributes'] = $snakeAttributes;
         }
 
         return $attributes;
     }
 
     /**
-     * Determine if the given element is a repeatable container.
+     * Determine if the given element is a repeatable container
      */
     private function isRepeatableContainer(array $element): bool
     {
@@ -1224,12 +1093,12 @@ class ImportFormVersionElementsJob implements ShouldQueue
     }
 
     /**
-     * Determine if the given type is a text field element.
+     * Determine if the given type is a text field element
      */
     private function isTextField($type): bool
     {
         $textFieldTypes = [
-            \App\Models\FormBuilding\TextInfoFormElement::class,
+            TextInfoFormElement::class,
         ];
         return in_array($type, $textFieldTypes, true);
     }

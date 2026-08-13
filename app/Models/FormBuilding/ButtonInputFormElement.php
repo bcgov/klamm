@@ -17,7 +17,7 @@ class ButtonInputFormElement extends Model
     protected $fillable = [
         'text',
         'kind',
-        'enableVarSub',
+        'enable_var_sub',
     ];
 
     protected $casts = [
@@ -30,12 +30,11 @@ class ButtonInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            TextInput::make('elementable_data.text')
+            SchemaHelper::getLabelTextField($disabled)
                 ->label('Button Text')
                 ->default('Submit')
-                ->required(true)
                 ->autocomplete(false)
-                ->disabled($disabled),
+                ->required(true),
             SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
             Select::make('elementable_data.kind')
                 ->label('Button Kind')
@@ -61,7 +60,7 @@ class ButtonInputFormElement extends Model
         return [
             'text' => $this->text,
             'kind' => $this->kind,
-            'enableVarSub' => $this->enableVarSub,
+            'enable_var_sub' => $this->enable_var_sub,
         ];
     }
 
@@ -89,7 +88,7 @@ class ButtonInputFormElement extends Model
         return [
             'text' => 'Submit',
             'kind' => 'primary',
-            'enableVarSub' => false,
+            'enable_var_sub' => false,
         ];
     }
 }

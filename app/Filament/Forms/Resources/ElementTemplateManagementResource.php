@@ -71,21 +71,20 @@ class ElementTemplateManagementResource extends Resource
                 Tables\Columns\TextColumn::make('data_path_preview')->label('Data path')
                     ->state(fn(FormElement $r) => optional($r->dataBindings->first())->path)
                     ->copyable()->toggleable(isToggledHiddenByDefault: true),
-                // hidden-by-default fields(some were above for displaying orders)
-                Tables\Columns\IconColumn::make('visible_web')->label('Visible (Web)')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\IconColumn::make('visible_pdf')->label('Visible (PDF)')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\IconColumn::make('is_required')->label('Required')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\IconColumn::make('is_read_only')->label('Read‑only')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                // hidden-by-default fields (some were above for displaying orders)
+                self::makeStatusColumn('visible_web', 'Visible (Web)'),
+                self::makeStatusColumn('visible_pdf', 'Visible (PDF)'),
+                self::makeStatusColumn('is_required', 'Required'),
+                self::makeStatusColumn('is_read_only', 'Read‑only'),
                 Tables\Columns\IconColumn::make('save_on_submit')->label('Save on Submit')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 // Tables\Columns\IconColumn::make('is_template')->label('Is template')->boolean()->sortable()->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('source_element_id')->label('Source element ID')->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('custom_read_only')->label('Custom Read Only')->wrap()->toggleable(isToggledHiddenByDefault: true)->searchable(),
             ])
             ->filters([
                 SelectFilter::make('elementable_type')->label('Element type')->options(function () {
                     // Canonical label map from the model
                     $labels = FormElement::getAvailableElementTypes(); // [FQCN => 'Text Input', ...]
-
+        
                     // Only show types that are present among templates
                     $typesInDb = FormElement::query()
                         ->where('is_template', true)
@@ -107,18 +106,18 @@ class ElementTemplateManagementResource extends Resource
                     return $options; // [FQCN => 'Text Input', ...]
                 }),
                 SelectFilter::make('tags')->relationship('tags', 'name')->label('Tags')->multiple(),
-                TernaryFilter::make('visible_web')->label('Visible on Web')->boolean(),
-                TernaryFilter::make('visible_pdf')->label('Visible on PDF')->boolean(),
-                TernaryFilter::make('is_required')->label('Required')->boolean(),
-                TernaryFilter::make('is_read_only')->label('Read‑only')->boolean(),
+                self::makeStatusFilter('visible_web', 'Visible on Web'),
+                self::makeStatusFilter('visible_pdf', 'Visible on PDF'),
+                self::makeStatusFilter('is_required', 'Required'),
+                self::makeStatusFilter('is_read_only', 'Read‑only'),
                 TernaryFilter::make('save_on_submit')->label('Save on Submit')->boolean(),
-                TernaryFilter::make('is_template')->label('Is Template')->boolean(),
+                // TernaryFilter::make('is_template')->label('Is Template')->boolean(),
             ])
             // edit and untemplate action buttons
             ->actions([
                 Tables\Actions\Action::make('openBuilder')
                     ->label('To Builder')
-                    ->icon('heroicon-o-cube-transparent')
+                    ->icon('heroicon-o-wrench-screwdriver')
                     ->visible(fn(FormElement $r) => filled($r->form_version_id))
                     ->url(fn(FormElement $r) => url("/forms/form-versions/{$r->form_version_id}/build"))
                     ->openUrlInNewTab(),
@@ -206,5 +205,35 @@ class ElementTemplateManagementResource extends Resource
 
         // Fallback: empty map; callers will fallback to class_basename
         return [];
+    }
+
+    /**
+     * Create a badge column for visibility/requirement/read-only fields.
+     */
+    private static function makeStatusColumn(string $field, string $label): Tables\Columns\TextColumn
+    {
+        return Tables\Columns\TextColumn::make($field)
+            ->label($label)
+            ->formatStateUsing(fn($state) => FormElement::getToggleButtonStates()[$state] ?? $state)
+            ->badge()
+            ->color(fn($state) => match ($state) {
+                'always' => 'success',
+                'icm' => 'info',
+                'portal' => 'info',
+                'never' => 'gray',
+            })
+            ->sortable()
+            ->toggleable(isToggledHiddenByDefault: true);
+    }
+
+    /**
+     * Create a filter for visibility/requirement/read-only fields.
+     */
+    private static function makeStatusFilter(string $field, string $label): SelectFilter
+    {
+        return SelectFilter::make($field)
+            ->label($label)
+            ->multiple()
+            ->options(FormElement::getToggleButtonStates());
     }
 }

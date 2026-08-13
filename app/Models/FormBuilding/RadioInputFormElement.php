@@ -18,22 +18,22 @@ class RadioInputFormElement extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
-        'defaultSelected',
-        'labelPosition',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
+        'default_selected',
+        'label_position',
         'orientation',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
-        'labelText' => '',
-        'labelPosition' => 'right',
+        'hide_label' => false,
+        'label_text' => '',
+        'label_position' => 'right',
         'orientation' => 'vertical',
     ];
 
@@ -48,16 +48,15 @@ class RadioInputFormElement extends Model
                     SchemaHelper::getLabelTextField($disabled)->required(),
                     SchemaHelper::getEnableVariableSubstitutionToggle($disabled),
                     SchemaHelper::getHideLabelToggle($disabled),
-                    Select::make('elementable_data.labelPosition')
+                    Select::make('elementable_data.label_position')
                         ->label('Label Position')
                         ->options([
                             'left' => 'Left',
                             'right' => 'Right',
                         ])
                         ->default('right')
-                        ->visible(fn(callable $get): bool => !$get('elementable_data.hideLabel'))
+                        ->visible(fn(callable $get): bool => !$get('elementable_data.hide_label'))
                         ->disabled($disabled),
-
                 ])
                 ->columns(1),
             Fieldset::make('Values')
@@ -70,60 +69,8 @@ class RadioInputFormElement extends Model
                         ])
                         ->default('vertical')
                         ->disabled($disabled),
-                    Select::make('elementable_data.defaultSelected')
-                        ->label('Default Selected Value')
-                        ->options(function (callable $get) {
-                            $options = $get('elementable_data.options') ?? [];
-                            $selectOptions = [];
-                            foreach ($options as $option) {
-                                if (!empty($option['value'])) {
-                                    $selectOptions[$option['value']] = $option['label'] ?? $option['value'];
-                                }
-                            }
-                            return $selectOptions;
-                        })
-                        ->disabled($disabled),
-                    Repeater::make('elementable_data.options')
-                        ->label('Options')
-                        ->schema([
-                            TextInput::make('label')
-                                ->label('Option Label')
-                                ->required()
-                                ->columnSpan(2)
-                                ->autocomplete(false)
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                    $value = $get('value');
-                                    if (empty($value) && !empty($state)) {
-                                        $slug = \Illuminate\Support\Str::slug($state, '-');
-                                        $set('value', $slug);
-                                    }
-                                }),
-                            TextInput::make('value')
-                                ->label('Option Value')
-                                ->required()
-                                ->columnSpan(2)
-                                ->suffixAction(
-                                    \Filament\Forms\Components\Actions\Action::make('regenerate_value')
-                                        ->icon('heroicon-o-arrow-path')
-                                        ->tooltip('Regenerate from Option Label')
-                                        ->action(function (callable $set, callable $get) {
-                                            $label = $get('label');
-                                            if (!empty($label)) {
-                                                $slug = \Illuminate\Support\Str::slug($label, '-');
-                                                $set('value', $slug);
-                                            }
-                                        })
-                                ),
-                        ])
-                        ->columns(2)
-                        ->defaultItems(1)
-                        ->addActionLabel('Add Option')
-                        ->reorderableWithButtons()
-                        ->collapsible()
-                        ->itemLabel(fn(array $state): ?string => $state['label'] ?? 'Option')
-                        ->disabled($disabled)
-                        ->minItems(1),
+                    SchemaHelper::getOptionsDefaultSelectedSelect($disabled),
+                    SchemaHelper::getOptionsRepeater($disabled),
                 ])
                 ->columns(1),
         ];
@@ -143,11 +90,11 @@ class RadioInputFormElement extends Model
     public function getData(): array
     {
         return [
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
-            'defaultSelected' => $this->defaultSelected,
-            'labelPosition' => $this->labelPosition,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
+            'default_selected' => $this->default_selected,
+            'label_position' => $this->label_position,
             'orientation' => $this->orientation,
         ];
     }
@@ -166,10 +113,10 @@ class RadioInputFormElement extends Model
     public static function getDefaultData(): array
     {
         return [
-            'hideLabel' => false,
-            'labelText' => '',
-            'enableVarSub' => false,
-            'labelPosition' => 'right',
+            'hide_label' => false,
+            'label_text' => '',
+            'enable_var_sub' => false,
+            'label_position' => 'right',
             'orientation' => 'vertical',
             'options' => [
                 ['label' => 'True', 'value' => 'true'],
