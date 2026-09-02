@@ -500,7 +500,7 @@ class BuildFormVersion extends Page implements HasForms
     {
         $rules = $this->formStandardFieldRules();
 
-        return $this->collectFormFieldIssues($rules, [$this, 'isFieldElement']);
+        return $this->collectFormFieldIssues($rules, [$this, 'shouldValidateElement']);
     }
 
     /**
@@ -514,7 +514,7 @@ class BuildFormVersion extends Page implements HasForms
         $this->validationPopupShown = true;
         $this->invalidByElement = $this->collectFormFieldMarkers(
             $this->formStandardFieldRules(),
-            [$this, 'isFieldElement']
+            [$this, 'shouldValidateElement']
         );
         $this->dispatch('ff-markers-updated', markers: $this->invalidByElement)
             ->to('form-element-tree-builder');
@@ -1012,19 +1012,20 @@ class BuildFormVersion extends Page implements HasForms
 
         return $markers;
     }
-    private function isFieldElement($el): bool
+    /**
+     * Determine if an element should be validated.
+     */
+    private function shouldValidateElement($el): bool
     {
         $type = (string) ($el->elementable_type ?? '');
         $basename = class_basename($type);
 
-        // Skip containers / structure / non-data widgets
+        // Skip structure / non-data widgets
         if (
             Str::contains($basename, [
-                'Container',
                 'Section',
                 'Group',
                 'Page',
-                'Button',
                 'Display',
                 'TextDisplay',
                 'Heading',
@@ -1037,14 +1038,6 @@ class BuildFormVersion extends Page implements HasForms
         ) {
             return false;
         }
-
-        // Respect DB flag when present
-        if (isset($el->save_on_submit)) {
-            if ($el->save_on_submit === false || $el->save_on_submit === 0 || $el->save_on_submit === '0') {
-                return false;
-            }
-        }
-
         // Allow common inputs; fallback true for custom field classes
         return true;
     }
