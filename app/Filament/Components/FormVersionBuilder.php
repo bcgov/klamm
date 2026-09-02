@@ -33,8 +33,9 @@ class FormVersionBuilder
      */
     public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
     {
-        if (!$formVersionId) return [];
-        $elements = \App\Helpers\FormVersionHelper::visibleFieldElements($formVersionId);
+        if (!$formVersionId)
+            return [];
+        $elements = \App\Helpers\FormVersionHelper::visibleElements($formVersionId);
         return $elements->map(function ($element) use ($context) {
             // Format the type using the same logic as the TextInput::formatStateUsing
             $elementType = $element->elementable_type;

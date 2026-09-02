@@ -878,12 +878,12 @@ class BuildFormVersion extends Page implements HasForms
     }
 
     /**
-     * Run configured sanity checks on non-container elements.
+     * Run configured sanity checks on elements.
      * Returns a flat list of issues with only: field, value, reason.
      */
     private function collectFormFieldIssues(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
+        $elements = FormVersionHelper::visibleElements($this->record->id);
 
         $issues = [];
 
@@ -973,7 +973,7 @@ class BuildFormVersion extends Page implements HasForms
 
     private function collectFormFieldMarkers(array $fieldConfigs, ?callable $elementFilter = null): array
     {
-        $elements = FormVersionHelper::visibleFieldElements($this->record->id);
+        $elements = FormVersionHelper::visibleElements($this->record->id);
 
         $markers = [];
 
