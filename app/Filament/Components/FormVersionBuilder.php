@@ -219,13 +219,7 @@ class FormVersionBuilder
                 ? 'Select a script to preview its content.'
                 : 'Select a stylesheet to preview its content.';
 
-            $afterStateUpdated = function ($state, callable $set, callable $get = null) use (
-                $options,
-                $autocompleteOptions,
-                $isScript,
-                $nameField,
-                $previewField,
-            ) {
+            $afterStateUpdated = function ($state, callable $set, callable $get = null) use ($options, $autocompleteOptions, $isScript, $nameField, $previewField, ) {
                 $displayName = null;
                 foreach ($options as $group) {
                     if (isset($group[$state])) {
@@ -442,21 +436,22 @@ class FormVersionBuilder
                                                         $record = $livewire->getRecord();
                                                         return $record
                                                             ? $record->formScripts()
-                                                            ->where('type', 'template')
-                                                            ->pluck('form_scripts.id')
-                                                            ->map(fn($id) => (string) $id)
-                                                            ->toArray()
+                                                                ->where('type', 'template')
+                                                                ->pluck('form_scripts.id')
+                                                                ->map(fn($id) => (string) $id)
+                                                                ->toArray()
                                                             : [];
                                                     })
                                                     ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                                                        if (!empty($state)) return;
+                                                        if (!empty($state))
+                                                            return;
                                                         $record = $livewire->getRecord();
                                                         $ids = $record
                                                             ? $record->formScripts()
-                                                            ->where('type', 'template')
-                                                            ->pluck('form_scripts.id')
-                                                            ->map(fn($id) => (string) $id)
-                                                            ->toArray()
+                                                                ->where('type', 'template')
+                                                                ->pluck('form_scripts.id')
+                                                                ->map(fn($id) => (string) $id)
+                                                                ->toArray()
                                                             : [];
                                                         $set('attached_form_script_ids', $ids);
                                                     })
@@ -650,21 +645,22 @@ class FormVersionBuilder
                                                         $record = $livewire->getRecord();
                                                         return $record
                                                             ? $record->styleSheets()
-                                                            ->where('type', 'template')
-                                                            ->pluck('style_sheets.id')
-                                                            ->map(fn($id) => (string) $id)
-                                                            ->toArray()
+                                                                ->where('type', 'template')
+                                                                ->pluck('style_sheets.id')
+                                                                ->map(fn($id) => (string) $id)
+                                                                ->toArray()
                                                             : [];
                                                     })
                                                     ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                                                        if (!empty($state)) return;
+                                                        if (!empty($state))
+                                                            return;
                                                         $record = $livewire->getRecord();
                                                         $ids = $record
                                                             ? $record->styleSheets()
-                                                            ->where('type', 'template')
-                                                            ->pluck('style_sheets.id')
-                                                            ->map(fn($id) => (string) $id)
-                                                            ->toArray()
+                                                                ->where('type', 'template')
+                                                                ->pluck('style_sheets.id')
+                                                                ->map(fn($id) => (string) $id)
+                                                                ->toArray()
                                                             : [];
                                                         $set('attached_style_sheet_ids', $ids);
                                                     })
