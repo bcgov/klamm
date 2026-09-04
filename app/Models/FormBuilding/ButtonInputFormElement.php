@@ -30,7 +30,7 @@ class ButtonInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
         return [
-            SchemaHelper::getLabelTextField($disabled)
+            SchemaHelper::getLabelTextField($disabled, true, 'text')
                 ->label('Button Text')
                 ->default('Submit')
                 ->autocomplete(false)
