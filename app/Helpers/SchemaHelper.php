@@ -41,9 +41,9 @@ class SchemaHelper
             ->disabled($disabled);
     }
 
-    public static function getLabelTextField(bool $disabled = false, bool $required = false)
+    public static function getLabelTextField(bool $disabled = false, bool $required = false, string $columnName = 'label_text')
     {
-        return TextInput::make('elementable_data.label_text')
+        return TextInput::make('elementable_data.' . $columnName)
             ->label('Field Label')
             ->maxLength(255)
             ->disabled($disabled)
@@ -52,10 +52,10 @@ class SchemaHelper
                 Action::make('generate_label_text')
                     ->icon('heroicon-o-arrow-path')
                     ->tooltip('Regenerate from Element Name')
-                    ->action(function (callable $set, callable $get) {
+                    ->action(function (callable $set, callable $get) use ($columnName) {
                         $name = $get('name');
                         if (!empty($name)) {
-                            $set('elementable_data.label_text', $name);
+                            $set('elementable_data.' . $columnName, $name);
                         }
                     }),
             );

@@ -157,7 +157,7 @@ class ContainerFormElement extends Model
                         ->nullable()
                         ->helperText('Optional level override for the label (e.g., h2, h3, etc.)')
                         ->disabled($disabled),
-                    SchemaHelper::getLabelTextField($disabled)
+                    SchemaHelper::getLabelTextField($disabled, false, 'legend')
                         ->label('Legend/Title')
                         ->helperText('Optional title for the container')
                         ->maxLength(255),
