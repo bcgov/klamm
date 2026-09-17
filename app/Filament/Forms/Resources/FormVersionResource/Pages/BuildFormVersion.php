@@ -390,7 +390,7 @@ class BuildFormVersion extends Page implements HasForms
                                 ->helperText('If checked, any soft-deleted elements in the imported schema will be restored.'),
                             Checkbox::make('should_overwrite_existing')
                                 ->label('Overwrite Existing Elements')
-                                ->helperText('If checked, existing elements with the same reference ID will be overwritten by the imported schema.'),
+                                ->helperText('If checked, existing elements with the same reference ID will be overwritten by the imported schema. Note that this will also reorder the elements according to the schema.'),
                         ]),
 
                 ])
