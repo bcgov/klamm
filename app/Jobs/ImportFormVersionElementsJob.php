@@ -45,15 +45,19 @@ class ImportFormVersionElementsJob implements ShouldQueue
     protected $schemaContent;
     protected $cacheKey;
     protected $userId;
+    protected bool $restoreSoftDeleted;
+    protected bool $overwriteExisting;
 
     private $defaultDataSourceError = false;
 
-    public function __construct($formVersionId, $schemaContent, $cacheKey, $userId)
+    public function __construct($formVersionId, $schemaContent, $cacheKey, $userId, bool $restoreSoftDeleted = false, bool $overwriteExisting = false, )
     {
         $this->formVersionId = $formVersionId;
         $this->schemaContent = $schemaContent;
         $this->cacheKey = $cacheKey;
         $this->userId = $userId;
+        $this->restoreSoftDeleted = $restoreSoftDeleted;
+        $this->overwriteExisting = $overwriteExisting;
     }
 
     public function handle()
@@ -728,22 +732,67 @@ class ImportFormVersionElementsJob implements ShouldQueue
                 ];
 
                 $formElement = null;
+                $existingElement = null;
+                $elementableModel = null;
 
                 // Check if the class exists and is an Eloquent model
                 if (class_exists($type) && is_subclass_of($type, \Illuminate\Database\Eloquent\Model::class)) {
-                    $elementableModel = $type::create($attributes['attributes']);
-                    $elementData['elementable_id'] = $elementableModel->id;
-                    $formElement = FormElement::create($elementData);
+
+                    // Check if this element already exists in this form version (including soft-deleted)
+                    $existingElement = FormElement::withTrashed()
+                        ->where('uuid', $uuid)
+                        ->where('form_version_id', $formVersion->id)
+                        ->first();
+
+                    if ($existingElement) {
+                        $formElement = $existingElement;
+                        $elementableModel = $formElement->elementable;
+
+                        // Restore if it was soft-deleted and the option is checked
+                        if ($this->restoreSoftDeleted && $formElement->trashed()) {
+                            $formElement->restore();
+                        }
+
+                        if ($this->overwriteExisting && !$formElement->trashed()) {
+                            // Update the main FormElement
+                            $formElement->fill($elementData);
+                            $formElement->save();
+
+                            // Update or create the polymorphic elementable model
+                            if ($elementableModel) {
+                                $elementableModel->fill($attributes['attributes']);
+                                $elementableModel->save();
+                            } else {
+                                $elementableModel = $type::create($attributes['attributes']);
+                                $formElement->elementable()->save($elementableModel);
+                                $formElement->update(['elementable_id' => $elementableModel->id]);
+                            }
+                        }
+                    } else {
+                        // Create fresh if it doesn't exist in this form version
+                        $elementableModel = $type::create($attributes['attributes']);
+                        $elementData['elementable_id'] = $elementableModel->id;
+                        $formElement = FormElement::create($elementData);
+                    }
 
                     // Handle options for Select, Radio, and CheckboxGroup elements
-                    if (
-                        in_array($type, [
-                            SelectInputFormElement::class,
-                            RadioInputFormElement::class,
-                            CheckboxGroupFormElement::class
-                        ])
-                    ) {
-                        $this->createOptionsForElement($elementableModel, $type, $options);
+                    $isOptionElement = in_array($type, [
+                        SelectInputFormElement::class,
+                        RadioInputFormElement::class,
+                        CheckboxGroupFormElement::class,
+                    ]);
+
+                    if ($formElement && $isOptionElement && $elementableModel) {
+                        // Only modify options if we are actively overwriting, or if it's a brand new element
+                        if ($this->overwriteExisting || !$existingElement) {
+
+                            // Clear old options first to prevent duplicates when overwriting
+                            if ($existingElement && $this->overwriteExisting) {
+                                $elementableModel->options()->delete();
+                            }
+
+                            $this->createOptionsForElement($elementableModel, $type, $options);
+                        }
                     }
                 }
 
@@ -754,11 +803,9 @@ class ImportFormVersionElementsJob implements ShouldQueue
                     }
 
                     // Attach tags
-                    if (isset($attributes['tags'])) {
-                        if (!empty($attributes['tags'])) {
-                            foreach ($attributes['tags'] as $id => $filename) {
-                                $formElement->tags()->attach($id);
-                            }
+                    if (isset($attributes['tags']) && !empty($attributes['tags'])) {
+                        foreach ($attributes['tags'] as $id => $filename) {
+                            $formElement->tags()->attach($id);
                         }
                     }
 
