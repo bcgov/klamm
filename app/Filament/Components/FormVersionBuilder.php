@@ -24,39 +24,6 @@ use Illuminate\Support\Facades\Log;
 
 class FormVersionBuilder
 {
-    /**
-     * Get autocomplete options for Monaco editor from form element tree.
-     *
-     * @param int|null $formVersionId
-     * @param string $context 'style' or 'script' to adjust formatting if needed
-     * @return array
-     */
-    public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
-    {
-        if (!$formVersionId)
-            return [];
-        $elements = \App\Helpers\FormVersionHelper::visibleElements($formVersionId);
-        return $elements->map(function ($element) use ($context) {
-            // Format the type using the same logic as the TextInput::formatStateUsing
-            $elementType = $element->elementable_type;
-            $availableTypes = \App\Models\FormBuilding\FormElement::getAvailableElementTypes();
-            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
-            $labelBase = $element->label ?? $element->name ?? 'Element';
-            $label = $labelBase . ' (' . $typeDisplay . ')';
-
-            // Create the full reference ID (reference_id + uuid)
-            $fullReferenceId = $element->getFullReferenceId();
-
-            return [
-                'label' => $label,
-                // Insert selector and label/type as a comment for inline context
-                'insertText' => $context == 'style' ? "[id='" . $fullReferenceId . "'] /* " . addslashes($label) . ' */ ' : "'" . $fullReferenceId . "' /* " . addslashes($label) . ' */ ',
-                'detail' => "Selector: #$fullReferenceId\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
-                'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
-            ];
-        })->values()->toArray();
-    }
-
     public static function schema($editable = true)
     {
         $makeAutocompleteOptions = function ($context) {
@@ -818,5 +785,38 @@ class FormVersionBuilder
                             ]),
                     ]),
             ]);
+    }
+
+    /**
+     * Get autocomplete options for Monaco editor from form element tree.
+     *
+     * @param int|null $formVersionId
+     * @param string $context 'style' or 'script' to adjust formatting if needed
+     * @return array
+     */
+    public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
+    {
+        if (!$formVersionId)
+            return [];
+        $elements = \App\Helpers\FormVersionHelper::visibleElements($formVersionId);
+        return $elements->map(function ($element) use ($context) {
+            // Format the type using the same logic as the TextInput::formatStateUsing
+            $elementType = $element->elementable_type;
+            $availableTypes = \App\Models\FormBuilding\FormElement::getAvailableElementTypes();
+            $typeDisplay = $availableTypes[$elementType] ?? $elementType ?? 'Element';
+            $labelBase = $element->label ?? $element->name ?? 'Element';
+            $label = $labelBase . ' (' . $typeDisplay . ')';
+
+            // Create the full reference ID (reference_id + uuid)
+            $fullReferenceId = $element->getFullReferenceId();
+
+            return [
+                'label' => $label,
+                // Insert selector and label/type as a comment for inline context
+                'insertText' => $context == 'style' ? "[id='" . $fullReferenceId . "'] /* " . addslashes($label) . ' */ ' : "'" . $fullReferenceId . "' /* " . addslashes($label) . ' */ ',
+                'detail' => "Selector: #$fullReferenceId\nLabel: $label\nName: {$element->name}\nType: $typeDisplay",
+                'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
+            ];
+        })->values()->toArray();
     }
 }
