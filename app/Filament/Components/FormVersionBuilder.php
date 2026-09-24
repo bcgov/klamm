@@ -361,108 +361,7 @@ class FormVersionBuilder
                                     ->columnSpan(5)
                                     ->tabs([
                                         self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
-                                        Tab::make('pdf_style_sheet')
-                                            ->label('PDF')
-                                            ->icon('heroicon-o-document-text')
-                                            ->visible(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
-                                            ->schema([
-                                                Actions::make([
-                                                    Action::make('import_css_content_pdf')
-                                                        ->label('Insert CSS')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
-                                                        ->action($importContentAction('css_content_pdf', $styleSheetOptions, 'style')),
-                                                    Action::make('save_styles_pdf')
-                                                        ->label('Save Styles')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $cssContentWeb = $get('css_content_web') ?? '';
-                                                            $cssContentPdf = $get('css_content_pdf') ?? '';
-                                                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
-                                                            StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
-                                                            // Fire update event for styles
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
-                                                                'styles',
-                                                                false
-                                                            );
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Styles Saved')
-                                                                ->body('CSS stylesheets have been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                    Action::make('migrate_pdf_styles_to_web')
-                                                        ->label('Migrate to Web')
-                                                        ->icon('heroicon-o-arrow-right-circle')
-                                                        ->color('warning')
-                                                        ->requiresConfirmation()
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, callable $set, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            if (!$record) {
-                                                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
-                                                                return;
-                                                            }
-                                                            $pdf = StyleSheet::where('form_version_id', $record->id)->where('type', 'pdf')->first();
-                                                            if (!$pdf) {
-                                                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF stylesheet found.')->send();
-                                                                return;
-                                                            }
-
-                                                            $pdfContent = $pdf->getCssContent() ?? '';
-                                                            $web = StyleSheet::where('form_version_id', $record->id)->where('type', 'web')->first();
-                                                            $webContent = $web?->getCssContent() ?? '';
-
-                                                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
-                                                            $pdfPrintMediaQuery = "@media print {\n" . $pdfContent . "\n}\n";
-                                                            $newWebContent = trim(
-                                                                rtrim($webContent) . "\n\n" . $banner . $pdfPrintMediaQuery
-                                                            );
-
-                                                            if ($web) {
-                                                                $web->saveCssContent($newWebContent);
-                                                            } else {
-                                                                StyleSheet::createStyleSheet($record, $newWebContent, 'web');
-                                                            }
-
-                                                            // Clear PDF file content (optional) then delete PDF record
-                                                            $pdf->saveCssContent('');
-                                                            try {
-                                                                $pdf->delete();
-                                                            } catch (\Exception $e) {
-                                                                Log::warning('Failed to delete PDF stylesheet during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
-                                                            }
-
-                                                            // Update form state
-                                                            $set('css_content_web', $newWebContent);
-                                                            $set('css_content_pdf', '');
-
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Styles Migrated')
-                                                                ->body('PDF styles migrated to Web and PDF removed.')
-                                                                ->send();
-                                                        }),
-                                                ])
-                                                    ->alignment(Alignment::Center),
-                                                CustomMonacoEditor::make('css_content_pdf')
-                                                    ->label(false)
-                                                    ->language('css')
-                                                    ->theme('vs-dark')
-                                                    ->live()
-                                                    ->autocomplete($autocompleteOptionsStyle)
-                                                    ->reactive()
-                                                    ->height('475px')
-                                                    ->disabled(!$editable),
-                                            ]),
+                                        self::getPDFStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
                                     ])
                             ]),
                     ]),
@@ -575,7 +474,7 @@ class FormVersionBuilder
      * @param callable $importContentForm
      * @param callable $importContentAction
      * @param callable $autocompleteOptionsScript
-     * @return Tabs\Tab
+     * @return Tab
      */
     private static function getWebScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
     {
@@ -673,7 +572,7 @@ class FormVersionBuilder
      * @param callable $importContentForm
      * @param callable $importContentAction
      * @param callable $autocompleteOptionsScript
-     * @return Tabs\Tab
+     * @return Tab
      */
     private static function getPDFScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
     {
@@ -724,7 +623,7 @@ class FormVersionBuilder
                         ->color('warning')
                         ->requiresConfirmation()
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $get, callable $set, $livewire) {
+                        ->action(function (callable $set, $livewire) {
                             $record = $livewire->getRecord();
                             if (!$record) {
                                 \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
@@ -789,7 +688,7 @@ class FormVersionBuilder
      * @param callable $importContentForm
      * @param callable $importContentAction
      * @param callable $autocompleteOptionsStyle
-     * @return Tabs\Tab
+     * @return Tab
      */
     private static function getWebStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
     {
@@ -831,7 +730,7 @@ class FormVersionBuilder
                             : [];
                         $set('attached_style_sheet_ids', $ids);
                     })
-                    ->afterStateUpdated(function ($state, callable $set, $livewire) {
+                    ->afterStateUpdated(function ($state, $livewire) {
                         $record = $livewire->getRecord();
                         if ($record) {
                             $record->styleSheets()->sync($state ?? []);
@@ -870,6 +769,121 @@ class FormVersionBuilder
                         }),
                 ])->alignment(Alignment::Center),
                 CustomMonacoEditor::make('css_content_web')
+                    ->label(false)
+                    ->language('css')
+                    ->theme('vs-dark')
+                    ->live()
+                    ->autocomplete($autocompleteOptionsStyle)
+                    ->reactive()
+                    ->height('475px')
+                    ->disabled(!$editable),
+            ]);
+    }
+
+    /**
+     * Get the schema for the PDF StyleSheet tab, including Attach and Insert actions, and the Monaco editor
+     * @param bool $editable
+     * @param array $styleSheetOptions
+     * @param callable $importContentForm
+     * @param callable $importContentAction
+     * @param callable $autocompleteOptionsStyle
+     * @return Tab
+     */
+    private static function getPDFStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
+    {
+        return Tab::make('pdf_style_sheet')
+            ->label('PDF')
+            ->icon('heroicon-o-document-text')
+            ->visible(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
+            ->schema([
+                Actions::make([
+                    Action::make('import_css_content_pdf')
+                        ->label('Insert CSS')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                        ->action($importContentAction('css_content_pdf', $styleSheetOptions, 'style')),
+                    Action::make('save_styles_pdf')
+                        ->label('Save Styles')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->action(function (callable $get, $livewire) {
+                            $record = $livewire->getRecord();
+                            $cssContentWeb = $get('css_content_web') ?? '';
+                            $cssContentPdf = $get('css_content_pdf') ?? '';
+                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                            StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
+                            // Fire update event for styles
+                            FormVersionUpdateEvent::dispatch(
+                                $record->id,
+                                $record->form_id,
+                                $record->version_number,
+                                ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
+                                'styles',
+                                false
+                            );
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Styles Saved')
+                                ->body('CSS stylesheets have been saved successfully.')
+                                ->send();
+                        }),
+                    Action::make('migrate_pdf_styles_to_web')
+                        ->label('Migrate to Web')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->action(function (callable $set, $livewire) {
+                            $record = $livewire->getRecord();
+                            if (!$record) {
+                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
+                                return;
+                            }
+                            $pdf = StyleSheet::where('form_version_id', $record->id)->where('type', 'pdf')->first();
+                            if (!$pdf) {
+                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF stylesheet found.')->send();
+                                return;
+                            }
+
+                            $pdfContent = $pdf->getCssContent() ?? '';
+                            $web = StyleSheet::where('form_version_id', $record->id)->where('type', 'web')->first();
+                            $webContent = $web?->getCssContent() ?? '';
+
+                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
+                            $pdfPrintMediaQuery = "@media print {\n" . $pdfContent . "\n}\n";
+                            $newWebContent = trim(
+                                rtrim($webContent) . "\n\n" . $banner . $pdfPrintMediaQuery
+                            );
+
+                            if ($web) {
+                                $web->saveCssContent($newWebContent);
+                            } else {
+                                StyleSheet::createStyleSheet($record, $newWebContent, 'web');
+                            }
+
+                            // Clear PDF file content (optional) then delete PDF record
+                            $pdf->saveCssContent('');
+                            try {
+                                $pdf->delete();
+                            } catch (\Exception $e) {
+                                Log::warning('Failed to delete PDF stylesheet during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
+                            }
+
+                            // Update form state
+                            $set('css_content_web', $newWebContent);
+                            $set('css_content_pdf', '');
+
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Styles Migrated')
+                                ->body('PDF styles migrated to Web and PDF removed.')
+                                ->send();
+                        }),
+                ])
+                    ->alignment(Alignment::Center),
+                CustomMonacoEditor::make('css_content_pdf')
                     ->label(false)
                     ->language('css')
                     ->theme('vs-dark')
