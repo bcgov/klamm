@@ -20,6 +20,7 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\View;
 use Illuminate\Support\Facades\Log;
 
 class FormVersionBuilder
@@ -307,25 +308,11 @@ class FormVersionBuilder
         };
 
         return Tabs::make()
+            ->id('build-tabs')
             ->columnSpanFull()
             ->persistTab()
-            ->id('build-tabs')
             ->tabs([
-                Tab::make('Build')
-                    ->icon('heroicon-o-cog')
-                    ->live()
-                    ->reactive()
-                    ->schema([
-                        \Filament\Forms\Components\View::make('components.form-element-tree')
-                            ->viewData(function ($livewire) use ($editable) {
-                                $record = $livewire->getRecord() ?? null;
-                                return [
-                                    'formVersionId' => $record?->id,
-                                    'editable' => $editable,
-                                ];
-                            })
-                            ->columnSpanFull(),
-                    ]),
+                self::getBuildTabSchema($editable),
                 self::getScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
                 self::getStyleTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
             ]);
@@ -428,6 +415,26 @@ class FormVersionBuilder
             'Template Scripts' => $templateScripts,
             'Form Scripts' => $otherScripts,
         ];
+    }
+
+
+    private static function getBuildTabSchema(bool $editable): Tab
+    {
+        return Tab::make('Build')
+            ->icon('heroicon-o-cog')
+            ->live()
+            ->reactive()
+            ->schema([
+                View::make('components.form-element-tree')
+                    ->viewData(function ($livewire) use ($editable) {
+                        $record = $livewire->getRecord() ?? null;
+                        return [
+                            'formVersionId' => $record?->id,
+                            'editable' => $editable,
+                        ];
+                    })
+                    ->columnSpanFull(),
+            ]);
     }
 
     /**
