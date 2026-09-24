@@ -327,27 +327,7 @@ class FormVersionBuilder
                             ->columnSpanFull(),
                     ]),
                 self::getScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
-                Tab::make('Style')
-                    ->icon('heroicon-o-paint-brush')
-                    ->schema([
-                        Grid::make([
-                            'default' => 6,
-                            'sm' => 1,
-                        ])
-                            ->columns(6)
-                            ->schema([
-                                Hidden::make('selectedStyleSheetName'),
-                                AutocompleteBadgeList::make($autocompleteOptionsStyle, 'style', 'Form Elements')
-                                    ->columnSpan(1),
-                                Tabs::make('style_sheet_type')
-                                    ->contained(false)
-                                    ->columnSpan(5)
-                                    ->tabs([
-                                        self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
-                                        self::getPDFStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
-                                    ])
-                            ]),
-                    ]),
+                self::getStyleTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
             ]);
     }
 
@@ -692,6 +672,40 @@ class FormVersionBuilder
                     ->live()
                     ->autocomplete($autocompleteOptionsScript)
                     ->disabled(!$editable),
+            ]);
+    }
+
+    /**
+     * Get the schema for the Style tab
+     * @param bool $editable
+     * @param array $styleSheetOptions
+     * @param callable $importContentForm
+     * @param callable $importContentAction
+     * @param callable $autocompleteOptionsStyle
+     * @return Tab
+     */
+    private static function getStyleTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
+    {
+        return Tab::make('Style')
+            ->icon('heroicon-o-paint-brush')
+            ->schema([
+                Grid::make([
+                    'default' => 6,
+                    'sm' => 1,
+                ])
+                    ->columns(6)
+                    ->schema([
+                        Hidden::make('selectedStyleSheetName'),
+                        AutocompleteBadgeList::make($autocompleteOptionsStyle, 'style', 'Form Elements')
+                            ->columnSpan(1),
+                        Tabs::make('style_sheet_type')
+                            ->contained(false)
+                            ->columnSpan(5)
+                            ->tabs([
+                                self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
+                                self::getPDFStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
+                            ])
+                    ]),
             ]);
     }
 
