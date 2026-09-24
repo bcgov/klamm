@@ -42,193 +42,14 @@ class FormVersionBuilder
         $styleSheetOptions = self::fetchStyleSheetOptions();
         $formScriptOptions = self::fetchFormScriptOptions();
 
-        // Import Form for scripts and styles
-        $importContentForm = function ($options, $autocompleteOptions = null, $type = 'script') {
-            $isScript = $type === 'script';
-            $selectField = $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId';
-            $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
-            $previewField = $isScript ? 'js_preview' : 'css_preview';
-            $label = $isScript ? 'Select a Form Script' : 'Select a Style Sheet';
-            $previewLabel = $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview';
-            $placeholderContent = $isScript
-                ? 'Select a script to preview its content.'
-                : 'Select a stylesheet to preview its content.';
-
-            $afterStateUpdated = function ($state, callable $set, callable $get = null) use ($options, $autocompleteOptions, $isScript, $nameField, $previewField, ) {
-                $displayName = null;
-                foreach ($options as $group) {
-                    if (isset($group[$state])) {
-                        $displayName = $group[$state];
-                        break;
-                    }
-                }
-                $set($nameField, $displayName);
-                $description = '';
-                $content = '';
-                if ($state) {
-                    if ($isScript) {
-                        $script = FormScript::find($state);
-                        if ($script) {
-                            $content = $script->getJsContent() ?? '';
-                            $description = $script->description ?? '';
-                            $sourceCount = preg_match_all('/#{source_id}/', $content);
-                            $targetCount = preg_match_all('/#{target_id}/', $content);
-                            $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
-                                static $sourceIndex = 0;
-                                $sourceIndex++;
-                                return "'#{source_id}' /* Source #{$sourceIndex} */";
-                            }, $content);
-                            $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
-                                static $targetIndex = 0;
-                                $targetIndex++;
-                                return "'#{target_id}' /* Target #{$targetIndex} */";
-                            }, $content);
-                            $sourceSelections = [];
-                            for ($i = 0; $i < $sourceCount; $i++) {
-                                $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
-                            }
-                            $set('source_selections', $sourceSelections);
-                            $targetSelections = [];
-                            for ($i = 0; $i < $targetCount; $i++) {
-                                $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
-                            }
-                            $set('description', $description);
-                            $set('target_selections', $targetSelections);
-                        }
-                    } else {
-                        $sheet = StyleSheet::find($state);
-                        if ($sheet) {
-                            $description = $sheet->description ?? '';
-                            $content = $sheet->getCssContent() ?? '';
-                            if ($autocompleteOptions) {
-                                $sourceCount = preg_match_all('/#{source_id}/', $content);
-                                $targetCountCurly = preg_match_all('/#{target_id}/', $content);
-                                $targetCountPlain = preg_match_all('/#target_id/', $content);
-                                $targetCount = $targetCountCurly + $targetCountPlain;
-
-                                $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
-                                    static $sourceIndex = 0;
-                                    $sourceIndex++;
-                                    return "'#{source_id}' /* Source #{$sourceIndex} */";
-                                }, $content);
-
-                                // Replace patterns in preview
-                                $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
-                                    static $targetIndex = 0;
-                                    $targetIndex++;
-                                    return "'#{target_id}' /* Target #{$targetIndex} */";
-                                }, $content);
-                                $content = preg_replace_callback('/#target_id/', function ($matches) use ($targetCount) {
-                                    static $targetIndex = 0;
-                                    $targetIndex++;
-                                    return "'#target_id' /* Target #{$targetIndex} */";
-                                }, $content);
-
-                                $sourceSelections = [];
-                                for ($i = 0; $i < $sourceCount; $i++) {
-                                    $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
-                                }
-                                $set('source_selections', $sourceSelections);
-                                $targetSelections = [];
-                                for ($i = 0; $i < $targetCount; $i++) {
-                                    $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
-                                }
-                                $set('description', $description);
-                                $set('target_selections', $targetSelections);
-                            }
-                        }
-                    }
-                }
-                $set($previewField, $content);
-            };
-
-            $fields = [
-                Select::make($selectField)
-                    ->label($label)
-                    ->options($options)
-                    ->required()
-                    ->live()
-                    ->searchable()
-                    ->reactive()
-                    ->afterStateUpdated($afterStateUpdated),
-                // Show the form description if available
-                Textarea::make('description')
-                    ->label('Form Description')
-                    ->readOnly()
-                    ->visible(fn($get) => !empty($get($selectField)) && !empty($get('description'))),
-            ];
-
-            // Add repeaters if autocompleteOptions is provided (for both scripts and styles)
-            if ($autocompleteOptions) {
-                $fields[] = Repeater::make('source_selections')
-                    ->label('Source Element Selections')
-                    ->schema([
-                        Select::make('element_id')
-                            ->label(fn($get) => 'Source #' . ($get('order') ?? ''))
-                            ->searchable()
-                            ->options(function () use ($autocompleteOptions) {
-                                $livewire = \Livewire\Livewire::current();
-                                $get = function ($key) use ($livewire) {
-                                    return $livewire->getState()[$key] ?? null;
-                                };
-                                $options = $autocompleteOptions($get, $livewire);
-                                $selectOptions = [];
-                                foreach ($options as $option) {
-                                    $selectOptions[$option['insertText']] = $option['label'];
-                                }
-                                return $selectOptions;
-                            }),
-                    ])
-                    ->addable(false)
-                    ->deletable(false)
-                    ->reorderable(false)
-                    ->visible(fn($get) => !empty($get($selectField)) && !empty($get('source_selections')));
-                $fields[] = Repeater::make('target_selections')
-                    ->label('Target Element Selections')
-                    ->schema([
-                        Select::make('element_id')
-                            ->label(fn($get) => 'Target #' . ($get('order') ?? ''))
-                            ->searchable()
-                            ->options(function () use ($autocompleteOptions) {
-                                $livewire = \Livewire\Livewire::current();
-                                $get = function ($key) use ($livewire) {
-                                    return $livewire->getState()[$key] ?? null;
-                                };
-                                $options = $autocompleteOptions($get, $livewire);
-                                $selectOptions = [];
-                                foreach ($options as $option) {
-                                    $selectOptions[$option['insertText']] = $option['label'];
-                                }
-                                return $selectOptions;
-                            }),
-                    ])
-                    ->addable(false)
-                    ->deletable(false)
-                    ->reorderable(false)
-                    ->visible(fn($get) => !empty($get($selectField)) && !empty($get('target_selections')));
-            }
-
-            $fields[] = TextArea::make($previewField)
-                ->label($previewLabel)
-                ->rows(12)
-                ->readOnly()
-                ->visible(fn($get) => !empty($get($previewField)));
-            $fields[] = Placeholder::make($previewField . '_placeholder')
-                ->label('')
-                ->content($placeholderContent)
-                ->visible(fn($get) => empty($get($previewField)));
-
-            return $fields;
-        };
-
         return Tabs::make()
             ->id('build-tabs')
             ->columnSpanFull()
             ->persistTab()
             ->tabs([
                 self::makeBuildTab($editable),
-                self::makeScriptsTab($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
-                self::makeStyleTab($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
+                self::makeScriptsTab($editable, $formScriptOptions, $autocompleteOptionsScript),
+                self::makeStyleTab($editable, $styleSheetOptions, $autocompleteOptionsStyle),
             ]);
     }
 
@@ -360,11 +181,10 @@ class FormVersionBuilder
      * Make the schema for the Scripts tab
      * @param bool $editable
      * @param array $formScriptOptions
-     * @param callable $importContentForm
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function makeScriptsTab(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
+    private static function makeScriptsTab(bool $editable, array $formScriptOptions, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('Scripts')
             ->icon('heroicon-o-code-bracket-square')
@@ -378,8 +198,8 @@ class FormVersionBuilder
                         Tabs::make('form_script_type')
                             ->contained(false)
                             ->tabs([
-                                self::makeWebScriptsTab($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
-                                self::makePDFScriptsTab($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
+                                self::makeWebScriptsTab($editable, $formScriptOptions, $autocompleteOptionsScript),
+                                self::makePDFScriptsTab($editable, $formScriptOptions, $autocompleteOptionsScript),
                             ])
                             ->columnSpan(5),
                     ]),
@@ -390,11 +210,10 @@ class FormVersionBuilder
      * Make the schema for the Web Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
-     * @param callable $importContentForm
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function makeWebScriptsTab(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
+    private static function makeWebScriptsTab(bool $editable, array $formScriptOptions, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('web_form_script')
             ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
@@ -444,8 +263,8 @@ class FormVersionBuilder
                         ->label('Insert JavaScript')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
-                        ->action(self::resolveImportAction('js_content_web', $formScriptOptions, 'script')),
+                        ->form(self::makeInsertActionForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                        ->action(self::handleInsertAction('js_content_web', $formScriptOptions, 'script')),
                     Action::make('save_scripts_web')
                         ->label('Save Scripts')
                         ->icon('heroicon-o-check')
@@ -487,11 +306,10 @@ class FormVersionBuilder
      * Make the schema for the PDF Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
-     * @param callable $importContentForm
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function makePDFScriptsTab(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
+    private static function makePDFScriptsTab(bool $editable, array $formScriptOptions, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('pdf_form_script')
             ->label('PDF')
@@ -503,8 +321,8 @@ class FormVersionBuilder
                         ->label('Insert JavaScript')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
-                        ->action(self::resolveImportAction('js_content_pdf', $formScriptOptions)),
+                        ->form(self::makeInsertActionForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                        ->action(self::handleInsertAction('js_content_pdf', $formScriptOptions, 'script')),
                     Action::make('save_scripts_pdf')
                         ->label('Save Scripts')
                         ->icon('heroicon-o-check')
@@ -602,11 +420,10 @@ class FormVersionBuilder
      * Make the schema for the Style tab
      * @param bool $editable
      * @param array $styleSheetOptions
-     * @param callable $importContentForm
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function makeStyleTab(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
+    private static function makeStyleTab(bool $editable, array $styleSheetOptions, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('Style')
             ->icon('heroicon-o-paint-brush')
@@ -624,8 +441,8 @@ class FormVersionBuilder
                             ->contained(false)
                             ->columnSpan(5)
                             ->tabs([
-                                self::makeWebStyleTab($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
-                                self::makePDFStyleTab($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
+                                self::makeWebStyleTab($editable, $styleSheetOptions, $autocompleteOptionsStyle),
+                                self::makePDFStyleTab($editable, $styleSheetOptions, $autocompleteOptionsStyle),
                             ])
                     ]),
             ]);
@@ -635,11 +452,10 @@ class FormVersionBuilder
      * Make the schema for the Web StyleSheet tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $styleSheetOptions
-     * @param callable $importContentForm
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function makeWebStyleTab(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
+    private static function makeWebStyleTab(bool $editable, array $styleSheetOptions, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('web_style_sheet')
             ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
@@ -690,8 +506,8 @@ class FormVersionBuilder
                         ->label('Insert CSS')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
-                        ->action(self::resolveImportAction('css_content_web', $styleSheetOptions, 'style')),
+                        ->form(self::makeInsertActionForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                        ->action(self::handleInsertAction('css_content_web', $styleSheetOptions, 'style')),
                     Action::make('save_styles_web')
                         ->label('Save Styles')
                         ->icon('heroicon-o-check')
@@ -733,11 +549,10 @@ class FormVersionBuilder
      * Make the schema for the PDF StyleSheet tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $styleSheetOptions
-     * @param callable $importContentForm
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function makePDFStyleTab(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
+    private static function makePDFStyleTab(bool $editable, array $styleSheetOptions, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('pdf_style_sheet')
             ->label('PDF')
@@ -749,8 +564,8 @@ class FormVersionBuilder
                         ->label('Insert CSS')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
-                        ->action(self::resolveImportAction('css_content_pdf', $styleSheetOptions, 'style')),
+                        ->form(self::makeInsertActionForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                        ->action(self::handleInsertAction('css_content_pdf', $styleSheetOptions, 'style')),
                     Action::make('save_styles_pdf')
                         ->label('Save Styles')
                         ->icon('heroicon-o-check')
@@ -844,13 +659,199 @@ class FormVersionBuilder
     }
 
     /**
+     * Make the schema for the Insert Style/Script Action
+     * @param array $options
+     * @param callable $autocompleteOptions
+     * @param string $type
+     * @return array<Placeholder|Repeater|Select|Textarea>
+     */
+    private static function makeInsertActionForm(array $options, callable $autocompleteOptions = null, string $type = 'script'): array
+    {
+        $isScript = $type === 'script';
+        $selectField = $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId';
+        $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
+        $previewField = $isScript ? 'js_preview' : 'css_preview';
+        $label = $isScript ? 'Select a Form Script' : 'Select a Style Sheet';
+        $previewLabel = $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview';
+        $placeholderContent = $isScript
+            ? 'Select a script to preview its content.'
+            : 'Select a stylesheet to preview its content.';
+
+        $afterStateUpdated = function ($state, callable $set, callable $get = null) use ($options, $autocompleteOptions, $isScript, $nameField, $previewField, ) {
+            $displayName = null;
+            foreach ($options as $group) {
+                if (isset($group[$state])) {
+                    $displayName = $group[$state];
+                    break;
+                }
+            }
+            $set($nameField, $displayName);
+            $description = '';
+            $content = '';
+            if ($state) {
+                if ($isScript) {
+                    $script = FormScript::find($state);
+                    if ($script) {
+                        $content = $script->getJsContent() ?? '';
+                        $description = $script->description ?? '';
+                        $sourceCount = preg_match_all('/#{source_id}/', $content);
+                        $targetCount = preg_match_all('/#{target_id}/', $content);
+                        $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
+                            static $sourceIndex = 0;
+                            $sourceIndex++;
+                            return "'#{source_id}' /* Source #{$sourceIndex} */";
+                        }, $content);
+                        $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
+                            static $targetIndex = 0;
+                            $targetIndex++;
+                            return "'#{target_id}' /* Target #{$targetIndex} */";
+                        }, $content);
+                        $sourceSelections = [];
+                        for ($i = 0; $i < $sourceCount; $i++) {
+                            $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
+                        }
+                        $set('source_selections', $sourceSelections);
+                        $targetSelections = [];
+                        for ($i = 0; $i < $targetCount; $i++) {
+                            $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
+                        }
+                        $set('description', $description);
+                        $set('target_selections', $targetSelections);
+                    }
+                } else {
+                    $sheet = StyleSheet::find($state);
+                    if ($sheet) {
+                        $description = $sheet->description ?? '';
+                        $content = $sheet->getCssContent() ?? '';
+                        if ($autocompleteOptions) {
+                            $sourceCount = preg_match_all('/#{source_id}/', $content);
+                            $targetCountCurly = preg_match_all('/#{target_id}/', $content);
+                            $targetCountPlain = preg_match_all('/#target_id/', $content);
+                            $targetCount = $targetCountCurly + $targetCountPlain;
+
+                            $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
+                                static $sourceIndex = 0;
+                                $sourceIndex++;
+                                return "'#{source_id}' /* Source #{$sourceIndex} */";
+                            }, $content);
+
+                            // Replace patterns in preview
+                            $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
+                                static $targetIndex = 0;
+                                $targetIndex++;
+                                return "'#{target_id}' /* Target #{$targetIndex} */";
+                            }, $content);
+                            $content = preg_replace_callback('/#target_id/', function ($matches) use ($targetCount) {
+                                static $targetIndex = 0;
+                                $targetIndex++;
+                                return "'#target_id' /* Target #{$targetIndex} */";
+                            }, $content);
+
+                            $sourceSelections = [];
+                            for ($i = 0; $i < $sourceCount; $i++) {
+                                $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
+                            }
+                            $set('source_selections', $sourceSelections);
+                            $targetSelections = [];
+                            for ($i = 0; $i < $targetCount; $i++) {
+                                $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
+                            }
+                            $set('description', $description);
+                            $set('target_selections', $targetSelections);
+                        }
+                    }
+                }
+            }
+            $set($previewField, $content);
+        };
+
+        $fields = [
+            Select::make($selectField)
+                ->label($label)
+                ->options($options)
+                ->required()
+                ->live()
+                ->searchable()
+                ->reactive()
+                ->afterStateUpdated($afterStateUpdated),
+            // Show the form description if available
+            Textarea::make('description')
+                ->label('Form Description')
+                ->readOnly()
+                ->visible(fn($get) => !empty($get($selectField)) && !empty($get('description'))),
+        ];
+
+        // Add repeaters if autocompleteOptions is provided (for both scripts and styles)
+        if ($autocompleteOptions) {
+            $fields[] = Repeater::make('source_selections')
+                ->label('Source Element Selections')
+                ->schema([
+                    Select::make('element_id')
+                        ->label(fn($get) => 'Source #' . ($get('order') ?? ''))
+                        ->searchable()
+                        ->options(function () use ($autocompleteOptions) {
+                            $livewire = \Livewire\Livewire::current();
+                            $get = function ($key) use ($livewire) {
+                                return $livewire->getState()[$key] ?? null;
+                            };
+                            $options = $autocompleteOptions($get, $livewire);
+                            $selectOptions = [];
+                            foreach ($options as $option) {
+                                $selectOptions[$option['insertText']] = $option['label'];
+                            }
+                            return $selectOptions;
+                        }),
+                ])
+                ->addable(false)
+                ->deletable(false)
+                ->reorderable(false)
+                ->visible(fn($get) => !empty($get($selectField)) && !empty($get('source_selections')));
+            $fields[] = Repeater::make('target_selections')
+                ->label('Target Element Selections')
+                ->schema([
+                    Select::make('element_id')
+                        ->label(fn($get) => 'Target #' . ($get('order') ?? ''))
+                        ->searchable()
+                        ->options(function () use ($autocompleteOptions) {
+                            $livewire = \Livewire\Livewire::current();
+                            $get = function ($key) use ($livewire) {
+                                return $livewire->getState()[$key] ?? null;
+                            };
+                            $options = $autocompleteOptions($get, $livewire);
+                            $selectOptions = [];
+                            foreach ($options as $option) {
+                                $selectOptions[$option['insertText']] = $option['label'];
+                            }
+                            return $selectOptions;
+                        }),
+                ])
+                ->addable(false)
+                ->deletable(false)
+                ->reorderable(false)
+                ->visible(fn($get) => !empty($get($selectField)) && !empty($get('target_selections')));
+        }
+
+        $fields[] = TextArea::make($previewField)
+            ->label($previewLabel)
+            ->rows(12)
+            ->readOnly()
+            ->visible(fn($get) => !empty($get($previewField)));
+        $fields[] = Placeholder::make($previewField . '_placeholder')
+            ->label('')
+            ->content($placeholderContent)
+            ->visible(fn($get) => empty($get($previewField)));
+
+        return $fields;
+    }
+
+    /**
      * Resolve the import action for scripts or styles, replacing placeholders with selected element IDs and appending the content to the existing field.
      * @param string $contentField
      * @param array $options
      * @param string $type
      * @return Closure // The closure takes parameters: array $data, callable $get, callable $set, $livewire
      */
-    private static function resolveImportAction(string $contentField, array $options, string $type = 'script'): Closure
+    private static function handleInsertAction(string $contentField, array $options, string $type = 'script'): Closure
     {
         return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
             // Map type to model and field names
