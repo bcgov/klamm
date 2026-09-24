@@ -2,25 +2,24 @@
 
 namespace App\Filament\Components;
 
+use App\Events\FormVersionUpdateEvent;
+use App\Filament\Components\AutocompleteBadgeList;
 use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
-
+use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\StyleSheet;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
-use App\Models\FormBuilding\StyleSheet;
-use App\Models\FormBuilding\FormScript;
-use App\Events\FormVersionUpdateEvent;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\View;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Alignment;
-use App\Filament\Components\AutocompleteBadgeList;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\View;
 use Illuminate\Support\Facades\Log;
 
 class FormVersionBuilder
@@ -418,6 +417,11 @@ class FormVersionBuilder
     }
 
 
+    /**
+     * Get the schema for the Build tab
+     * @param bool $editable
+     * @return Tab
+     */
     private static function getBuildTabSchema(bool $editable): Tab
     {
         return Tab::make('Build')
