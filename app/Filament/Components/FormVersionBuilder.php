@@ -338,91 +338,7 @@ class FormVersionBuilder
                                 Tabs::make('form_script_type')
                                     ->contained(false)
                                     ->tabs([
-                                        Tab::make('web_form_script')
-                                            ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
-                                            ->icon('heroicon-o-globe-alt')
-                                            ->schema([
-                                                Select::make('attached_form_script_ids')
-                                                    ->label('Attach Scripts')
-                                                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
-                                                    ->hintIcon('heroicon-o-information-circle')
-                                                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
-                                                    ->options($formScriptOptions['Template Scripts'])
-                                                    ->multiple()
-                                                    ->preload()
-                                                    ->searchable()
-                                                    ->dehydrated(false)
-                                                    ->default(function ($livewire) {
-                                                        $record = $livewire->getRecord();
-                                                        return $record
-                                                            ? $record->formScripts()
-                                                                ->where('type', 'template')
-                                                                ->pluck('form_scripts.id')
-                                                                ->map(fn($id) => (string) $id)
-                                                                ->toArray()
-                                                            : [];
-                                                    })
-                                                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                                                        if (!empty($state))
-                                                            return;
-                                                        $record = $livewire->getRecord();
-                                                        $ids = $record
-                                                            ? $record->formScripts()
-                                                                ->where('type', 'template')
-                                                                ->pluck('form_scripts.id')
-                                                                ->map(fn($id) => (string) $id)
-                                                                ->toArray()
-                                                            : [];
-                                                        $set('attached_form_script_ids', $ids);
-                                                    })
-                                                    ->afterStateUpdated(function ($state, callable $set, $livewire) {
-                                                        $record = $livewire->getRecord();
-                                                        if ($record) {
-                                                            $record->formScripts()->sync($state ?? []);
-                                                        }
-                                                    }),
-                                                Actions::make([
-                                                    Action::make('import_js_content_web')
-                                                        ->label('Insert JavaScript')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
-                                                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
-                                                    Action::make('save_scripts_web')
-                                                        ->label('Save Scripts')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $jsContentWeb = $get('js_content_web') ?? '';
-                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                                                            // Fire update event for scripts
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_scripts' => $jsContentWeb],
-                                                                'scripts',
-                                                                false
-                                                            );
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Saved')
-                                                                ->body('JavaScript form scripts have been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                ])->alignment(Alignment::Center),
-                                                CustomMonacoEditor::make('js_content_web')
-                                                    ->label(false)
-                                                    ->language('javascript')
-                                                    ->theme('vs-dark')
-                                                    ->live()
-                                                    ->autocomplete($autocompleteOptionsScript)
-                                                    ->reactive()
-                                                    ->height('475px')
-                                                    ->disabled(!$editable),
-                                            ]),
+                                        self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
                                         Tab::make('pdf_form_script')
                                             ->label('PDF')
                                             ->icon('heroicon-o-document-text')
@@ -839,5 +755,101 @@ class FormVersionBuilder
         ];
     }
 
-
+    /**
+     * Get the schema for the WebScripts tab, including Attach and Insert actions, and the Monaco editor
+     * @param bool $editable
+     * @param array $formScriptOptions
+     * @param callable $importContentForm
+     * @param callable $importContentAction
+     * @param callable $autocompleteOptionsScript
+     * @return Tabs\Tab
+     */
+    private static function getWebScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
+    {
+        return Tab::make('web_form_script')
+            ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
+            ->icon('heroicon-o-globe-alt')
+            ->schema([
+                Select::make('attached_form_script_ids')
+                    ->label('Attach Scripts')
+                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
+                    ->hintIcon('heroicon-o-information-circle')
+                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
+                    ->options($formScriptOptions['Template Scripts'])
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->dehydrated(false)
+                    ->default(function ($livewire) {
+                        $record = $livewire->getRecord();
+                        return $record
+                            ? $record->formScripts()
+                                ->where('type', 'template')
+                                ->pluck('form_scripts.id')
+                                ->map(fn($id) => (string) $id)
+                                ->toArray()
+                            : [];
+                    })
+                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
+                        if (!empty($state))
+                            return;
+                        $record = $livewire->getRecord();
+                        $ids = $record
+                            ? $record->formScripts()
+                                ->where('type', 'template')
+                                ->pluck('form_scripts.id')
+                                ->map(fn($id) => (string) $id)
+                                ->toArray()
+                            : [];
+                        $set('attached_form_script_ids', $ids);
+                    })
+                    ->afterStateUpdated(function ($state, $livewire) {
+                        $record = $livewire->getRecord();
+                        if ($record) {
+                            $record->formScripts()->sync($state ?? []);
+                        }
+                    }),
+                Actions::make([
+                    Action::make('import_js_content_web')
+                        ->label('Insert JavaScript')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
+                    Action::make('save_scripts_web')
+                        ->label('Save Scripts')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->action(function (callable $get, $livewire) {
+                            $record = $livewire->getRecord();
+                            $jsContentWeb = $get('js_content_web') ?? '';
+                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                            // Fire update event for scripts
+                            FormVersionUpdateEvent::dispatch(
+                                $record->id,
+                                $record->form_id,
+                                $record->version_number,
+                                ['web_scripts' => $jsContentWeb],
+                                'scripts',
+                                false
+                            );
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Scripts Saved')
+                                ->body('JavaScript form scripts have been saved successfully.')
+                                ->send();
+                        }),
+                ])->alignment(Alignment::Center),
+                CustomMonacoEditor::make('js_content_web')
+                    ->label(false)
+                    ->language('javascript')
+                    ->theme('vs-dark')
+                    ->live()
+                    ->autocomplete($autocompleteOptionsScript)
+                    ->reactive()
+                    ->height('475px')
+                    ->disabled(!$editable),
+            ]);
+    }
 }
