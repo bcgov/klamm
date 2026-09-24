@@ -39,32 +39,7 @@ class FormVersionBuilder
         $autocompleteOptionsScript = $makeAutocompleteOptions('script');
 
         $styleSheetOptions = self::getStyleSheetOptions();
-
-        $formScripts = FormScript::with(['formVersion.form'])->get();
-
-        $templateScripts = [];
-        $otherScripts = [];
-
-        foreach ($formScripts as $script) {
-            if ($script->type === 'template') {
-                $templateScripts[$script->id] = "Template Script ({$script->filename})";
-            } else {
-                $formVersion = $script->formVersion;
-                $form = $formVersion?->form;
-
-                if ($formVersion && $form) {
-                    $otherScripts[$script->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$script->type})";
-                } else {
-                    $name = $script->filename ?? "Script #{$script->id}";
-                    $otherScripts[$script->id] = "[Orphan] {$name} ({$script->type})";
-                }
-            }
-        }
-
-        $formScriptOptions = [
-            'Template Scripts' => $templateScripts,
-            'Form Scripts' => $otherScripts,
-        ];
+        $formScriptOptions = self::getFormScriptOptions();
 
 
         // Import action for scripts and styles
@@ -372,7 +347,7 @@ class FormVersionBuilder
                                                     ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
                                                     ->hintIcon('heroicon-o-information-circle')
                                                     ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
-                                                    ->options($templateScripts)
+                                                    ->options($formScriptOptions['Template Scripts'])
                                                     ->multiple()
                                                     ->preload()
                                                     ->searchable()
@@ -829,4 +804,40 @@ class FormVersionBuilder
             'Form Stylesheets' => $otherStyleSheets,
         ];
     }
+
+    /**
+     * Get options for form scripts, categorized by type. Used to populate "Attach Scripts" dropdown with template scripts.
+     * @return array{"Form Scripts": array, "Template Scripts": array|array{"Form Scripts": array, "Template Scripts": string[]}|array{"Form Scripts": string[], "Template Scripts": string[]}}
+     */
+    private static function getFormScriptOptions(): array
+    {
+
+        $formScripts = FormScript::with(['formVersion.form'])->get();
+
+        $templateScripts = [];
+        $otherScripts = [];
+
+        foreach ($formScripts as $script) {
+            if ($script->type === 'template') {
+                $templateScripts[$script->id] = "Template Script ({$script->filename})";
+            } else {
+                $formVersion = $script->formVersion;
+                $form = $formVersion?->form;
+
+                if ($formVersion && $form) {
+                    $otherScripts[$script->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$script->type})";
+                } else {
+                    $name = $script->filename ?? "Script #{$script->id}";
+                    $otherScripts[$script->id] = "[Orphan] {$name} ({$script->type})";
+                }
+            }
+        }
+
+        return [
+            'Template Scripts' => $templateScripts,
+            'Form Scripts' => $otherScripts,
+        ];
+    }
+
+
 }
