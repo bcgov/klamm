@@ -2,44 +2,46 @@
 
 namespace App\Filament\Forms\Resources\FormVersionResource\Pages;
 
-use App\Filament\Forms\Resources\FormVersionResource;
-use App\Filament\Components\FormVersionBuilder;
-use App\Models\FormBuilding\StyleSheet;
-use App\Models\FormBuilding\FormScript;
-use App\Models\FormBuilding\FormElement;
-use App\Jobs\GenerateFormVersionJsonJob;
 use App\Events\FormVersionUpdateEvent;
+use App\Filament\Components\FormVersionBuilder;
+use App\Filament\Forms\Helpers\SchemaParser;
 use App\Filament\Forms\Resources\FormResource;
+use App\Filament\Forms\Resources\FormVersionResource;
 use App\Helpers\DataBindingsHelper;
 use App\Helpers\ElementPropertiesHelper;
+use App\Helpers\FormElementHelper;
+use App\Helpers\FormVersionHelper;
 use App\Helpers\GeneralTabHelper;
+use App\Jobs\GenerateFormVersionJsonJob;
+use App\Jobs\ImportFormVersionElementsJob;
+use App\Models\FormBuilding\FormElement;
+use App\Models\FormBuilding\FormScript;
+use App\Models\FormBuilding\StyleSheet;
 use App\Services\FormVersionJsonService;
-use Filament\Resources\Pages\Page;
-use Filament\Forms\Form;
 use Filament\Actions;
 use Filament\Actions\ActionGroup;
-use Filament\Support\Enums\ActionSize;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Tabs;
+use Filament\Forms\Components\Tabs\Tab;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Wizard;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Resources\Pages\Concerns\InteractsWithRecord;
-use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Forms\Set;
-use Filament\Forms\Components\FileUpload;
-use App\Filament\Forms\Helpers\SchemaParser;
-use Filament\Forms\Components\Wizard;
-use App\Jobs\ImportFormVersionElementsJob;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
+use Filament\Support\Enums\ActionSize;
+use Filament\Support\Exceptions\Halt;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\HtmlString;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Get;
-use Filament\Support\Exceptions\Halt;
-use App\Helpers\FormElementHelper;
-use App\Helpers\FormVersionHelper;
-
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use Filament\Notifications\Notification;
 
 class BuildFormVersion extends Page implements HasForms
 {
@@ -372,25 +374,34 @@ class BuildFormVersion extends Page implements HasForms
                         }),
                     Wizard\Step::make('Preview & Import')
                         ->schema([
-                            \Filament\Forms\Components\Textarea::make('schema_content')
+                            Textarea::make('schema_content')
                                 ->label('Schema Content')
                                 ->rows(10)
                                 ->disabled()
                                 ->helperText('This is the raw JSON content of the uploaded schema file.'),
-                            \Filament\Forms\Components\Textarea::make('parsed_content')
+                            Textarea::make('parsed_content')
                                 ->label('Parsed Schema')
                                 ->rows(10)
                                 ->disabled()
                                 ->formatStateUsing(fn($state) => \App\Filament\Forms\Resources\FormVersionResource\Pages\BuildFormVersion::formatJsonForTextarea($state))
                                 ->helperText('This is the parsed schema structure.'),
+                            Checkbox::make('should_restore_soft_deleted')
+                                ->label('Restore Soft-Deleted Elements')
+                                ->helperText('If checked, any soft-deleted elements in the imported schema will be restored.'),
+                            Checkbox::make('should_overwrite_existing')
+                                ->label('Overwrite Existing Elements')
+                                ->helperText('If checked, existing elements with the same reference ID will be overwritten by the imported schema. Note that this will also reorder the elements according to the schema.'),
                         ]),
 
                 ])
                 ->modalHeading('Confirm Import')
                 ->modalDescription('Importing a form from a JSON export will introduce new form fields to the existing form.')
                 ->modalSubmitActionLabel('Import Form')
-                ->action(function () {
-                    $this->importParsedSchemaElements();
+                ->action(function (array $data) {
+                    $this->importParsedSchemaElements(
+                        $data['should_restore_soft_deleted'] ?? false,
+                        $data['should_overwrite_existing'] ?? false
+                    );
                 }),
 
             ActionGroup::make([
@@ -638,9 +649,9 @@ class BuildFormVersion extends Page implements HasForms
     protected function getFormElementSchema(): array
     {
         return [
-            \Filament\Forms\Components\Tabs::make('form_element_tabs')
+            Tabs::make('form_element_tabs')
                 ->tabs([
-                    \Filament\Forms\Components\Tabs\Tab::make('General')
+                    Tab::make('General')
                         ->icon('heroicon-o-cog')
                         ->schema(function (callable $get) {
                             return GeneralTabHelper::getCreateSchema(
@@ -649,7 +660,7 @@ class BuildFormVersion extends Page implements HasForms
                                 fn() => !empty($get('template_id'))
                             );
                         }),
-                    \Filament\Forms\Components\Tabs\Tab::make('Element Properties')
+                    Tab::make('Element Properties')
                         ->icon('heroicon-o-adjustments-horizontal')
                         ->schema(function (callable $get) {
                             return ElementPropertiesHelper::getCreateSchema(
@@ -657,7 +668,7 @@ class BuildFormVersion extends Page implements HasForms
                             );
                         })
                         ->hidden(fn(Get $get): bool => !empty($get('template_id'))),
-                    \Filament\Forms\Components\Tabs\Tab::make('Data Bindings')
+                    Tab::make('Data Bindings')
                         ->icon('heroicon-o-link')
                         ->schema(function (callable $get) {
                             return DataBindingsHelper::getCreateSchema(
@@ -1070,7 +1081,7 @@ class BuildFormVersion extends Page implements HasForms
     /**
      * Import all parsed schema elements as new form elements
      */
-    public function importParsedSchemaElements()
+    public function importParsedSchemaElements(bool $restoreSoftDeleted, bool $overwriteExisting): void
     {
         $schemaContent = $this->importWizard['schema_content'] ?? null;
         if (empty($schemaContent)) {
@@ -1090,7 +1101,9 @@ class BuildFormVersion extends Page implements HasForms
             $this->record->id,
             $schemaContent,
             $cacheKey,
-            Auth::id()
+            Auth::id(),
+            $restoreSoftDeleted,
+            $overwriteExisting,
         );
 
         session()->put('import_job_cache_key', $cacheKey);
