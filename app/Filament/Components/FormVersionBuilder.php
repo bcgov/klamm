@@ -33,14 +33,14 @@ class FormVersionBuilder
                 if (!$record || !$record->id) {
                     return [];
                 }
-                return self::getElementTreeAutocompleteOptions($record->id, $context);
+                return self::fetchElementTreeAutocompleteOptions($record->id, $context);
             };
         };
         $autocompleteOptionsStyle = $makeAutocompleteOptions('style');
         $autocompleteOptionsScript = $makeAutocompleteOptions('script');
 
-        $styleSheetOptions = self::getStyleSheetOptions();
-        $formScriptOptions = self::getFormScriptOptions();
+        $styleSheetOptions = self::fetchStyleSheetOptions();
+        $formScriptOptions = self::fetchFormScriptOptions();
 
         // Import Form for scripts and styles
         $importContentForm = function ($options, $autocompleteOptions = null, $type = 'script') {
@@ -226,20 +226,20 @@ class FormVersionBuilder
             ->columnSpanFull()
             ->persistTab()
             ->tabs([
-                self::getBuildTabSchema($editable),
-                self::getScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
-                self::getStyleTabSchema($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
+                self::makeBuildTab($editable),
+                self::makeScriptsTab($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
+                self::makeStyleTab($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
             ]);
     }
 
     /**
-     * Get autocomplete options for Monaco editor from form element tree.
+     * Fetch autocomplete options for Monaco editor from form element tree.
      *
      * @param int|null $formVersionId
      * @param string $context 'style' or 'script' to adjust formatting if needed
      * @return array
      */
-    public static function getElementTreeAutocompleteOptions($formVersionId, $context = 'style')
+    public static function fetchElementTreeAutocompleteOptions($formVersionId, $context = 'style')
     {
         if (!$formVersionId)
             return [];
@@ -266,10 +266,10 @@ class FormVersionBuilder
     }
 
     /**
-     * Get options for style sheets, categorized by type. Used to populate "Attach Styles" dropdown with template stylesheets.
+     * Fetch options for style sheets, categorized by type. Used to populate "Attach Styles" dropdown with template stylesheets.
      * @return array{"Form Stylesheets": array, "Template Stylesheets": array|array{"Form Stylesheets": array, "Template Stylesheets": string[]}|array{"Form Stylesheets": string[], "Template Stylesheets": string[]}}
      */
-    private static function getStyleSheetOptions(): array
+    private static function fetchStyleSheetOptions(): array
     {
         $styleSheets = StyleSheet::with(['formVersion.form'])->get();
         $templateStyleSheets = [];
@@ -298,10 +298,10 @@ class FormVersionBuilder
     }
 
     /**
-     * Get options for form scripts, categorized by type. Used to populate "Attach Scripts" dropdown with template scripts.
+     * Fetch options for form scripts, categorized by type. Used to populate "Attach Scripts" dropdown with template scripts.
      * @return array{"Form Scripts": array, "Template Scripts": array|array{"Form Scripts": array, "Template Scripts": string[]}|array{"Form Scripts": string[], "Template Scripts": string[]}}
      */
-    private static function getFormScriptOptions(): array
+    private static function fetchFormScriptOptions(): array
     {
 
         $formScripts = FormScript::with(['formVersion.form'])->get();
@@ -333,11 +333,11 @@ class FormVersionBuilder
 
 
     /**
-     * Get the schema for the Build tab
+     * Make the schema for the Build tab
      * @param bool $editable
      * @return Tab
      */
-    private static function getBuildTabSchema(bool $editable): Tab
+    private static function makeBuildTab(bool $editable): Tab
     {
         return Tab::make('Build')
             ->icon('heroicon-o-cog')
@@ -357,14 +357,14 @@ class FormVersionBuilder
     }
 
     /**
-     * Get the schema for the Scripts tab
+     * Make the schema for the Scripts tab
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function getScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
+    private static function makeScriptsTab(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('Scripts')
             ->icon('heroicon-o-code-bracket-square')
@@ -378,8 +378,8 @@ class FormVersionBuilder
                         Tabs::make('form_script_type')
                             ->contained(false)
                             ->tabs([
-                                self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
-                                self::getPDFScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
+                                self::makeWebScriptsTab($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
+                                self::makePDFScriptsTab($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
                             ])
                             ->columnSpan(5),
                     ]),
@@ -387,14 +387,14 @@ class FormVersionBuilder
     }
 
     /**
-     * Get the schema for the Web Scripts tab, including Attach and Insert actions, and the Monaco editor
+     * Make the schema for the Web Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function getWebScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
+    private static function makeWebScriptsTab(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('web_form_script')
             ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
@@ -484,14 +484,14 @@ class FormVersionBuilder
     }
 
     /**
-     * Get the schema for the PDF Scripts tab, including Attach and Insert actions, and the Monaco editor
+     * Make the schema for the PDF Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function getPDFScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
+    private static function makePDFScriptsTab(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('pdf_form_script')
             ->label('PDF')
@@ -599,14 +599,14 @@ class FormVersionBuilder
     }
 
     /**
-     * Get the schema for the Style tab
+     * Make the schema for the Style tab
      * @param bool $editable
      * @param array $styleSheetOptions
      * @param callable $importContentForm
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function getStyleTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
+    private static function makeStyleTab(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('Style')
             ->icon('heroicon-o-paint-brush')
@@ -624,22 +624,22 @@ class FormVersionBuilder
                             ->contained(false)
                             ->columnSpan(5)
                             ->tabs([
-                                self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
-                                self::getPDFStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
+                                self::makeWebStyleTab($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
+                                self::makePDFStyleTab($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
                             ])
                     ]),
             ]);
     }
 
     /**
-     * Get the schema for the Web StyleSheet tab, including Attach and Insert actions, and the Monaco editor
+     * Make the schema for the Web StyleSheet tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $styleSheetOptions
      * @param callable $importContentForm
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function getWebStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
+    private static function makeWebStyleTab(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('web_style_sheet')
             ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
@@ -730,14 +730,14 @@ class FormVersionBuilder
     }
 
     /**
-     * Get the schema for the PDF StyleSheet tab, including Attach and Insert actions, and the Monaco editor
+     * Make the schema for the PDF StyleSheet tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $styleSheetOptions
      * @param callable $importContentForm
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function getPDFStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
+    private static function makePDFStyleTab(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('pdf_style_sheet')
             ->label('PDF')
