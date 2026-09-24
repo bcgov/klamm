@@ -32,36 +32,13 @@ class FormVersionBuilder
                 if (!$record || !$record->id) {
                     return [];
                 }
-                return \App\Filament\Components\FormVersionBuilder::getElementTreeAutocompleteOptions($record->id, $context);
+                return self::getElementTreeAutocompleteOptions($record->id, $context);
             };
         };
         $autocompleteOptionsStyle = $makeAutocompleteOptions('style');
         $autocompleteOptionsScript = $makeAutocompleteOptions('script');
-        $styleSheets = StyleSheet::with(['formVersion.form'])->get();
 
-        $templateStyleSheets = [];
-        $otherStyleSheets = [];
-
-        foreach ($styleSheets as $sheet) {
-            if ($sheet->type === 'template') {
-                $templateStyleSheets[$sheet->id] = "Template Stylesheet ({$sheet->filename})";
-            } else {
-                $formVersion = $sheet->formVersion;
-                $form = $formVersion?->form;
-
-                if ($formVersion && $form) {
-                    $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$sheet->type})";
-                } else {
-                    $name = $sheet->filename ?? "Stylesheet #{$sheet->id}";
-                    $otherStyleSheets[$sheet->id] = "[Orphan] {$name} ({$sheet->type})";
-                }
-            }
-        }
-
-        $styleSheetOptions = [
-            'Template Stylesheets' => $templateStyleSheets,
-            'Form Stylesheets' => $otherStyleSheets,
-        ];
+        $styleSheetOptions = self::getStyleSheetOptions();
 
         $formScripts = FormScript::with(['formVersion.form'])->get();
 
@@ -88,6 +65,7 @@ class FormVersionBuilder
             'Template Scripts' => $templateScripts,
             'Form Scripts' => $otherScripts,
         ];
+
 
         // Import action for scripts and styles
         $importContentAction = function ($contentField, $options, $type = 'script') {
@@ -603,7 +581,7 @@ class FormVersionBuilder
                                                     ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
                                                     ->hintIcon('heroicon-o-information-circle')
                                                     ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert CSS" to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically.')
-                                                    ->options($templateStyleSheets)
+                                                    ->options($styleSheetOptions['Template Stylesheets'])
                                                     ->multiple()
                                                     ->preload()
                                                     ->searchable()
@@ -818,5 +796,37 @@ class FormVersionBuilder
                 'documentation' => "**Selector:** `#$fullReferenceId`  \n**Label:** $label  \n**Name:** {$element->name}  \n**Type:** $typeDisplay  \n**Reference ID:** " . ($element->reference_id ?: 'None') . "  \n**UUID:** {$element->uuid}",
             ];
         })->values()->toArray();
+    }
+
+    /**
+     * Get options for style sheets, categorized by type. Used to populate "Attach Styles" dropdown with template stylesheets.
+     * @return array{"Form Stylesheets": array, "Template Stylesheets": array|array{"Form Stylesheets": array, "Template Stylesheets": string[]}|array{"Form Stylesheets": string[], "Template Stylesheets": string[]}}
+     */
+    private static function getStyleSheetOptions(): array
+    {
+        $styleSheets = StyleSheet::with(['formVersion.form'])->get();
+        $templateStyleSheets = [];
+        $otherStyleSheets = [];
+
+        foreach ($styleSheets as $sheet) {
+            if ($sheet->type === 'template') {
+                $templateStyleSheets[$sheet->id] = "Template Stylesheet ({$sheet->filename})";
+            } else {
+                $formVersion = $sheet->formVersion;
+                $form = $formVersion?->form;
+
+                if ($formVersion && $form) {
+                    $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$sheet->type})";
+                } else {
+                    $name = $sheet->filename ?? "Stylesheet #{$sheet->id}";
+                    $otherStyleSheets[$sheet->id] = "[Orphan] {$name} ({$sheet->type})";
+                }
+            }
+        }
+
+        return [
+            'Template Stylesheets' => $templateStyleSheets,
+            'Form Stylesheets' => $otherStyleSheets,
+        ];
     }
 }
