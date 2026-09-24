@@ -326,24 +326,7 @@ class FormVersionBuilder
                             })
                             ->columnSpanFull(),
                     ]),
-                Tab::make('Scripts')
-                    ->icon('heroicon-o-code-bracket-square')
-                    ->schema([
-                        Grid::make()
-                            ->columns(6)
-                            ->schema([
-                                Hidden::make('selectedFormScriptName'),
-                                AutocompleteBadgeList::make($autocompleteOptionsScript, 'script', 'Form Elements')
-                                    ->columnSpan(1),
-                                Tabs::make('form_script_type')
-                                    ->contained(false)
-                                    ->tabs([
-                                        self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
-                                        self::getPDFScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
-                                    ])
-                                    ->columnSpan(5),
-                            ]),
-                    ]),
+                self::getScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
                 Tab::make('Style')
                     ->icon('heroicon-o-paint-brush')
                     ->schema([
@@ -465,6 +448,37 @@ class FormVersionBuilder
             'Template Scripts' => $templateScripts,
             'Form Scripts' => $otherScripts,
         ];
+    }
+
+    /**
+     * Get the schema for the Scripts tab
+     * @param bool $editable
+     * @param array $formScriptOptions
+     * @param callable $importContentForm
+     * @param callable $importContentAction
+     * @param callable $autocompleteOptionsScript
+     * @return Tab
+     */
+    private static function getScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
+    {
+        return Tab::make('Scripts')
+            ->icon('heroicon-o-code-bracket-square')
+            ->schema([
+                Grid::make()
+                    ->columns(6)
+                    ->schema([
+                        Hidden::make('selectedFormScriptName'),
+                        AutocompleteBadgeList::make($autocompleteOptionsScript, 'script', 'Form Elements')
+                            ->columnSpan(1),
+                        Tabs::make('form_script_type')
+                            ->contained(false)
+                            ->tabs([
+                                self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
+                                self::getPDFScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
+                            ])
+                            ->columnSpan(5),
+                    ]),
+            ]);
     }
 
     /**
