@@ -339,109 +339,7 @@ class FormVersionBuilder
                                     ->contained(false)
                                     ->tabs([
                                         self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
-                                        Tab::make('pdf_form_script')
-                                            ->label('PDF')
-                                            ->icon('heroicon-o-document-text')
-                                            ->visible(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
-                                            ->schema([
-                                                Actions::make([
-                                                    Action::make('import_js_content_pdf')
-                                                        ->label('Insert JavaScript')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
-                                                        ->action($importContentAction('js_content_pdf', $formScriptOptions)),
-                                                    Action::make('save_scripts_pdf')
-                                                        ->label('Save Scripts')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $jsContentWeb = $get('js_content_web') ?? '';
-                                                            $jsContentPdf = $get('js_content_pdf') ?? '';
-
-                                                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                                                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
-
-                                                            // Fire update event for scripts
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
-                                                                'scripts',
-                                                                false
-                                                            );
-
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Saved')
-                                                                ->body('JavaScript form scripts have been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                    Action::make('migrate_pdf_scripts_to_web')
-                                                        ->label('Migrate to Web')
-                                                        ->icon('heroicon-o-arrow-right-circle')
-                                                        ->color('warning')
-                                                        ->requiresConfirmation()
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, callable $set, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            if (!$record) {
-                                                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
-                                                                return;
-                                                            }
-                                                            $pdf = FormScript::where('form_version_id', $record->id)->where('type', 'pdf')->first();
-                                                            if (!$pdf) {
-                                                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF script found.')->send();
-                                                                return;
-                                                            }
-
-                                                            $pdfContent = $pdf->getJsContent() ?? '';
-                                                            $web = FormScript::where('form_version_id', $record->id)->where('type', 'web')->first();
-                                                            $webContent = $web?->getJsContent() ?? '';
-
-                                                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
-                                                            $newWebContent = trim(rtrim($webContent) . "\n\n" . $banner . $pdfContent);
-
-                                                            if ($web) {
-                                                                $web->saveJsContent($newWebContent);
-                                                            } else {
-                                                                FormScript::createFormScript($record, $newWebContent, 'web');
-                                                            }
-
-                                                            // Clear PDF file content (optional) then delete PDF record
-                                                            $pdf->saveJsContent('');
-                                                            try {
-                                                                $pdf->delete();
-                                                            } catch (\Exception $e) {
-                                                                Log::warning('Failed to delete PDF script during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
-                                                            }
-
-                                                            // Update form state
-                                                            $set('js_content_web', $newWebContent);
-                                                            $set('js_content_pdf', '');
-
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Scripts Migrated')
-                                                                ->body('PDF scripts migrated to Web and PDF removed.')
-                                                                ->send();
-                                                        }),
-                                                ])
-                                                    ->alignment(Alignment::Center),
-
-                                                CustomMonacoEditor::make('js_content_pdf')
-                                                    ->label(false)
-                                                    ->language('javascript')
-                                                    ->theme('vs-dark')
-                                                    ->reactive()
-                                                    ->height('475px')
-                                                    ->live()
-                                                    ->autocomplete($autocompleteOptionsScript)
-                                                    ->disabled(!$editable),
-                                            ]),
+                                        self::getPDFScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
                                     ])
                                     ->columnSpan(5),
                             ]),
@@ -756,7 +654,7 @@ class FormVersionBuilder
     }
 
     /**
-     * Get the schema for the WebScripts tab, including Attach and Insert actions, and the Monaco editor
+     * Get the schema for the Web Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
@@ -849,6 +747,122 @@ class FormVersionBuilder
                     ->autocomplete($autocompleteOptionsScript)
                     ->reactive()
                     ->height('475px')
+                    ->disabled(!$editable),
+            ]);
+    }
+
+    /**
+     * Get the schema for the PDF Scripts tab, including Attach and Insert actions, and the Monaco editor
+     * @param bool $editable
+     * @param array $formScriptOptions
+     * @param callable $importContentForm
+     * @param callable $importContentAction
+     * @param callable $autocompleteOptionsScript
+     * @return Tabs\Tab
+     */
+    private static function getPDFScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
+    {
+        return Tab::make('pdf_form_script')
+            ->label('PDF')
+            ->icon('heroicon-o-document-text')
+            ->visible(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
+            ->schema([
+                Actions::make([
+                    Action::make('import_js_content_pdf')
+                        ->label('Insert JavaScript')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
+                        ->action($importContentAction('js_content_pdf', $formScriptOptions)),
+                    Action::make('save_scripts_pdf')
+                        ->label('Save Scripts')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->action(function (callable $get, $livewire) {
+                            $record = $livewire->getRecord();
+                            $jsContentWeb = $get('js_content_web') ?? '';
+                            $jsContentPdf = $get('js_content_pdf') ?? '';
+
+                            FormScript::createFormScript($record, $jsContentWeb, 'web');
+                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
+
+                            // Fire update event for scripts
+                            FormVersionUpdateEvent::dispatch(
+                                $record->id,
+                                $record->form_id,
+                                $record->version_number,
+                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
+                                'scripts',
+                                false
+                            );
+
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Scripts Saved')
+                                ->body('JavaScript form scripts have been saved successfully.')
+                                ->send();
+                        }),
+                    Action::make('migrate_pdf_scripts_to_web')
+                        ->label('Migrate to Web')
+                        ->icon('heroicon-o-arrow-right-circle')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->action(function (callable $get, callable $set, $livewire) {
+                            $record = $livewire->getRecord();
+                            if (!$record) {
+                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
+                                return;
+                            }
+                            $pdf = FormScript::where('form_version_id', $record->id)->where('type', 'pdf')->first();
+                            if (!$pdf) {
+                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF script found.')->send();
+                                return;
+                            }
+
+                            $pdfContent = $pdf->getJsContent() ?? '';
+                            $web = FormScript::where('form_version_id', $record->id)->where('type', 'web')->first();
+                            $webContent = $web?->getJsContent() ?? '';
+
+                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
+                            $newWebContent = trim(rtrim($webContent) . "\n\n" . $banner . $pdfContent);
+
+                            if ($web) {
+                                $web->saveJsContent($newWebContent);
+                            } else {
+                                FormScript::createFormScript($record, $newWebContent, 'web');
+                            }
+
+                            // Clear PDF file content (optional) then delete PDF record
+                            $pdf->saveJsContent('');
+                            try {
+                                $pdf->delete();
+                            } catch (\Exception $e) {
+                                Log::warning('Failed to delete PDF script during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
+                            }
+
+                            // Update form state
+                            $set('js_content_web', $newWebContent);
+                            $set('js_content_pdf', '');
+
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Scripts Migrated')
+                                ->body('PDF scripts migrated to Web and PDF removed.')
+                                ->send();
+                        }),
+                ])
+                    ->alignment(Alignment::Center),
+
+                CustomMonacoEditor::make('js_content_pdf')
+                    ->label(false)
+                    ->language('javascript')
+                    ->theme('vs-dark')
+                    ->reactive()
+                    ->height('475px')
+                    ->live()
+                    ->autocomplete($autocompleteOptionsScript)
                     ->disabled(!$editable),
             ]);
     }
