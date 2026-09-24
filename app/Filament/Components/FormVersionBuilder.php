@@ -7,6 +7,7 @@ use App\Filament\Components\AutocompleteBadgeList;
 use App\Filament\Plugins\MonacoEditor\CustomMonacoEditor;
 use App\Models\FormBuilding\FormScript;
 use App\Models\FormBuilding\StyleSheet;
+use Closure;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Grid;
@@ -40,92 +41,6 @@ class FormVersionBuilder
 
         $styleSheetOptions = self::getStyleSheetOptions();
         $formScriptOptions = self::getFormScriptOptions();
-
-
-        // Import action for scripts and styles
-        $importContentAction = function ($contentField, $options, $type = 'script') {
-            return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
-                // Map type to model and field names
-                $modelClass = $type === 'script'
-                    ? FormScript::class
-                    : StyleSheet::class;
-                $idField = $type === 'script'
-                    ? 'selectedFormScriptId'
-                    : 'selectedStyleSheetId';
-                $getContentMethod = $type === 'script'
-                    ? 'getJsContent'
-                    : 'getCssContent';
-
-                $content = '';
-                $elementMappings = [];
-                $sourceSelections = $data['source_selections'] ?? [];
-                $targetSelections = $data['target_selections'] ?? [];
-
-                // Process element replacements
-                $processElementReplacement = function ($fullSelection, $index, $type, $prefix = '') use (&$elementMappings) {
-                    if ($fullSelection && $fullSelection !== '#{source_id}' && $fullSelection !== '#{target_id}') {
-                        if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
-                            $cleanId = $matches[1];
-                            $comment = $matches[2];
-                            $elementMappings[] = "$type #{$index}: {$comment} (ID: {$cleanId})";
-                            return $prefix . $cleanId;
-                        }
-                    }
-                    return $fullSelection;
-                };
-
-                $record = $modelClass::find($data[$idField] ?? null);
-                if ($record && method_exists($record, $getContentMethod)) {
-                    $content = $record->{$getContentMethod}();
-
-                    // Replace source placeholders
-                    if (!empty($sourceSelections)) {
-                        $sourceIndex = 0;
-                        $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, $processElementReplacement, $type) {
-                            $fullSelection = $sourceSelections[$sourceIndex]['element_id'] ?? '#{source_id}';
-                            $sourceIndex++;
-                            $prefix = ($type === 'style') ? '#' : '';
-                            return $processElementReplacement($fullSelection, $sourceIndex, 'Source', $prefix);
-                        }, $content);
-                    }
-
-                    // Replace target placeholders
-                    if (!empty($targetSelections)) {
-                        $targetIndex = 0;
-                        $patterns = ['/#{target_id}/', '/#target_id/'];
-
-                        foreach ($patterns as $pattern) {
-                            $content = preg_replace_callback($pattern, function ($matches) use ($targetSelections, &$targetIndex, $processElementReplacement, $type) {
-                                if ($targetIndex >= count($targetSelections)) {
-                                    return $matches[0]; // Return original if no more selections
-                                }
-                                $fullSelection = $targetSelections[$targetIndex]['element_id'] ?? '#{target_id}';
-                                $targetIndex++;
-                                $prefix = ($type === 'style') ? '#' : '';
-                                return $processElementReplacement($fullSelection, $targetIndex, 'Target', $prefix);
-                            }, $content);
-                        }
-                    }
-                }
-
-                $existing = $get($contentField);
-                $selected = null;
-                foreach ($options as $group) {
-                    if (isset($group[$data[$idField] ?? null])) {
-                        $selected = $group[$data[$idField]];
-                        break;
-                    }
-                }
-
-                $comment = "/* Imported from {$selected}";
-                if (!empty($elementMappings)) {
-                    $comment .= "\n * Element Mappings:\n * " . implode("\n * ", $elementMappings);
-                }
-                $comment .= " */\n\n";
-                $appended = rtrim($existing) . "\n\n" . $comment . $content;
-                $set($contentField, $appended);
-            };
-        };
 
         // Import Form for scripts and styles
         $importContentForm = function ($options, $autocompleteOptions = null, $type = 'script') {
@@ -312,8 +227,8 @@ class FormVersionBuilder
             ->persistTab()
             ->tabs([
                 self::getBuildTabSchema($editable),
-                self::getScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
-                self::getStyleTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
+                self::getScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
+                self::getStyleTabSchema($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
             ]);
     }
 
@@ -446,11 +361,10 @@ class FormVersionBuilder
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
-     * @param callable $importContentAction
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function getScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
+    private static function getScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('Scripts')
             ->icon('heroicon-o-code-bracket-square')
@@ -464,8 +378,8 @@ class FormVersionBuilder
                         Tabs::make('form_script_type')
                             ->contained(false)
                             ->tabs([
-                                self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
-                                self::getPDFScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $importContentAction, $autocompleteOptionsScript),
+                                self::getWebScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
+                                self::getPDFScriptsTabSchema($editable, $formScriptOptions, $importContentForm, $autocompleteOptionsScript),
                             ])
                             ->columnSpan(5),
                     ]),
@@ -477,11 +391,10 @@ class FormVersionBuilder
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
-     * @param callable $importContentAction
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function getWebScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
+    private static function getWebScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('web_form_script')
             ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
@@ -532,7 +445,7 @@ class FormVersionBuilder
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                         ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
-                        ->action($importContentAction('js_content_web', $formScriptOptions, 'script')),
+                        ->action(self::resolveImportAction('js_content_web', $formScriptOptions, 'script')),
                     Action::make('save_scripts_web')
                         ->label('Save Scripts')
                         ->icon('heroicon-o-check')
@@ -575,11 +488,10 @@ class FormVersionBuilder
      * @param bool $editable
      * @param array $formScriptOptions
      * @param callable $importContentForm
-     * @param callable $importContentAction
      * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function getPDFScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsScript): Tab
+    private static function getPDFScriptsTabSchema(bool $editable, array $formScriptOptions, callable $importContentForm, callable $autocompleteOptionsScript): Tab
     {
         return Tab::make('pdf_form_script')
             ->label('PDF')
@@ -592,7 +504,7 @@ class FormVersionBuilder
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                         ->form($importContentForm($formScriptOptions, $autocompleteOptionsScript))
-                        ->action($importContentAction('js_content_pdf', $formScriptOptions)),
+                        ->action(self::resolveImportAction('js_content_pdf', $formScriptOptions)),
                     Action::make('save_scripts_pdf')
                         ->label('Save Scripts')
                         ->icon('heroicon-o-check')
@@ -691,11 +603,10 @@ class FormVersionBuilder
      * @param bool $editable
      * @param array $styleSheetOptions
      * @param callable $importContentForm
-     * @param callable $importContentAction
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function getStyleTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
+    private static function getStyleTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('Style')
             ->icon('heroicon-o-paint-brush')
@@ -713,8 +624,8 @@ class FormVersionBuilder
                             ->contained(false)
                             ->columnSpan(5)
                             ->tabs([
-                                self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
-                                self::getPDFStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
+                                self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
+                                self::getPDFStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $autocompleteOptionsStyle),
                             ])
                     ]),
             ]);
@@ -725,11 +636,10 @@ class FormVersionBuilder
      * @param bool $editable
      * @param array $styleSheetOptions
      * @param callable $importContentForm
-     * @param callable $importContentAction
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function getWebStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
+    private static function getWebStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('web_style_sheet')
             ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
@@ -781,7 +691,7 @@ class FormVersionBuilder
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                         ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
-                        ->action($importContentAction('css_content_web', $styleSheetOptions, 'style')),
+                        ->action(self::resolveImportAction('css_content_web', $styleSheetOptions, 'style')),
                     Action::make('save_styles_web')
                         ->label('Save Styles')
                         ->icon('heroicon-o-check')
@@ -824,11 +734,10 @@ class FormVersionBuilder
      * @param bool $editable
      * @param array $styleSheetOptions
      * @param callable $importContentForm
-     * @param callable $importContentAction
      * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function getPDFStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
+    private static function getPDFStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $autocompleteOptionsStyle): Tab
     {
         return Tab::make('pdf_style_sheet')
             ->label('PDF')
@@ -841,7 +750,7 @@ class FormVersionBuilder
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
                         ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
-                        ->action($importContentAction('css_content_pdf', $styleSheetOptions, 'style')),
+                        ->action(self::resolveImportAction('css_content_pdf', $styleSheetOptions, 'style')),
                     Action::make('save_styles_pdf')
                         ->label('Save Styles')
                         ->icon('heroicon-o-check')
@@ -932,5 +841,97 @@ class FormVersionBuilder
                     ->height('475px')
                     ->disabled(!$editable),
             ]);
+    }
+
+    /**
+     * Resolve the import action for scripts or styles, replacing placeholders with selected element IDs and appending the content to the existing field.
+     * @param string $contentField
+     * @param array $options
+     * @param string $type
+     * @return Closure // The closure takes parameters: array $data, callable $get, callable $set, $livewire
+     */
+    private static function resolveImportAction(string $contentField, array $options, string $type = 'script'): Closure
+    {
+        return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
+            // Map type to model and field names
+            $modelClass = $type === 'script'
+                ? FormScript::class
+                : StyleSheet::class;
+            $idField = $type === 'script'
+                ? 'selectedFormScriptId'
+                : 'selectedStyleSheetId';
+            $getContentMethod = $type === 'script'
+                ? 'getJsContent'
+                : 'getCssContent';
+
+            $content = '';
+            $elementMappings = [];
+            $sourceSelections = $data['source_selections'] ?? [];
+            $targetSelections = $data['target_selections'] ?? [];
+
+            // Process element replacements
+            $processElementReplacement = function ($fullSelection, $index, $type, $prefix = '') use (&$elementMappings) {
+                if ($fullSelection && $fullSelection !== '#{source_id}' && $fullSelection !== '#{target_id}') {
+                    if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
+                        $cleanId = $matches[1];
+                        $comment = $matches[2];
+                        $elementMappings[] = "$type #{$index}: {$comment} (ID: {$cleanId})";
+                        return $prefix . $cleanId;
+                    }
+                }
+                return $fullSelection;
+            };
+
+            $record = $modelClass::find($data[$idField] ?? null);
+            if ($record && method_exists($record, $getContentMethod)) {
+                $content = $record->{$getContentMethod}();
+
+                // Replace source placeholders
+                if (!empty($sourceSelections)) {
+                    $sourceIndex = 0;
+                    $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, $processElementReplacement, $type) {
+                        $fullSelection = $sourceSelections[$sourceIndex]['element_id'] ?? '#{source_id}';
+                        $sourceIndex++;
+                        $prefix = ($type === 'style') ? '#' : '';
+                        return $processElementReplacement($fullSelection, $sourceIndex, 'Source', $prefix);
+                    }, $content);
+                }
+
+                // Replace target placeholders
+                if (!empty($targetSelections)) {
+                    $targetIndex = 0;
+                    $patterns = ['/#{target_id}/', '/#target_id/'];
+
+                    foreach ($patterns as $pattern) {
+                        $content = preg_replace_callback($pattern, function ($matches) use ($targetSelections, &$targetIndex, $processElementReplacement, $type) {
+                            if ($targetIndex >= count($targetSelections)) {
+                                return $matches[0]; // Return original if no more selections
+                            }
+                            $fullSelection = $targetSelections[$targetIndex]['element_id'] ?? '#{target_id}';
+                            $targetIndex++;
+                            $prefix = ($type === 'style') ? '#' : '';
+                            return $processElementReplacement($fullSelection, $targetIndex, 'Target', $prefix);
+                        }, $content);
+                    }
+                }
+            }
+
+            $existing = $get($contentField);
+            $selected = null;
+            foreach ($options as $group) {
+                if (isset($group[$data[$idField] ?? null])) {
+                    $selected = $group[$data[$idField]];
+                    break;
+                }
+            }
+
+            $comment = "/* Imported from {$selected}";
+            if (!empty($elementMappings)) {
+                $comment .= "\n * Element Mappings:\n * " . implode("\n * ", $elementMappings);
+            }
+            $comment .= " */\n\n";
+            $appended = rtrim($existing) . "\n\n" . $comment . $content;
+            $set($contentField, $appended);
+        };
     }
 }
