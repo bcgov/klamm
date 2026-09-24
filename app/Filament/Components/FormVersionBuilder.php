@@ -360,92 +360,7 @@ class FormVersionBuilder
                                     ->contained(false)
                                     ->columnSpan(5)
                                     ->tabs([
-                                        Tab::make('web_style_sheet')
-                                            ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
-                                            ->icon('heroicon-o-globe-alt')
-                                            ->schema([
-                                                // Updated: ensure attached template styles show as selected on load
-                                                Select::make('attached_style_sheet_ids')
-                                                    ->label('Attach Styles')
-                                                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
-                                                    ->hintIcon('heroicon-o-information-circle')
-                                                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert CSS" to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically.')
-                                                    ->options($styleSheetOptions['Template Stylesheets'])
-                                                    ->multiple()
-                                                    ->preload()
-                                                    ->searchable()
-                                                    ->dehydrated(false)
-                                                    ->default(function ($livewire) {
-                                                        $record = $livewire->getRecord();
-                                                        return $record
-                                                            ? $record->styleSheets()
-                                                                ->where('type', 'template')
-                                                                ->pluck('style_sheets.id')
-                                                                ->map(fn($id) => (string) $id)
-                                                                ->toArray()
-                                                            : [];
-                                                    })
-                                                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                                                        if (!empty($state))
-                                                            return;
-                                                        $record = $livewire->getRecord();
-                                                        $ids = $record
-                                                            ? $record->styleSheets()
-                                                                ->where('type', 'template')
-                                                                ->pluck('style_sheets.id')
-                                                                ->map(fn($id) => (string) $id)
-                                                                ->toArray()
-                                                            : [];
-                                                        $set('attached_style_sheet_ids', $ids);
-                                                    })
-                                                    ->afterStateUpdated(function ($state, callable $set, $livewire) {
-                                                        $record = $livewire->getRecord();
-                                                        if ($record) {
-                                                            $record->styleSheets()->sync($state ?? []);
-                                                        }
-                                                    }),
-                                                Actions::make([
-                                                    Action::make('import_css_content_web')
-                                                        ->label('Insert CSS')
-                                                        ->icon('heroicon-o-document-arrow-down')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
-                                                        ->action($importContentAction('css_content_web', $styleSheetOptions, 'style')),
-                                                    Action::make('save_styles_web')
-                                                        ->label('Save Styles')
-                                                        ->icon('heroicon-o-check')
-                                                        ->color('success')
-                                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                                                        ->action(function (callable $get, $livewire) {
-                                                            $record = $livewire->getRecord();
-                                                            $cssContentWeb = $get('css_content_web') ?? '';
-                                                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
-                                                            // Fire update event for styles
-                                                            FormVersionUpdateEvent::dispatch(
-                                                                $record->id,
-                                                                $record->form_id,
-                                                                $record->version_number,
-                                                                ['web_styles' => $cssContentWeb],
-                                                                'styles',
-                                                                false
-                                                            );
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Styles Saved')
-                                                                ->body('CSS stylesheet has been saved successfully.')
-                                                                ->send();
-                                                        }),
-                                                ])->alignment(Alignment::Center),
-                                                CustomMonacoEditor::make('css_content_web')
-                                                    ->label(false)
-                                                    ->language('css')
-                                                    ->theme('vs-dark')
-                                                    ->live()
-                                                    ->autocomplete($autocompleteOptionsStyle)
-                                                    ->reactive()
-                                                    ->height('475px')
-                                                    ->disabled(!$editable),
-                                            ]),
+                                        self::getWebStyleSheetTabSchema($editable, $styleSheetOptions, $importContentForm, $importContentAction, $autocompleteOptionsStyle),
                                         Tab::make('pdf_style_sheet')
                                             ->label('PDF')
                                             ->icon('heroicon-o-document-text')
@@ -863,6 +778,105 @@ class FormVersionBuilder
                     ->height('475px')
                     ->live()
                     ->autocomplete($autocompleteOptionsScript)
+                    ->disabled(!$editable),
+            ]);
+    }
+
+    /**
+     * Get the schema for the Web StyleSheet tab, including Attach and Insert actions, and the Monaco editor
+     * @param bool $editable
+     * @param array $styleSheetOptions
+     * @param callable $importContentForm
+     * @param callable $importContentAction
+     * @param callable $autocompleteOptionsStyle
+     * @return Tabs\Tab
+     */
+    private static function getWebStyleSheetTabSchema(bool $editable, array $styleSheetOptions, callable $importContentForm, callable $importContentAction, callable $autocompleteOptionsStyle): Tab
+    {
+        return Tab::make('web_style_sheet')
+            ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
+            ->icon('heroicon-o-globe-alt')
+            ->schema([
+                // Updated: ensure attached template styles show as selected on load
+                Select::make('attached_style_sheet_ids')
+                    ->label('Attach Styles')
+                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
+                    ->hintIcon('heroicon-o-information-circle')
+                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert CSS" to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically.')
+                    ->options($styleSheetOptions['Template Stylesheets'])
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->dehydrated(false)
+                    ->default(function ($livewire) {
+                        $record = $livewire->getRecord();
+                        return $record
+                            ? $record->styleSheets()
+                                ->where('type', 'template')
+                                ->pluck('style_sheets.id')
+                                ->map(fn($id) => (string) $id)
+                                ->toArray()
+                            : [];
+                    })
+                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
+                        if (!empty($state))
+                            return;
+                        $record = $livewire->getRecord();
+                        $ids = $record
+                            ? $record->styleSheets()
+                                ->where('type', 'template')
+                                ->pluck('style_sheets.id')
+                                ->map(fn($id) => (string) $id)
+                                ->toArray()
+                            : [];
+                        $set('attached_style_sheet_ids', $ids);
+                    })
+                    ->afterStateUpdated(function ($state, callable $set, $livewire) {
+                        $record = $livewire->getRecord();
+                        if ($record) {
+                            $record->styleSheets()->sync($state ?? []);
+                        }
+                    }),
+                Actions::make([
+                    Action::make('import_css_content_web')
+                        ->label('Insert CSS')
+                        ->icon('heroicon-o-document-arrow-down')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->form($importContentForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                        ->action($importContentAction('css_content_web', $styleSheetOptions, 'style')),
+                    Action::make('save_styles_web')
+                        ->label('Save Styles')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                        ->action(function (callable $get, $livewire) {
+                            $record = $livewire->getRecord();
+                            $cssContentWeb = $get('css_content_web') ?? '';
+                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                            // Fire update event for styles
+                            FormVersionUpdateEvent::dispatch(
+                                $record->id,
+                                $record->form_id,
+                                $record->version_number,
+                                ['web_styles' => $cssContentWeb],
+                                'styles',
+                                false
+                            );
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Styles Saved')
+                                ->body('CSS stylesheet has been saved successfully.')
+                                ->send();
+                        }),
+                ])->alignment(Alignment::Center),
+                CustomMonacoEditor::make('css_content_web')
+                    ->label(false)
+                    ->language('css')
+                    ->theme('vs-dark')
+                    ->live()
+                    ->autocomplete($autocompleteOptionsStyle)
+                    ->reactive()
+                    ->height('475px')
                     ->disabled(!$editable),
             ]);
     }
