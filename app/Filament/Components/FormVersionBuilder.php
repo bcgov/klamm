@@ -38,6 +38,10 @@ class FormVersionBuilder
             ]);
     }
 
+    // ------------------------------------------------------------------
+    // Public helpers
+    // ------------------------------------------------------------------
+
     /**
      * Fetch autocomplete options for Monaco editor from form element tree.
      *
@@ -71,37 +75,9 @@ class FormVersionBuilder
         })->values()->toArray();
     }
 
-    /**
-     * Fetch options for style sheets, categorized by type. Used to populate "Attach Styles" dropdown with template stylesheets.
-     * @return array{"Form Stylesheets": array, "Template Stylesheets": array|array{"Form Stylesheets": array, "Template Stylesheets": string[]}|array{"Form Stylesheets": string[], "Template Stylesheets": string[]}}
-     */
-    private static function fetchStyleSheetOptions(): array
-    {
-        $styleSheets = StyleSheet::with(['formVersion.form'])->get();
-        $templateStyleSheets = [];
-        $otherStyleSheets = [];
-
-        foreach ($styleSheets as $sheet) {
-            if ($sheet->type === 'template') {
-                $templateStyleSheets[$sheet->id] = "Template Stylesheet ({$sheet->filename})";
-            } else {
-                $formVersion = $sheet->formVersion;
-                $form = $formVersion?->form;
-
-                if ($formVersion && $form) {
-                    $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$sheet->type})";
-                } else {
-                    $name = $sheet->filename ?? "Stylesheet #{$sheet->id}";
-                    $otherStyleSheets[$sheet->id] = "[Orphan] {$name} ({$sheet->type})";
-                }
-            }
-        }
-
-        return [
-            'Template Stylesheets' => $templateStyleSheets,
-            'Form Stylesheets' => $otherStyleSheets,
-        ];
-    }
+    // ------------------------------------------------------------------
+    // Data fetchers
+    // ------------------------------------------------------------------
 
     /**
      * Fetch options for form scripts, categorized by type. Used to populate "Attach Scripts" dropdown with template scripts.
@@ -137,6 +113,106 @@ class FormVersionBuilder
         ];
     }
 
+    /**
+     * Fetch options for style sheets, categorized by type. Used to populate "Attach Styles" dropdown with template stylesheets.
+     * @return array{"Form Stylesheets": array, "Template Stylesheets": array|array{"Form Stylesheets": array, "Template Stylesheets": string[]}|array{"Form Stylesheets": string[], "Template Stylesheets": string[]}}
+     */
+    private static function fetchStyleSheetOptions(): array
+    {
+        $styleSheets = StyleSheet::with(['formVersion.form'])->get();
+        $templateStyleSheets = [];
+        $otherStyleSheets = [];
+
+        foreach ($styleSheets as $sheet) {
+            if ($sheet->type === 'template') {
+                $templateStyleSheets[$sheet->id] = "Template Stylesheet ({$sheet->filename})";
+            } else {
+                $formVersion = $sheet->formVersion;
+                $form = $formVersion?->form;
+
+                if ($formVersion && $form) {
+                    $otherStyleSheets[$sheet->id] = "[{$form->form_id}] {$form->form_title} - v{$formVersion->version_number} ({$sheet->type})";
+                } else {
+                    $name = $sheet->filename ?? "Stylesheet #{$sheet->id}";
+                    $otherStyleSheets[$sheet->id] = "[Orphan] {$name} ({$sheet->type})";
+                }
+            }
+        }
+
+        return [
+            'Template Stylesheets' => $templateStyleSheets,
+            'Form Stylesheets' => $otherStyleSheets,
+        ];
+    }
+
+    /**
+     * Fetch the autocomplete options for the form elements based on the current record and context.
+     * @param mixed $context
+     * @return Closure // The closure takes parameters: $get, $livewire
+     */
+    private static function fetchAutocompleteOptions($context): Closure
+    {
+        return function ($get, $livewire) use ($context) {
+            $record = $livewire->getRecord();
+            if (!$record || !$record->id) {
+                return [];
+            }
+            return self::fetchElementTreeAutocompleteOptions($record->id, $context);
+        };
+    }
+
+    // ------------------------------------------------------------------
+    // Configuration
+    // ------------------------------------------------------------------
+
+    /**
+     * Get configuration values specific to the code type (script or style).
+     * @param string $type
+     * @return array
+     */
+    private static function getCodeConfig(string $type): array
+    {
+        $isScript = $type === 'script'; // Internal only, used to build the array
+
+        return [
+            'model' => $isScript ? FormScript::class : StyleSheet::class,
+            'select_field' => $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId',
+            'name_field' => $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName',
+            'preview_field' => $isScript ? 'js_preview' : 'css_preview',
+            'content_field' => $isScript ? 'js_content_web' : 'css_content_web',
+            'attach_field' => $isScript ? 'attached_form_script_ids' : 'attached_style_sheet_ids',
+            'label' => $isScript ? 'Select a Form Script' : 'Select a Style Sheet',
+            'preview_label' => $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview',
+            'placeholder_content' => $isScript ? 'Select a script to preview its content.' : 'Select a stylesheet to preview its content.',
+            'get_content_method' => $isScript ? 'getJsContent' : 'getCssContent',
+            'create_method' => $isScript ? 'createFormScript' : 'createStyleSheet',
+            'relationship' => $isScript ? 'formScripts' : 'styleSheets',
+            'pivot_table' => $isScript ? 'form_scripts' : 'style_sheets',
+            'update_key' => $isScript ? 'web_scripts' : 'web_styles',
+            'update_type' => $isScript ? 'scripts' : 'styles',
+            'success_title' => $isScript ? 'Scripts Saved' : 'Styles Saved',
+            'success_body' => $isScript ? 'JavaScript form scripts have been saved successfully.' : 'CSS stylesheet has been saved successfully.',
+            'language' => $isScript ? 'javascript' : 'css',
+            'insert_action_name' => $isScript ? 'import_js_content_web' : 'import_css_content_web',
+            'insert_action_label' => $isScript ? 'Insert JavaScript' : 'Insert CSS',
+            'save_action_name' => $isScript ? 'save_scripts_web' : 'save_styles_web',
+            'save_action_label' => $isScript ? 'Save Scripts' : 'Save Styles',
+            'tab_label' => $isScript ? 'Scripts' : 'Style',
+            'tab_icon' => $isScript ? 'heroicon-o-code-bracket-square' : 'heroicon-o-paint-brush',
+            'attach_label' => $isScript ? 'Attach Scripts' : 'Attach Styles',
+            'template_options_key' => $isScript ? 'Template Scripts' : 'Template Stylesheets',
+
+            // Regex and replacement configs to eliminate inline conditionals
+            'source_prefix' => $isScript ? '' : '#',
+            'target_prefix' => $isScript ? '' : '#',
+            'target_patterns' => $isScript ? ['/#{target_id}/'] : ['/#{target_id}/', '/#target_id/'],
+            'target_replace_pattern' => $isScript ? '/#{target_id}/' : '/#{target_id}|#target_id/',
+        ];
+    }
+
+    // ------------------------------------------------------------------
+    // Tab builders
+    // ------------------------------------------------------------------
 
     /**
      * Make the schema for the Build tab
@@ -355,6 +431,10 @@ class FormVersionBuilder
             ]);
     }
 
+    // ------------------------------------------------------------------
+    // Insert Action logic
+    // ------------------------------------------------------------------
+
     /**
      * Make the schema for the Insert Style/Script Action
      * @param array $options
@@ -437,22 +517,6 @@ class FormVersionBuilder
             ->deletable(false)
             ->reorderable(false)
             ->visible(fn($get) => !empty($get($selectField)) && !empty($get($fieldName)));
-    }
-
-    /**
-     * Fetch the autocomplete options for the form elements based on the current record and context.
-     * @param mixed $context
-     * @return Closure // The closure takes parameters: $get, $livewire
-     */
-    private static function fetchAutocompleteOptions($context): Closure
-    {
-        return function ($get, $livewire) use ($context) {
-            $record = $livewire->getRecord();
-            if (!$record || !$record->id) {
-                return [];
-            }
-            return self::fetchElementTreeAutocompleteOptions($record->id, $context);
-        };
     }
 
     /**
@@ -607,50 +671,5 @@ class FormVersionBuilder
         $set('target_selections', $targetSelections);
 
         $set($config['preview_field'], $content);
-    }
-
-    /**
-     * Get configuration values specific to the code type (script or style).
-     * @param string $type
-     * @return array
-     */
-    private static function getCodeConfig(string $type): array
-    {
-        $isScript = $type === 'script'; // Internal only, used to build the array
-
-        return [
-            'model' => $isScript ? FormScript::class : StyleSheet::class,
-            'select_field' => $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId',
-            'name_field' => $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName',
-            'preview_field' => $isScript ? 'js_preview' : 'css_preview',
-            'content_field' => $isScript ? 'js_content_web' : 'css_content_web',
-            'attach_field' => $isScript ? 'attached_form_script_ids' : 'attached_style_sheet_ids',
-            'label' => $isScript ? 'Select a Form Script' : 'Select a Style Sheet',
-            'preview_label' => $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview',
-            'placeholder_content' => $isScript ? 'Select a script to preview its content.' : 'Select a stylesheet to preview its content.',
-            'get_content_method' => $isScript ? 'getJsContent' : 'getCssContent',
-            'create_method' => $isScript ? 'createFormScript' : 'createStyleSheet',
-            'relationship' => $isScript ? 'formScripts' : 'styleSheets',
-            'pivot_table' => $isScript ? 'form_scripts' : 'style_sheets',
-            'update_key' => $isScript ? 'web_scripts' : 'web_styles',
-            'update_type' => $isScript ? 'scripts' : 'styles',
-            'success_title' => $isScript ? 'Scripts Saved' : 'Styles Saved',
-            'success_body' => $isScript ? 'JavaScript form scripts have been saved successfully.' : 'CSS stylesheet has been saved successfully.',
-            'language' => $isScript ? 'javascript' : 'css',
-            'insert_action_name' => $isScript ? 'import_js_content_web' : 'import_css_content_web',
-            'insert_action_label' => $isScript ? 'Insert JavaScript' : 'Insert CSS',
-            'save_action_name' => $isScript ? 'save_scripts_web' : 'save_styles_web',
-            'save_action_label' => $isScript ? 'Save Scripts' : 'Save Styles',
-            'tab_label' => $isScript ? 'Scripts' : 'Style',
-            'tab_icon' => $isScript ? 'heroicon-o-code-bracket-square' : 'heroicon-o-paint-brush',
-            'attach_label' => $isScript ? 'Attach Scripts' : 'Attach Styles',
-            'template_options_key' => $isScript ? 'Template Scripts' : 'Template Stylesheets',
-
-            // Regex and replacement configs to eliminate inline conditionals
-            'source_prefix' => $isScript ? '' : '#',
-            'target_prefix' => $isScript ? '' : '#',
-            'target_patterns' => $isScript ? ['/#{target_id}/'] : ['/#{target_id}/', '/#target_id/'],
-            'target_replace_pattern' => $isScript ? '/#{target_id}/' : '/#{target_id}|#target_id/',
-        ];
     }
 }
