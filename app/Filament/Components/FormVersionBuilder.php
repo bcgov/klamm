@@ -651,101 +651,12 @@ class FormVersionBuilder
         $autocompleteOptions = self::fetchAutocompleteOptions($type);
         $isScript = $type === 'script';
         $selectField = $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId';
-        $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
         $previewField = $isScript ? 'js_preview' : 'css_preview';
         $label = $isScript ? 'Select a Form Script' : 'Select a Style Sheet';
         $previewLabel = $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview';
         $placeholderContent = $isScript
             ? 'Select a script to preview its content.'
             : 'Select a stylesheet to preview its content.';
-
-        $afterStateUpdated = function ($state, callable $set, callable $get = null) use ($options, $autocompleteOptions, $isScript, $nameField, $previewField, ) {
-            $displayName = null;
-            foreach ($options as $group) {
-                if (isset($group[$state])) {
-                    $displayName = $group[$state];
-                    break;
-                }
-            }
-            $set($nameField, $displayName);
-            $description = '';
-            $content = '';
-            if ($state) {
-                if ($isScript) {
-                    $script = FormScript::find($state);
-                    if ($script) {
-                        $content = $script->getJsContent() ?? '';
-                        $description = $script->description ?? '';
-                        $sourceCount = preg_match_all('/#{source_id}/', $content);
-                        $targetCount = preg_match_all('/#{target_id}/', $content);
-                        $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
-                            static $sourceIndex = 0;
-                            $sourceIndex++;
-                            return "'#{source_id}' /* Source #{$sourceIndex} */";
-                        }, $content);
-                        $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
-                            static $targetIndex = 0;
-                            $targetIndex++;
-                            return "'#{target_id}' /* Target #{$targetIndex} */";
-                        }, $content);
-                        $sourceSelections = [];
-                        for ($i = 0; $i < $sourceCount; $i++) {
-                            $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
-                        }
-                        $set('source_selections', $sourceSelections);
-                        $targetSelections = [];
-                        for ($i = 0; $i < $targetCount; $i++) {
-                            $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
-                        }
-                        $set('description', $description);
-                        $set('target_selections', $targetSelections);
-                    }
-                } else {
-                    $sheet = StyleSheet::find($state);
-                    if ($sheet) {
-                        $description = $sheet->description ?? '';
-                        $content = $sheet->getCssContent() ?? '';
-                        if ($autocompleteOptions) {
-                            $sourceCount = preg_match_all('/#{source_id}/', $content);
-                            $targetCountCurly = preg_match_all('/#{target_id}/', $content);
-                            $targetCountPlain = preg_match_all('/#target_id/', $content);
-                            $targetCount = $targetCountCurly + $targetCountPlain;
-
-                            $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceCount) {
-                                static $sourceIndex = 0;
-                                $sourceIndex++;
-                                return "'#{source_id}' /* Source #{$sourceIndex} */";
-                            }, $content);
-
-                            // Replace patterns in preview
-                            $content = preg_replace_callback('/#{target_id}/', function ($matches) use ($targetCount) {
-                                static $targetIndex = 0;
-                                $targetIndex++;
-                                return "'#{target_id}' /* Target #{$targetIndex} */";
-                            }, $content);
-                            $content = preg_replace_callback('/#target_id/', function ($matches) use ($targetCount) {
-                                static $targetIndex = 0;
-                                $targetIndex++;
-                                return "'#target_id' /* Target #{$targetIndex} */";
-                            }, $content);
-
-                            $sourceSelections = [];
-                            for ($i = 0; $i < $sourceCount; $i++) {
-                                $sourceSelections[] = ['element_id' => null, 'order' => $i + 1];
-                            }
-                            $set('source_selections', $sourceSelections);
-                            $targetSelections = [];
-                            for ($i = 0; $i < $targetCount; $i++) {
-                                $targetSelections[] = ['element_id' => null, 'order' => $i + 1];
-                            }
-                            $set('description', $description);
-                            $set('target_selections', $targetSelections);
-                        }
-                    }
-                }
-            }
-            $set($previewField, $content);
-        };
 
         $fields = [
             Select::make($selectField)
@@ -755,7 +666,7 @@ class FormVersionBuilder
                 ->live()
                 ->searchable()
                 ->reactive()
-                ->afterStateUpdated($afterStateUpdated),
+                ->afterStateUpdated(fn($state, callable $set) => self::processInsertSelection($state, $set, $options, $type)),
             // Show the form description if available
             Textarea::make('description')
                 ->label('Form Description')
@@ -932,5 +843,79 @@ class FormVersionBuilder
             $appended = rtrim($existing) . "\n\n" . $comment . $content;
             $set($contentField, $appended);
         };
+    }
+
+    /**
+     * Process the selection made in the Insert JavaScript/CSS action dropdown.
+     * It populates the description, source and target element selectors, and content previewer based on the selected item. 
+     * @param mixed $id // The ID of the selected script or stylesheet
+     * @param callable $set 
+     * @param array $options // The options array used to find the display name
+     * @param string $type // 'script' or 'style'
+     * @return void
+     */
+    private static function processInsertSelection($id, callable $set, array $options, string $type): void
+    {
+        $isScript = $type === 'script';
+        $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
+        $previewField = $isScript ? 'js_preview' : 'css_preview';
+
+        // Find the display name
+        $displayName = null;
+        foreach ($options as $group) {
+            if (isset($group[$id])) {
+                $displayName = $group[$id];
+                break;
+            }
+        }
+        $set($nameField, $displayName);
+
+        if (!$id) {
+            $set($previewField, '');
+            return;
+        }
+
+        // Find the record
+        $record = $isScript ? FormScript::find($id) : StyleSheet::find($id);
+        if (!$record) {
+            $set($previewField, '');
+            return;
+        }
+
+        $content = $isScript ? ($record->getJsContent() ?? '') : ($record->getCssContent() ?? '');
+        $set('description', $record->description ?? '');
+
+        // Count and replace placeholders
+        $sourceCount = preg_match_all('/#{source_id}/', $content);
+
+        $isScript
+            ? $targetCount = preg_match_all('/#{target_id}/', $content)
+            : $targetCount = preg_match_all('/#{target_id}/', $content) + preg_match_all('/#target_id/', $content);
+
+        // Replace source placeholders
+        $sourceIndex = 0;
+        $content = preg_replace_callback('/#{source_id}/', function () use (&$sourceIndex) {
+            $sourceIndex++;
+            return "'#{source_id}' /* Source #{$sourceIndex} */";
+        }, $content);
+
+        // Replace target placeholders in preview
+        $targetIndex = 0;
+        if ($isScript) {
+            $content = preg_replace_callback('/#{target_id}/', function () use (&$targetIndex) {
+                $targetIndex++;
+                return "'#{target_id}' /* Target #{$targetIndex} */";
+            }, $content);
+        } else {
+            $content = preg_replace_callback('/#{target_id}|#target_id/', function () use (&$targetIndex) {
+                $targetIndex++;
+                return "'#{target_id}' /* Target #{$targetIndex} */";
+            }, $content);
+        }
+
+        // Build selection arrays
+        $set('source_selections', array_map(fn($i) => ['element_id' => null, 'order' => $i], range(1, $sourceCount)));
+        $set('target_selections', array_map(fn($i) => ['element_id' => null, 'order' => $i], range(1, $targetCount)));
+        $set($previewField, $content);
     }
 }
