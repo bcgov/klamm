@@ -22,7 +22,6 @@ use Filament\Forms\Components\View;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Alignment;
-use Illuminate\Support\Facades\Log;
 
 class FormVersionBuilder
 {
@@ -364,19 +363,12 @@ class FormVersionBuilder
      */
     private static function makeInsertActionForm(array $options, string $type = 'script'): array
     {
+        $config = self::getCodeConfig($type);
         $autocompleteOptions = self::fetchAutocompleteOptions($type);
-        $isScript = $type === 'script';
-        $selectField = $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId';
-        $previewField = $isScript ? 'js_preview' : 'css_preview';
-        $label = $isScript ? 'Select a Form Script' : 'Select a Style Sheet';
-        $previewLabel = $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview';
-        $placeholderContent = $isScript
-            ? 'Select a script to preview its content.'
-            : 'Select a stylesheet to preview its content.';
 
         $fields = [
-            Select::make($selectField)
-                ->label($label)
+            Select::make($config['select_field'])
+                ->label($config['label'])
                 ->options($options)
                 ->required()
                 ->live()
@@ -387,27 +379,27 @@ class FormVersionBuilder
             Textarea::make('description')
                 ->label('Form Description')
                 ->readOnly()
-                ->visible(fn($get) => !empty($get($selectField)) && !empty($get('description'))),
+                ->visible(fn($get) => !empty($get($config['select_field'])) && !empty($get('description'))),
         ];
 
         // Add repeaters if autocompleteOptions is provided (for both scripts and styles)
         if ($autocompleteOptions) {
-            $fields[] = self::makeElementSelectionRepeater('source_selections', 'Source', $selectField, $autocompleteOptions);
-            $fields[] = self::makeElementSelectionRepeater('target_selections', 'Target', $selectField, $autocompleteOptions);
+            $fields[] = self::makeElementSelectionRepeater('source_selections', 'Source', $config['select_field'], $autocompleteOptions);
+            $fields[] = self::makeElementSelectionRepeater('target_selections', 'Target', $config['select_field'], $autocompleteOptions);
         }
 
         // Add preview field
-        $fields[] = Textarea::make($previewField)
-            ->label($previewLabel)
+        $fields[] = Textarea::make($config['preview_field'])
+            ->label($config['preview_label'])
             ->rows(12)
             ->readOnly()
-            ->visible(fn($get) => !empty($get($previewField)));
+            ->visible(fn($get) => !empty($get($config['preview_field'])));
 
         // Add placeholder field
-        $fields[] = Placeholder::make($previewField . '_placeholder')
+        $fields[] = Placeholder::make($config['preview_field'] . '_placeholder')
             ->label('')
-            ->content($placeholderContent)
-            ->visible(fn($get) => empty($get($previewField)));
+            ->content($config['placeholder_content'])
+            ->visible(fn($get) => empty($get($config['preview_field'])));
 
         return $fields;
     }
@@ -474,9 +466,11 @@ class FormVersionBuilder
     {
         return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
             // Map type to model and field names
-            $modelClass = $type === 'script' ? FormScript::class : StyleSheet::class;
-            $idField = $type === 'script' ? 'selectedFormScriptId' : 'selectedStyleSheetId';
-            $getContentMethod = $type === 'script' ? 'getJsContent' : 'getCssContent';
+            $config = self::getCodeConfig($type);
+
+            $modelClass = $config['model'];
+            $idField = $config['select_field'];
+            $getContentMethod = $config['get_content_method'];
 
             $content = '';
             $elementMappings = [];
@@ -484,12 +478,12 @@ class FormVersionBuilder
             $targetSelections = $data['target_selections'] ?? [];
 
             // Process element replacements
-            $processElementReplacement = function ($fullSelection, $index, $type, $prefix = '') use (&$elementMappings) {
+            $processElementReplacement = function ($fullSelection, $index, $typeLabel, $prefix = '') use (&$elementMappings) {
                 if ($fullSelection && $fullSelection !== '#{source_id}' && $fullSelection !== '#{target_id}') {
                     if (preg_match("/^'([^']+)'\s*\/\*\s*(.+?)\s*\*\/\s*$/", $fullSelection, $matches)) {
                         $cleanId = $matches[1];
                         $comment = $matches[2];
-                        $elementMappings[] = "$type #{$index}: {$comment} (ID: {$cleanId})";
+                        $elementMappings[] = "{$typeLabel} #{$index}: {$comment} (ID: {$cleanId})";
                         return $prefix . $cleanId;
                     }
                 }
@@ -503,49 +497,41 @@ class FormVersionBuilder
                 // Replace source placeholders
                 if (!empty($sourceSelections)) {
                     $sourceIndex = 0;
-                    $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, $processElementReplacement, $type) {
+                    $content = preg_replace_callback('/#{source_id}/', function ($matches) use ($sourceSelections, &$sourceIndex, $processElementReplacement, $config) {
                         $fullSelection = $sourceSelections[$sourceIndex]['element_id'] ?? '#{source_id}';
                         $sourceIndex++;
-                        $prefix = ($type === 'style') ? '#' : '';
-                        return $processElementReplacement($fullSelection, $sourceIndex, 'Source', $prefix);
+                        return $processElementReplacement($fullSelection, $sourceIndex, 'Source', $config['source_prefix']);
                     }, $content);
                 }
 
                 // Replace target placeholders
                 if (!empty($targetSelections)) {
                     $targetIndex = 0;
-                    $patterns = ['/#{target_id}/', '/#target_id/'];
-
-                    foreach ($patterns as $pattern) {
-                        $content = preg_replace_callback($pattern, function ($matches) use ($targetSelections, &$targetIndex, $processElementReplacement, $type) {
+                    // Use the config array to loop through patterns neutrally
+                    foreach ($config['target_patterns'] as $pattern) {
+                        $content = preg_replace_callback($pattern, function ($matches) use ($targetSelections, &$targetIndex, $processElementReplacement, $config) {
                             if ($targetIndex >= count($targetSelections)) {
-                                return $matches[0]; // Return original if no more selections
+                                return $matches[0];
                             }
                             $fullSelection = $targetSelections[$targetIndex]['element_id'] ?? '#{target_id}';
                             $targetIndex++;
-                            $prefix = ($type === 'style') ? '#' : '';
-                            return $processElementReplacement($fullSelection, $targetIndex, 'Target', $prefix);
+                            return $processElementReplacement($fullSelection, $targetIndex, 'Target', $config['target_prefix']);
                         }, $content);
                     }
                 }
             }
 
             $existing = $get($contentField);
-            $selected = null;
-            foreach ($options as $group) {
-                if (isset($group[$data[$idField] ?? null])) {
-                    $selected = $group[$data[$idField]];
-                    break;
-                }
-            }
+            $selectedId = $data[$idField] ?? null;
+            $selected = collect($options)->flatten()->first(fn($val, $key) => $key == $selectedId);
 
             $comment = "/* Imported from {$selected}";
             if (!empty($elementMappings)) {
                 $comment .= "\n * Element Mappings:\n * " . implode("\n * ", $elementMappings);
             }
             $comment .= " */\n\n";
-            $appended = rtrim($existing) . "\n\n" . $comment . $content;
-            $set($contentField, $appended);
+
+            $set($contentField, rtrim($existing) . "\n\n" . $comment . $content);
         };
     }
 
@@ -560,9 +546,7 @@ class FormVersionBuilder
      */
     private static function processInsertSelection($id, callable $set, array $options, string $type): void
     {
-        $isScript = $type === 'script';
-        $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
-        $previewField = $isScript ? 'js_preview' : 'css_preview';
+        $config = self::getCodeConfig($type);
 
         // Find the display name
         $displayName = null;
@@ -572,28 +556,28 @@ class FormVersionBuilder
                 break;
             }
         }
-        $set($nameField, $displayName);
+        $set($config['name_field'], $displayName);
 
         if (!$id) {
-            $set($previewField, '');
+            $set($config['preview_field'], '');
             return;
         }
 
         // Find the record
-        $record = $isScript ? FormScript::find($id) : StyleSheet::find($id);
+        $record = $config['model']::find($id);
         if (!$record) {
-            $set($previewField, '');
+            $set($config['preview_field'], '');
             return;
         }
 
-        $content = $isScript ? ($record->getJsContent() ?? '') : ($record->getCssContent() ?? '');
+        // Retrieve content
+        $content = $record->{$config['get_content_method']}() ?? '';
         $set('description', $record->description ?? '');
 
-        // Count placeholders
         $sourceCount = preg_match_all('/#{source_id}/', $content);
-        $targetCount = $isScript
-            ? preg_match_all('/#{target_id}/', $content)
-            : preg_match_all('/#{target_id}/', $content) + preg_match_all('/#target_id/', $content);
+
+        // Count targets
+        $targetCount = preg_match_all($config['target_replace_pattern'], $content);
 
         // Replace source placeholders in preview
         $sourceIndex = 0;
@@ -604,17 +588,10 @@ class FormVersionBuilder
 
         // Replace target placeholders in preview
         $targetIndex = 0;
-        if ($isScript) {
-            $content = preg_replace_callback('/#{target_id}/', function () use (&$targetIndex) {
-                $targetIndex++;
-                return "'#{target_id}' /* Target #{$targetIndex} */";
-            }, $content);
-        } else {
-            $content = preg_replace_callback('/#{target_id}|#target_id/', function () use (&$targetIndex) {
-                $targetIndex++;
-                return "'#{target_id}' /* Target #{$targetIndex} */";
-            }, $content);
-        }
+        $content = preg_replace_callback($config['target_replace_pattern'], function () use (&$targetIndex) {
+            $targetIndex++;
+            return "'#{target_id}' /* Target #{$targetIndex} */";
+        }, $content);
 
         // Build selection arrays
         $sourceSelections = [];
@@ -629,6 +606,51 @@ class FormVersionBuilder
         }
         $set('target_selections', $targetSelections);
 
-        $set($previewField, $content);
+        $set($config['preview_field'], $content);
+    }
+
+    /**
+     * Get configuration values specific to the code type (script or style).
+     * @param string $type
+     * @return array
+     */
+    private static function getCodeConfig(string $type): array
+    {
+        $isScript = $type === 'script'; // Internal only, used to build the array
+
+        return [
+            'model' => $isScript ? FormScript::class : StyleSheet::class,
+            'select_field' => $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId',
+            'name_field' => $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName',
+            'preview_field' => $isScript ? 'js_preview' : 'css_preview',
+            'content_field' => $isScript ? 'js_content_web' : 'css_content_web',
+            'attach_field' => $isScript ? 'attached_form_script_ids' : 'attached_style_sheet_ids',
+            'label' => $isScript ? 'Select a Form Script' : 'Select a Style Sheet',
+            'preview_label' => $isScript ? 'JavaScript Content Preview' : 'CSS Content Preview',
+            'placeholder_content' => $isScript ? 'Select a script to preview its content.' : 'Select a stylesheet to preview its content.',
+            'get_content_method' => $isScript ? 'getJsContent' : 'getCssContent',
+            'create_method' => $isScript ? 'createFormScript' : 'createStyleSheet',
+            'relationship' => $isScript ? 'formScripts' : 'styleSheets',
+            'pivot_table' => $isScript ? 'form_scripts' : 'style_sheets',
+            'update_key' => $isScript ? 'web_scripts' : 'web_styles',
+            'update_type' => $isScript ? 'scripts' : 'styles',
+            'success_title' => $isScript ? 'Scripts Saved' : 'Styles Saved',
+            'success_body' => $isScript ? 'JavaScript form scripts have been saved successfully.' : 'CSS stylesheet has been saved successfully.',
+            'language' => $isScript ? 'javascript' : 'css',
+            'insert_action_name' => $isScript ? 'import_js_content_web' : 'import_css_content_web',
+            'insert_action_label' => $isScript ? 'Insert JavaScript' : 'Insert CSS',
+            'save_action_name' => $isScript ? 'save_scripts_web' : 'save_styles_web',
+            'save_action_label' => $isScript ? 'Save Scripts' : 'Save Styles',
+            'tab_label' => $isScript ? 'Scripts' : 'Style',
+            'tab_icon' => $isScript ? 'heroicon-o-code-bracket-square' : 'heroicon-o-paint-brush',
+            'attach_label' => $isScript ? 'Attach Scripts' : 'Attach Styles',
+            'template_options_key' => $isScript ? 'Template Scripts' : 'Template Stylesheets',
+
+            // Regex and replacement configs to eliminate inline conditionals
+            'source_prefix' => $isScript ? '' : '#',
+            'target_prefix' => $isScript ? '' : '#',
+            'target_patterns' => $isScript ? ['/#{target_id}/'] : ['/#{target_id}/', '/#target_id/'],
+            'target_replace_pattern' => $isScript ? '/#{target_id}/' : '/#{target_id}|#target_id/',
+        ];
     }
 }
