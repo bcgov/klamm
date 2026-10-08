@@ -876,9 +876,9 @@ class FormVersionBuilder
         // Count and replace placeholders
         $sourceCount = preg_match_all('/#{source_id}/', $content);
 
-        $isScript
-            ? $targetCount = preg_match_all('/#{target_id}/', $content)
-            : $targetCount = preg_match_all('/#{target_id}/', $content) + preg_match_all('/#target_id/', $content);
+        $targetCount = $isScript
+            ? preg_match_all('/#{target_id}/', $content)
+            : preg_match_all('/#{target_id}/', $content) + preg_match_all('/#target_id/', $content);
 
         // Replace source placeholders
         $sourceIndex = 0;
