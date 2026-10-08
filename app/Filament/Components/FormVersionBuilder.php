@@ -27,18 +27,6 @@ class FormVersionBuilder
 {
     public static function schema($editable = true)
     {
-        $makeAutocompleteOptions = function ($context) {
-            return function ($get, $livewire) use ($context) {
-                $record = $livewire->getRecord();
-                if (!$record || !$record->id) {
-                    return [];
-                }
-                return self::fetchElementTreeAutocompleteOptions($record->id, $context);
-            };
-        };
-        $autocompleteOptionsStyle = $makeAutocompleteOptions('style');
-        $autocompleteOptionsScript = $makeAutocompleteOptions('script');
-
         $styleSheetOptions = self::fetchStyleSheetOptions();
         $formScriptOptions = self::fetchFormScriptOptions();
 
@@ -48,8 +36,8 @@ class FormVersionBuilder
             ->persistTab()
             ->tabs([
                 self::makeBuildTab($editable),
-                self::makeScriptsTab($editable, $formScriptOptions, $autocompleteOptionsScript),
-                self::makeStyleTab($editable, $styleSheetOptions, $autocompleteOptionsStyle),
+                self::makeScriptsTab($editable, $formScriptOptions),
+                self::makeStyleTab($editable, $styleSheetOptions),
             ]);
     }
 
@@ -181,10 +169,9 @@ class FormVersionBuilder
      * Make the schema for the Scripts tab
      * @param bool $editable
      * @param array $formScriptOptions
-     * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function makeScriptsTab(bool $editable, array $formScriptOptions, callable $autocompleteOptionsScript): Tab
+    private static function makeScriptsTab(bool $editable, array $formScriptOptions): Tab
     {
         return Tab::make('Scripts')
             ->icon('heroicon-o-code-bracket-square')
@@ -193,13 +180,13 @@ class FormVersionBuilder
                     ->columns(6)
                     ->schema([
                         Hidden::make('selectedFormScriptName'),
-                        AutocompleteBadgeList::make($autocompleteOptionsScript, 'script', 'Form Elements')
+                        AutocompleteBadgeList::make(self::fetchAutocompleteOptions('script'), 'script', 'Form Elements')
                             ->columnSpan(1),
                         Tabs::make('form_script_type')
                             ->contained(false)
                             ->tabs([
-                                self::makeWebScriptsTab($editable, $formScriptOptions, $autocompleteOptionsScript),
-                                self::makePDFScriptsTab($editable, $formScriptOptions, $autocompleteOptionsScript),
+                                self::makeWebScriptsTab($editable, $formScriptOptions),
+                                self::makePDFScriptsTab($editable, $formScriptOptions),
                             ])
                             ->columnSpan(5),
                     ]),
@@ -210,10 +197,9 @@ class FormVersionBuilder
      * Make the schema for the Web Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
-     * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function makeWebScriptsTab(bool $editable, array $formScriptOptions, callable $autocompleteOptionsScript): Tab
+    private static function makeWebScriptsTab(bool $editable, array $formScriptOptions): Tab
     {
         return Tab::make('web_form_script')
             ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
@@ -263,7 +249,7 @@ class FormVersionBuilder
                         ->label('Insert JavaScript')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                        ->form(self::makeInsertActionForm($formScriptOptions, 'script'))
                         ->action(self::handleInsertAction('js_content_web', $formScriptOptions, 'script')),
                     Action::make('save_scripts_web')
                         ->label('Save Scripts')
@@ -295,7 +281,7 @@ class FormVersionBuilder
                     ->language('javascript')
                     ->theme('vs-dark')
                     ->live()
-                    ->autocomplete($autocompleteOptionsScript)
+                    ->autocomplete(self::fetchAutocompleteOptions('script'))
                     ->reactive()
                     ->height('475px')
                     ->disabled(!$editable),
@@ -306,10 +292,9 @@ class FormVersionBuilder
      * Make the schema for the PDF Scripts tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $formScriptOptions
-     * @param callable $autocompleteOptionsScript
      * @return Tab
      */
-    private static function makePDFScriptsTab(bool $editable, array $formScriptOptions, callable $autocompleteOptionsScript): Tab
+    private static function makePDFScriptsTab(bool $editable, array $formScriptOptions): Tab
     {
         return Tab::make('pdf_form_script')
             ->label('PDF')
@@ -321,7 +306,7 @@ class FormVersionBuilder
                         ->label('Insert JavaScript')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($formScriptOptions, $autocompleteOptionsScript, 'script'))
+                        ->form(self::makeInsertActionForm($formScriptOptions, 'script'))
                         ->action(self::handleInsertAction('js_content_pdf', $formScriptOptions, 'script')),
                     Action::make('save_scripts_pdf')
                         ->label('Save Scripts')
@@ -411,7 +396,7 @@ class FormVersionBuilder
                     ->reactive()
                     ->height('475px')
                     ->live()
-                    ->autocomplete($autocompleteOptionsScript)
+                    ->autocomplete(self::fetchAutocompleteOptions('script'))
                     ->disabled(!$editable),
             ]);
     }
@@ -420,10 +405,9 @@ class FormVersionBuilder
      * Make the schema for the Style tab
      * @param bool $editable
      * @param array $styleSheetOptions
-     * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function makeStyleTab(bool $editable, array $styleSheetOptions, callable $autocompleteOptionsStyle): Tab
+    private static function makeStyleTab(bool $editable, array $styleSheetOptions): Tab
     {
         return Tab::make('Style')
             ->icon('heroicon-o-paint-brush')
@@ -435,14 +419,14 @@ class FormVersionBuilder
                     ->columns(6)
                     ->schema([
                         Hidden::make('selectedStyleSheetName'),
-                        AutocompleteBadgeList::make($autocompleteOptionsStyle, 'style', 'Form Elements')
+                        AutocompleteBadgeList::make(self::fetchAutocompleteOptions('style'), 'style', 'Form Elements')
                             ->columnSpan(1),
                         Tabs::make('style_sheet_type')
                             ->contained(false)
                             ->columnSpan(5)
                             ->tabs([
-                                self::makeWebStyleTab($editable, $styleSheetOptions, $autocompleteOptionsStyle),
-                                self::makePDFStyleTab($editable, $styleSheetOptions, $autocompleteOptionsStyle),
+                                self::makeWebStyleTab($editable, $styleSheetOptions),
+                                self::makePDFStyleTab($editable, $styleSheetOptions),
                             ])
                     ]),
             ]);
@@ -452,10 +436,9 @@ class FormVersionBuilder
      * Make the schema for the Web StyleSheet tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $styleSheetOptions
-     * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function makeWebStyleTab(bool $editable, array $styleSheetOptions, callable $autocompleteOptionsStyle): Tab
+    private static function makeWebStyleTab(bool $editable, array $styleSheetOptions): Tab
     {
         return Tab::make('web_style_sheet')
             ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
@@ -506,7 +489,7 @@ class FormVersionBuilder
                         ->label('Insert CSS')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                        ->form(self::makeInsertActionForm($styleSheetOptions, 'style'))
                         ->action(self::handleInsertAction('css_content_web', $styleSheetOptions, 'style')),
                     Action::make('save_styles_web')
                         ->label('Save Styles')
@@ -538,7 +521,7 @@ class FormVersionBuilder
                     ->language('css')
                     ->theme('vs-dark')
                     ->live()
-                    ->autocomplete($autocompleteOptionsStyle)
+                    ->autocomplete(self::fetchAutocompleteOptions('style'))
                     ->reactive()
                     ->height('475px')
                     ->disabled(!$editable),
@@ -549,10 +532,9 @@ class FormVersionBuilder
      * Make the schema for the PDF StyleSheet tab, including Attach and Insert actions, and the Monaco editor
      * @param bool $editable
      * @param array $styleSheetOptions
-     * @param callable $autocompleteOptionsStyle
      * @return Tab
      */
-    private static function makePDFStyleTab(bool $editable, array $styleSheetOptions, callable $autocompleteOptionsStyle): Tab
+    private static function makePDFStyleTab(bool $editable, array $styleSheetOptions): Tab
     {
         return Tab::make('pdf_style_sheet')
             ->label('PDF')
@@ -564,7 +546,7 @@ class FormVersionBuilder
                         ->label('Insert CSS')
                         ->icon('heroicon-o-document-arrow-down')
                         ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($styleSheetOptions, $autocompleteOptionsStyle, 'style'))
+                        ->form(self::makeInsertActionForm($styleSheetOptions, 'style'))
                         ->action(self::handleInsertAction('css_content_pdf', $styleSheetOptions, 'style')),
                     Action::make('save_styles_pdf')
                         ->label('Save Styles')
@@ -651,7 +633,7 @@ class FormVersionBuilder
                     ->language('css')
                     ->theme('vs-dark')
                     ->live()
-                    ->autocomplete($autocompleteOptionsStyle)
+                    ->autocomplete(self::fetchAutocompleteOptions('style'))
                     ->reactive()
                     ->height('475px')
                     ->disabled(!$editable),
@@ -661,12 +643,12 @@ class FormVersionBuilder
     /**
      * Make the schema for the Insert Style/Script Action
      * @param array $options
-     * @param callable $autocompleteOptions
      * @param string $type
      * @return array<Placeholder|Repeater|Select|Textarea>
      */
-    private static function makeInsertActionForm(array $options, callable $autocompleteOptions = null, string $type = 'script'): array
+    private static function makeInsertActionForm(array $options, string $type = 'script'): array
     {
+        $autocompleteOptions = self::fetchAutocompleteOptions($type);
         $isScript = $type === 'script';
         $selectField = $isScript ? 'selectedFormScriptId' : 'selectedStyleSheetId';
         $nameField = $isScript ? 'selectedFormScriptName' : 'selectedStyleSheetName';
@@ -842,6 +824,22 @@ class FormVersionBuilder
             ->visible(fn($get) => empty($get($previewField)));
 
         return $fields;
+    }
+
+    /**
+     * Fetch the autocomplete options for the form elements based on the current record and context.
+     * @param mixed $context
+     * @return Closure // The closure takes parameters: $get, $livewire
+     */
+    private static function fetchAutocompleteOptions($context): Closure
+    {
+        return function ($get, $livewire) use ($context) {
+            $record = $livewire->getRecord();
+            if (!$record || !$record->id) {
+                return [];
+            }
+            return self::fetchElementTreeAutocompleteOptions($record->id, $context);
+        };
     }
 
     /**
