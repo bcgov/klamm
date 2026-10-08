@@ -19,6 +19,7 @@ use Filament\Forms\Components\Tabs;
 use Filament\Forms\Components\Tabs\Tab;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\View;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Support\Facades\Log;
@@ -182,222 +183,71 @@ class FormVersionBuilder
                         Hidden::make('selectedFormScriptName'),
                         AutocompleteBadgeList::make(self::fetchAutocompleteOptions('script'), 'script', 'Form Elements')
                             ->columnSpan(1),
-                        Tabs::make('form_script_type')
-                            ->contained(false)
-                            ->tabs([
-                                self::makeWebScriptsTab($editable, $formScriptOptions),
-                                self::makePDFScriptsTab($editable, $formScriptOptions),
-                            ])
-                            ->columnSpan(5),
+                        Grid::make()
+                            ->columns(1)
+                            ->columnSpan(5)
+                            ->schema([
+                                Select::make('attached_form_script_ids')
+                                    ->label('Attach Scripts')
+                                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
+                                    ->hintIcon('heroicon-o-information-circle')
+                                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
+                                    ->options($formScriptOptions['Template Scripts'])
+                                    ->multiple()
+                                    ->preload()
+                                    ->searchable()
+                                    ->dehydrated(false)
+                                    ->default(function ($livewire) {
+                                        $record = $livewire->getRecord();
+                                        return $record
+                                            ? $record->formScripts()->where('type', 'template')->pluck('form_scripts.id')->map(fn($id) => (string) $id)->toArray()
+                                            : [];
+                                    })
+                                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
+                                        if (!empty($state))
+                                            return;
+                                        $record = $livewire->getRecord();
+                                        $ids = $record
+                                            ? $record->formScripts()->where('type', 'template')->pluck('form_scripts.id')->map(fn($id) => (string) $id)->toArray()
+                                            : [];
+                                        $set('attached_form_script_ids', $ids);
+                                    })
+                                    ->afterStateUpdated(function ($state, $livewire) {
+                                        $record = $livewire->getRecord();
+                                        if ($record) {
+                                            $record->formScripts()->sync($state ?? []);
+                                        }
+                                    }),
+                                Actions::make([
+                                    Action::make('import_js_content_web')
+                                        ->label('Insert JavaScript')
+                                        ->icon('heroicon-o-document-arrow-down')
+                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                        ->form(self::makeInsertActionForm($formScriptOptions, 'script'))
+                                        ->action(self::handleInsertAction('js_content_web', $formScriptOptions, 'script')),
+                                    Action::make('save_scripts_web')
+                                        ->label('Save Scripts')
+                                        ->icon('heroicon-o-check')
+                                        ->color('success')
+                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                        ->action(function (callable $get, $livewire) {
+                                            $record = $livewire->getRecord();
+                                            FormScript::createFormScript($record, $get('js_content_web') ?? '', 'web');
+                                            FormVersionUpdateEvent::dispatch($record->id, $record->form_id, $record->version_number, ['web_scripts' => $get('js_content_web')], 'scripts', false);
+                                            Notification::make()->success()->title('Scripts Saved')->body('JavaScript form scripts have been saved successfully.')->send();
+                                        }),
+                                ])->alignment(Alignment::Center),
+                                CustomMonacoEditor::make('js_content_web')
+                                    ->label(false)
+                                    ->language('javascript')
+                                    ->theme('vs-dark')
+                                    ->live()
+                                    ->autocomplete(self::fetchAutocompleteOptions('script'))
+                                    ->reactive()
+                                    ->height('475px')
+                                    ->disabled(!$editable),
+                            ]),
                     ]),
-            ]);
-    }
-
-    /**
-     * Make the schema for the Web Scripts tab, including Attach and Insert actions, and the Monaco editor
-     * @param bool $editable
-     * @param array $formScriptOptions
-     * @return Tab
-     */
-    private static function makeWebScriptsTab(bool $editable, array $formScriptOptions): Tab
-    {
-        return Tab::make('web_form_script')
-            ->label(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Scripts')
-            ->icon('heroicon-o-globe-alt')
-            ->schema([
-                Select::make('attached_form_script_ids')
-                    ->label('Attach Scripts')
-                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
-                    ->hintIcon('heroicon-o-information-circle')
-                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert Javascript” to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically')
-                    ->options($formScriptOptions['Template Scripts'])
-                    ->multiple()
-                    ->preload()
-                    ->searchable()
-                    ->dehydrated(false)
-                    ->default(function ($livewire) {
-                        $record = $livewire->getRecord();
-                        return $record
-                            ? $record->formScripts()
-                                ->where('type', 'template')
-                                ->pluck('form_scripts.id')
-                                ->map(fn($id) => (string) $id)
-                                ->toArray()
-                            : [];
-                    })
-                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                        if (!empty($state))
-                            return;
-                        $record = $livewire->getRecord();
-                        $ids = $record
-                            ? $record->formScripts()
-                                ->where('type', 'template')
-                                ->pluck('form_scripts.id')
-                                ->map(fn($id) => (string) $id)
-                                ->toArray()
-                            : [];
-                        $set('attached_form_script_ids', $ids);
-                    })
-                    ->afterStateUpdated(function ($state, $livewire) {
-                        $record = $livewire->getRecord();
-                        if ($record) {
-                            $record->formScripts()->sync($state ?? []);
-                        }
-                    }),
-                Actions::make([
-                    Action::make('import_js_content_web')
-                        ->label('Insert JavaScript')
-                        ->icon('heroicon-o-document-arrow-down')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($formScriptOptions, 'script'))
-                        ->action(self::handleInsertAction('js_content_web', $formScriptOptions, 'script')),
-                    Action::make('save_scripts_web')
-                        ->label('Save Scripts')
-                        ->icon('heroicon-o-check')
-                        ->color('success')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $get, $livewire) {
-                            $record = $livewire->getRecord();
-                            $jsContentWeb = $get('js_content_web') ?? '';
-                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                            // Fire update event for scripts
-                            FormVersionUpdateEvent::dispatch(
-                                $record->id,
-                                $record->form_id,
-                                $record->version_number,
-                                ['web_scripts' => $jsContentWeb],
-                                'scripts',
-                                false
-                            );
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Scripts Saved')
-                                ->body('JavaScript form scripts have been saved successfully.')
-                                ->send();
-                        }),
-                ])->alignment(Alignment::Center),
-                CustomMonacoEditor::make('js_content_web')
-                    ->label(false)
-                    ->language('javascript')
-                    ->theme('vs-dark')
-                    ->live()
-                    ->autocomplete(self::fetchAutocompleteOptions('script'))
-                    ->reactive()
-                    ->height('475px')
-                    ->disabled(!$editable),
-            ]);
-    }
-
-    /**
-     * Make the schema for the PDF Scripts tab, including Attach and Insert actions, and the Monaco editor
-     * @param bool $editable
-     * @param array $formScriptOptions
-     * @return Tab
-     */
-    private static function makePDFScriptsTab(bool $editable, array $formScriptOptions): Tab
-    {
-        return Tab::make('pdf_form_script')
-            ->label('PDF')
-            ->icon('heroicon-o-document-text')
-            ->visible(fn($livewire) => FormScript::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
-            ->schema([
-                Actions::make([
-                    Action::make('import_js_content_pdf')
-                        ->label('Insert JavaScript')
-                        ->icon('heroicon-o-document-arrow-down')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($formScriptOptions, 'script'))
-                        ->action(self::handleInsertAction('js_content_pdf', $formScriptOptions, 'script')),
-                    Action::make('save_scripts_pdf')
-                        ->label('Save Scripts')
-                        ->icon('heroicon-o-check')
-                        ->color('success')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $get, $livewire) {
-                            $record = $livewire->getRecord();
-                            $jsContentWeb = $get('js_content_web') ?? '';
-                            $jsContentPdf = $get('js_content_pdf') ?? '';
-
-                            FormScript::createFormScript($record, $jsContentWeb, 'web');
-                            FormScript::createFormScript($record, $jsContentPdf, 'pdf');
-
-                            // Fire update event for scripts
-                            FormVersionUpdateEvent::dispatch(
-                                $record->id,
-                                $record->form_id,
-                                $record->version_number,
-                                ['web_scripts' => $jsContentWeb, 'pdf_scripts' => $jsContentPdf],
-                                'scripts',
-                                false
-                            );
-
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Scripts Saved')
-                                ->body('JavaScript form scripts have been saved successfully.')
-                                ->send();
-                        }),
-                    Action::make('migrate_pdf_scripts_to_web')
-                        ->label('Migrate to Web')
-                        ->icon('heroicon-o-arrow-right-circle')
-                        ->color('warning')
-                        ->requiresConfirmation()
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $set, $livewire) {
-                            $record = $livewire->getRecord();
-                            if (!$record) {
-                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
-                                return;
-                            }
-                            $pdf = FormScript::where('form_version_id', $record->id)->where('type', 'pdf')->first();
-                            if (!$pdf) {
-                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF script found.')->send();
-                                return;
-                            }
-
-                            $pdfContent = $pdf->getJsContent() ?? '';
-                            $web = FormScript::where('form_version_id', $record->id)->where('type', 'web')->first();
-                            $webContent = $web?->getJsContent() ?? '';
-
-                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
-                            $newWebContent = trim(rtrim($webContent) . "\n\n" . $banner . $pdfContent);
-
-                            if ($web) {
-                                $web->saveJsContent($newWebContent);
-                            } else {
-                                FormScript::createFormScript($record, $newWebContent, 'web');
-                            }
-
-                            // Clear PDF file content (optional) then delete PDF record
-                            $pdf->saveJsContent('');
-                            try {
-                                $pdf->delete();
-                            } catch (\Exception $e) {
-                                Log::warning('Failed to delete PDF script during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
-                            }
-
-                            // Update form state
-                            $set('js_content_web', $newWebContent);
-                            $set('js_content_pdf', '');
-
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Scripts Migrated')
-                                ->body('PDF scripts migrated to Web and PDF removed.')
-                                ->send();
-                        }),
-                ])
-                    ->alignment(Alignment::Center),
-
-                CustomMonacoEditor::make('js_content_pdf')
-                    ->label(false)
-                    ->language('javascript')
-                    ->theme('vs-dark')
-                    ->reactive()
-                    ->height('475px')
-                    ->live()
-                    ->autocomplete(self::fetchAutocompleteOptions('script'))
-                    ->disabled(!$editable),
             ]);
     }
 
@@ -412,231 +262,98 @@ class FormVersionBuilder
         return Tab::make('Style')
             ->icon('heroicon-o-paint-brush')
             ->schema([
-                Grid::make([
-                    'default' => 6,
-                    'sm' => 1,
-                ])
+                Grid::make()
                     ->columns(6)
                     ->schema([
                         Hidden::make('selectedStyleSheetName'),
                         AutocompleteBadgeList::make(self::fetchAutocompleteOptions('style'), 'style', 'Form Elements')
                             ->columnSpan(1),
-                        Tabs::make('style_sheet_type')
-                            ->contained(false)
+                        Grid::make()
+                            ->columns(1)
                             ->columnSpan(5)
-                            ->tabs([
-                                self::makeWebStyleTab($editable, $styleSheetOptions),
-                                self::makePDFStyleTab($editable, $styleSheetOptions),
+                            ->schema([
+                                Select::make('attached_style_sheet_ids')
+                                    ->label('Attach Styles')
+                                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
+                                    ->hintIcon('heroicon-o-information-circle')
+                                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert CSS" to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically.')
+                                    ->options($styleSheetOptions['Template Stylesheets'])
+                                    ->multiple()
+                                    ->preload()
+                                    ->searchable()
+                                    ->dehydrated(false)
+                                    ->default(function ($livewire) {
+                                        $record = $livewire->getRecord();
+                                        return $record
+                                            ? $record->styleSheets()
+                                                ->where('type', 'template')
+                                                ->pluck('style_sheets.id')
+                                                ->map(fn($id) => (string) $id)
+                                                ->toArray()
+                                            : [];
+                                    })
+                                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
+                                        if (!empty($state))
+                                            return;
+                                        $record = $livewire->getRecord();
+                                        $ids = $record
+                                            ? $record->styleSheets()
+                                                ->where('type', 'template')
+                                                ->pluck('style_sheets.id')
+                                                ->map(fn($id) => (string) $id)
+                                                ->toArray()
+                                            : [];
+                                        $set('attached_style_sheet_ids', $ids);
+                                    })
+                                    ->afterStateUpdated(function ($state, $livewire) {
+                                        $record = $livewire->getRecord();
+                                        if ($record) {
+                                            $record->styleSheets()->sync($state ?? []);
+                                        }
+                                    }),
+                                Actions::make([
+                                    Action::make('import_css_content_web')
+                                        ->label('Insert CSS')
+                                        ->icon('heroicon-o-document-arrow-down')
+                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                        ->form(self::makeInsertActionForm($styleSheetOptions, 'style'))
+                                        ->action(self::handleInsertAction('css_content_web', $styleSheetOptions, 'style')),
+                                    Action::make('save_styles_web')
+                                        ->label('Save Styles')
+                                        ->icon('heroicon-o-check')
+                                        ->color('success')
+                                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
+                                        ->action(function (callable $get, $livewire) {
+                                            $record = $livewire->getRecord();
+                                            $cssContentWeb = $get('css_content_web') ?? '';
+                                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
+                                            // Fire update event for styles
+                                            FormVersionUpdateEvent::dispatch(
+                                                $record->id,
+                                                $record->form_id,
+                                                $record->version_number,
+                                                ['web_styles' => $cssContentWeb],
+                                                'styles',
+                                                false
+                                            );
+                                            Notification::make()
+                                                ->success()
+                                                ->title('Styles Saved')
+                                                ->body('CSS stylesheet has been saved successfully.')
+                                                ->send();
+                                        }),
+                                ])->alignment(Alignment::Center),
+                                CustomMonacoEditor::make('css_content_web')
+                                    ->label(false)
+                                    ->language('css')
+                                    ->theme('vs-dark')
+                                    ->live()
+                                    ->autocomplete(self::fetchAutocompleteOptions('style'))
+                                    ->reactive()
+                                    ->height('475px')
+                                    ->disabled(!$editable),
                             ])
                     ]),
-            ]);
-    }
-
-    /**
-     * Make the schema for the Web StyleSheet tab, including Attach and Insert actions, and the Monaco editor
-     * @param bool $editable
-     * @param array $styleSheetOptions
-     * @return Tab
-     */
-    private static function makeWebStyleTab(bool $editable, array $styleSheetOptions): Tab
-    {
-        return Tab::make('web_style_sheet')
-            ->label(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists() ? 'Web' : 'Styles')
-            ->icon('heroicon-o-globe-alt')
-            ->schema([
-                // Updated: ensure attached template styles show as selected on load
-                Select::make('attached_style_sheet_ids')
-                    ->label('Attach Styles')
-                    ->hint('Attach complete templates/constants. If you must modify one, import it in its entirety.')
-                    ->hintIcon('heroicon-o-information-circle')
-                    ->hintIconTooltip('These are included as-is and require no modification. To change a template or constant, use “Insert CSS" to import the full content and edit the imported copy. If the base attached style is modified, all forms using it will be updated automatically.')
-                    ->options($styleSheetOptions['Template Stylesheets'])
-                    ->multiple()
-                    ->preload()
-                    ->searchable()
-                    ->dehydrated(false)
-                    ->default(function ($livewire) {
-                        $record = $livewire->getRecord();
-                        return $record
-                            ? $record->styleSheets()
-                                ->where('type', 'template')
-                                ->pluck('style_sheets.id')
-                                ->map(fn($id) => (string) $id)
-                                ->toArray()
-                            : [];
-                    })
-                    ->afterStateHydrated(function ($state, callable $set, $livewire) {
-                        if (!empty($state))
-                            return;
-                        $record = $livewire->getRecord();
-                        $ids = $record
-                            ? $record->styleSheets()
-                                ->where('type', 'template')
-                                ->pluck('style_sheets.id')
-                                ->map(fn($id) => (string) $id)
-                                ->toArray()
-                            : [];
-                        $set('attached_style_sheet_ids', $ids);
-                    })
-                    ->afterStateUpdated(function ($state, $livewire) {
-                        $record = $livewire->getRecord();
-                        if ($record) {
-                            $record->styleSheets()->sync($state ?? []);
-                        }
-                    }),
-                Actions::make([
-                    Action::make('import_css_content_web')
-                        ->label('Insert CSS')
-                        ->icon('heroicon-o-document-arrow-down')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($styleSheetOptions, 'style'))
-                        ->action(self::handleInsertAction('css_content_web', $styleSheetOptions, 'style')),
-                    Action::make('save_styles_web')
-                        ->label('Save Styles')
-                        ->icon('heroicon-o-check')
-                        ->color('success')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $get, $livewire) {
-                            $record = $livewire->getRecord();
-                            $cssContentWeb = $get('css_content_web') ?? '';
-                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
-                            // Fire update event for styles
-                            FormVersionUpdateEvent::dispatch(
-                                $record->id,
-                                $record->form_id,
-                                $record->version_number,
-                                ['web_styles' => $cssContentWeb],
-                                'styles',
-                                false
-                            );
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Styles Saved')
-                                ->body('CSS stylesheet has been saved successfully.')
-                                ->send();
-                        }),
-                ])->alignment(Alignment::Center),
-                CustomMonacoEditor::make('css_content_web')
-                    ->label(false)
-                    ->language('css')
-                    ->theme('vs-dark')
-                    ->live()
-                    ->autocomplete(self::fetchAutocompleteOptions('style'))
-                    ->reactive()
-                    ->height('475px')
-                    ->disabled(!$editable),
-            ]);
-    }
-
-    /**
-     * Make the schema for the PDF StyleSheet tab, including Attach and Insert actions, and the Monaco editor
-     * @param bool $editable
-     * @param array $styleSheetOptions
-     * @return Tab
-     */
-    private static function makePDFStyleTab(bool $editable, array $styleSheetOptions): Tab
-    {
-        return Tab::make('pdf_style_sheet')
-            ->label('PDF')
-            ->icon('heroicon-o-document-text')
-            ->visible(fn($livewire) => StyleSheet::where('form_version_id', optional($livewire->getRecord())->id)->where('type', 'pdf')->exists())
-            ->schema([
-                Actions::make([
-                    Action::make('import_css_content_pdf')
-                        ->label('Insert CSS')
-                        ->icon('heroicon-o-document-arrow-down')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->form(self::makeInsertActionForm($styleSheetOptions, 'style'))
-                        ->action(self::handleInsertAction('css_content_pdf', $styleSheetOptions, 'style')),
-                    Action::make('save_styles_pdf')
-                        ->label('Save Styles')
-                        ->icon('heroicon-o-check')
-                        ->color('success')
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $get, $livewire) {
-                            $record = $livewire->getRecord();
-                            $cssContentWeb = $get('css_content_web') ?? '';
-                            $cssContentPdf = $get('css_content_pdf') ?? '';
-                            StyleSheet::createStyleSheet($record, $cssContentWeb, 'web');
-                            StyleSheet::createStyleSheet($record, $cssContentPdf, 'pdf');
-                            // Fire update event for styles
-                            FormVersionUpdateEvent::dispatch(
-                                $record->id,
-                                $record->form_id,
-                                $record->version_number,
-                                ['web_styles' => $cssContentWeb, 'pdf_styles' => $cssContentPdf],
-                                'styles',
-                                false
-                            );
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Styles Saved')
-                                ->body('CSS stylesheets have been saved successfully.')
-                                ->send();
-                        }),
-                    Action::make('migrate_pdf_styles_to_web')
-                        ->label('Migrate to Web')
-                        ->icon('heroicon-o-arrow-right-circle')
-                        ->color('warning')
-                        ->requiresConfirmation()
-                        ->disabled(fn($livewire) => !$editable || ($livewire instanceof ViewRecord))
-                        ->action(function (callable $set, $livewire) {
-                            $record = $livewire->getRecord();
-                            if (!$record) {
-                                \Filament\Notifications\Notification::make()->danger()->title('No Record')->body('Cannot migrate without a record.')->send();
-                                return;
-                            }
-                            $pdf = StyleSheet::where('form_version_id', $record->id)->where('type', 'pdf')->first();
-                            if (!$pdf) {
-                                \Filament\Notifications\Notification::make()->warning()->title('Nothing to Migrate')->body('No PDF stylesheet found.')->send();
-                                return;
-                            }
-
-                            $pdfContent = $pdf->getCssContent() ?? '';
-                            $web = StyleSheet::where('form_version_id', $record->id)->where('type', 'web')->first();
-                            $webContent = $web?->getCssContent() ?? '';
-
-                            $banner = "/* Migrated from PDF on " . now()->toDateTimeString() . " */\n";
-                            $pdfPrintMediaQuery = "@media print {\n" . $pdfContent . "\n}\n";
-                            $newWebContent = trim(
-                                rtrim($webContent) . "\n\n" . $banner . $pdfPrintMediaQuery
-                            );
-
-                            if ($web) {
-                                $web->saveCssContent($newWebContent);
-                            } else {
-                                StyleSheet::createStyleSheet($record, $newWebContent, 'web');
-                            }
-
-                            // Clear PDF file content (optional) then delete PDF record
-                            $pdf->saveCssContent('');
-                            try {
-                                $pdf->delete();
-                            } catch (\Exception $e) {
-                                Log::warning('Failed to delete PDF stylesheet during migration', ['id' => $pdf->id, 'error' => $e->getMessage()]);
-                            }
-
-                            // Update form state
-                            $set('css_content_web', $newWebContent);
-                            $set('css_content_pdf', '');
-
-                            \Filament\Notifications\Notification::make()
-                                ->success()
-                                ->title('Styles Migrated')
-                                ->body('PDF styles migrated to Web and PDF removed.')
-                                ->send();
-                        }),
-                ])
-                    ->alignment(Alignment::Center),
-                CustomMonacoEditor::make('css_content_pdf')
-                    ->label(false)
-                    ->language('css')
-                    ->theme('vs-dark')
-                    ->live()
-                    ->autocomplete(self::fetchAutocompleteOptions('style'))
-                    ->reactive()
-                    ->height('475px')
-                    ->disabled(!$editable),
             ]);
     }
 
