@@ -28,17 +28,14 @@ class FormVersionBuilder
 {
     public static function schema($editable = true)
     {
-        $styleSheetOptions = self::fetchStyleSheetOptions();
-        $formScriptOptions = self::fetchFormScriptOptions();
-
         return Tabs::make()
             ->id('build-tabs')
             ->columnSpanFull()
             ->persistTab()
             ->tabs([
                 self::makeBuildTab($editable),
-                self::makeScriptsTab($editable, $formScriptOptions),
-                self::makeStyleTab($editable, $styleSheetOptions),
+                self::makeScriptsTab($editable),
+                self::makeStyleTab($editable),
             ]);
     }
 
@@ -169,11 +166,12 @@ class FormVersionBuilder
     /**
      * Make the schema for the Scripts tab
      * @param bool $editable
-     * @param array $formScriptOptions
      * @return Tab
      */
-    private static function makeScriptsTab(bool $editable, array $formScriptOptions): Tab
+    private static function makeScriptsTab(bool $editable): Tab
     {
+        $formScriptOptions = self::fetchFormScriptOptions();
+
         return Tab::make('Scripts')
             ->icon('heroicon-o-code-bracket-square')
             ->schema([
@@ -254,11 +252,12 @@ class FormVersionBuilder
     /**
      * Make the schema for the Style tab
      * @param bool $editable
-     * @param array $styleSheetOptions
      * @return Tab
      */
-    private static function makeStyleTab(bool $editable, array $styleSheetOptions): Tab
+    private static function makeStyleTab(bool $editable): Tab
     {
+        $styleSheetOptions = self::fetchStyleSheetOptions();
+
         return Tab::make('Style')
             ->icon('heroicon-o-paint-brush')
             ->schema([
