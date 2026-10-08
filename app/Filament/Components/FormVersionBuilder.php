@@ -676,65 +676,59 @@ class FormVersionBuilder
 
         // Add repeaters if autocompleteOptions is provided (for both scripts and styles)
         if ($autocompleteOptions) {
-            $fields[] = Repeater::make('source_selections')
-                ->label('Source Element Selections')
-                ->schema([
-                    Select::make('element_id')
-                        ->label(fn($get) => 'Source #' . ($get('order') ?? ''))
-                        ->searchable()
-                        ->options(function () use ($autocompleteOptions) {
-                            $livewire = \Livewire\Livewire::current();
-                            $get = function ($key) use ($livewire) {
-                                return $livewire->getState()[$key] ?? null;
-                            };
-                            $options = $autocompleteOptions($get, $livewire);
-                            $selectOptions = [];
-                            foreach ($options as $option) {
-                                $selectOptions[$option['insertText']] = $option['label'];
-                            }
-                            return $selectOptions;
-                        }),
-                ])
-                ->addable(false)
-                ->deletable(false)
-                ->reorderable(false)
-                ->visible(fn($get) => !empty($get($selectField)) && !empty($get('source_selections')));
-            $fields[] = Repeater::make('target_selections')
-                ->label('Target Element Selections')
-                ->schema([
-                    Select::make('element_id')
-                        ->label(fn($get) => 'Target #' . ($get('order') ?? ''))
-                        ->searchable()
-                        ->options(function () use ($autocompleteOptions) {
-                            $livewire = \Livewire\Livewire::current();
-                            $get = function ($key) use ($livewire) {
-                                return $livewire->getState()[$key] ?? null;
-                            };
-                            $options = $autocompleteOptions($get, $livewire);
-                            $selectOptions = [];
-                            foreach ($options as $option) {
-                                $selectOptions[$option['insertText']] = $option['label'];
-                            }
-                            return $selectOptions;
-                        }),
-                ])
-                ->addable(false)
-                ->deletable(false)
-                ->reorderable(false)
-                ->visible(fn($get) => !empty($get($selectField)) && !empty($get('target_selections')));
+            $fields[] = self::makeElementSelectionRepeater('source_selections', 'Source', $selectField, $autocompleteOptions);
+            $fields[] = self::makeElementSelectionRepeater('target_selections', 'Target', $selectField, $autocompleteOptions);
         }
 
-        $fields[] = TextArea::make($previewField)
+        // Add preview field
+        $fields[] = Textarea::make($previewField)
             ->label($previewLabel)
             ->rows(12)
             ->readOnly()
             ->visible(fn($get) => !empty($get($previewField)));
+
+        // Add placeholder field
         $fields[] = Placeholder::make($previewField . '_placeholder')
             ->label('')
             ->content($placeholderContent)
             ->visible(fn($get) => empty($get($previewField)));
 
         return $fields;
+    }
+
+    /**
+     * Make the Source and Target Element Selection repeaters for the Insert Action form
+     * @param string $fieldName // Name of the repater
+     * @param string $labelPrefix // Prefix for the label (Source or Target)
+     * @param string $selectField // 'selectedFormScriptId' or 'selectedStyleSheetId'
+     * @param callable $autocompleteOptions // Function to fetch autocomplete options for the elements.
+     * @return Repeater
+     */
+    private static function makeElementSelectionRepeater(string $fieldName, string $labelPrefix, string $selectField, callable $autocompleteOptions): Repeater
+    {
+        return Repeater::make($fieldName)
+            ->label("{$labelPrefix} Element Selections")
+            ->schema([
+                Select::make('element_id')
+                    ->label(fn($get) => "{$labelPrefix} #" . ($get('order') ?? ''))
+                    ->searchable()
+                    ->options(function () use ($autocompleteOptions) {
+                        $livewire = \Livewire\Livewire::current();
+                        $get = function ($key) use ($livewire) {
+                            return $livewire->getState()[$key] ?? null;
+                        };
+                        $options = $autocompleteOptions($get, $livewire);
+                        $selectOptions = [];
+                        foreach ($options as $option) {
+                            $selectOptions[$option['insertText']] = $option['label'];
+                        }
+                        return $selectOptions;
+                    }),
+            ])
+            ->addable(false)
+            ->deletable(false)
+            ->reorderable(false)
+            ->visible(fn($get) => !empty($get($selectField)) && !empty($get($fieldName)));
     }
 
     /**
@@ -754,7 +748,7 @@ class FormVersionBuilder
     }
 
     /**
-     * Resolve the import action for scripts or styles, replacing placeholders with selected element IDs and appending the content to the existing field.
+     * Resolve the insert action for scripts or styles, replacing placeholders with selected element IDs and appending the content to the existing field.
      * @param string $contentField
      * @param array $options
      * @param string $type
@@ -764,15 +758,9 @@ class FormVersionBuilder
     {
         return function (array $data, callable $get, callable $set, $livewire) use ($contentField, $options, $type) {
             // Map type to model and field names
-            $modelClass = $type === 'script'
-                ? FormScript::class
-                : StyleSheet::class;
-            $idField = $type === 'script'
-                ? 'selectedFormScriptId'
-                : 'selectedStyleSheetId';
-            $getContentMethod = $type === 'script'
-                ? 'getJsContent'
-                : 'getCssContent';
+            $modelClass = $type === 'script' ? FormScript::class : StyleSheet::class;
+            $idField = $type === 'script' ? 'selectedFormScriptId' : 'selectedStyleSheetId';
+            $getContentMethod = $type === 'script' ? 'getJsContent' : 'getCssContent';
 
             $content = '';
             $elementMappings = [];
