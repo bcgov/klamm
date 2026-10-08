@@ -873,14 +873,13 @@ class FormVersionBuilder
         $content = $isScript ? ($record->getJsContent() ?? '') : ($record->getCssContent() ?? '');
         $set('description', $record->description ?? '');
 
-        // Count and replace placeholders
+        // Count placeholders
         $sourceCount = preg_match_all('/#{source_id}/', $content);
-
         $targetCount = $isScript
             ? preg_match_all('/#{target_id}/', $content)
             : preg_match_all('/#{target_id}/', $content) + preg_match_all('/#target_id/', $content);
 
-        // Replace source placeholders
+        // Replace source placeholders in preview
         $sourceIndex = 0;
         $content = preg_replace_callback('/#{source_id}/', function () use (&$sourceIndex) {
             $sourceIndex++;
@@ -902,8 +901,18 @@ class FormVersionBuilder
         }
 
         // Build selection arrays
-        $set('source_selections', array_map(fn($i) => ['element_id' => null, 'order' => $i], range(1, $sourceCount)));
-        $set('target_selections', array_map(fn($i) => ['element_id' => null, 'order' => $i], range(1, $targetCount)));
+        $sourceSelections = [];
+        for ($i = 1; $i <= $sourceCount; $i++) {
+            $sourceSelections[] = ['element_id' => null, 'order' => $i];
+        }
+        $set('source_selections', $sourceSelections);
+
+        $targetSelections = [];
+        for ($i = 1; $i <= $targetCount; $i++) {
+            $targetSelections[] = ['element_id' => null, 'order' => $i];
+        }
+        $set('target_selections', $targetSelections);
+
         $set($previewField, $content);
     }
 }
