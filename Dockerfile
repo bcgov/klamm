@@ -1,5 +1,5 @@
 # Use PHP official image with Apache
-FROM php:8.3-apache
+FROM php:8.3.36-apache
 
 # Install system dependencies for PHP extensions and other utilities
 RUN apt-get update && apt-get install -y \
