@@ -12,11 +12,17 @@ class ErrorIntegrationStateSeeder extends Seeder
      */
     public function run(): void
     {
-        ErrorIntegrationState::create(['name' => 'Error']);
-        ErrorIntegrationState::create(['name' => 'Not Integrated']);
-        ErrorIntegrationState::create(['name' => 'Pending']);
-        ErrorIntegrationState::create(['name' => 'Processing']);
-        ErrorIntegrationState::create(['name' => 'Queued']);
-        ErrorIntegrationState::create(['name' => 'Synced']);
+        $states = [
+            'Error',
+            'Not Integrated',
+            'Pending',
+            'Processing',
+            'Queued',
+            'Synced',
+        ];
+
+        foreach ($states as $name) {
+            ErrorIntegrationState::firstOrCreate(['name' => $name]);
+        }
     }
 }

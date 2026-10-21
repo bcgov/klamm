@@ -148,31 +148,19 @@ class FormVersionJsonService
             $key = $sheet->id ? ('style:' . $sheet->id) : null;
             if ($key && isset($added[$key]))
                 continue;
-
             $css = $sheet->getCssContent() ?? '';
             if ($css !== '') {
-                $webCss .= ($webCss !== '' ? "\n\n" : '')
-                    . "/* Attached stylesheet */\n"
-                    . $css;
+                $webCss .= ($webCss !== '' ? "\n\n" : '') . "/* Attached stylesheet */\n" . $css;
             }
             if ($key)
                 $added[$key] = true;
         }
-
         if ($webCss !== '') {
-            $styles[] = [
-                'type' => 'web',
-                'content' => $webCss
-            ];
+            $styles[] = ['type' => 'web', 'content' => $webCss];
         }
-
         if ($formVersion->pdfStyleSheet) {
-            $styles[] = [
-                'type' => 'pdf',
-                'content' => $formVersion->pdfStyleSheet->getCssContent()
-            ];
+            $styles[] = ['type' => 'pdf', 'content' => $formVersion->pdfStyleSheet->getCssContent()];
         }
-
         return $styles;
     }
 
@@ -193,33 +181,25 @@ class FormVersionJsonService
         // Append all attached form scripts to the web JS
         foreach ($formVersion->formScripts as $script) {
             if (!$script)
-continue;
+                continue;
             $key = $script->id ? ('script:' . $script->id) : null;
             if ($key && isset($added[$key]))
-continue;
+                continue;
 
             $js = $script->getJsContent() ?? '';
             if ($js !== '') {
-                $webJs .= ($webJs !== '' ? "\n\n" : '')
-                    . "/* Attached form script */\n"
-                    . $js;
+                $webJs .= ($webJs !== '' ? "\n\n" : '') . "/* Attached form script */\n" . $js;
             }
             if ($key)
-$added[$key] = true;
+                $added[$key] = true;
         }
 
         if ($webJs !== '') {
-            $scripts[] = [
-                'type' => 'web',
-                'content' => $webJs
-            ];
+            $scripts[] = ['type' => 'web', 'content' => $webJs];
         }
 
         if ($formVersion->pdfFormScript) {
-            $scripts[] = [
-                'type' => 'pdf',
-                'content' => $formVersion->pdfFormScript->getJsContent()
-            ];
+            $scripts[] = ['type' => 'pdf', 'content' => $formVersion->pdfFormScript->getJsContent()];
         }
 
         return $scripts;
@@ -257,10 +237,10 @@ $added[$key] = true;
         // 3) Append all attached stylesheets (deduping)
         foreach ($formVersion->styleSheets as $sheet) {
             if (!$sheet)
-continue;
+                continue;
             $key = $sheet->id ? ('style:' . $sheet->id) : null;
             if ($key && isset($added[$key]))
-continue;
+                continue;
 
             $styles[] = [
                 'type' => $sheet->type ?? 'web',
@@ -268,7 +248,7 @@ continue;
                 'content' => $sheet->getCssContent() ?? ''
             ];
             if ($key)
-$added[$key] = true;
+                $added[$key] = true;
         }
 
         return $styles;
@@ -298,6 +278,7 @@ $added[$key] = true;
                 'filename' => $formVersion->pdfFormScript->filename,
                 'content' => $formVersion->pdfFormScript->getJsContent() ?? ''
             ];
+
             if ($formVersion->pdfFormScript->id) {
                 $added['script:' . $formVersion->pdfFormScript->id] = true;
             }
@@ -306,18 +287,19 @@ $added[$key] = true;
         // 3) Append all attached form scripts (deduping)
         foreach ($formVersion->formScripts as $script) {
             if (!$script)
-continue;
+                continue;
             $key = $script->id ? ('script:' . $script->id) : null;
             if ($key && isset($added[$key]))
-continue;
+                continue;
 
             $scripts[] = [
                 'type' => $script->type ?? 'web',
                 'filename' => $script->filename,
                 'content' => $script->getJsContent() ?? ''
             ];
-            if ($key)
-$added[$key] = true;
+            if ($key) {
+                $added[$key] = true;
+            }
         }
 
         return $scripts;
@@ -337,8 +319,7 @@ $added[$key] = true;
         // Get root elements (elements without a parent - parent_id is -1 for root elements)
         $rootElements = $formVersion->formElements()
             ->where(function ($query) {
-                $query->whereNull('parent_id')
-                    ->orWhere('parent_id', -1);
+                $query->whereNull('parent_id')->orWhere('parent_id', -1);
             })
             ->orderBy('order')
             ->get();
@@ -350,8 +331,7 @@ $added[$key] = true;
 
     protected function getTags(FormElement $element): array
     {
-        $tags = $element->tags->pluck('filename', 'id')->toArray();
-        return $tags;
+        return $element->tags->pluck('filename', 'id')->toArray();
     }
 
     protected function transformElement(FormElement $element): array
@@ -365,10 +345,10 @@ $added[$key] = true;
             'name' => $element->name,
             'description' => $element->description,
             'help_text' => $element->help_text,
-            'is_required' => $element->is_required,
             'visible_web' => $element->visible_web,
             'visible_pdf' => $element->visible_pdf,
-            'is_read_only' => $element->is_read_only && $element->custom_read_only ? $element->custom_read_only : $element->is_read_only,
+            'is_required' => $element->is_required,
+            'is_read_only' => $element->is_read_only,
             'save_on_submit' => $element->save_on_submit,
             'order' => $element->order,
             'tags' => $this->getTags($element),
@@ -433,8 +413,7 @@ $added[$key] = true;
         // Get root elements (elements without a parent - parent_id is -1 for root elements)
         $rootElements = $formVersion->formElements()
             ->where(function ($query) {
-                $query->whereNull('parent_id')
-                    ->orWhere('parent_id', -1);
+                $query->whereNull('parent_id')->orWhere('parent_id', -1);
             })
             ->with(['elementable', 'dataBindings.formDataSource'])
             ->orderBy('order')
@@ -484,21 +463,15 @@ $added[$key] = true;
 
         $elementData['containerId'] = (string) ($element->id ?? '');
         $elementData['clear_button'] = false;
-        $elementData['codeContext'] = [
-            'name' => $this->generateCodeContextName($element->name ?? 'container')
-        ];
+        $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'container')];
         $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         $elementData['label'] = $elementData['attributes']['legend'] ?? null;
 
         $elementData['repeater'] = false;
         $elementData['repeaterLabel'] = null;
 
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add validation rules
         $validation = $this->transformValidationRules($element);
@@ -536,19 +509,15 @@ $added[$key] = true;
         $elementData['groupId'] = (string) ($element->id ?? '1');
         $elementData['repeater'] = true; // Always true for repeatable containers
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? null;
+        $elementData['minRepeats'] = $element->elementable?->min_repeats ?? null;
+        $elementData['maxRepeats'] = $element->elementable?->max_repeats ?? null;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
-        $elementData['codeContext'] = [
-            'name' => $this->generateCodeContextName($element->name ?? 'group')
-        ];
+        $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'group')];
 
         // Add styles
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add validation rules
         $validation = $this->transformValidationRules($element);
@@ -576,15 +545,11 @@ $added[$key] = true;
 
         $fields = [];
         if ($children->count() > 0) {
-            $fields = $children->map(function (FormElement $child) {
-                return $this->transformElementToPreMigrationFormat($child);
-            })->toArray();
+            $fields = $children->map(fn(FormElement $child) => $this->transformElementToPreMigrationFormat($child))->toArray();
         }
 
         // Create groupItems structure expected by the renderer
-        $elementData['groupItems'] = [
-            ['fields' => $fields]
-        ];
+        $elementData['groupItems'] = [['fields' => $fields]];
 
         // Add container-specific attributes
         $attributes = $this->getElementAttributes($element);
@@ -603,19 +568,15 @@ $added[$key] = true;
         $elementData['groupId'] = (string) ($element->id ?? '1');
         $elementData['repeater'] = $element->elementable?->is_repeatable ?? false;
         $elementData['repeaterLabel'] = $element->elementable?->legend ?? null;
-        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label;
+        $elementData['repeaterItemLabel'] = $element->elementable?->repeater_item_label ?? null;
+        $elementData['minRepeats'] = $element->elementable?->min_repeats ?? null;
+        $elementData['maxRepeats'] = $element->elementable?->max_repeats ?? null;
         $elementData['clear_button'] = $element->elementable?->clear_button ?? false;
-        $elementData['codeContext'] = [
-            'name' => $this->generateCodeContextName($element->name ?? 'group')
-        ];
+        $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'group')];
 
         // Add styles
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add validation rules
         $validation = $this->transformValidationRules($element);
@@ -637,14 +598,9 @@ $added[$key] = true;
 
         $fields = [];
         if ($children->count() > 0) {
-            $fields = $children->map(function (FormElement $child) {
-                return $this->transformElementToPreMigrationFormat($child);
-            })->toArray();
+            $fields = $children->map(fn(FormElement $child) => $this->transformElementToPreMigrationFormat($child))->toArray();
         }
-
-        $elementData['groupItems'] = [
-            ['fields' => $fields]
-        ];
+        $elementData['groupItems'] = [['fields' => $fields]];
 
         // Add group-specific attributes
         $attributes = $this->getElementAttributes($element);
@@ -661,23 +617,14 @@ $added[$key] = true;
         $elementData['attributes'] = $this->remapAttributes($this->getElementAttributes($element));
         // Basic properties for all standard elements
         $attributes = $this->getElementAttributes($element);
-        if (isset($attributes['hideLabel']) && $attributes['hideLabel']) {
-            $elementData['label'] = '';
-        } else {
-            $elementData['label'] = $attributes['labelText'] ?? '';
-        }
+
+        $elementData['label'] = (isset($attributes['hide_label']) && $attributes['hide_label']) ? '' : ($attributes['label_text'] ?? '');
         $elementData['helperText'] = $element->help_text;
         $elementData['mask'] = null;
-        $elementData['codeContext'] = [
-            'name' => $this->generateCodeContextName($element->name ?? 'field')
-        ];
+        $elementData['codeContext'] = ['name' => $this->generateCodeContextName($element->name ?? 'field')];
 
-        $elementData['pdfStyles'] = [
-            'display' => $element->visible_pdf ? null : 'none',
-        ];
-        $elementData['webStyles'] = [
-            'display' => $element->visible_web ? null : 'none',
-        ];
+        $elementData['pdfStyles'] = ['display' => $this->isActive($element->visible_pdf) ? null : 'none'];
+        $elementData['webStyles'] = ['display' => $this->isActive($element->visible_web) ? null : 'none'];
 
         // Add input type for specific elements
         if (in_array($originalType, ['text-input', 'text-area', 'textarea-input', 'number-input', 'date-input', 'date-select-input', 'file-input'])) {
@@ -706,6 +653,7 @@ $added[$key] = true;
         $this->addElementSpecificProperties($elementData, $element, $originalType);
 
         $this->addElementStyles($elementData, $element);
+
         return $elementData;
     }
 
@@ -787,12 +735,10 @@ $added[$key] = true;
                 $radioOptions = [];
                 if ($element->elementable && method_exists($element->elementable, 'options')) {
                     $optionsCollection = $element->elementable->options()->ordered()->get();
-                    $radioOptions = $optionsCollection->map(function ($option) {
-                        return [
-                            'value' => $option->value ?? '',
-                            'text' => $option->label ?? '',
-                        ];
-                    })->toArray();
+                    $radioOptions = $optionsCollection->map(fn($option) => [
+                        'value' => $option->value ?? '',
+                        'text' => $option->label ?? '',
+                    ])->toArray();
                 }
                 if (!empty($radioOptions)) {
                     $elementData['listItems'] = $radioOptions;
@@ -804,17 +750,14 @@ $added[$key] = true;
                 $options = [];
                 if ($element->elementable && method_exists($element->elementable, 'options')) {
                     $optionsCollection = $element->elementable->options()->ordered()->get();
-                    $options = $optionsCollection->map(function ($option) {
-                        return [
-                            'name' => $option->label ?? '',
-                            'text' => $option->label ?? '',
-                            'value' => $option->value ?? '',
-                        ];
-                    })->toArray();
+                    $options = $optionsCollection->map(fn($option) => [
+                        'name' => $option->label ?? '',
+                        'text' => $option->label ?? '',
+                        'value' => $option->value ?? '',
+                    ])->toArray();
                 }
-                if (!empty($options)) {
+                if (!empty($options))
                     $elementData['listItems'] = $options;
-                }
                 break;
             case 'file':
                 // Add file-specific properties
@@ -942,18 +885,11 @@ $added[$key] = true;
             'value' => $element->save_on_submit ? '{return true}' : '{return false}'
         ];
 
-        if (!empty($element->custom_read_only) && $element->is_read_only) {
-            $conditions[] = [
-                'type' => 'readOnly',
-                'value' => $element->custom_read_only
-            ];
-        } else {
-            // If no custom read-only condition, use the default read-only state
-            $conditions[] = [
-                'type' => 'readOnly',
-                'value' => $element->is_read_only ? '{return true}' : '{return false}'
-            ];
-        }
+        $isReadOnly = $this->isActive($element->is_read_only);
+        $conditions[] = [
+            'type' => 'readOnly',
+            'value' => $isReadOnly ? '{return true}' : '{return false}'
+        ];
 
         return $conditions;
     }
@@ -1116,9 +1052,7 @@ $added[$key] = true;
      */
     protected function toCamelCase(string $str): string
     {
-        return preg_replace_callback('/_([a-z])/', function ($matches) {
-            return strtoupper($matches[1]);
-        }, $str);
+        return preg_replace_callback('/_([a-z])/', fn($matches) => strtoupper($matches[1]), $str);
     }
 
     /**
@@ -1162,10 +1096,7 @@ $added[$key] = true;
             case 'max':
             case 'min':
             case 'step':
-                if (is_numeric($value)) {
-                    return [$key, (float) $value];
-                }
-                return [$key, $value];
+                return is_numeric($value) ? [$key, (float) $value] : [$key, $value];
             case 'dateFormat':
                 if ($value) {
                     return ['dateFormat', DateSelectInputFormElement::convertToFlatpickrFormat($value)];
@@ -1236,5 +1167,13 @@ $added[$key] = true;
     protected function remapAttributes(array $attributes): array
     {
         return $this->normalizeAttributes($attributes);
+    }
+
+    /**
+     * Check if a state string represents an "active" state (i.e., not 'never', '', null, or false).
+     */
+    protected function isActive($state): bool
+    {
+        return !in_array($state, FormElement::getActiveToggleButtonStates(), true);
     }
 }

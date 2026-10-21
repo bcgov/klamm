@@ -12,9 +12,15 @@ class ErrorSourceSeeder extends Seeder
      */
     public function run(): void
     {
-        ErrorSource::create(['name' => 'ICM']);
-        ErrorSource::create(['name' => 'CFMS']);
-        ErrorSource::create(['name' => 'PBC']);
-        ErrorSource::create(['name' => 'Successor System']);
+        $sources = [
+            'ICM',
+            'CFMS',
+            'PBC',
+            'Successor System',
+        ];
+
+        foreach ($sources as $name) {
+            ErrorSource::firstOrCreate(['name' => $name]);
+        }
     }
 }

@@ -2,7 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Models\FormBuilding\CheckboxGroupFormElement;
 use App\Models\FormBuilding\FormVersion;
+use App\Models\FormBuilding\RadioInputFormElement;
+use App\Models\FormBuilding\SelectInputFormElement;
 use App\Services\FormVersionJsonService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -23,7 +26,8 @@ class GenerateFormVersionJsonJob implements ShouldQueue
         public FormVersion $formVersion,
         public int $userId,
         public int $version = 2
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {
@@ -34,9 +38,9 @@ class GenerateFormVersionJsonJob implements ShouldQueue
                 'form',
                 'formElements.elementable' => function ($morphTo) {
                     $morphTo->morphWith([
-                        \App\Models\FormBuilding\SelectInputFormElement::class => ['options'],
-                        \App\Models\FormBuilding\RadioInputFormElement::class => ['options'],
-                        \App\Models\FormBuilding\CheckboxGroupFormElement::class => ['options'],
+                        SelectInputFormElement::class => ['options'],
+                        RadioInputFormElement::class => ['options'],
+                        CheckboxGroupFormElement::class => ['options'],
                     ]);
                 },
                 'formElements.dataBindings.formDataSource',
@@ -65,9 +69,11 @@ class GenerateFormVersionJsonJob implements ShouldQueue
             }
 
             // Create filename with form title and version
+            $form_id = $this->formVersion->form->form_id;
+            $versionNumber = $this->formVersion->version_number;
             $formTitle = $this->formVersion->form->form_title ?? 'Unknown Form';
             $sanitizedTitle = preg_replace('/[^a-zA-Z0-9\-_]/', '_', $formTitle);
-            $filename = "form_{$sanitizedTitle}_v{$this->formVersion->version_number}_{$this->formVersion->id}_formatversion_{$this->version}.json";
+            $filename = "form_{$form_id}_v{$versionNumber}_{$sanitizedTitle}.json";
 
             // Store the JSON file
             $filePath = "{$filename}";
@@ -80,7 +86,7 @@ class GenerateFormVersionJsonJob implements ShouldQueue
             Notification::make()
                 ->success()
                 ->title('JSON Export Complete')
-                ->body("Your form JSON file has been generated successfully.")
+                ->body("Your export {$this->formVersion->form->form_id} \"{$formTitle}\" has been generated successfully.")
                 ->actions([
                     \Filament\Notifications\Actions\Action::make('download')
                         ->label('Download JSON')

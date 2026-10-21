@@ -16,24 +16,24 @@ class TextareaInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
         'rows',
         'cols',
-        'maxCount',
-        'defaultValue',
+        'max_count',
+        'default_value',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
         'rows' => 'integer',
         'cols' => 'integer',
-        'maxCount' => 'integer',
+        'max_count' => 'integer',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
+        'hide_label' => false,
         'rows' => 3,
     ];
 
@@ -42,12 +42,11 @@ class TextareaInputFormElement extends Model
      */
     public static function getFilamentSchema(bool $disabled = false): array
     {
-        return array_merge(
+        return [
             SchemaHelper::getCommonCarbonFields($disabled),
-            [
-                Fieldset::make('Value')
-                    ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled),
+            Fieldset::make('Value')
+                ->schema([
+                    SchemaHelper::getPlaceholderTextField($disabled),
                     TextInput::make('elementable_data.rows')
                         ->label('Number of Rows')
                         ->numeric()
@@ -57,17 +56,17 @@ class TextareaInputFormElement extends Model
                         ->label('Number of Columns')
                         ->numeric()
                         ->disabled($disabled),
-                    TextInput::make('elementable_data.maxCount')
+                    TextInput::make('elementable_data.max_count')
                         ->label('Maximum Character Count')
                         ->numeric()
                         ->disabled($disabled),
-                    TextInput::make('elementable_data.defaultValue')
+                    TextInput::make('elementable_data.default_value')
                         ->label('Default Value')
+                        ->maxLength(255)
                         ->disabled($disabled),
-                    ])
-                    ->columns(1),
-            ]
-        );
+                ])
+                ->columns(1),
+        ];
     }
 
     /**
@@ -85,13 +84,13 @@ class TextareaInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
             'rows' => $this->rows,
             'cols' => $this->cols,
-            'maxCount' => $this->maxCount,
-            'defaultValue' => $this->defaultValue,
+            'max_count' => $this->max_count,
+            'default_value' => $this->default_value,
         ];
     }
 
@@ -102,13 +101,13 @@ class TextareaInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => '',
-            'hideLabel' => false,
-            'enableVarSub' => false,
+            'label_text' => '',
+            'hide_label' => false,
+            'enable_var_sub' => false,
             'rows' => 3,
             'cols' => null,
-            'maxCount' => null,
-            'defaultValue' => '',
+            'max_count' => null,
+            'default_value' => '',
         ];
     }
 }

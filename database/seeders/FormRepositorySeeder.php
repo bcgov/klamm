@@ -13,9 +13,15 @@ class FormRepositorySeeder extends Seeder
      */
     public function run(): void
     {
-        FormRepository::create(['name' => 'ADO']);
-        FormRepository::create(['name' => 'GitHub']);
-        FormRepository::create(['name' => 'Klamm']);
-        FormRepository::create(['name' => 'Adobe Workbench']);
+        $repositories = [
+            'ADO',
+            'GitHub',
+            'Klamm',
+            'Adobe Workbench',
+        ];
+
+        foreach ($repositories as $name) {
+            FormRepository::firstOrCreate(['name' => $name]);
+        }
     }
 }

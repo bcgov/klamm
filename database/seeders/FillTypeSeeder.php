@@ -13,7 +13,13 @@ class FillTypeSeeder extends Seeder
      */
     public function run(): void
     {
-        FillType::create(['name' => 'Static']);
-        FillType::create(['name' => 'Dynamic']);
+        $fillTypes = [
+            'Static',
+            'Dynamic',
+        ];
+
+        foreach ($fillTypes as $name) {
+            FillType::firstOrCreate(['name' => $name]);
+        }
     }
 }

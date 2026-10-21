@@ -7,15 +7,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Forms\Resources\FormVersionResource;
-use App\Helpers\FormVersionHelper;
 use Filament\Forms\Components\DatePicker;
-use App\Models\FormBuilding\FormScript;
-use App\Models\FormBuilding\StyleSheet;
-use App\Models\FormBuilding\FormVersionFormDataSource;
-use App\Models\FormBuilding\FormElementDataBinding;
-use Illuminate\Support\Facades\Auth;
-use Filament\Tables\Actions\Action;
-use Illuminate\Support\Str;
 
 class FormVersionRelationManager extends RelationManager
 {
@@ -38,7 +30,10 @@ class FormVersionRelationManager extends RelationManager
                     ->sortable(),
                 Tables\Columns\TextColumn::make('formatted_status')
                     ->label('Status')
-                    ->getStateUsing(fn($record) => $record->getFormattedStatusName()),
+                    ->badge()
+                    ->color(fn($state) => FormVersion::getStatusColour($state))
+                    ->getStateUsing(fn($record) => $record->getFormattedStatusName())
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('formDeveloper.name')
                     ->label('Developer')
                     ->sortable(),
@@ -86,6 +81,10 @@ class FormVersionRelationManager extends RelationManager
                 Tables\Actions\EditAction::make()
                     ->url(fn(FormVersion $record) => FormVersionResource::getUrl('edit', ['record' => $record]))
                     ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer')),
+                Tables\Actions\Action::make('Build')
+                    ->url(fn(FormVersion $record) => FormVersionResource::getUrl('build', ['record' => $record]))
+                    ->visible(fn($record) => (in_array($record->status, ['draft', 'testing'])) && Gate::allows('form-developer'))
+                    ->icon('heroicon-s-wrench-screwdriver'),
                 // Duplicate form version currently disabled due to ADO bugs 3302 and 3303
                 // Action::make('duplicate')
                 //     ->label('Duplicate')

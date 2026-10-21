@@ -890,7 +890,7 @@ class AnonymizationJobResource extends Resource
     {
         return [
             AnonymizationJobs::OUTPUT_SQL => 'SQL',
-            AnonymizationJobs::OUTPUT_PARQUET => 'Parquet',
+            // AnonymizationJobs::OUTPUT_PARQUET => 'Parquet',
         ];
     }
 

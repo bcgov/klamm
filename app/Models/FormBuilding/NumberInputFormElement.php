@@ -20,28 +20,28 @@ class NumberInputFormElement extends Model
 
     protected $fillable = [
         'placeholder',
-        'labelText',
-        'hideLabel',
-        'enableVarSub',
+        'label_text',
+        'hide_label',
+        'enable_var_sub',
         'min',
         'max',
         'step',
-        'defaultValue',
-        'maskType',
+        'default_value',
+        'mask_type',
     ];
 
     protected $casts = [
-        'hideLabel' => 'boolean',
+        'hide_label' => 'boolean',
         'min' => 'integer',
         'max' => 'integer',
         'step' => 'float',
-        'defaultValue' => 'float',
+        'default_value' => 'float',
     ];
 
     protected $attributes = [
-        'hideLabel' => false,
+        'hide_label' => false,
         'step' => 1,
-        'maskType' => 'integer',
+        'mask_type' => 'integer',
     ];
 
     /**
@@ -50,10 +50,11 @@ class NumberInputFormElement extends Model
     protected static function formatNumberByMask(string $target): Closure
     {
         return function ($state, callable $set, Get $get) use ($target) {
-            if ($state === null) return;
+            if ($state === null)
+                return;
 
-            $raw  = trim((string) $state);
-            $mask = strtolower((string) ($get('elementable_data.maskType') ?? 'integer')); // 'integer' | 'decimal'
+            $raw = trim((string) $state);
+            $mask = strtolower((string) ($get('elementable_data.mask_type') ?? 'integer')); // 'integer' | 'decimal'
 
             // Do not "fix" scientific notation or thousands separators; let validation reject them.
             if (preg_match('/[eE, ]/', $state)) {
@@ -64,13 +65,16 @@ class NumberInputFormElement extends Model
 
             $isZeroish = static function (string $s): bool {
                 $s = trim($s);
-                if ($s === '') return false;
+                if ($s === '')
+                    return false;
 
                 $s = ltrim($s, "+-");
-                if ($s === '' || $s === '.') return true;
+                if ($s === '' || $s === '.')
+                    return true;
 
                 $clean = preg_replace('/[^\d.]/', '', $s) ?? '';
-                if ($clean === '' || substr_count($clean, '.') > 1) return false;
+                if ($clean === '' || substr_count($clean, '.') > 1)
+                    return false;
 
                 $digitsOnly = str_replace('.', '', $clean);
                 return $digitsOnly !== '' && preg_match('/^0+$/', $digitsOnly) === 1;
@@ -117,7 +121,8 @@ class NumberInputFormElement extends Model
 
                 // normalize leading zeros in integer part
                 $int = ltrim($int, '0');
-                if ($int === '') $int = '0';
+                if ($int === '')
+                    $int = '0';
 
                 // trim trailing zeros in fractional part; drop the dot if empty
                 $frac = rtrim($frac, '0');
@@ -127,7 +132,8 @@ class NumberInputFormElement extends Model
                 // integer-like in decimal context
                 $int = preg_replace('/\D/', '', $body) ?? '';
                 $int = ltrim($int, '0');
-                if ($int === '') $int = '0';
+                if ($int === '')
+                    $int = '0';
                 $out = $int;
             }
 
@@ -147,128 +153,126 @@ class NumberInputFormElement extends Model
     public static function getFilamentSchema(bool $disabled = false): array
     {
 
-        $isDecimal = fn(Get $get) => strtolower($get('elementable_data.maskType') ?? 'integer') === 'decimal';
+        $isDecimal = fn(Get $get) => strtolower($get('elementable_data.mask_type') ?? 'integer') === 'decimal';
 
         $noSci = 'not_regex:/[eE]/';                       // forbid scientific notation
         $plainDecimal = 'regex:/^-?\d+(\.\d+)?$/';         // allow optional leading '-', digits, and one dot
 
 
-        return array_merge(
+        return [
             SchemaHelper::getCommonCarbonFields($disabled),
-            [
-                Fieldset::make('Value')
-                    ->schema([
-                        SchemaHelper::getPlaceholderTextField($disabled)
-                            ->columnSpan(6),
-                        TextInput::make('elementable_data.defaultValue')
-                            ->label('Default Value')
-                            ->numeric()
-                            ->nullable()
-                            ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(self::formatNumberByMask('elementable_data.defaultValue'))
-                            ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
-                                $rules = $isDecimal($get)
-                                    ? ['numeric', $noSci, $plainDecimal]
-                                    : ['integer'];
-                                return $rules;
-                            })
-                            ->rule(NumericRules::compareWith(
-                                minPath: 'elementable_data.min',
-                                maxPath: 'elementable_data.max',
-                            ))
-                            ->columnSpan(2)
-                            ->disabled($disabled),
-                        TextInput::make('elementable_data.min')
-                            ->label('Minimum Value')
-                            ->numeric()
-                            ->nullable()
-                            ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(self::formatNumberByMask('elementable_data.min'))
-                            ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
-                                $rules = $isDecimal($get)
-                                    ? ['numeric', $noSci, $plainDecimal]
-                                    : ['integer'];
-                                return $rules;
-                            })
-                            ->rule(NumericRules::compareWith(
-                                minPath: null,
-                                maxPath: 'elementable_data.max',
-                            ))
-                            ->columnSpan(2)
-                            ->disabled($disabled),
-                        TextInput::make('elementable_data.max')
-                            ->label('Maximum Value')
-                            ->numeric()
-                            ->nullable()
-                            ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(self::formatNumberByMask('elementable_data.max'))
-                            ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
-                                $rules = $isDecimal($get)
-                                    ? ['numeric', $noSci, $plainDecimal]
-                                    : ['integer'];
-                                return $rules;
-                            })
-                            ->rule(NumericRules::compareWith(
-                                minPath: 'elementable_data.min',
-                                maxPath: null,
-                            ))
-                            ->columnSpan(2)
-                            ->disabled($disabled),
-                        ToggleButtons::make('elementable_data.maskType')
-                            ->label('Input Mask Type')
-                            ->options([
-                                'integer' => 'Integer',
-                                'decimal' => 'Decimal',
-                            ])
-                            ->inline()
-                            ->default('integer')
-                            ->live()
-                            ->columnSpan(3)
-                            ->afterStateUpdated(function (string $state, callable $set, Get $get) {
-                                if ($state === 'integer') {
-                                    // Force step = 1 for integer mode
-                                    $set('elementable_data.step', 1);
+            Fieldset::make('Value')
+                ->schema([
+                    SchemaHelper::getPlaceholderTextField($disabled)
+                        ->columnSpan(6),
+                    TextInput::make('elementable_data.default_value')
+                        ->label('Default Value')
+                        ->numeric()
+                        ->nullable()
+                        ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(self::formatNumberByMask('elementable_data.default_value'))
+                        ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
+                            $rules = $isDecimal($get)
+                                ? ['numeric', $noSci, $plainDecimal]
+                                : ['integer'];
+                            return $rules;
+                        })
+                        ->rule(NumericRules::compareWith(
+                            minPath: 'elementable_data.min',
+                            maxPath: 'elementable_data.max',
+                        ))
+                        ->columnSpan(2)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.min')
+                        ->label('Minimum Value')
+                        ->numeric()
+                        ->nullable()
+                        ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(self::formatNumberByMask('elementable_data.min'))
+                        ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
+                            $rules = $isDecimal($get)
+                                ? ['numeric', $noSci, $plainDecimal]
+                                : ['integer'];
+                            return $rules;
+                        })
+                        ->rule(NumericRules::compareWith(
+                            minPath: null,
+                            maxPath: 'elementable_data.max',
+                        ))
+                        ->columnSpan(2)
+                        ->disabled($disabled),
+                    TextInput::make('elementable_data.max')
+                        ->label('Maximum Value')
+                        ->numeric()
+                        ->nullable()
+                        ->step(fn(Get $get) => $get('elementable_data.step') ?? 1)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(self::formatNumberByMask('elementable_data.max'))
+                        ->rules(function (Get $get) use ($isDecimal, $noSci, $plainDecimal) {
+                            $rules = $isDecimal($get)
+                                ? ['numeric', $noSci, $plainDecimal]
+                                : ['integer'];
+                            return $rules;
+                        })
+                        ->rule(NumericRules::compareWith(
+                            minPath: 'elementable_data.min',
+                            maxPath: null,
+                        ))
+                        ->columnSpan(2)
+                        ->disabled($disabled),
+                    ToggleButtons::make('elementable_data.mask_type')
+                        ->label('Input Mask Type')
+                        ->options([
+                            'integer' => 'Integer',
+                            'decimal' => 'Decimal',
+                        ])
+                        ->inline()
+                        ->default('integer')
+                        ->live()
+                        ->columnSpan(3)
+                        ->afterStateUpdated(function (string $state, callable $set, Get $get) {
+                            if ($state === 'integer') {
+                                // Force step = 1 for integer mode
+                                $set('elementable_data.step', 1);
 
-                                    // Coerce existing values to integers (if set)
-                                    foreach (['defaultValue', 'min', 'max'] as $key) {
-                                        $path = "elementable_data.$key";
-                                        $val = $get($path);
-                                        if (filled($val)) {
-                                            $set($path, (int) round((float) $val));
-                                        }
+                                // Coerce existing values to integers (if set)
+                                foreach (['default_value', 'min', 'max'] as $key) {
+                                    $path = "elementable_data.$key";
+                                    $val = $get($path);
+                                    if (filled($val)) {
+                                        $set($path, (int) round((float) $val));
                                     }
-                                } else {
-                                    // Decimal mode: keep or set a reasonable decimal step
-                                    $set('elementable_data.step', 0.01);
                                 }
-                            }),
-                        TextInput::make('elementable_data.step')
-                            ->required()
-                            ->label('Step Size')
-                            ->numeric()
-                            ->default(1)
-                            ->live(onBlur: true)
-                            // Ensure UI "step" attribute makes sense (1 for integer; any step otherwise)
-                            ->step(fn(Get $get) => $isDecimal($get) ? "any" : 1)
-                            ->afterStateUpdated(self::formatNumberByMask('elementable_data.step'))
-                            // Validation: integer & >=1 in integer mode; numeric & >0 in decimal mode
-                            ->rule(fn(Get $get) => $isDecimal($get)
-                                ? [
-                                    'numeric',
-                                    'gt:0',
-                                    $noSci,
-                                    'regex:/^\d+(\.\d+)?$/',      // only digits and one dot
-                                ]
-                                : ['integer', 'min:1'])
-                            ->columnSpan(3)
-                            ->disabled($disabled),
-                    ])
-                    ->columns(6),
-            ]
-        );
+                            } else {
+                                // Decimal mode: keep or set a reasonable decimal step
+                                $set('elementable_data.step', 0.01);
+                            }
+                        }),
+                    TextInput::make('elementable_data.step')
+                        ->required()
+                        ->label('Step Size')
+                        ->numeric()
+                        ->default(1)
+                        ->live(onBlur: true)
+                        // Ensure UI "step" attribute makes sense (1 for integer; any step otherwise)
+                        ->step(fn(Get $get) => $isDecimal($get) ? "any" : 1)
+                        ->afterStateUpdated(self::formatNumberByMask('elementable_data.step'))
+                        // Validation: integer & >=1 in integer mode; numeric & >0 in decimal mode
+                        ->rule(fn(Get $get) => $isDecimal($get)
+                            ? [
+                                'numeric',
+                                'gt:0',
+                                $noSci,
+                                'regex:/^\d+(\.\d+)?$/',      // only digits and one dot
+                            ]
+                            : ['integer', 'min:1'])
+                        ->columnSpan(3)
+                        ->disabled($disabled),
+                ])
+                ->columns(6),
+        ];
     }
 
     /**
@@ -286,14 +290,14 @@ class NumberInputFormElement extends Model
     {
         return [
             'placeholder' => $this->placeholder,
-            'labelText' => $this->labelText,
-            'hideLabel' => $this->hideLabel,
-            'enableVarSub' => $this->enableVarSub,
+            'label_text' => $this->label_text,
+            'hide_label' => $this->hide_label,
+            'enable_var_sub' => $this->enable_var_sub,
             'min' => $this->min,
             'max' => $this->max,
             'step' => $this->step,
-            'defaultValue' => $this->defaultValue,
-            'maskType' => $this->maskType,
+            'default_value' => $this->default_value,
+            'mask_type' => $this->mask_type,
         ];
     }
 
@@ -304,14 +308,14 @@ class NumberInputFormElement extends Model
     {
         return [
             'placeholder' => '',
-            'labelText' => '',
-            'hideLabel' => false,
-            'enableVarSub' => false,
+            'label_text' => '',
+            'hide_label' => false,
+            'enable_var_sub' => false,
             'min' => null,
             'max' => null,
             'step' => 1,
-            'defaultValue' => null,
-            'maskType' => 'integer',
+            'default_value' => null,
+            'mask_type' => 'integer',
         ];
     }
 }

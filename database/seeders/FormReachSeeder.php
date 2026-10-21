@@ -13,8 +13,14 @@ class FormReachSeeder extends Seeder
      */
     public function run(): void
     {
-        FormReach::create(['name' => 'Less than 1000']);
-        FormReach::create(['name' => '1000 to 5000']);
-        FormReach::create(['name' => 'More than 5000']);
+        $reachCategories = [
+            'Less than 1000',
+            '1000 to 5000',
+            'More than 5000',
+        ];
+
+        foreach ($reachCategories as $name) {
+            FormReach::firstOrCreate(['name' => $name]);
+        }
     }
 }

@@ -48,38 +48,19 @@ class FormVersionHelper
 
 
     /**
-     * Visible, reachable *fields*:
+     * Visible, reachable elements:
      *  - soft-deleted excluded
-     *  - non-field types excluded (containers/buttons/displays/etc.)
      *  - full ancestor chain must exist (no deep orphans)
      *  - does NOT filter by save_on_submit (prevents false negatives)
      */
-    public static function visibleFieldElements(int $formVersionId): Collection
+    public static function visibleElements(int $formVersionId): Collection
     {
         $all = self::visibleElementsQuery($formVersionId)
             ->get(['id', 'parent_id', 'elementable_type', 'reference_id', 'name', 'uuid']);
 
         $byId = $all->keyBy('id');
 
-        $isField = static function ($type): bool {
-            $base = class_basename((string) $type);
-            return !Str::contains($base, [
-                'Container',
-                'Section',
-                'Group',
-                'Page',
-                'Button',
-                'Display',
-                'TextDisplay',
-                'Heading',
-                'Title',
-                'Divider',
-                'Separator',
-                'Label',
-                'Note',
-            ]);
-        };
-
+        // Check that each element's parent chain is valid (no missing ancestors)
         $chainOk = static function ($el) use ($byId): bool {
             $p = (int) ($el->parent_id ?? -1);
             $guard = 0;
@@ -94,7 +75,8 @@ class FormVersionHelper
             return true;
         };
 
-        return $all->filter(fn($el) => $isField($el->elementable_type) && $chainOk($el))->values();
+        // Filter out elements that do not have a valid ancestor chain
+        return $all->filter(fn($el) => $chainOk($el))->values();
     }
 
     /**
